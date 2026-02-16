@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "npm-9_x"]
+
+[phases.build]
+cmds = [
+  "npm install",
+  "npm run build:widget",
+  "npm run build:backend"
+]
+
+[start]
+cmd = "node apps/backend/dist/index.js"
