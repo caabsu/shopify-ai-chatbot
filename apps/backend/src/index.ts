@@ -1,39 +1,38 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Load .env from project root
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 import express from 'express';
 import cors from 'cors';
-
-// Validate required env vars early
-const requiredVars = [
-  'SHOPIFY_SHOP',
-  'SHOPIFY_CLIENT_ID',
-  'SHOPIFY_CLIENT_SECRET',
-  'SHOPIFY_API_VERSION',
-  'ANTHROPIC_API_KEY',
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-];
-
-const missing = requiredVars.filter((v) => !process.env[v]);
-if (missing.length > 0) {
-  console.error(`Missing required environment variables: ${missing.join(', ')}`);
-  process.exit(1);
-}
+import { config } from './config/env.js';
+import { healthRouter } from './controllers/health.controller.js';
+import { chatRouter } from './controllers/chat.controller.js';
+import { supabase } from './config/supabase.js';
+import { getToken } from './services/shopify-auth.service.js';
 
 const app = express();
-const PORT = parseInt(process.env.PORT || '3001', 10);
-const corsOrigin = process.env.CORS_ORIGIN || '*';
 
-// Middleware
+// Request logging
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`[http] ${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+  });
+  next();
+});
+
+// CORS
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      const allowed = corsOrigin.split(',').map((o) => o.trim());
+      const allowed = config.server.corsOrigin.split(',').map((o) => o.trim());
       if (allowed.includes('*') || allowed.includes(origin)) {
         return callback(null, true);
       }
@@ -42,19 +41,50 @@ app.use(
     credentials: true,
   })
 );
+
 app.use(express.json({ limit: '1mb' }));
 
-// Health check
-const startTime = Date.now();
-app.get('/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor((Date.now() - startTime) / 1000),
-  });
+// Serve widget static files
+const widgetDir = path.resolve(__dirname, '../../../apps/widget/dist');
+app.use('/widget', express.static(widgetDir));
+
+// Routes
+app.use('/health', healthRouter);
+app.use('/api/chat', chatRouter);
+
+// Widget config endpoint
+app.get('/api/widget/config', async (_req, res) => {
+  try {
+    const { data: rows } = await supabase
+      .from('ai_config')
+      .select('key, value')
+      .in('key', ['greeting', 'preset_actions']);
+
+    const configMap = new Map(
+      (rows ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
+    );
+
+    let presetActions = [];
+    try {
+      presetActions = JSON.parse(configMap.get('preset_actions') ?? '[]');
+    } catch {
+      // empty
+    }
+
+    res.json({
+      greeting: configMap.get('greeting') ?? 'Hi! How can I help you?',
+      presetActions,
+      primaryColor: '#000000',
+      position: 'bottom-right',
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[widget-config] Error:', message);
+    res.status(500).json({ error: 'Failed to load widget config' });
+  }
 });
 
-// 404 handler
+// 404
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
@@ -72,9 +102,49 @@ app.use(
   }
 );
 
-app.listen(PORT, () => {
-  console.log(`[server] Running on port ${PORT}`);
-  console.log(`[server] Environment: ${process.env.NODE_ENV || 'development'}`);
+// Startup checks
+async function runStartupChecks() {
+  console.log('[startup] Running connectivity checks...');
+
+  // Supabase
+  try {
+    const { data, error } = await supabase.from('ai_config').select('key').limit(1);
+    if (error) throw error;
+    console.log('[startup] Supabase: connected');
+  } catch (err) {
+    console.warn('[startup] Supabase: FAILED -', err instanceof Error ? err.message : err);
+  }
+
+  // Shopify Auth
+  try {
+    await getToken();
+    console.log('[startup] Shopify Auth: connected');
+  } catch (err) {
+    console.warn('[startup] Shopify Auth: FAILED -', err instanceof Error ? err.message : err);
+  }
+
+  // Shopify MCP
+  try {
+    const mcpUrl = `https://${config.shopify.shop}.myshopify.com/api/mcp`;
+    const res = await fetch(mcpUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'tools/list', id: 0, params: {} }),
+    });
+    if (res.ok) {
+      console.log('[startup] Shopify MCP: connected');
+    } else {
+      console.warn(`[startup] Shopify MCP: FAILED - status ${res.status}`);
+    }
+  } catch (err) {
+    console.warn('[startup] Shopify MCP: FAILED -', err instanceof Error ? err.message : err);
+  }
+}
+
+app.listen(config.server.port, async () => {
+  console.log(`[server] Running on port ${config.server.port}`);
+  console.log(`[server] Environment: ${config.server.nodeEnv}`);
+  await runStartupChecks();
 });
 
 export { app };
