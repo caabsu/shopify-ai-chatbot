@@ -193,7 +193,7 @@ export async function processMessage(
           // Check for cart data
           if ((toolUse.name === 'manage_cart' || toolUse.name === 'get_cart') && data) {
             try {
-              cartData = data as CartData;
+              cartData = data as unknown as CartData;
             } catch {
               // Cart data shape may vary
             }

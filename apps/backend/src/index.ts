@@ -1,11 +1,8 @@
 import dotenv from 'dotenv';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Load .env from project root
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 import express from 'express';
 import cors from 'cors';
@@ -45,7 +42,7 @@ app.use(
 app.use(express.json({ limit: '1mb' }));
 
 // Serve widget static files
-const widgetDir = path.resolve(__dirname, '../../../apps/widget/dist');
+const widgetDir = path.resolve(process.cwd(), 'apps/widget/dist');
 app.use('/widget', express.static(widgetDir));
 
 // Routes
