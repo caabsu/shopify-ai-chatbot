@@ -19,7 +19,7 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`[http] ${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+    console.log(`[http] ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
   });
   next();
 });
@@ -89,13 +89,19 @@ app.use((_req, res) => {
 // Global error handler
 app.use(
   (
-    err: Error,
+    err: Error & { status?: number; type?: string },
     _req: express.Request,
     res: express.Response,
     _next: express.NextFunction
   ) => {
-    console.error('[server] Unhandled error:', err.message);
-    res.status(500).json({ error: 'Internal server error' });
+    // Handle JSON parse errors from express.json()
+    if (err.type === 'entity.parse.failed') {
+      console.error('[server] JSON parse error:', err.message);
+      res.status(400).json({ error: 'Invalid JSON in request body' });
+      return;
+    }
+    console.error('[server] Unhandled error:', err.message, err.stack?.split('\n')[1]?.trim());
+    res.status(err.status || 500).json({ error: 'Internal server error' });
   }
 );
 

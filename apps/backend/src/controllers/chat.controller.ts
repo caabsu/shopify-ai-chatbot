@@ -202,7 +202,8 @@ chatRouter.post('/message', async (req: Request, res: Response) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[chat.controller] message error:', message);
+    const stack = err instanceof Error ? err.stack?.split('\n').slice(0, 3).join('\n') : '';
+    console.error('[chat.controller] message error:', message, stack);
     res.status(500).json({
       error: "I'm having trouble right now. Please try again in a moment.",
     });
