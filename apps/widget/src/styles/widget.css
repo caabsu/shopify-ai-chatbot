@@ -1,0 +1,8 @@
+/* Widget styles — will be fully implemented in Phase 5 */
+#aicb-root {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
