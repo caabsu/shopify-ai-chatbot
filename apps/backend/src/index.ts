@@ -41,6 +41,57 @@ app.use(express.json({ limit: '1mb' }));
 const widgetDir = path.resolve(process.cwd(), 'apps/widget/dist');
 app.use('/widget', express.static(widgetDir));
 
+// Widget playground — embeddable page with auto-open and postMessage debug relay
+app.get('/widget/playground', (req, res) => {
+  const shouldReset = req.query.reset !== undefined;
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Playground</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #FAF6F0; min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <script>
+    ${shouldReset ? "localStorage.removeItem('aicb_session');" : ''}
+    // Intercept fetch to relay debug data to parent via postMessage
+    (function() {
+      var _fetch = window.fetch;
+      window.fetch = function() {
+        var args = arguments;
+        var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+        return _fetch.apply(this, args).then(function(response) {
+          if (url.indexOf('/api/chat/session') !== -1 || url.indexOf('/api/chat/message') !== -1) {
+            var clone = response.clone();
+            clone.json().then(function(data) {
+              window.parent.postMessage({
+                type: url.indexOf('/api/chat/session') !== -1 ? 'widget:session' : 'widget:message',
+                data: data
+              }, '*');
+            }).catch(function() {});
+          }
+          return response;
+        });
+      };
+    })();
+  </script>
+  <script src="/widget/widget.js"></script>
+  <script>
+    // Auto-open chat after widget initializes
+    setTimeout(function() {
+      var fab = document.querySelector('.aicb-fab');
+      if (fab) fab.click();
+    }, 400);
+  </script>
+</body>
+</html>`);
+});
+
 // Preview page (dev only)
 if (config.server.nodeEnv === 'development') {
   app.get('/preview', (_req, res) => {
