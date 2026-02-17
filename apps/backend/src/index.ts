@@ -85,20 +85,18 @@ app.get('/widget/playground', (_req, res) => {
 
     // Intercept fetch to relay debug data to parent via postMessage
     (function() {
-      var _fetch = window.fetch;
-      window.fetch = function() {
-        var args = arguments;
-        var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-        return _fetch.apply(this, args).then(function(response) {
-          if (url.indexOf('/api/chat/session') !== -1 || url.indexOf('/api/chat/message') !== -1) {
-            var clone = response.clone();
-            clone.json().then(function(data) {
-              window.parent.postMessage({
-                type: url.indexOf('/api/chat/session') !== -1 ? 'widget:session' : 'widget:message',
-                data: data
-              }, '*');
-            }).catch(function() {});
-          }
+      var nativeFetch = window.fetch.bind(window);
+      window.fetch = function(input, init) {
+        return nativeFetch(input, init).then(function(response) {
+          try {
+            var url = typeof input === 'string' ? input : (input && input.url) || '';
+            if (url.indexOf('/api/chat/') !== -1) {
+              response.clone().json().then(function(data) {
+                var type = url.indexOf('session') !== -1 ? 'widget:session' : 'widget:message';
+                window.parent.postMessage({ type: type, data: data }, '*');
+              }).catch(function() {});
+            }
+          } catch(e) {}
           return response;
         });
       };
