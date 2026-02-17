@@ -1,8 +1,4 @@
-import dotenv from 'dotenv';
 import path from 'path';
-
-// Load .env from project root
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 import express from 'express';
 import cors from 'cors';
@@ -44,6 +40,13 @@ app.use(express.json({ limit: '1mb' }));
 // Serve widget static files
 const widgetDir = path.resolve(process.cwd(), 'apps/widget/dist');
 app.use('/widget', express.static(widgetDir));
+
+// Preview page (dev only)
+if (config.server.nodeEnv === 'development') {
+  app.get('/preview', (_req, res) => {
+    res.sendFile(path.resolve(process.cwd(), 'apps/widget/preview.html'));
+  });
+}
 
 // Routes
 app.use('/health', healthRouter);

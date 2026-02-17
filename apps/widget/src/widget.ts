@@ -20,7 +20,6 @@ function init() {
     const state = getState();
 
     if (state.isOpen) {
-      // Close
       setState({ isOpen: false });
       if (chatWindow) {
         chatWindow.remove();
@@ -29,13 +28,23 @@ function init() {
       return;
     }
 
-    // Open
+    // Open immediately — don't wait for API
     setState({ isOpen: true });
 
-    // Initialize session if needed
+    chatWindow = createChatWindow(() => {
+      setState({ isOpen: false });
+      if (chatWindow) {
+        chatWindow.remove();
+        chatWindow = null;
+      }
+    });
+    root.appendChild(chatWindow);
+
+    // Initialize session in background (non-blocking)
     if (!state.sessionId || !state.conversationId) {
+      setState({ isLoading: true });
+
       try {
-        // Check for existing session
         const saved = loadSession();
 
         const sessionRes = await createSession({
@@ -47,9 +56,10 @@ function init() {
           sessionId: sessionRes.sessionId,
           conversationId: sessionRes.conversationId,
           presetActions: sessionRes.presetActions,
+          isLoading: false,
           messages:
-            state.messages.length > 0
-              ? state.messages
+            getState().messages.length > 0
+              ? getState().messages
               : [
                   {
                     role: 'assistant' as const,
@@ -63,6 +73,7 @@ function init() {
       } catch (err) {
         console.error('[aicb] Failed to create session:', err);
         setState({
+          isLoading: false,
           messages: [
             {
               role: 'assistant' as const,
@@ -73,15 +84,6 @@ function init() {
         });
       }
     }
-
-    chatWindow = createChatWindow(() => {
-      setState({ isOpen: false });
-      if (chatWindow) {
-        chatWindow.remove();
-        chatWindow = null;
-      }
-    });
-    root.appendChild(chatWindow);
   }
 }
 

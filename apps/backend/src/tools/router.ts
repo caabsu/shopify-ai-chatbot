@@ -32,10 +32,15 @@ export async function executeTool(
       }
 
       case 'get_product_details': {
-        const result = await shopifyMcp.getProductDetails(
-          toolInput.product_id as string
-        );
-        return { success: true, data: result };
+        const productId = toolInput.product_id as string;
+        const [mcpResult, metafields] = await Promise.all([
+          shopifyMcp.getProductDetails(productId),
+          shopifyAdmin.getProductMetafields(productId).catch((err) => {
+            console.warn('[tool-router] Failed to fetch metafields:', err instanceof Error ? err.message : err);
+            return null;
+          }),
+        ]);
+        return { success: true, data: { ...(mcpResult as Record<string, unknown>), metafields } };
       }
 
       case 'answer_store_policy': {

@@ -71,7 +71,7 @@ export async function searchProducts(
   query: string,
   context: string,
   options?: { filters?: Record<string, unknown>; limit?: number; country?: string; language?: string; after?: string }
-): Promise<{ products: McpProduct[]; hasNextPage: boolean; endCursor: string | null }> {
+): Promise<unknown> {
   const args: Record<string, unknown> = { query, context };
   if (options?.filters) args.filters = options.filters;
   if (options?.limit) args.limit = options.limit;
@@ -79,19 +79,8 @@ export async function searchProducts(
   if (options?.language) args.language = options.language;
   if (options?.after) args.after = options.after;
 
-  const result = await mcpCall<unknown>('search_shop_catalog', args);
-
-  // The MCP response can vary in shape — handle gracefully
-  if (typeof result === 'string') {
-    return { products: [], hasNextPage: false, endCursor: null };
-  }
-
-  // Return raw result — the AI can interpret it
-  return {
-    products: Array.isArray(result) ? result : [],
-    hasNextPage: false,
-    endCursor: null,
-  };
+  // Return the full MCP response — the AI interprets it directly
+  return mcpCall('search_shop_catalog', args);
 }
 
 export async function getProductDetails(

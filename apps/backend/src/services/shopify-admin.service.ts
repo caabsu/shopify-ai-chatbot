@@ -73,8 +73,8 @@ export async function lookupOrder(
     return { found: false, message: 'Please provide your email address or phone number to verify your identity.' };
   }
 
-  // Normalize order number — accept with or without #
-  const cleanNumber = orderNumber.replace(/^#/, '');
+  // Normalize order number — strip #, leading zeros, whitespace
+  const cleanNumber = orderNumber.replace(/^[#\s]+/, '').replace(/^0+/, '') || orderNumber;
 
   const query = `
     query OrderLookup($queryStr: String!) {
@@ -156,6 +156,7 @@ export async function lookupOrder(
 
   const orderEdge = data.orders.edges[0];
   if (!orderEdge) {
+    console.warn(`[shopify-admin] Order not found for query "name:#${cleanNumber}". If orders exist but aren't returned, the app may be missing the read_all_orders scope.`);
     return { found: false, message: 'Order not found. Please double-check your order number.' };
   }
 
@@ -171,7 +172,10 @@ export async function lookupOrder(
   }
 
   if (!verified) {
-    return { found: false, message: 'Could not verify your identity. Please check the email or phone number associated with this order.' };
+    return {
+      found: false,
+      message: 'ORDER_EXISTS_BUT_VERIFICATION_FAILED: The order was found but the provided email or phone does not match. Ask the customer to double-check the email address they used when placing this order.',
+    };
   }
 
   // Build tracking info
@@ -207,6 +211,158 @@ export async function lookupOrder(
       createdAt: order.createdAt,
     },
   };
+}
+
+export interface ShopPolicy {
+  type: string;
+  title: string;
+  body: string;
+}
+
+export async function fetchLegalPolicies(): Promise<ShopPolicy[]> {
+  const query = `
+    query {
+      shop {
+        shopPolicies {
+          type
+          body
+        }
+      }
+    }
+  `;
+
+  const data = await graphql<{
+    shop: {
+      shopPolicies: Array<{
+        type: string;
+        body: string;
+      }>;
+    };
+  }>(query);
+
+  return data.shop.shopPolicies
+    .filter((p) => p.body && p.body.trim().length > 0)
+    .map((p) => ({
+      type: p.type,
+      title: p.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      body: p.body,
+    }));
+}
+
+export interface ProductMetafields {
+  deliveryTimeDays: number | null;
+  subtitle: string | null;
+  finish: string | null;
+  lightSource: string | null;
+  measurements: string | null;
+  installationGuide: string | null;
+  description: string | null;
+  avgRating: number | null;
+  numReviews: number | null;
+  [key: string]: string | number | null;
+}
+
+export async function getProductMetafields(productId: string): Promise<ProductMetafields> {
+  const query = `
+    query ProductMetafields($id: ID!) {
+      product(id: $id) {
+        metafields(first: 25) {
+          edges {
+            node {
+              namespace
+              key
+              value
+              type
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await graphql<{
+    product: {
+      metafields: {
+        edges: Array<{
+          node: { namespace: string; key: string; value: string; type: string };
+        }>;
+      };
+    } | null;
+  }>(query, { id: productId });
+
+  const result: ProductMetafields = {
+    deliveryTimeDays: null,
+    subtitle: null,
+    finish: null,
+    lightSource: null,
+    measurements: null,
+    installationGuide: null,
+    description: null,
+    avgRating: null,
+    numReviews: null,
+  };
+
+  if (!data.product) return result;
+
+  for (const edge of data.product.metafields.edges) {
+    const { namespace, key, value, type } = edge.node;
+    const fullKey = `${namespace}.${key}`;
+
+    // Strip rich text JSON to plain text
+    const plainValue = type === 'rich_text_field' ? extractPlainText(value) : value;
+
+    switch (fullKey) {
+      case 'custom.delivery_time':
+        result.deliveryTimeDays = parseInt(value, 10) || null;
+        break;
+      case 'descriptors.subtitle':
+        result.subtitle = value;
+        break;
+      case 'custom.finish':
+        result.finish = value;
+        break;
+      case 'custom.light_source':
+        result.lightSource = value;
+        break;
+      case 'custom.collapsible_measurement':
+        result.measurements = plainValue;
+        break;
+      case 'custom.installation_guide':
+        result.installationGuide = plainValue;
+        break;
+      case 'custom.collapsible_description':
+        result.description = plainValue;
+        break;
+      case 'loox.avg_rating':
+        result.avgRating = parseFloat(value) || null;
+        break;
+      case 'loox.num_reviews':
+        result.numReviews = parseInt(value, 10) || null;
+        break;
+    }
+  }
+
+  return result;
+}
+
+/** Extract plain text from Shopify rich_text_field JSON */
+function extractPlainText(richTextJson: string): string {
+  try {
+    const parsed = JSON.parse(richTextJson);
+    const texts: string[] = [];
+    function walk(node: { type?: string; value?: string; children?: unknown[] }) {
+      if (node.value) texts.push(node.value);
+      if (node.children) {
+        for (const child of node.children) {
+          walk(child as { type?: string; value?: string; children?: unknown[] });
+        }
+      }
+    }
+    walk(parsed);
+    return texts.join(' ').replace(/\s+/g, ' ').trim();
+  } catch {
+    return richTextJson;
+  }
 }
 
 export interface ReturnEligibilityResult {

@@ -177,14 +177,15 @@ export async function processMessage(
           if (toolUse.name === 'search_products' && data.products) {
             const products = data.products as Array<Record<string, unknown>>;
             for (const p of products) {
+              const priceRange = p.price_range as Record<string, string> | undefined;
               productCards.push({
-                id: (p.id as string) || '',
+                id: (p.product_id as string) || (p.id as string) || '',
                 title: (p.title as string) || '',
-                description: (p.description as string) || '',
-                price: (p.price as string) || '',
-                currency: (p.currency as string) || 'USD',
-                imageUrl: (p.imageUrl as string) || '',
-                productUrl: (p.productUrl as string) || '',
+                description: ((p.description as string) || '').slice(0, 200),
+                price: priceRange?.min || (p.price as string) || '',
+                currency: priceRange?.currency || (p.currency as string) || 'USD',
+                imageUrl: (p.image_url as string) || (p.imageUrl as string) || '',
+                productUrl: (p.url as string) || (p.productUrl as string) || '',
                 available: (p.available as boolean) ?? true,
               });
             }

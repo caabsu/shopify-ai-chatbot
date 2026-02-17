@@ -1,13 +1,97 @@
 import { subscribe, getState } from '../state/store.js';
 import type { WidgetMessage } from '../state/store.js';
 
+/** Lightweight markdown-to-HTML for chat bubbles. Escapes HTML first for safety. */
+function renderMarkdown(text: string): string {
+  // 1. Escape HTML entities
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // 2. Bold: **text**
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // 3. Italic: *text* (but not inside bold)
+  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+
+  // 4. Links: [text](url)
+  html = html.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener" class="aicb-inline-link">$1</a>'
+  );
+
+  // 5. Process lines for lists and key-value detection
+  const lines = html.split('\n');
+  const processed: string[] = [];
+  let inList = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const listMatch = line.match(/^[-*]\s+(.+)$/);
+
+    if (listMatch) {
+      if (!inList) {
+        processed.push('<ul class="aicb-md-list">');
+        inList = true;
+      }
+      processed.push(`<li>${listMatch[1]}</li>`);
+    } else {
+      if (inList) {
+        processed.push('</ul>');
+        inList = false;
+      }
+
+      // Detect "**Label** — Value" or "**Label:** Value" patterns for key-value rendering
+      const kvMatch = line.match(/^<strong>([^<]+)<\/strong>\s*(?:—|:|–)\s*(.+)$/);
+      if (kvMatch) {
+        processed.push(`<div class="aicb-kv"><span class="aicb-kv__label">${kvMatch[1]}</span><span class="aicb-kv__value">${kvMatch[2]}</span></div>`);
+      } else if (line.trim() === '') {
+        processed.push('{{BREAK}}');
+      } else {
+        processed.push(line);
+      }
+    }
+  }
+
+  if (inList) processed.push('</ul>');
+
+  // 6. Join and create paragraphs
+  html = processed.join('\n');
+
+  // Replace double breaks with paragraph separators
+  html = html.replace(/(?:\n?{{BREAK}}\n?)+/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+
+  // Wrap in paragraph tags
+  html = '<p>' + html + '</p>';
+
+  // Clean up empty and double-wrapped elements
+  html = html.replace(/<p>\s*<\/p>/g, '');
+  html = html.replace(/<p>(<(?:ul|div)[^>]*>)/g, '$1');
+  html = html.replace(/(<\/(?:ul|div)>)<\/p>/g, '$1');
+  html = html.replace(/<p><br><\/p>/g, '');
+  html = html.replace(/<br>(<div class="aicb-kv)/g, '$1');
+  html = html.replace(/(aicb-kv__value">[^<]*<\/span><\/div>)<br>/g, '$1');
+  html = html.replace(/<br>(<ul)/g, '$1');
+  html = html.replace(/(<\/ul>)<br>/g, '$1');
+
+  return html;
+}
+
 function renderMessage(msg: WidgetMessage): HTMLElement {
   const wrapper = document.createElement('div');
   wrapper.className = `aicb-msg aicb-msg--${msg.role}`;
 
   const bubble = document.createElement('div');
   bubble.className = 'aicb-msg__bubble';
-  bubble.textContent = msg.content;
+
+  if (msg.role === 'assistant') {
+    bubble.innerHTML = renderMarkdown(msg.content);
+  } else {
+    bubble.textContent = msg.content;
+  }
+
   wrapper.appendChild(bubble);
 
   // Navigation buttons
@@ -73,7 +157,6 @@ export function createMessageList(): HTMLElement {
   let prevCount = 0;
 
   subscribe((state) => {
-    // Re-render only when messages change or loading changes
     if (state.messages.length !== prevCount || container.querySelector('.aicb-typing') !== null !== state.isLoading) {
       container.innerHTML = '';
       for (const msg of state.messages) {
@@ -84,7 +167,6 @@ export function createMessageList(): HTMLElement {
       }
       prevCount = state.messages.length;
 
-      // Auto-scroll to bottom
       requestAnimationFrame(() => {
         container.scrollTop = container.scrollHeight;
       });

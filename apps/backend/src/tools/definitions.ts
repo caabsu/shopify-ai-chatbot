@@ -23,7 +23,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: 'get_product_details',
     description:
-      'Get detailed information about a specific product including all variants, images, pricing, and availability. Use after a product search when the customer wants more details about a specific item.',
+      'Get detailed information about a specific product including all variants, images, pricing, availability, and metafields (delivery time, measurements, finish, light source, installation guide, reviews). Use after a product search when the customer wants more details, asks about delivery time, specifications, or reviews.',
     input_schema: {
       type: 'object' as const,
       properties: {

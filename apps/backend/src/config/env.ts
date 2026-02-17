@@ -1,3 +1,15 @@
+import dotenv from 'dotenv';
+import path from 'path';
+import { existsSync } from 'fs';
+
+// Load .env before reading any env vars — handles npm workspaces where cwd may be apps/backend
+const envCandidates = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '../../.env'),
+];
+const envPath = envCandidates.find((p) => existsSync(p));
+if (envPath) dotenv.config({ path: envPath });
+
 function requireEnv(key: string): string {
   const value = process.env[key];
   if (!value) {
