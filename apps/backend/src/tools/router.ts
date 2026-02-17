@@ -36,10 +36,12 @@ export async function executeTool(
         const [mcpResult, metafields] = await Promise.all([
           shopifyMcp.getProductDetails(productId),
           shopifyAdmin.getProductMetafields(productId).catch((err) => {
-            console.warn('[tool-router] Failed to fetch metafields:', err instanceof Error ? err.message : err);
+            console.warn('[tool-router] Failed to fetch metafields for', productId, ':', err instanceof Error ? err.message : err);
             return null;
           }),
         ]);
+        const metafieldCount = metafields ? Object.keys(metafields).length : 0;
+        console.log(`[tool-router] get_product_details: product=${productId}, metafields=${metafieldCount}`);
         return { success: true, data: { ...(mcpResult as Record<string, unknown>), metafields } };
       }
 
