@@ -147,10 +147,10 @@ export const toolDefinitions: Anthropic.Tool[] = [
           items: {
             type: 'object',
             properties: {
-              merchandiseId: { type: 'string', description: 'Product variant GID' },
+              product_variant_id: { type: 'string', description: 'Product variant GID (e.g., "gid://shopify/ProductVariant/123")' },
               quantity: { type: 'number', description: 'Quantity to add' },
             },
-            required: ['merchandiseId', 'quantity'],
+            required: ['product_variant_id', 'quantity'],
           },
           description: 'Items to add to cart',
         },

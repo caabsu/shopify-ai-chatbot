@@ -101,7 +101,7 @@ export async function searchPolicies(query: string, context: string): Promise<st
 
 export async function createOrUpdateCart(options: {
   cart_id?: string;
-  add_items?: Array<{ merchandiseId: string; quantity: number }>;
+  add_items?: Array<{ product_variant_id: string; quantity: number }>;
   update_items?: Array<{ id: string; quantity: number }>;
   remove_line_ids?: string[];
   discount_codes?: string[];

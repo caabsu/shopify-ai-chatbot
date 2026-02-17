@@ -92,7 +92,7 @@ export async function executeTool(
       case 'manage_cart': {
         const result = await shopifyMcp.createOrUpdateCart({
           cart_id: toolInput.cart_id as string | undefined,
-          add_items: toolInput.add_items as Array<{ merchandiseId: string; quantity: number }> | undefined,
+          add_items: toolInput.add_items as Array<{ product_variant_id: string; quantity: number }> | undefined,
           update_items: toolInput.update_items as Array<{ id: string; quantity: number }> | undefined,
           remove_line_ids: toolInput.remove_line_ids as string[] | undefined,
           discount_codes: toolInput.discount_codes as string[] | undefined,
