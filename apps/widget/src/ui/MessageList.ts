@@ -1,5 +1,16 @@
 import { subscribe, getState } from '../state/store.js';
-import type { WidgetMessage } from '../state/store.js';
+import type { WidgetMessage, PresetAction } from '../state/store.js';
+
+const BOT_AVATAR_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`;
+
+const PRESET_ICONS: Record<string, string> = {
+  truck: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
+  return: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`,
+  search: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  contact: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+};
+
+const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
 
 /** Lightweight markdown-to-HTML for chat bubbles. Escapes HTML first for safety. */
 function renderMarkdown(text: string): string {
@@ -42,7 +53,7 @@ function renderMarkdown(text: string): string {
         inList = false;
       }
 
-      // Detect "**Label** — Value" or "**Label:** Value" patterns for key-value rendering
+      // Detect "**Label** — Value" or "**Label:** Value" patterns
       const kvMatch = line.match(/^<strong>([^<]+)<\/strong>\s*(?:—|:|–)\s*(.+)$/);
       if (kvMatch) {
         processed.push(`<div class="aicb-kv"><span class="aicb-kv__label">${kvMatch[1]}</span><span class="aicb-kv__value">${kvMatch[2]}</span></div>`);
@@ -58,15 +69,11 @@ function renderMarkdown(text: string): string {
 
   // 6. Join and create paragraphs
   html = processed.join('\n');
-
-  // Replace double breaks with paragraph separators
   html = html.replace(/(?:\n?{{BREAK}}\n?)+/g, '</p><p>');
   html = html.replace(/\n/g, '<br>');
-
-  // Wrap in paragraph tags
   html = '<p>' + html + '</p>';
 
-  // Clean up empty and double-wrapped elements
+  // Clean up
   html = html.replace(/<p>\s*<\/p>/g, '');
   html = html.replace(/<p>(<(?:ul|div)[^>]*>)/g, '$1');
   html = html.replace(/(<\/(?:ul|div)>)<\/p>/g, '$1');
@@ -83,6 +90,17 @@ function renderMessage(msg: WidgetMessage): HTMLElement {
   const wrapper = document.createElement('div');
   wrapper.className = `aicb-msg aicb-msg--${msg.role}`;
 
+  // Add bot avatar for assistant messages
+  if (msg.role === 'assistant') {
+    const avatar = document.createElement('div');
+    avatar.className = 'aicb-msg__avatar';
+    avatar.innerHTML = BOT_AVATAR_SVG;
+    wrapper.appendChild(avatar);
+  }
+
+  const content = document.createElement('div');
+  content.className = 'aicb-msg__content';
+
   const bubble = document.createElement('div');
   bubble.className = 'aicb-msg__bubble';
 
@@ -92,7 +110,7 @@ function renderMessage(msg: WidgetMessage): HTMLElement {
     bubble.textContent = msg.content;
   }
 
-  wrapper.appendChild(bubble);
+  content.appendChild(bubble);
 
   // Navigation buttons
   if (msg.navigationButtons && msg.navigationButtons.length > 0) {
@@ -106,7 +124,7 @@ function renderMessage(msg: WidgetMessage): HTMLElement {
       link.textContent = nav.label;
       navContainer.appendChild(link);
     }
-    wrapper.appendChild(navContainer);
+    content.appendChild(navContainer);
   }
 
   // Product cards
@@ -126,7 +144,7 @@ function renderMessage(msg: WidgetMessage): HTMLElement {
       `;
       cardsContainer.appendChild(card);
     }
-    wrapper.appendChild(cardsContainer);
+    content.appendChild(cardsContainer);
   }
 
   // Cart data
@@ -137,35 +155,87 @@ function renderMessage(msg: WidgetMessage): HTMLElement {
       <div class="aicb-cart-summary__total">${msg.cartData.lineItems.length} item(s) - ${msg.cartData.currency} ${msg.cartData.totalAmount}</div>
       <a class="aicb-cart-summary__checkout" href="${msg.cartData.checkoutUrl}" target="_blank">Checkout</a>
     `;
-    wrapper.appendChild(cartEl);
+    content.appendChild(cartEl);
   }
+
+  wrapper.appendChild(content);
 
   return wrapper;
 }
 
-function renderTypingIndicator(): HTMLElement {
-  const el = document.createElement('div');
-  el.className = 'aicb-msg aicb-msg--assistant aicb-typing';
-  el.innerHTML = `<div class="aicb-msg__bubble aicb-typing__bubble"><span></span><span></span><span></span></div>`;
-  return el;
+function renderPresetCards(presets: PresetAction[], onSelect: (id: string) => void): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'aicb-preset-cards';
+
+  for (const preset of presets) {
+    const card = document.createElement('button');
+    card.className = 'aicb-preset-card';
+
+    const iconSvg = PRESET_ICONS[preset.icon] || PRESET_ICONS['search'];
+
+    card.innerHTML = `
+      <div class="aicb-preset-card__icon">${iconSvg}</div>
+      <span class="aicb-preset-card__label">${preset.label}</span>
+      <span class="aicb-preset-card__chevron">${CHEVRON_SVG}</span>
+    `;
+
+    card.addEventListener('click', () => onSelect(preset.id));
+    container.appendChild(card);
+  }
+
+  return container;
 }
 
-export function createMessageList(): HTMLElement {
+function renderTypingIndicator(): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'aicb-msg aicb-msg--assistant aicb-typing';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'aicb-msg__avatar';
+  avatar.innerHTML = BOT_AVATAR_SVG;
+  wrapper.appendChild(avatar);
+
+  const content = document.createElement('div');
+  content.className = 'aicb-msg__content';
+  content.innerHTML = `<div class="aicb-msg__bubble aicb-typing__bubble"><span></span><span></span><span></span></div>`;
+  wrapper.appendChild(content);
+
+  return wrapper;
+}
+
+export function createMessageList(onPresetSelect: (id: string) => void): HTMLElement {
   const container = document.createElement('div');
   container.className = 'aicb-messages';
 
   let prevCount = 0;
+  let prevLoading = false;
+  let prevHasUserSent = false;
 
   subscribe((state) => {
-    if (state.messages.length !== prevCount || container.querySelector('.aicb-typing') !== null !== state.isLoading) {
+    const needsRender =
+      state.messages.length !== prevCount ||
+      state.isLoading !== prevLoading ||
+      state.hasUserSentMessage !== prevHasUserSent;
+
+    if (needsRender) {
       container.innerHTML = '';
+
       for (const msg of state.messages) {
         container.appendChild(renderMessage(msg));
       }
+
+      // Show preset action cards after greeting (before user sends anything)
+      if (!state.hasUserSentMessage && state.presetActions.length > 0 && !state.isLoading) {
+        container.appendChild(renderPresetCards(state.presetActions, onPresetSelect));
+      }
+
       if (state.isLoading) {
         container.appendChild(renderTypingIndicator());
       }
+
       prevCount = state.messages.length;
+      prevLoading = state.isLoading;
+      prevHasUserSent = state.hasUserSentMessage;
 
       requestAnimationFrame(() => {
         container.scrollTop = container.scrollHeight;

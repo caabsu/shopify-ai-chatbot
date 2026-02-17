@@ -1,6 +1,5 @@
 import { createHeader } from './Header.js';
 import { createMessageList } from './MessageList.js';
-import { createPresetActions } from './PresetActions.js';
 import { createInputBar } from './InputBar.js';
 import { getState, setState, saveSession, subscribe } from '../state/store.js';
 import * as api from '../api/client.js';
@@ -10,21 +9,18 @@ export function createChatWindow(onClose: () => void): HTMLElement {
   const window = document.createElement('div');
   window.className = 'aicb-window';
 
-  const header = createHeader(onClose);
-  const messageList = createMessageList();
-  const presets = createPresetActions(handlePresetClick);
+  const header = createHeader(onClose, onClose);
+  const messageList = createMessageList(handlePresetClick);
   const inputBar = createInputBar(handleSendMessage);
 
   window.appendChild(header);
   window.appendChild(messageList);
-  window.appendChild(presets);
   window.appendChild(inputBar);
 
   async function handleSendMessage(text: string) {
     const state = getState();
     if (!state.sessionId || !state.conversationId) return;
 
-    // Add user message to state
     const userMsg: WidgetMessage = {
       role: 'user',
       content: text,
@@ -84,7 +80,6 @@ export function createChatWindow(onClose: () => void): HTMLElement {
     const preset = state.presetActions.find((p) => p.id === presetId);
     if (!preset) return;
 
-    // Show the preset prompt as user message
     const userMsg: WidgetMessage = {
       role: 'user',
       content: preset.prompt,
