@@ -249,24 +249,11 @@ export async function fetchLegalPolicies(): Promise<ShopPolicy[]> {
     }));
 }
 
-export interface ProductMetafields {
-  deliveryTimeDays: number | null;
-  subtitle: string | null;
-  finish: string | null;
-  lightSource: string | null;
-  measurements: string | null;
-  installationGuide: string | null;
-  description: string | null;
-  avgRating: number | null;
-  numReviews: number | null;
-  [key: string]: string | number | null;
-}
-
-export async function getProductMetafields(productId: string): Promise<ProductMetafields> {
+export async function getProductMetafields(productId: string): Promise<Record<string, string | number | null>> {
   const query = `
     query ProductMetafields($id: ID!) {
       product(id: $id) {
-        metafields(first: 25) {
+        metafields(first: 30) {
           edges {
             node {
               namespace
@@ -290,59 +277,52 @@ export async function getProductMetafields(productId: string): Promise<ProductMe
     } | null;
   }>(query, { id: productId });
 
-  const result: ProductMetafields = {
-    deliveryTimeDays: null,
-    subtitle: null,
-    finish: null,
-    lightSource: null,
-    measurements: null,
-    installationGuide: null,
-    description: null,
-    avgRating: null,
-    numReviews: null,
-  };
+  if (!data.product) return {};
 
-  if (!data.product) return result;
+  const result: Record<string, string | number | null> = {};
+
+  // Skip these namespaces/keys — not useful for customer-facing responses
+  const skipKeys = new Set([
+    'loox.reviews', // huge HTML blob
+    'mm-google-shopping.google_product_category',
+    'mc-facebook.google_product_category',
+    'umbrella.extended_warranty_id',
+    'shopify.color-pattern',
+  ]);
 
   for (const edge of data.product.metafields.edges) {
     const { namespace, key, value, type } = edge.node;
     const fullKey = `${namespace}.${key}`;
 
-    // Strip rich text JSON to plain text
-    const plainValue = type === 'rich_text_field' ? extractPlainText(value) : value;
+    if (skipKeys.has(fullKey)) continue;
+    if (type === 'file_reference' || type === 'list.metaobject_reference') continue;
 
-    switch (fullKey) {
-      case 'custom.delivery_time':
-        result.deliveryTimeDays = parseInt(value, 10) || null;
-        break;
-      case 'descriptors.subtitle':
-        result.subtitle = value;
-        break;
-      case 'custom.finish':
-        result.finish = value;
-        break;
-      case 'custom.light_source':
-        result.lightSource = value;
-        break;
-      case 'custom.collapsible_measurement':
-        result.measurements = plainValue;
-        break;
-      case 'custom.installation_guide':
-        result.installationGuide = plainValue;
-        break;
-      case 'custom.collapsible_description':
-        result.description = plainValue;
-        break;
-      case 'loox.avg_rating':
-        result.avgRating = parseFloat(value) || null;
-        break;
-      case 'loox.num_reviews':
-        result.numReviews = parseInt(value, 10) || null;
-        break;
+    // Convert to a human-readable label
+    const label = humanizeKey(key);
+
+    if (type === 'rich_text_field') {
+      result[label] = extractPlainText(value);
+    } else if (type === 'number_integer') {
+      result[label] = parseInt(value, 10);
+    } else if (type === 'number_decimal') {
+      result[label] = parseFloat(value);
+    } else if (type === 'rating') {
+      try {
+        const parsed = JSON.parse(value);
+        result[label] = parseFloat(parsed.value);
+      } catch {
+        result[label] = value;
+      }
+    } else {
+      result[label] = value;
     }
   }
 
   return result;
+}
+
+function humanizeKey(key: string): string {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /** Extract plain text from Shopify rich_text_field JSON */
