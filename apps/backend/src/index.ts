@@ -42,23 +42,47 @@ const widgetDir = path.resolve(process.cwd(), 'apps/widget/dist');
 app.use('/widget', express.static(widgetDir));
 
 // Widget playground — embeddable page with auto-open and postMessage debug relay
-app.get('/widget/playground', (req, res) => {
-  const shouldReset = req.query.reset !== undefined;
+app.get('/widget/playground', (_req, res) => {
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Widget Playground</title>
+  <title>Widget Preview</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #FAF6F0; min-height: 100vh; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #FAF6F0; }
+
+    /* === Embedded mode overrides === */
+    /* Hide the floating action button */
+    .aicb-fab { display: none !important; }
+
+    /* Make root fill viewport */
+    #aicb-root {
+      position: fixed !important;
+      top: 0 !important; left: 0 !important;
+      right: 0 !important; bottom: 0 !important;
+      width: 100% !important; height: 100% !important;
+    }
+
+    /* Make chat window fill viewport instead of floating */
+    .aicb-window {
+      position: absolute !important;
+      top: 0 !important; left: 0 !important;
+      right: 0 !important; bottom: 0 !important;
+      width: 100% !important; height: 100% !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      animation: none !important;
+    }
   </style>
 </head>
 <body>
   <script>
-    ${shouldReset ? "localStorage.removeItem('aicb_session');" : ''}
+    // Always clear previous session for a fresh start
+    localStorage.removeItem('aicb_session');
+
     // Intercept fetch to relay debug data to parent via postMessage
     (function() {
       var _fetch = window.fetch;
@@ -86,7 +110,7 @@ app.get('/widget/playground', (req, res) => {
     setTimeout(function() {
       var fab = document.querySelector('.aicb-fab');
       if (fab) fab.click();
-    }, 400);
+    }, 300);
   </script>
 </body>
 </html>`);

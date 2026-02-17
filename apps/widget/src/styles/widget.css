@@ -59,8 +59,9 @@
 .aicb-window {
   position: fixed;
   bottom: 92px;
-  right: 24px;
+  right: 0;
   width: 400px;
+  max-height: min(640px, calc(100vh - 120px));
   height: 640px;
   background: #FAF6F0;
   border-radius: 20px;
@@ -90,7 +91,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 20px;
+  padding: 16px 20px;
   background: linear-gradient(180deg, #3C2A1E 0%, #34231A 100%);
   color: #fff;
   flex-shrink: 0;
@@ -153,7 +154,7 @@
   padding: 20px 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   background: #FAF6F0;
 }
 
@@ -221,7 +222,7 @@
 }
 
 .aicb-msg__bubble {
-  padding: 11px 15px;
+  padding: 12px 16px;
   border-radius: 18px;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -242,10 +243,6 @@
   border-bottom-left-radius: 6px;
   border: 1px solid rgba(92, 61, 46, 0.08);
   box-shadow: 0 1px 3px rgba(44, 24, 16, 0.04);
-}
-
-/* ─── Assistant Bubble Typography ─── */
-.aicb-msg--assistant .aicb-msg__bubble {
   font-size: 13.5px;
   line-height: 1.6;
   letter-spacing: -0.005em;
@@ -382,7 +379,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .aicb-nav-btn {
@@ -413,7 +410,7 @@
   gap: 8px;
   overflow-x: auto;
   padding: 8px 0 4px;
-  margin-top: 8px;
+  margin-top: 10px;
   scroll-snap-type: x mandatory;
 }
 
@@ -488,7 +485,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  margin-top: 8px;
+  margin-top: 10px;
   background: #fff;
   border: 1px solid rgba(92, 61, 46, 0.08);
   border-radius: 14px;
@@ -560,7 +557,7 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: rgba(92, 61, 46, 0.08);
+  background: rgba(92, 61, 46, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -653,21 +650,42 @@
   cursor: not-allowed;
 }
 
-/* ─── Powered By Footer ─── */
-.aicb-footer {
-  text-align: center;
-  padding: 6px 0 10px;
-  background: #FAF6F0;
-  font-size: 10.5px;
-  color: #C4B8AB;
-  letter-spacing: 0.01em;
+/* ─── Responsive: Adapt to viewport ─── */
+
+/* Large phones / small tablets — slightly smaller window */
+@media (max-width: 768px) and (min-width: 481px) {
+  #aicb-root {
+    bottom: 20px;
+    right: 20px;
+  }
+
+  .aicb-fab {
+    width: 54px;
+    height: 54px;
+  }
+
+  .aicb-window {
+    width: 380px;
+    bottom: 84px;
+    max-height: calc(100vh - 110px);
+  }
 }
 
-/* ─── Responsive: Full screen on mobile ─── */
-@media (max-width: 768px) {
+/* Phones — full screen */
+@media (max-width: 480px) {
   #aicb-root {
     bottom: 16px;
     right: 16px;
+  }
+
+  .aicb-fab {
+    width: 50px;
+    height: 50px;
+  }
+
+  .aicb-fab svg {
+    width: 24px;
+    height: 24px;
   }
 
   .aicb-window {
@@ -678,13 +696,55 @@
     bottom: 0;
     width: 100%;
     height: 100%;
+    max-height: 100%;
     border-radius: 0;
     animation: none;
   }
 
-  .aicb-fab {
-    width: 52px;
-    height: 52px;
+  .aicb-header {
+    padding: 14px 16px;
+    /* Safe area for notch devices */
+    padding-top: max(14px, env(safe-area-inset-top));
+  }
+
+  .aicb-messages {
+    padding: 16px 14px;
+    gap: 14px;
+  }
+
+  .aicb-msg {
+    max-width: 92%;
+  }
+
+  .aicb-input-bar {
+    padding: 12px 14px 16px;
+    /* Safe area for bottom bar devices */
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .aicb-preset-card {
+    padding: 12px 14px;
+    gap: 12px;
+    font-size: 13.5px;
+  }
+
+  .aicb-preset-card__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .aicb-preset-card__icon svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Short viewports — constrain window height */
+@media (max-height: 700px) and (min-width: 481px) {
+  .aicb-window {
+    height: auto;
+    max-height: calc(100vh - 120px);
   }
 }
 
