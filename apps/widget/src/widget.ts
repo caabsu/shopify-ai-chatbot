@@ -112,21 +112,35 @@ function init() {
           pageUrl: window.location.href,
         });
 
+        // Restore messages: use backend history if resuming, otherwise show greeting
+        let messages = getState().messages;
+        if (messages.length === 0) {
+          if (sessionRes.messages && sessionRes.messages.length > 0) {
+            // Resumed session — restore full conversation history from backend
+            messages = sessionRes.messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+              timestamp: m.timestamp,
+            }));
+          } else {
+            // New session — show greeting
+            messages = [
+              {
+                role: 'assistant' as const,
+                content: sessionRes.greeting,
+                timestamp: Date.now(),
+              },
+            ];
+          }
+        }
+
         setState({
           sessionId: sessionRes.sessionId,
           conversationId: sessionRes.conversationId,
           presetActions: sessionRes.presetActions,
           isLoading: false,
-          messages:
-            getState().messages.length > 0
-              ? getState().messages
-              : [
-                  {
-                    role: 'assistant' as const,
-                    content: sessionRes.greeting,
-                    timestamp: Date.now(),
-                  },
-                ],
+          hasUserSentMessage: messages.some((m) => m.role === 'user'),
+          messages,
           lastActivity: Date.now(),
         });
         saveSession();

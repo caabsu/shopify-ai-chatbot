@@ -57,6 +57,7 @@ export interface SessionResponse {
   conversationId: string;
   greeting: string;
   presetActions: Array<{ id: string; label: string; icon: string; prompt: string }>;
+  messages?: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>;
 }
 
 export interface MessageResponse {

@@ -70,11 +70,23 @@ chatRouter.post('/session', async (req: Request, res: Response) => {
 
       if (existing && existing.length > 0) {
         const conv = existing[0];
+
+        // Fetch previous messages so the widget can restore conversation history
+        const previousMessages = await conversationService.getMessages(conv.id);
+        const messages = previousMessages
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            timestamp: new Date(m.created_at).getTime(),
+          }));
+
         res.json({
           sessionId,
           conversationId: conv.id,
           greeting,
           presetActions,
+          messages,
         });
         return;
       }

@@ -494,9 +494,6 @@ app.get('/widget/playground', (_req, res) => {
 
   <!-- Chat widget (loaded exactly like it would be on a real store) -->
   <script>
-    // Clear previous session for a fresh start
-    localStorage.removeItem('aicb_session');
-
     // Intercept fetch to relay debug data to parent via postMessage
     (function() {
       var nativeFetch = window.fetch.bind(window);
