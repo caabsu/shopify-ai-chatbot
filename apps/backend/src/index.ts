@@ -494,6 +494,12 @@ app.get('/widget/playground', (_req, res) => {
 
   <!-- Chat widget (loaded exactly like it would be on a real store) -->
   <script>
+    // Clear session if this is a forced new conversation (from playground "New Conversation" button)
+    if (new URLSearchParams(window.location.search).has('newconv')) {
+      localStorage.removeItem('aicb_session');
+    }
+  </script>
+  <script>
     // Intercept fetch to relay debug data to parent via postMessage
     (function() {
       var nativeFetch = window.fetch.bind(window);

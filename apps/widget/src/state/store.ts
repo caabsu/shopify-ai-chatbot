@@ -49,7 +49,7 @@ export interface WidgetState {
   autoOpenDelay: number;
 }
 
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
 const STORAGE_KEY = 'aicb_session';
 
 type Listener = (state: WidgetState) => void;

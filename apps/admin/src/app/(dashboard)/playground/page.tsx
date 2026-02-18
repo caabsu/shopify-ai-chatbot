@@ -83,7 +83,7 @@ export default function PlaygroundPage() {
         >
           <iframe
             key={iframeKey}
-            src={`${backendUrl}/widget/playground`}
+            src={`${backendUrl}/widget/playground${iframeKey > 0 ? '?newconv=1' : ''}`}
             className="absolute inset-0 w-full h-full border-0"
             style={{ background: '#ffffff' }}
             allow="clipboard-read; clipboard-write"

@@ -207,11 +207,11 @@ export function createMessageList(onPresetSelect: (id: string) => void): HTMLEle
   const container = document.createElement('div');
   container.className = 'aicb-messages';
 
-  let prevCount = 0;
-  let prevLoading = false;
-  let prevHasUserSent = false;
+  let prevCount = -1; // -1 forces initial render
+  let prevLoading: boolean | null = null;
+  let prevHasUserSent: boolean | null = null;
 
-  subscribe((state) => {
+  function render(state: { messages: WidgetMessage[]; isLoading: boolean; hasUserSentMessage: boolean; presetActions: PresetAction[] }) {
     const needsRender =
       state.messages.length !== prevCount ||
       state.isLoading !== prevLoading ||
@@ -241,7 +241,12 @@ export function createMessageList(onPresetSelect: (id: string) => void): HTMLEle
         container.scrollTop = container.scrollHeight;
       });
     }
-  });
+  }
+
+  subscribe(render);
+
+  // Initial render from current state (critical for reopen after close)
+  render(getState());
 
   return container;
 }
