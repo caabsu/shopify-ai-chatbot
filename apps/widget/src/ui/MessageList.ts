@@ -26,10 +26,13 @@ function renderMarkdown(text: string): string {
   // 3. Italic: *text* (but not inside bold)
   html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
 
-  // 4. Links: [text](url)
+  // 4. Links: [text](url) — supports http, https, and mailto
   html = html.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener" class="aicb-inline-link">$1</a>'
+    /\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)/g,
+    (_, text, url) => {
+      const isMailto = url.startsWith('mailto:');
+      return `<a href="${url}"${isMailto ? '' : ' target="_blank" rel="noopener"'} class="aicb-inline-link">${text}</a>`;
+    }
   );
 
   // 5. Process lines for lists and key-value detection

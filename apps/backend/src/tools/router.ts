@@ -126,7 +126,7 @@ export async function executeTool(
             type: 'escalation',
             reason: toolInput.reason as string,
             priority: (toolInput.priority as string) || 'medium',
-            message: 'Conversation has been escalated to a human agent.',
+            message: 'Conversation flagged. Direct the customer to email support@outlight.us or visit https://outlight.us/pages/contact.',
           },
         };
       }
