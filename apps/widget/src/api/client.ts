@@ -39,11 +39,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface WidgetDesign {
+  primaryColor: string;
+  backgroundColor: string;
+  headerTitle: string;
+  position: 'bottom-right' | 'bottom-left';
+}
+
 export interface WidgetConfig {
   greeting: string;
   presetActions: Array<{ id: string; label: string; icon: string; prompt: string }>;
-  primaryColor: string;
-  position: string;
+  design: WidgetDesign;
 }
 
 export interface SessionResponse {

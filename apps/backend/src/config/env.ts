@@ -37,7 +37,7 @@ export const config = {
     serviceRoleKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
   },
   ai: {
-    model: optionalEnv('AI_MODEL', 'claude-sonnet-4-20250514'),
+    model: optionalEnv('AI_MODEL', 'claude-sonnet-4-6'),
     maxTokens: parseInt(optionalEnv('AI_MAX_TOKENS', '4096'), 10),
     temperature: parseFloat(optionalEnv('AI_TEMPERATURE', '0.7')),
   },

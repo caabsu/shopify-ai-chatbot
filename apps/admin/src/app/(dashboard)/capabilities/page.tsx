@@ -21,7 +21,7 @@ const scopes = [
 ];
 
 const services = [
-  { name: 'Claude API', desc: 'AI model for conversation (claude-sonnet-4-20250514)' },
+  { name: 'Claude API', desc: 'AI model for conversation (claude-sonnet-4-6)' },
   { name: 'Shopify Storefront MCP', desc: 'Product search, policy lookup, cart management (JSON-RPC 2.0)' },
   { name: 'Shopify Admin API', desc: 'Order lookup, returns, customer data (GraphQL)' },
   { name: 'Supabase', desc: 'Database for conversations, messages, knowledge base, config' },

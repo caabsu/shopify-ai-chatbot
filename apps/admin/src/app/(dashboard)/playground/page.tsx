@@ -52,7 +52,7 @@ export default function PlaygroundPage() {
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
           <h2 className="text-lg font-semibold">Playground</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Live widget preview — auto-syncs with every deployment</p>
+          <p className="text-xs text-gray-400 mt-0.5">Live mock store with chat widget — click the bubble to interact</p>
         </div>
         <div className="flex items-center gap-2">
           <a
@@ -85,7 +85,7 @@ export default function PlaygroundPage() {
             key={iframeKey}
             src={`${backendUrl}/widget/playground`}
             className="absolute inset-0 w-full h-full border-0"
-            style={{ background: '#FAF6F0' }}
+            style={{ background: '#ffffff' }}
             allow="clipboard-read; clipboard-write"
             title="Chat Widget Preview"
           />
@@ -148,7 +148,7 @@ export default function PlaygroundPage() {
 
           <div className="mt-auto pt-3 border-t border-gray-100">
             <p className="text-[11px] text-gray-400 leading-relaxed">
-              This is the live widget embedded via iframe. Design and behavior changes deploy automatically.
+              Mock store with live chat bubble. Click the floating button to open the widget, just like a real customer would.
             </p>
           </div>
         </div>

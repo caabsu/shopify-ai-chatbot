@@ -11,6 +11,7 @@ import {
   ToggleLeft,
   Zap,
   Settings,
+  Palette,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +20,7 @@ const navItems = [
   { href: '/conversations', label: 'Conversations', icon: MessageSquare },
   { href: '/knowledge', label: 'Knowledge Base', icon: BookOpen },
   { href: '/ai-config', label: 'AI Config', icon: Brain },
+  { href: '/design', label: 'Design', icon: Palette },
   { href: '/playground', label: 'Playground', icon: TestTube },
   { href: '/features', label: 'Feature Toggles', icon: ToggleLeft },
   { href: '/capabilities', label: 'Capabilities', icon: Zap },

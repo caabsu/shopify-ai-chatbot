@@ -39,6 +39,7 @@ export interface WidgetState {
   lastActivity: number;
   hasUserSentMessage: boolean;
   error: string | null;
+  headerTitle: string;
 }
 
 const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
@@ -56,6 +57,7 @@ let state: WidgetState = {
   lastActivity: Date.now(),
   hasUserSentMessage: false,
   error: null,
+  headerTitle: 'Outlight Assistant',
 };
 
 const listeners: Set<Listener> = new Set();

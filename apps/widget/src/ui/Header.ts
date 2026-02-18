@@ -1,11 +1,15 @@
+import { getState, subscribe } from '../state/store.js';
+
 export function createHeader(onMinimize: () => void, onClose: () => void): HTMLElement {
   const header = document.createElement('div');
   header.className = 'aicb-header';
 
+  const title = getState().headerTitle || 'Outlight Assistant';
+
   header.innerHTML = `
     <div class="aicb-header__info">
       <span class="aicb-header__dot"></span>
-      <span class="aicb-header__title">Outlight Assistant</span>
+      <span class="aicb-header__title">${title}</span>
     </div>
     <div class="aicb-header__actions">
       <button class="aicb-header__btn aicb-header__minimize" aria-label="Minimize chat">
@@ -19,6 +23,14 @@ export function createHeader(onMinimize: () => void, onClose: () => void): HTMLE
 
   header.querySelector('.aicb-header__minimize')!.addEventListener('click', onMinimize);
   header.querySelector('.aicb-header__close')!.addEventListener('click', onClose);
+
+  // Update title dynamically if it changes
+  subscribe((state) => {
+    const titleEl = header.querySelector('.aicb-header__title');
+    if (titleEl && state.headerTitle && titleEl.textContent !== state.headerTitle) {
+      titleEl.textContent = state.headerTitle;
+    }
+  });
 
   return header;
 }
