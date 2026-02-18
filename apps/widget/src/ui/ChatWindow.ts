@@ -17,6 +17,15 @@ export function createChatWindow(onClose: () => void): HTMLElement {
   window.appendChild(messageList);
   window.appendChild(inputBar);
 
+  // Branding badge
+  const state = getState();
+  if (state.showBrandingBadge) {
+    const branding = document.createElement('div');
+    branding.className = 'aicb-branding';
+    branding.innerHTML = '<span class="aicb-branding__text">Powered by Outlight</span>';
+    window.appendChild(branding);
+  }
+
   async function handleSendMessage(text: string) {
     const state = getState();
     if (!state.sessionId || !state.conversationId) return;

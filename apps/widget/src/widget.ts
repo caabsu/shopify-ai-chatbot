@@ -41,16 +41,57 @@ function applyDesign(root: HTMLElement, design: WidgetDesign): void {
   root.style.setProperty('--aicb-primary-light', lightenHex(primary, 16));
   root.style.setProperty('--aicb-bg', bg);
 
+  // Border radius
+  const radiusMap = { sharp: '8px', rounded: '16px', pill: '24px' };
+  const radius = radiusMap[design.borderRadius] || '16px';
+  root.style.setProperty('--aicb-radius', radius);
+
+  // Font size
+  const fontSizeMap = { small: '12.5px', medium: '13.5px', large: '15px' };
+  const fontSize = fontSizeMap[design.fontSize] || '13.5px';
+  root.style.setProperty('--aicb-font-size', fontSize);
+
   // Position
   if (design.position === 'bottom-left') {
     root.style.left = '24px';
     root.style.right = 'auto';
   }
 
-  // Header title
-  if (design.headerTitle) {
-    setState({ headerTitle: design.headerTitle });
-  }
+  // Push design settings into state for UI components
+  setState({
+    headerTitle: design.headerTitle || 'Outlight Assistant',
+    bubbleIcon: design.bubbleIcon || 'chat',
+    inputPlaceholder: design.inputPlaceholder || 'Type a message...',
+    welcomeMessage: design.welcomeMessage || '',
+    borderRadius: design.borderRadius || 'rounded',
+    fontSize: design.fontSize || 'medium',
+    showBrandingBadge: design.showBrandingBadge !== false,
+    autoOpenDelay: design.autoOpenDelay || 0,
+  });
+}
+
+function showWelcomeTooltip(root: HTMLElement, message: string): void {
+  // Don't show if chat is already open or user has seen it
+  if (getState().isOpen) return;
+  const tooltip = document.createElement('div');
+  tooltip.className = 'aicb-welcome-tooltip';
+  tooltip.textContent = message;
+  root.appendChild(tooltip);
+
+  // Show after a brief delay
+  setTimeout(() => tooltip.classList.add('aicb-welcome-tooltip--visible'), 500);
+
+  // Auto-dismiss after 8 seconds
+  setTimeout(() => {
+    tooltip.classList.remove('aicb-welcome-tooltip--visible');
+    setTimeout(() => tooltip.remove(), 300);
+  }, 8500);
+
+  // Dismiss on click
+  tooltip.addEventListener('click', () => {
+    tooltip.classList.remove('aicb-welcome-tooltip--visible');
+    setTimeout(() => tooltip.remove(), 300);
+  });
 }
 
 function init() {
@@ -70,6 +111,21 @@ function init() {
     .then((config) => {
       if (config.design) {
         applyDesign(root, config.design);
+      }
+
+      // Auto-open after delay if configured
+      const delay = config.design?.autoOpenDelay;
+      if (delay && delay > 0 && !getState().isOpen) {
+        setTimeout(() => {
+          if (!getState().isOpen) {
+            toggleChat();
+          }
+        }, delay * 1000);
+      }
+
+      // Welcome message tooltip
+      if (config.design?.welcomeMessage) {
+        showWelcomeTooltip(root, config.design.welcomeMessage);
       }
     })
     .catch(() => {

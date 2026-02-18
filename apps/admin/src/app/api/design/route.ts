@@ -34,9 +34,33 @@ export async function PUT(request: Request) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { primaryColor, backgroundColor, headerTitle, position } = body;
+  const {
+    primaryColor,
+    backgroundColor,
+    headerTitle,
+    position,
+    bubbleIcon,
+    welcomeMessage,
+    inputPlaceholder,
+    borderRadius,
+    fontSize,
+    showBrandingBadge,
+    autoOpenDelay,
+  } = body;
 
-  const design = { primaryColor, backgroundColor, headerTitle, position };
+  const design = {
+    primaryColor,
+    backgroundColor,
+    headerTitle,
+    position,
+    bubbleIcon,
+    welcomeMessage,
+    inputPlaceholder,
+    borderRadius,
+    fontSize,
+    showBrandingBadge,
+    autoOpenDelay,
+  };
 
   const { error } = await supabase
     .from('ai_config')

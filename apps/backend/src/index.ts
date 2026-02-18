@@ -548,11 +548,18 @@ app.get('/api/widget/config', async (_req, res) => {
       // empty
     }
 
-    let design = {
+    let design: Record<string, unknown> = {
       primaryColor: '#6B4A37',
       backgroundColor: '#ffffff',
       headerTitle: 'Outlight Assistant',
       position: 'bottom-right',
+      bubbleIcon: 'chat',
+      welcomeMessage: '',
+      inputPlaceholder: 'Type a message...',
+      borderRadius: 'rounded',
+      fontSize: 'medium',
+      showBrandingBadge: true,
+      autoOpenDelay: 0,
     };
     try {
       const raw = configMap.get('widget_design');

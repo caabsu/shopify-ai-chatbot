@@ -44,6 +44,13 @@ export interface WidgetDesign {
   backgroundColor: string;
   headerTitle: string;
   position: 'bottom-right' | 'bottom-left';
+  bubbleIcon: 'chat' | 'headset' | 'sparkle' | 'help';
+  welcomeMessage: string;
+  inputPlaceholder: string;
+  borderRadius: 'sharp' | 'rounded' | 'pill';
+  fontSize: 'small' | 'medium' | 'large';
+  showBrandingBadge: boolean;
+  autoOpenDelay: number;
 }
 
 export interface WidgetConfig {

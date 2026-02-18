@@ -40,6 +40,13 @@ export interface WidgetState {
   hasUserSentMessage: boolean;
   error: string | null;
   headerTitle: string;
+  bubbleIcon: 'chat' | 'headset' | 'sparkle' | 'help';
+  inputPlaceholder: string;
+  welcomeMessage: string;
+  borderRadius: 'sharp' | 'rounded' | 'pill';
+  fontSize: 'small' | 'medium' | 'large';
+  showBrandingBadge: boolean;
+  autoOpenDelay: number;
 }
 
 const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
@@ -58,6 +65,13 @@ let state: WidgetState = {
   hasUserSentMessage: false,
   error: null,
   headerTitle: 'Outlight Assistant',
+  bubbleIcon: 'chat',
+  inputPlaceholder: 'Type a message...',
+  welcomeMessage: '',
+  borderRadius: 'rounded',
+  fontSize: 'medium',
+  showBrandingBadge: true,
+  autoOpenDelay: 0,
 };
 
 const listeners: Set<Listener> = new Set();
