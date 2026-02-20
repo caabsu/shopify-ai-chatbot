@@ -5,6 +5,10 @@ import { getState, setState, loadSession, saveSession } from './state/store.js';
 import { initBaseUrl, getConfig, createSession } from './api/client.js';
 import type { WidgetDesign } from './api/client.js';
 
+// Capture current script reference immediately — it's only available during
+// initial script execution, not inside async callbacks or event listeners.
+const currentScript = document.currentScript as HTMLScriptElement | null;
+
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
@@ -94,9 +98,121 @@ function showWelcomeTooltip(root: HTMLElement, message: string): void {
   });
 }
 
-function init() {
-  initBaseUrl();
+function isMobile(): boolean {
+  return window.innerWidth <= 480;
+}
 
+let savedScrollY = 0;
+
+let bodyLocked = false;
+
+function lockBodyScroll(): void {
+  if (!isMobile()) return;
+  savedScrollY = window.scrollY;
+  document.body.style.top = `-${savedScrollY}px`;
+  document.body.classList.add('aicb-body-locked');
+  bodyLocked = true;
+}
+
+function unlockBodyScroll(): void {
+  if (!bodyLocked) return;
+  document.body.classList.remove('aicb-body-locked');
+  document.body.style.top = '';
+  window.scrollTo(0, savedScrollY);
+  bodyLocked = false;
+}
+
+async function initSession() {
+  setState({ isLoading: true });
+
+  try {
+    const saved = loadSession();
+
+    const sessionRes = await createSession({
+      sessionId: saved?.sessionId,
+      pageUrl: window.location.href,
+    });
+
+    // Restore messages: prefer local (has rich content) > backend (text only) > greeting
+    let messages = getState().messages;
+    if (messages.length === 0) {
+      if (saved?.messages && saved.messages.length > 0) {
+        // Local storage — preserves navigation buttons, product cards, cart data
+        messages = saved.messages;
+      } else if (sessionRes.messages && sessionRes.messages.length > 0) {
+        // Backend history fallback — text only, no rich attachments
+        messages = sessionRes.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+        }));
+      } else {
+        // New session — show greeting
+        messages = [
+          {
+            role: 'assistant' as const,
+            content: sessionRes.greeting,
+            timestamp: Date.now(),
+          },
+        ];
+      }
+    }
+
+    setState({
+      sessionId: sessionRes.sessionId,
+      conversationId: sessionRes.conversationId,
+      presetActions: sessionRes.presetActions,
+      isLoading: false,
+      hasUserSentMessage: messages.some((m) => m.role === 'user'),
+      messages,
+      lastActivity: Date.now(),
+    });
+    saveSession();
+  } catch (err) {
+    console.error('[aicb] Failed to create session:', err);
+    setState({
+      isLoading: false,
+      messages: [
+        {
+          role: 'assistant' as const,
+          content: "Hi! I'm having trouble connecting. Please try again in a moment.",
+          timestamp: Date.now(),
+        },
+      ],
+    });
+  }
+}
+
+async function initEmbedded(targetSelector: string) {
+  const target = document.querySelector(targetSelector);
+  if (!target) {
+    console.error('[aicb] Embedded target not found:', targetSelector);
+    return;
+  }
+
+  const root = document.createElement('div');
+  root.id = 'aicb-root';
+  root.classList.add('aicb-embedded');
+  target.appendChild(root);
+
+  // Load config BEFORE creating the window — prevents color flash and
+  // ensures branding/header/placeholder state is correct at render time
+  try {
+    const config = await getConfig();
+    if (config.design) applyDesign(root, config.design);
+  } catch {
+    // Use CSS defaults
+  }
+
+  // Now create chat window — state has correct values for branding, title, etc.
+  const chatWindow = createChatWindow(() => {});
+  root.appendChild(chatWindow);
+  setState({ isOpen: true });
+
+  initSession();
+}
+
+function initFloating() {
   const root = document.createElement('div');
   root.id = 'aicb-root';
   document.body.appendChild(root);
@@ -106,8 +222,9 @@ function init() {
   const fab = createFloatingButton(toggleChat);
   root.appendChild(fab);
 
-  // Fetch design config eagerly (non-blocking)
-  getConfig()
+  // Fetch config eagerly — store promise so toggleChat can await it
+  // before creating the window (prevents color flash and wrong branding)
+  const configReady = getConfig()
     .then((config) => {
       if (config.design) {
         applyDesign(root, config.design);
@@ -132,66 +249,9 @@ function init() {
       // Use CSS defaults
     });
 
-  async function initSession() {
-    setState({ isLoading: true });
-
-    try {
-      const saved = loadSession();
-
-      const sessionRes = await createSession({
-        sessionId: saved?.sessionId,
-        pageUrl: window.location.href,
-      });
-
-      // Restore messages: use backend history if resuming, otherwise show greeting
-      let messages = getState().messages;
-      if (messages.length === 0) {
-        if (sessionRes.messages && sessionRes.messages.length > 0) {
-          // Resumed session — restore full conversation history from backend
-          messages = sessionRes.messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-            timestamp: m.timestamp,
-          }));
-        } else {
-          // New session — show greeting
-          messages = [
-            {
-              role: 'assistant' as const,
-              content: sessionRes.greeting,
-              timestamp: Date.now(),
-            },
-          ];
-        }
-      }
-
-      setState({
-        sessionId: sessionRes.sessionId,
-        conversationId: sessionRes.conversationId,
-        presetActions: sessionRes.presetActions,
-        isLoading: false,
-        hasUserSentMessage: messages.some((m) => m.role === 'user'),
-        messages,
-        lastActivity: Date.now(),
-      });
-      saveSession();
-    } catch (err) {
-      console.error('[aicb] Failed to create session:', err);
-      setState({
-        isLoading: false,
-        messages: [
-          {
-            role: 'assistant' as const,
-            content: "Hi! I'm having trouble connecting. Please try again in a moment.",
-            timestamp: Date.now(),
-          },
-        ],
-      });
-    }
-  }
-
   function closeChatWindow() {
     setState({ isOpen: false });
+    unlockBodyScroll();
     if (chatWindow) {
       chatWindow.remove();
       chatWindow = null;
@@ -206,8 +266,12 @@ function init() {
       return;
     }
 
-    // Open immediately — don't wait for API
     setState({ isOpen: true });
+    lockBodyScroll();
+
+    // Wait for config to be applied before creating the window — ensures
+    // colors, branding badge, header title, placeholder are all correct
+    await configReady;
 
     chatWindow = createChatWindow(closeChatWindow);
     root.appendChild(chatWindow);
@@ -216,6 +280,20 @@ function init() {
     if (!state.sessionId || !state.conversationId) {
       await initSession();
     }
+  }
+}
+
+function init() {
+  initBaseUrl();
+
+  // Detect mode from the script tag that loaded this file
+  const mode = currentScript?.getAttribute('data-mode');
+  const targetSelector = currentScript?.getAttribute('data-target');
+
+  if (mode === 'embedded' && targetSelector) {
+    initEmbedded(targetSelector);
+  } else {
+    initFloating();
   }
 }
 

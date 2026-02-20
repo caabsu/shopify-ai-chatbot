@@ -38,7 +38,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: 'answer_store_policy',
     description:
-      'Answer questions about store policies including shipping, returns, refunds, hours, contact info, and FAQs. Use for any policy-related question.',
+      'Answer questions about store policies including shipping, returns, refunds, hours, contact info, and FAQs. Use for any policy-related question. Do NOT use this tool for questions about promotions, discounts, or promo codes — promotion information is provided in the system context under Active Promotions.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -215,20 +215,34 @@ export const toolDefinitions: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'cancel_order',
+    description:
+      'Cancel an unfulfilled order. ONLY use after: (1) identity is verified via lookup_order, (2) order fulfillment status is UNFULFILLED, (3) customer has explicitly confirmed they want to cancel. If order is partially or fully fulfilled, do NOT call this tool — direct the customer to email support@outlight.us instead.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        order_id: {
+          type: 'string',
+          description: 'The Shopify order GID from a previous lookup_order result (e.g., "gid://shopify/Order/123456789")',
+        },
+        order_name: {
+          type: 'string',
+          description: 'The order display number (e.g., "#1042")',
+        },
+      },
+      required: ['order_id', 'order_name'],
+    },
+  },
+  {
     name: 'escalate_to_human',
     description:
-      'Transfer the conversation to a human agent. Use when: the customer explicitly asks for a human, the issue requires human judgment (refund disputes, complex complaints), you cannot resolve the issue, or the customer is very frustrated.',
+      'Mark the conversation as needing human attention and direct the customer to email support. There is NO live chat and NO priority levels. This tool flags the conversation internally and the customer should be directed to email support@outlight.us for a response within 1-2 business days.',
     input_schema: {
       type: 'object' as const,
       properties: {
         reason: {
           type: 'string',
           description: 'Why the conversation is being escalated',
-        },
-        priority: {
-          type: 'string',
-          enum: ['low', 'medium', 'high', 'urgent'],
-          description: 'Escalation priority level',
         },
       },
       required: ['reason'],

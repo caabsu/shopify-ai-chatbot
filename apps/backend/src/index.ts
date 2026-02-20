@@ -41,16 +41,34 @@ app.use(express.json({ limit: '1mb' }));
 const widgetDir = path.resolve(process.cwd(), 'apps/widget/dist');
 app.use('/widget', express.static(widgetDir));
 
-// Widget playground — mock Shopify store with functioning floating chat bubble
-app.get('/widget/playground', (_req, res) => {
-  res.setHeader('Content-Type', 'text/html');
-  res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Outlight Store — Preview</title>
-  <style>
+// Shared playground styles (tab bar + common layout)
+const playgroundTabStyles = `
+    /* ── Playground Tab Bar ── */
+    .pg-tabs {
+      display: flex;
+      gap: 0;
+      background: #fff;
+      border-bottom: 1px solid #e5e5e5;
+      padding: 0 32px;
+    }
+    .pg-tab {
+      display: inline-block;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #888;
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .pg-tab:hover { color: #1a1a1a; }
+    .pg-tab--active {
+      color: #1a1a1a;
+      border-bottom-color: #1a1a1a;
+    }
+`;
+
+const playgroundBaseStyles = `
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
@@ -113,6 +131,155 @@ app.get('/widget/playground', (_req, res) => {
       color: #555;
       cursor: pointer;
     }
+
+    /* ── Footer ── */
+    .pg-footer {
+      padding: 48px 32px 32px;
+      background: #fafafa;
+      border-top: 1px solid #eee;
+      max-width: 100%;
+    }
+    .pg-footer__inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 32px;
+    }
+    .pg-footer__col-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #1a1a1a;
+      margin-bottom: 12px;
+    }
+    .pg-footer__col a {
+      display: block;
+      font-size: 13px;
+      color: #888;
+      text-decoration: none;
+      margin-bottom: 6px;
+    }
+    .pg-footer__col a:hover { color: #1a1a1a; }
+    .pg-footer__bottom {
+      max-width: 1200px;
+      margin: 32px auto 0;
+      padding-top: 24px;
+      border-top: 1px solid #eee;
+      font-size: 12px;
+      color: #aaa;
+      text-align: center;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .pg-nav { padding: 12px 16px; }
+      .pg-nav__links { display: none; }
+      .pg-tabs { padding: 0 16px; }
+    }
+`;
+
+const playgroundNavHtml = `
+  <!-- Announcement Bar -->
+  <div class="pg-announce">FREE SHIPPING ON ORDERS OVER $75 &mdash; SHOP NOW</div>
+
+  <!-- Navigation -->
+  <nav class="pg-nav">
+    <a href="#" class="pg-nav__logo">OUTLIGHT</a>
+    <ul class="pg-nav__links">
+      <li><a href="#">New Arrivals</a></li>
+      <li><a href="#">Collections</a></li>
+      <li><a href="#">Best Sellers</a></li>
+      <li><a href="#">Sale</a></li>
+      <li><a href="#">About</a></li>
+    </ul>
+    <div class="pg-nav__icons">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+    </div>
+  </nav>
+`;
+
+const playgroundFooterHtml = `
+  <!-- Footer -->
+  <footer class="pg-footer">
+    <div class="pg-footer__inner">
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Shop</div>
+        <a href="#">New Arrivals</a>
+        <a href="#">Best Sellers</a>
+        <a href="#">Collections</a>
+        <a href="#">Sale</a>
+      </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Help</div>
+        <a href="#">Contact Us</a>
+        <a href="#">Shipping Info</a>
+        <a href="#">Returns &amp; Exchanges</a>
+        <a href="#">FAQ</a>
+      </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">About</div>
+        <a href="#">Our Story</a>
+        <a href="#">Sustainability</a>
+        <a href="#">Careers</a>
+        <a href="#">Press</a>
+      </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Connect</div>
+        <a href="#">Instagram</a>
+        <a href="#">Twitter</a>
+        <a href="#">Pinterest</a>
+        <a href="#">Newsletter</a>
+      </div>
+    </div>
+    <div class="pg-footer__bottom">&copy; 2026 Outlight. All rights reserved. &mdash; This is a preview storefront.</div>
+  </footer>
+`;
+
+const playgroundDebugScript = `
+  <script>
+    // Clear session if this is a forced new conversation (from playground "New Conversation" button)
+    if (new URLSearchParams(window.location.search).has('newconv')) {
+      localStorage.removeItem('aicb_session');
+    }
+  </script>
+  <script>
+    // Intercept fetch to relay debug data to parent via postMessage
+    (function() {
+      var nativeFetch = window.fetch.bind(window);
+      window.fetch = function(input, init) {
+        return nativeFetch(input, init).then(function(response) {
+          try {
+            var url = typeof input === 'string' ? input : (input && input.url) || '';
+            if (url.indexOf('/api/chat/') !== -1) {
+              response.clone().json().then(function(data) {
+                var type = url.indexOf('session') !== -1 ? 'widget:session' : 'widget:message';
+                window.parent.postMessage({ type: type, data: data }, '*');
+              }).catch(function() {});
+            }
+          } catch(e) {}
+          return response;
+        });
+      };
+    })();
+  </script>
+`;
+
+// Widget playground — mock Shopify store with functioning floating chat bubble
+app.get('/widget/playground', (_req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Outlight Store — Preview</title>
+  <style>
+    ${playgroundBaseStyles}
+    ${playgroundTabStyles}
 
     /* ── Hero ── */
     .pg-hero {
@@ -257,50 +424,8 @@ app.get('/widget/playground', (_req, res) => {
       color: #888;
     }
 
-    /* ── Footer ── */
-    .pg-footer {
-      padding: 48px 32px 32px;
-      background: #fafafa;
-      border-top: 1px solid #eee;
-      max-width: 100%;
-    }
-    .pg-footer__inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 32px;
-    }
-    .pg-footer__col-title {
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #1a1a1a;
-      margin-bottom: 12px;
-    }
-    .pg-footer__col a {
-      display: block;
-      font-size: 13px;
-      color: #888;
-      text-decoration: none;
-      margin-bottom: 6px;
-    }
-    .pg-footer__col a:hover { color: #1a1a1a; }
-    .pg-footer__bottom {
-      max-width: 1200px;
-      margin: 32px auto 0;
-      padding-top: 24px;
-      border-top: 1px solid #eee;
-      font-size: 12px;
-      color: #aaa;
-      text-align: center;
-    }
-
-    /* ── Responsive ── */
+    /* ── Responsive (storefront-specific) ── */
     @media (max-width: 640px) {
-      .pg-nav { padding: 12px 16px; }
-      .pg-nav__links { display: none; }
       .pg-hero { height: 360px; }
       .pg-hero__title { font-size: 32px; }
       .pg-section { padding: 40px 16px; }
@@ -311,25 +436,13 @@ app.get('/widget/playground', (_req, res) => {
 </head>
 <body>
 
-  <!-- Announcement Bar -->
-  <div class="pg-announce">FREE SHIPPING ON ORDERS OVER $75 &mdash; SHOP NOW</div>
+  ${playgroundNavHtml}
 
-  <!-- Navigation -->
-  <nav class="pg-nav">
-    <a href="#" class="pg-nav__logo">OUTLIGHT</a>
-    <ul class="pg-nav__links">
-      <li><a href="#">New Arrivals</a></li>
-      <li><a href="#">Collections</a></li>
-      <li><a href="#">Best Sellers</a></li>
-      <li><a href="#">Sale</a></li>
-      <li><a href="#">About</a></li>
-    </ul>
-    <div class="pg-nav__icons">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-    </div>
-  </nav>
+  <!-- Tab Bar -->
+  <div class="pg-tabs">
+    <a href="/widget/playground" class="pg-tab pg-tab--active">Storefront</a>
+    <a href="/widget/playground-embedded" class="pg-tab">Embedded</a>
+  </div>
 
   <!-- Hero -->
   <section class="pg-hero">
@@ -457,69 +570,81 @@ app.get('/widget/playground', (_req, res) => {
     </div>
   </section>
 
-  <!-- Footer -->
-  <footer class="pg-footer">
-    <div class="pg-footer__inner">
-      <div class="pg-footer__col">
-        <div class="pg-footer__col-title">Shop</div>
-        <a href="#">New Arrivals</a>
-        <a href="#">Best Sellers</a>
-        <a href="#">Collections</a>
-        <a href="#">Sale</a>
-      </div>
-      <div class="pg-footer__col">
-        <div class="pg-footer__col-title">Help</div>
-        <a href="#">Contact Us</a>
-        <a href="#">Shipping Info</a>
-        <a href="#">Returns &amp; Exchanges</a>
-        <a href="#">FAQ</a>
-      </div>
-      <div class="pg-footer__col">
-        <div class="pg-footer__col-title">About</div>
-        <a href="#">Our Story</a>
-        <a href="#">Sustainability</a>
-        <a href="#">Careers</a>
-        <a href="#">Press</a>
-      </div>
-      <div class="pg-footer__col">
-        <div class="pg-footer__col-title">Connect</div>
-        <a href="#">Instagram</a>
-        <a href="#">Twitter</a>
-        <a href="#">Pinterest</a>
-        <a href="#">Newsletter</a>
-      </div>
-    </div>
-    <div class="pg-footer__bottom">&copy; 2026 Outlight. All rights reserved. &mdash; This is a preview storefront.</div>
-  </footer>
+  ${playgroundFooterHtml}
 
   <!-- Chat widget (loaded exactly like it would be on a real store) -->
-  <script>
-    // Clear session if this is a forced new conversation (from playground "New Conversation" button)
-    if (new URLSearchParams(window.location.search).has('newconv')) {
-      localStorage.removeItem('aicb_session');
-    }
-  </script>
-  <script>
-    // Intercept fetch to relay debug data to parent via postMessage
-    (function() {
-      var nativeFetch = window.fetch.bind(window);
-      window.fetch = function(input, init) {
-        return nativeFetch(input, init).then(function(response) {
-          try {
-            var url = typeof input === 'string' ? input : (input && input.url) || '';
-            if (url.indexOf('/api/chat/') !== -1) {
-              response.clone().json().then(function(data) {
-                var type = url.indexOf('session') !== -1 ? 'widget:session' : 'widget:message';
-                window.parent.postMessage({ type: type, data: data }, '*');
-              }).catch(function() {});
-            }
-          } catch(e) {}
-          return response;
-        });
-      };
-    })();
-  </script>
+  ${playgroundDebugScript}
   <script src="/widget/widget.js"></script>
+</body>
+</html>`);
+});
+
+// Widget playground — embedded mode (Contact Us mock page)
+app.get('/widget/playground-embedded', (_req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us — Outlight Store</title>
+  <style>
+    ${playgroundBaseStyles}
+    ${playgroundTabStyles}
+
+    /* ── Contact Page ── */
+    .pg-contact {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 48px 24px 64px;
+    }
+    .pg-contact__title {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #1a1a1a;
+      margin-bottom: 12px;
+    }
+    .pg-contact__desc {
+      font-size: 15px;
+      color: #666;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+    .pg-contact__chat {
+      height: 600px;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    @media (max-width: 640px) {
+      .pg-contact { padding: 32px 16px 48px; }
+      .pg-contact__title { font-size: 24px; }
+      .pg-contact__chat { height: 480px; }
+    }
+  </style>
+</head>
+<body>
+
+  ${playgroundNavHtml}
+
+  <!-- Tab Bar -->
+  <div class="pg-tabs">
+    <a href="/widget/playground" class="pg-tab">Storefront</a>
+    <a href="/widget/playground-embedded" class="pg-tab pg-tab--active">Embedded</a>
+  </div>
+
+  <!-- Contact Us Content -->
+  <div class="pg-contact">
+    <h1 class="pg-contact__title">Contact Us</h1>
+    <p class="pg-contact__desc">Have a question about your order, our products, or need help with a return? Our AI assistant is here to help you instantly. Just type your question below.</p>
+    <div id="chat-embed" class="pg-contact__chat"></div>
+  </div>
+
+  ${playgroundFooterHtml}
+
+  ${playgroundDebugScript}
+  <script src="/widget/widget.js" data-mode="embedded" data-target="#chat-embed"></script>
 </body>
 </html>`);
 });

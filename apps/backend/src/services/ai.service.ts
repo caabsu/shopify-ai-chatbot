@@ -11,11 +11,11 @@ import type { AiResponse, NavigationButton, ProductCard, CartData } from '../typ
 const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
 
 // Config cache
-let configCache: { systemPrompt: string; brandVoice: string } | null = null;
+let configCache: { systemPrompt: string; brandVoice: string; promotions: string } | null = null;
 let configCacheExpiry = 0;
 const CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-async function loadAiConfig(): Promise<{ systemPrompt: string; brandVoice: string }> {
+async function loadAiConfig(): Promise<{ systemPrompt: string; brandVoice: string; promotions: string }> {
   if (configCache && Date.now() < configCacheExpiry) {
     return configCache;
   }
@@ -23,7 +23,7 @@ async function loadAiConfig(): Promise<{ systemPrompt: string; brandVoice: strin
   const { data: rows, error } = await supabase
     .from('ai_config')
     .select('key, value')
-    .in('key', ['system_prompt', 'brand_voice']);
+    .in('key', ['system_prompt', 'brand_voice', 'promotions']);
 
   if (error) {
     console.error('[ai.service] Failed to load ai_config:', error.message);
@@ -35,6 +35,7 @@ async function loadAiConfig(): Promise<{ systemPrompt: string; brandVoice: strin
   configCache = {
     systemPrompt: configMap.get('system_prompt') ?? 'You are a helpful customer support assistant.',
     brandVoice: configMap.get('brand_voice') ?? '',
+    promotions: configMap.get('promotions') ?? '',
   };
   configCacheExpiry = Date.now() + CONFIG_CACHE_TTL;
 
@@ -70,6 +71,9 @@ export async function processMessage(
   }
   if (kbContext) {
     systemPrompt += kbContext;
+  }
+  if (aiConfig.promotions) {
+    systemPrompt += `\n\n## Active Promotions\n${aiConfig.promotions}`;
   }
   if (context?.customerEmail) {
     systemPrompt += `\n\n## Session Context\nCustomer email: ${context.customerEmail}`;
@@ -197,6 +201,22 @@ export async function processMessage(
               cartData = data as unknown as CartData;
             } catch {
               // Cart data shape may vary
+            }
+          }
+
+          // Extract customer identity from verified order lookups
+          if (toolUse.name === 'lookup_order' && data.found && data.customerEmail) {
+            try {
+              const conv = await conversationService.getConversation(conversationId);
+              if (conv && !conv.customer_email) {
+                await conversationService.updateConversation(conversationId, {
+                  customer_email: data.customerEmail as string,
+                  customer_phone: (data.customerPhone as string) || undefined,
+                });
+                toolContext.customerEmail = data.customerEmail as string;
+              }
+            } catch (err) {
+              console.error('[ai.service] Failed to update customer identity:', err instanceof Error ? err.message : err);
             }
           }
         }

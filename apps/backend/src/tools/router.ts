@@ -116,6 +116,14 @@ export async function executeTool(
         };
       }
 
+      case 'cancel_order': {
+        const result = await shopifyAdmin.cancelOrder(
+          toolInput.order_id as string,
+          toolInput.order_name as string
+        );
+        return { success: result.success, data: result };
+      }
+
       case 'escalate_to_human': {
         await conversationService.updateConversation(context.conversationId, {
           status: 'escalated',
@@ -125,8 +133,7 @@ export async function executeTool(
           data: {
             type: 'escalation',
             reason: toolInput.reason as string,
-            priority: (toolInput.priority as string) || 'medium',
-            message: 'Conversation flagged. Direct the customer to email support@outlight.us or visit https://outlight.us/pages/contact.',
+            message: 'Conversation marked as escalated. Direct the customer to email support@outlight.us or visit https://outlight.us/pages/contact. Email response time is 1-2 business days. Do NOT say the conversation has been flagged as high priority or that the team will follow up from this chat.',
           },
         };
       }

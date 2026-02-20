@@ -136,11 +136,13 @@ export function createChatWindow(onClose: () => void): HTMLElement {
     }
   }
 
-  // Focus input when window opens
-  requestAnimationFrame(() => {
-    const inputEl = inputBar as HTMLElement & { focusInput?: () => void };
-    inputEl.focusInput?.();
-  });
+  // Focus input when window opens (desktop only — avoid keyboard pop on mobile)
+  if (window.innerWidth > 480) {
+    requestAnimationFrame(() => {
+      const inputEl = inputBar as HTMLElement & { focusInput?: () => void };
+      inputEl.focusInput?.();
+    });
+  }
 
   return window;
 }

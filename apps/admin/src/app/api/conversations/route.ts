@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     .from('conversations')
     .select('*', { count: 'exact' })
     .eq('brand_id', session.brandId)
+    .gte('message_count', 2)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 

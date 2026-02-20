@@ -44,6 +44,8 @@ function normalizePhone(phone: string): string {
 export interface OrderLookupResult {
   found: boolean;
   message?: string;
+  customerEmail?: string;
+  customerPhone?: string;
   order?: {
     id: string;
     name: string;
@@ -192,6 +194,8 @@ export async function lookupOrder(
 
   return {
     found: true,
+    customerEmail: order.email ?? undefined,
+    customerPhone: order.phone ?? undefined,
     order: {
       id: order.id,
       name: order.name,
@@ -343,6 +347,50 @@ function extractPlainText(richTextJson: string): string {
   } catch {
     return richTextJson;
   }
+}
+
+export interface CancelOrderResult {
+  success: boolean;
+  message: string;
+}
+
+export async function cancelOrder(orderId: string, orderName: string): Promise<CancelOrderResult> {
+  const mutation = `
+    mutation OrderCancel($orderId: ID!, $reason: OrderCancelReason!, $refund: Boolean!, $restock: Boolean!) {
+      orderCancel(orderId: $orderId, reason: $reason, refund: $refund, restock: $restock) {
+        orderCancelUserErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const data = await graphql<{
+    orderCancel: {
+      orderCancelUserErrors: Array<{ field: string[]; message: string }>;
+    };
+  }>(mutation, {
+    orderId,
+    reason: 'CUSTOMER',
+    refund: true,
+    restock: true,
+  });
+
+  const errors = data.orderCancel.orderCancelUserErrors;
+  if (errors.length > 0) {
+    const messages = errors.map((e) => e.message).join('; ');
+    console.error(`[shopify-admin] cancelOrder errors for ${orderName}:`, messages);
+    return {
+      success: false,
+      message: `Could not cancel order ${orderName}: ${messages}`,
+    };
+  }
+
+  return {
+    success: true,
+    message: `Order ${orderName} has been cancelled. A refund will be issued to the original payment method within 5-10 business days.`,
+  };
 }
 
 export interface ReturnEligibilityResult {

@@ -12,6 +12,9 @@ const PRESET_ICONS: Record<string, string> = {
 
 const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
 
+const CAROUSEL_LEFT_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+const CAROUSEL_RIGHT_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+
 /** Lightweight markdown-to-HTML for chat bubbles. Escapes HTML first for safety. */
 function renderMarkdown(text: string): string {
   // 1. Escape HTML entities
@@ -130,8 +133,21 @@ function renderMessage(msg: WidgetMessage): HTMLElement {
     content.appendChild(navContainer);
   }
 
-  // Product cards
+  // Product cards (carousel)
   if (msg.productCards && msg.productCards.length > 0) {
+    const carousel = document.createElement('div');
+    carousel.className = 'aicb-carousel';
+
+    const leftArrow = document.createElement('button');
+    leftArrow.className = 'aicb-carousel__arrow aicb-carousel__arrow--left aicb-carousel__arrow--hidden';
+    leftArrow.setAttribute('aria-label', 'Scroll left');
+    leftArrow.innerHTML = CAROUSEL_LEFT_SVG;
+
+    const rightArrow = document.createElement('button');
+    rightArrow.className = 'aicb-carousel__arrow aicb-carousel__arrow--right';
+    rightArrow.setAttribute('aria-label', 'Scroll right');
+    rightArrow.innerHTML = CAROUSEL_RIGHT_SVG;
+
     const cardsContainer = document.createElement('div');
     cardsContainer.className = 'aicb-product-cards';
     for (const product of msg.productCards) {
@@ -147,7 +163,33 @@ function renderMessage(msg: WidgetMessage): HTMLElement {
       `;
       cardsContainer.appendChild(card);
     }
-    content.appendChild(cardsContainer);
+
+    const updateArrows = () => {
+      const sl = cardsContainer.scrollLeft;
+      const maxScroll = cardsContainer.scrollWidth - cardsContainer.clientWidth;
+      leftArrow.classList.toggle('aicb-carousel__arrow--hidden', sl <= 4);
+      rightArrow.classList.toggle('aicb-carousel__arrow--hidden', maxScroll <= 4 || sl >= maxScroll - 4);
+    };
+
+    cardsContainer.addEventListener('scroll', updateArrows, { passive: true });
+
+    leftArrow.addEventListener('click', () => {
+      const scrollAmount = cardsContainer.clientWidth - 40;
+      cardsContainer.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    });
+
+    rightArrow.addEventListener('click', () => {
+      const scrollAmount = cardsContainer.clientWidth - 40;
+      cardsContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    });
+
+    carousel.appendChild(leftArrow);
+    carousel.appendChild(cardsContainer);
+    carousel.appendChild(rightArrow);
+    content.appendChild(carousel);
+
+    // Check arrows after DOM paint (scrollWidth needs layout)
+    requestAnimationFrame(updateArrows);
   }
 
   // Cart data

@@ -98,12 +98,13 @@ export function saveSession(): void {
         sessionId: state.sessionId,
         conversationId: state.conversationId,
         lastActivity: Date.now(),
+        messages: state.messages,
       })
     );
   }
 }
 
-export function loadSession(): { sessionId: string; conversationId: string } | null {
+export function loadSession(): { sessionId: string; conversationId: string; messages?: WidgetMessage[] } | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -112,7 +113,11 @@ export function loadSession(): { sessionId: string; conversationId: string } | n
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
-    return { sessionId: data.sessionId, conversationId: data.conversationId };
+    return {
+      sessionId: data.sessionId,
+      conversationId: data.conversationId,
+      messages: data.messages,
+    };
   } catch {
     return null;
   }
