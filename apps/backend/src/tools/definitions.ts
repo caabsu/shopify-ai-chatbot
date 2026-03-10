@@ -217,7 +217,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: 'cancel_order',
     description:
-      'Cancel an unfulfilled order. ONLY use after: (1) identity is verified via lookup_order, (2) order fulfillment status is UNFULFILLED, (3) customer has explicitly confirmed they want to cancel. If order is partially or fully fulfilled, do NOT call this tool — direct the customer to email support@outlight.us instead.',
+      'Cancel an unfulfilled order. ONLY use after: (1) identity is verified via lookup_order, (2) order fulfillment status is UNFULFILLED, (3) customer has explicitly confirmed they want to cancel. If order is partially or fully fulfilled, do NOT call this tool — direct the customer to contact support via email instead.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -236,16 +236,38 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: 'escalate_to_human',
     description:
-      'Mark the conversation as needing human attention and direct the customer to email support. There is NO live chat and NO priority levels. This tool flags the conversation internally and the customer should be directed to email support@outlight.us for a response within 1-2 business days.',
+      'Create a support ticket so a human agent can follow up. Use when: the customer wants to talk to a person, or the issue requires human judgment, or you cannot resolve it. You MUST collect the customer\'s email before calling this tool — ask for it if not already provided. Also collect a clear description of their issue. The tool creates a ticket and the customer will receive a confirmation email. Provide a structured summary of the issue as the summary field.',
     input_schema: {
       type: 'object' as const,
       properties: {
         reason: {
           type: 'string',
-          description: 'Why the conversation is being escalated',
+          description: 'Short reason for escalation (e.g., "Customer requesting refund for damaged item")',
+        },
+        customer_email: {
+          type: 'string',
+          description: 'Customer email address — REQUIRED. Ask the customer for their email before calling this tool.',
+        },
+        customer_name: {
+          type: 'string',
+          description: 'Customer name if provided during conversation',
+        },
+        summary: {
+          type: 'string',
+          description: 'Structured summary of the issue for the support agent, including all relevant context from the conversation (order numbers, product names, what the customer wants, what was already tried, etc.)',
+        },
+        recommended_actions: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Suggested next steps for the human agent (e.g., ["Check order #1042 fulfillment status", "Issue partial refund"])',
+        },
+        priority: {
+          type: 'string',
+          enum: ['low', 'medium', 'high', 'urgent'],
+          description: 'Ticket priority based on issue severity. Default: medium',
         },
       },
-      required: ['reason'],
+      required: ['reason', 'customer_email'],
     },
   },
 ];

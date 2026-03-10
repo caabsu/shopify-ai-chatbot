@@ -141,17 +141,25 @@ export async function executeTool(
         });
 
         const escalationReason = toolInput.reason as string;
+        const customerEmail = (toolInput.customer_email as string) || context.customerEmail;
+        const customerName = toolInput.customer_name as string | undefined;
         const escalationSummary = (toolInput.summary as string) ?? escalationReason;
         const recommendedActions = (toolInput.recommended_actions as string[]) ?? [];
         let ticketNumber: number | null = null;
 
-        // Attempt to create a support ticket if we have customer email
-        if (context.customerEmail) {
+        if (customerEmail) {
+          // Update conversation with the email
+          await conversationService.updateConversation(context.conversationId, {
+            customer_email: customerEmail,
+            ...(customerName ? { customer_name: customerName } : {}),
+          });
+
           try {
             const ticket = await ticketService.createTicketFromEscalation(
               context.conversationId,
               {
-                customer_email: context.customerEmail,
+                customer_email: customerEmail,
+                customer_name: customerName,
                 reason: escalationReason,
                 priority: (toolInput.priority as 'low' | 'medium' | 'high' | 'urgent') ?? 'medium',
                 summary: escalationSummary,
@@ -164,8 +172,6 @@ export async function executeTool(
           } catch (err) {
             console.error('[tool-router] Failed to create escalation ticket:', err instanceof Error ? err.message : err);
           }
-        } else {
-          console.log(`[tool-router] No customerEmail in context — escalation ticket not created for conversation ${context.conversationId}`);
         }
 
         return {
@@ -177,8 +183,8 @@ export async function executeTool(
             recommended_actions: recommendedActions,
             ticket_number: ticketNumber,
             message: ticketNumber
-              ? `Conversation marked as escalated. Support ticket #${ticketNumber} has been created. Direct the customer to email support@outlight.us or visit https://outlight.us/pages/contact. Email response time is 1-2 business days. Do NOT say the conversation has been flagged as high priority or that the team will follow up from this chat.`
-              : 'Conversation marked as escalated. A support ticket could not be created because no customer email is on file — ask the customer for their email so the team can follow up. Direct the customer to email support@outlight.us or visit https://outlight.us/pages/contact. Email response time is 1-2 business days.',
+              ? `Support ticket #${ticketNumber} created successfully. The customer will receive a confirmation email at ${customerEmail}. Tell the customer: "I've created a support ticket for you — you'll receive a confirmation email shortly. Our team will follow up with you via email."`
+              : 'Could not create ticket — no customer email provided. Ask the customer for their email address so you can create the ticket.',
           },
         };
       }
