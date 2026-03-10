@@ -51,6 +51,8 @@ export interface WidgetDesign {
   fontSize: 'small' | 'medium' | 'large';
   showBrandingBadge: boolean;
   autoOpenDelay: number;
+  fontFamily?: string;
+  headingFontFamily?: string;
 }
 
 export interface WidgetConfig {

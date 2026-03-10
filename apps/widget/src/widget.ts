@@ -34,6 +34,27 @@ function lightenHex(hex: string, amount: number): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
+function loadGoogleFonts(design: WidgetDesign): void {
+  const families: string[] = [];
+  if (design.headingFontFamily) {
+    const name = design.headingFontFamily.split(',')[0].replace(/['"]/g, '').trim();
+    if (name && !name.startsWith('-apple')) families.push(name.replace(/ /g, '+') + ':wght@400;600;700');
+  }
+  if (design.fontFamily) {
+    const name = design.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
+    if (name && !name.startsWith('-apple') && !families.some(f => f.startsWith(name.replace(/ /g, '+')))) {
+      families.push(name.replace(/ /g, '+') + ':wght@400;500;600');
+    }
+  }
+  if (families.length > 0 && !document.getElementById('aicb-gfonts')) {
+    const link = document.createElement('link');
+    link.id = 'aicb-gfonts';
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?${families.map(f => 'family=' + f).join('&')}&display=swap`;
+    document.head.appendChild(link);
+  }
+}
+
 function applyDesign(root: HTMLElement, design: WidgetDesign): void {
   const primary = design.primaryColor || '#6B4A37';
   const bg = design.backgroundColor || '#ffffff';
@@ -54,6 +75,15 @@ function applyDesign(root: HTMLElement, design: WidgetDesign): void {
   const fontSizeMap = { small: '12.5px', medium: '13.5px', large: '15px' };
   const fontSize = fontSizeMap[design.fontSize] || '13.5px';
   root.style.setProperty('--aicb-font-size', fontSize);
+
+  // Custom fonts
+  if (design.fontFamily) {
+    root.style.setProperty('--aicb-font-family', design.fontFamily);
+  }
+  if (design.headingFontFamily) {
+    root.style.setProperty('--aicb-heading-font', design.headingFontFamily);
+  }
+  loadGoogleFonts(design);
 
   // Position
   if (design.position === 'bottom-left') {
