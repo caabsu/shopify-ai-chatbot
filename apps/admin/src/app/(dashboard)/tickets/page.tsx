@@ -94,6 +94,7 @@ export default function TicketInboxPage() {
   const [statusFilter, setStatusFilter] = useState('open');
   const [sourceFilter, setSourceFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [orderBy, setOrderBy] = useState('sla_urgency');
 
@@ -141,6 +142,7 @@ export default function TicketInboxPage() {
     if (statusFilter) params.set('status', statusFilter);
     if (sourceFilter) params.set('source', sourceFilter);
     if (priorityFilter) params.set('priority', priorityFilter);
+    if (unassignedOnly) params.set('unassigned', '1');
     if (search) params.set('search', search);
 
     try {
@@ -153,7 +155,7 @@ export default function TicketInboxPage() {
       setTickets([]);
     }
     setLoading(false);
-  }, [page, statusFilter, sourceFilter, priorityFilter, search, orderBy]);
+  }, [page, statusFilter, sourceFilter, priorityFilter, unassignedOnly, search, orderBy]);
 
   useEffect(() => { loadCounts(); }, [loadCounts]);
   useEffect(() => { loadTickets(); }, [loadTickets]);
@@ -183,9 +185,10 @@ export default function TicketInboxPage() {
   function handleViewFilter(key: string) {
     if (key === 'unassigned') {
       setStatusFilter('open');
-      // We signal unassigned through a special param
+      setUnassignedOnly(true);
     } else {
       setStatusFilter(key);
+      setUnassignedOnly(false);
     }
     setPage(1);
   }
@@ -250,7 +253,9 @@ export default function TicketInboxPage() {
             </p>
             <div className="space-y-0.5">
               {viewFilters.map((f) => {
-                const active = (f.key === '' && !statusFilter) || statusFilter === f.key;
+                const active = f.key === 'unassigned'
+                  ? unassignedOnly
+                  : !unassignedOnly && ((f.key === '' && !statusFilter) || statusFilter === f.key);
                 return (
                   <button
                     key={f.key}

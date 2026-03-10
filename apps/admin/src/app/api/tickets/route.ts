@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
   const source = searchParams.get('source');
   const search = searchParams.get('search');
   const assignedTo = searchParams.get('assigned_to');
+  const unassigned = searchParams.get('unassigned');
   const page = parseInt(searchParams.get('page') || '1');
   const perPage = parseInt(searchParams.get('per_page') || '20');
   const orderBy = searchParams.get('order_by') || 'sla_urgency';
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest) {
   if (priority) query = query.eq('priority', priority);
   if (source) query = query.eq('source', source);
   if (assignedTo) query = query.eq('assigned_to', assignedTo);
+  if (unassigned === '1') query = query.is('assigned_to', null);
   if (search) {
     query = query.or(`subject.ilike.%${search}%,customer_email.ilike.%${search}%`);
   }
