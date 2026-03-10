@@ -8,6 +8,9 @@ export interface JWTPayload {
   brandId: string;
   brandName: string;
   brandSlug: string;
+  userId?: string;
+  name?: string;
+  email?: string;
 }
 
 export async function signToken(payload: JWTPayload): Promise<string> {

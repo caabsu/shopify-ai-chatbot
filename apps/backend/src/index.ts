@@ -5,8 +5,11 @@ import cors from 'cors';
 import { config } from './config/env.js';
 import { healthRouter } from './controllers/health.controller.js';
 import { chatRouter } from './controllers/chat.controller.js';
+import { ticketRouter } from './controllers/ticket.controller.js';
+import { agentRouter } from './controllers/agent.controller.js';
 import { supabase } from './config/supabase.js';
 import { getToken } from './services/shopify-auth.service.js';
+import * as ticketService from './services/ticket.service.js';
 
 const app = express();
 
@@ -659,6 +662,73 @@ if (config.server.nodeEnv === 'development') {
 // Routes
 app.use('/health', healthRouter);
 app.use('/api/chat', chatRouter);
+
+// ── POST /api/tickets/form — Public Contact Form Submission (no auth) ───────
+app.post('/api/tickets/form', async (req, res) => {
+  try {
+    const { name, email, category, subject, message } = req.body;
+
+    if (!name || !email || !category || !subject || !message) {
+      res.status(400).json({ error: 'name, email, category, subject, and message are required' });
+      return;
+    }
+
+    const ticket = await ticketService.createTicket({
+      source: 'form',
+      subject,
+      customer_email: email,
+      customer_name: name,
+      category,
+      priority: 'medium',
+    });
+
+    await ticketService.addTicketMessage(ticket.id, {
+      sender_type: 'customer',
+      sender_name: name,
+      sender_email: email,
+      content: message,
+    });
+
+    console.log(`[server] Contact form ticket #${ticket.ticket_number} created from ${email}`);
+    res.status(201).json({ success: true, ticketNumber: ticket.ticket_number });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[server] POST /api/tickets/form error:', message);
+    res.status(500).json({ error: 'Failed to submit contact form' });
+  }
+});
+
+// ── POST /api/tickets/escalate — Internal AI Escalation Endpoint (no auth) ──
+app.post('/api/tickets/escalate', async (req, res) => {
+  try {
+    const { conversationId, customerEmail, customerName, reason, priority, summary, recommendedActions } = req.body;
+
+    if (!conversationId || !customerEmail || !reason) {
+      res.status(400).json({ error: 'conversationId, customerEmail, and reason are required' });
+      return;
+    }
+
+    const ticket = await ticketService.createTicketFromEscalation(conversationId, {
+      customer_email: customerEmail,
+      customer_name: customerName,
+      reason,
+      priority: priority ?? 'medium',
+      summary,
+      recommendedActions,
+    });
+
+    console.log(`[server] Escalation ticket #${ticket.ticket_number} created for conversation ${conversationId}`);
+    res.status(201).json({ success: true, ticketNumber: ticket.ticket_number, ticketId: ticket.id });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[server] POST /api/tickets/escalate error:', message);
+    res.status(500).json({ error: 'Failed to create escalation ticket' });
+  }
+});
+
+// Ticket and agent routes (require auth)
+app.use('/api/tickets', ticketRouter);
+app.use('/api/agents', agentRouter);
 
 // Widget config endpoint
 app.get('/api/widget/config', async (_req, res) => {

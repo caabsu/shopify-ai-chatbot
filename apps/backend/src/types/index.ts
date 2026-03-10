@@ -108,3 +108,97 @@ export interface AiResponse {
     latencyMs: number;
   };
 }
+
+// Ticket System Types
+export interface Ticket {
+  id: string;
+  brand_id: string;
+  ticket_number: number;
+  source: 'email' | 'form' | 'ai_escalation';
+  status: 'open' | 'pending' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  category: string | null;
+  subject: string;
+  customer_email: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  shopify_customer_id: string | null;
+  assigned_to: string | null;
+  tags: string[];
+  conversation_id: string | null;
+  order_id: string | null;
+  metadata: Record<string, unknown> | null;
+  first_response_at: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  sla_deadline: string | null;
+  sla_breached: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: 'customer' | 'agent' | 'system' | 'ai_draft';
+  sender_name: string | null;
+  sender_email: string | null;
+  content: string;
+  content_html: string | null;
+  is_internal_note: boolean;
+  attachments: unknown[];
+  email_message_id: string | null;
+  ai_generated: boolean;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface TicketEvent {
+  id: string;
+  ticket_id: string;
+  event_type: string;
+  actor: 'system' | 'agent' | 'customer' | 'ai';
+  actor_id: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface Agent {
+  id: string;
+  brand_id: string;
+  name: string;
+  email: string;
+  password_hash: string;
+  role: 'admin' | 'agent';
+  is_active: boolean;
+  avatar_url: string | null;
+  notification_preferences: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CannedResponse {
+  id: string;
+  brand_id: string;
+  name: string;
+  category: string;
+  content: string;
+  variables: string[];
+  usage_count: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SlaRule {
+  id: string;
+  brand_id: string;
+  priority: string;
+  first_response_minutes: number;
+  resolution_target_minutes: number;
+  business_hours_only: boolean;
+  created_at: string;
+  updated_at: string;
+}

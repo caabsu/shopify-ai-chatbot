@@ -1,7 +1,9 @@
 import * as shopifyMcp from '../services/shopify-mcp.service.js';
 import * as shopifyAdmin from '../services/shopify-admin.service.js';
+import * as shopifyActions from '../services/shopify-actions.service.js';
 import * as knowledgeService from '../services/knowledge.service.js';
 import * as conversationService from '../services/conversation.service.js';
+import * as ticketService from '../services/ticket.service.js';
 
 export interface ToolContext {
   conversationId: string;
@@ -117,7 +119,7 @@ export async function executeTool(
       }
 
       case 'cancel_order': {
-        const result = await shopifyAdmin.cancelOrder(
+        const result = await shopifyActions.cancelOrder(
           toolInput.order_id as string,
           toolInput.order_name as string
         );
@@ -128,12 +130,45 @@ export async function executeTool(
         await conversationService.updateConversation(context.conversationId, {
           status: 'escalated',
         });
+
+        const escalationReason = toolInput.reason as string;
+        const escalationSummary = (toolInput.summary as string) ?? escalationReason;
+        const recommendedActions = (toolInput.recommended_actions as string[]) ?? [];
+        let ticketNumber: number | null = null;
+
+        // Attempt to create a support ticket if we have customer email
+        if (context.customerEmail) {
+          try {
+            const ticket = await ticketService.createTicketFromEscalation(
+              context.conversationId,
+              {
+                customer_email: context.customerEmail,
+                reason: escalationReason,
+                priority: (toolInput.priority as 'low' | 'medium' | 'high' | 'urgent') ?? 'medium',
+                summary: escalationSummary,
+                recommendedActions,
+              }
+            );
+            ticketNumber = ticket.ticket_number;
+            console.log(`[tool-router] Created escalation ticket #${ticketNumber} for conversation ${context.conversationId}`);
+          } catch (err) {
+            console.error('[tool-router] Failed to create escalation ticket:', err instanceof Error ? err.message : err);
+          }
+        } else {
+          console.log(`[tool-router] No customerEmail in context — escalation ticket not created for conversation ${context.conversationId}`);
+        }
+
         return {
           success: true,
           data: {
             type: 'escalation',
-            reason: toolInput.reason as string,
-            message: 'Conversation marked as escalated. Direct the customer to email support@outlight.us or visit https://outlight.us/pages/contact. Email response time is 1-2 business days. Do NOT say the conversation has been flagged as high priority or that the team will follow up from this chat.',
+            reason: escalationReason,
+            summary: escalationSummary,
+            recommended_actions: recommendedActions,
+            ticket_number: ticketNumber,
+            message: ticketNumber
+              ? `Conversation marked as escalated. Support ticket #${ticketNumber} has been created. Direct the customer to email support@outlight.us or visit https://outlight.us/pages/contact. Email response time is 1-2 business days. Do NOT say the conversation has been flagged as high priority or that the team will follow up from this chat.`
+              : 'Conversation marked as escalated. A support ticket could not be created because no customer email is on file — ask the customer for their email so the team can follow up. Direct the customer to email support@outlight.us or visit https://outlight.us/pages/contact. Email response time is 1-2 business days.',
           },
         };
       }
