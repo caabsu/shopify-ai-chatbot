@@ -38,7 +38,7 @@ function loadGoogleFonts(design: WidgetDesign): void {
   const families: string[] = [];
   if (design.headingFontFamily) {
     const name = design.headingFontFamily.split(',')[0].replace(/['"]/g, '').trim();
-    if (name && !name.startsWith('-apple')) families.push(name.replace(/ /g, '+') + ':wght@400;600;700');
+    if (name && !name.startsWith('-apple')) families.push(name.replace(/ /g, '+') + ':wght@200;400;600;700');
   }
   if (design.fontFamily) {
     const name = design.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
@@ -82,6 +82,9 @@ function applyDesign(root: HTMLElement, design: WidgetDesign): void {
   }
   if (design.headingFontFamily) {
     root.style.setProperty('--aicb-heading-font', design.headingFontFamily);
+  }
+  if (design.headingFontWeight) {
+    root.style.setProperty('--aicb-heading-weight', design.headingFontWeight);
   }
   loadGoogleFonts(design);
 

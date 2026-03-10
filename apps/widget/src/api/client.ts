@@ -62,6 +62,7 @@ export interface WidgetDesign {
   autoOpenDelay: number;
   fontFamily?: string;
   headingFontFamily?: string;
+  headingFontWeight?: string;
 }
 
 export interface WidgetConfig {
