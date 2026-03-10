@@ -2,7 +2,7 @@ import './styles/widget.css';
 import { createFloatingButton } from './ui/FloatingButton.js';
 import { createChatWindow } from './ui/ChatWindow.js';
 import { getState, setState, loadSession, saveSession } from './state/store.js';
-import { initBaseUrl, getConfig, createSession } from './api/client.js';
+import { initBaseUrl, setBrand, getConfig, createSession } from './api/client.js';
 import type { WidgetDesign } from './api/client.js';
 
 // Capture current script reference immediately — it's only available during
@@ -315,6 +315,10 @@ function initFloating() {
 
 function init() {
   initBaseUrl();
+
+  // Detect brand from the script tag — critical for multi-brand isolation
+  const brand = currentScript?.getAttribute('data-brand');
+  if (brand) setBrand(brand);
 
   // Detect mode from the script tag that loaded this file
   const mode = currentScript?.getAttribute('data-mode');

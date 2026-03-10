@@ -322,6 +322,10 @@ app.get('/widget/playground', async (req, res) => {
   const brand = await getPlaygroundBrand(req);
   const qs = brandQueryString(req);
   const inkColor = brand.bgGradientFrom === '#F3EDE2' ? '#1C130A' : '#1a1a1a';
+  const pgBrandSlug = (req.query.brand as string || '').toLowerCase();
+  const dataBrandAttr = pgBrandSlug && pgBrandSlug !== 'outlight'
+    ? ` data-brand="${pgBrandSlug}"`
+    : '';
 
   const productCardsHtml = brand.products
     .map(
@@ -625,7 +629,7 @@ app.get('/widget/playground', async (req, res) => {
 
   <!-- Chat widget (loaded exactly like it would be on a real store) -->
   ${playgroundDebugScript}
-  <script src="/widget/widget.js"></script>
+  <script src="/widget/widget.js"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
@@ -767,7 +771,7 @@ app.get('/widget/playground-embedded', async (req, res) => {
   </footer>
 
   ${playgroundDebugScript}
-  <script src="/widget/widget.js" data-mode="embedded" data-target="#chat-embed"></script>
+  <script src="/widget/widget.js" data-mode="embedded" data-target="#chat-embed"${dataBrandAttr}></script>
   <script src="/widget/contact-form.js"${dataBrandAttr}></script>
 </body>
 </html>`);

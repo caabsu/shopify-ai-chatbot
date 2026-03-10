@@ -1,4 +1,5 @@
 let baseUrl = '';
+let brandSlug = '';
 
 export function initBaseUrl(): void {
   const scripts = document.querySelectorAll('script[src*="widget.js"]');
@@ -17,14 +18,22 @@ export function initBaseUrl(): void {
   }
 }
 
+export function setBrand(slug: string): void {
+  brandSlug = slug;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${baseUrl}${path}`;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...options?.headers as Record<string, string>,
+  };
+  if (brandSlug) {
+    headers['X-Brand'] = brandSlug;
+  }
   const res = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (res.status === 429) {
