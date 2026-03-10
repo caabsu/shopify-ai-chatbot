@@ -46,4 +46,8 @@ export const config = {
     nodeEnv: optionalEnv('NODE_ENV', 'development'),
     corsOrigin: optionalEnv('CORS_ORIGIN', '*'),
   },
+  email: {
+    resendApiKey: optionalEnv('RESEND_API_KEY', ''),
+    fromAddress: optionalEnv('EMAIL_FROM_ADDRESS', 'Support <onboarding@resend.dev>'),
+  },
 } as const;

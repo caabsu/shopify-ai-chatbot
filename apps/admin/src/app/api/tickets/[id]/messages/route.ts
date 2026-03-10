@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { sendTicketReplyEmail } from '@/lib/email';
 
 export async function POST(
   req: NextRequest,
@@ -12,10 +13,10 @@ export async function POST(
   const { id } = await params;
   const body = await req.json();
 
-  // Verify ticket belongs to brand
+  // Verify ticket belongs to brand — fetch full ticket for email context
   const { data: ticket } = await supabase
     .from('tickets')
-    .select('id, status, first_response_at')
+    .select('id, status, first_response_at, customer_email, customer_name, subject, ticket_number')
     .eq('id', id)
     .eq('brand_id', session.brandId)
     .single();
@@ -70,6 +71,31 @@ export async function POST(
     actor_id: session.userId,
     new_value: body.sender_type || 'agent',
   });
+
+  // Send email to customer for agent replies (not internal notes)
+  const isAgentReply = (body.sender_type || 'agent') === 'agent' && !body.is_internal_note;
+  if (isAgentReply && ticket.customer_email) {
+    sendTicketReplyEmail({
+      to: ticket.customer_email,
+      customerName: ticket.customer_name || undefined,
+      ticketNumber: ticket.ticket_number,
+      subject: ticket.subject,
+      replyContent: body.content,
+      agentName: session.name || undefined,
+      brandName: session.brandName || undefined,
+    }).then((result) => {
+      if (result.messageId) {
+        // Store email message ID on the ticket message for threading
+        supabase
+          .from('ticket_messages')
+          .update({ email_message_id: result.messageId })
+          .eq('id', message.id)
+          .then(() => {});
+      }
+    }).catch((err) => {
+      console.error('[ticket-reply] Email send failed:', err);
+    });
+  }
 
   return NextResponse.json({ message, ticket: updatedTicket }, { status: 201 });
 }

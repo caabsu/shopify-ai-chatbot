@@ -11,6 +11,7 @@ import { supabase } from './config/supabase.js';
 import { resolveBrandId } from './config/brand.js';
 import { getToken } from './services/shopify-auth.service.js';
 import * as ticketService from './services/ticket.service.js';
+import { sendTicketConfirmation } from './services/email.service.js';
 
 const app = express();
 
@@ -818,6 +819,15 @@ app.post('/api/tickets/form', async (req, res) => {
     });
 
     console.log(`[server] Contact form ticket #${ticket.ticket_number} created from ${email}`);
+
+    // Send confirmation email (fire-and-forget)
+    sendTicketConfirmation({
+      to: email,
+      customerName: name,
+      ticketNumber: ticket.ticket_number,
+      subject,
+    }).catch((err) => console.error('[server] Confirmation email failed:', err));
+
     res.status(201).json({ success: true, ticketNumber: ticket.ticket_number });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -857,6 +867,100 @@ app.post('/api/tickets/escalate', async (req, res) => {
   }
 });
 
+// ── POST /api/webhooks/email — Inbound Email Webhook ─────────────────────────
+// Accepts inbound emails from Resend, SendGrid, Postmark, etc.
+// Creates a new ticket or adds a reply to an existing one.
+app.post('/api/webhooks/email', async (req, res) => {
+  try {
+    // Support multiple webhook formats
+    const {
+      from, from_email, sender,          // sender email
+      from_name, sender_name,            // sender name
+      subject, to, to_email, recipient,  // recipient / subject
+      text, body, plain, html,           // body content
+      message_id, email_message_id,      // message ID for threading
+    } = req.body;
+
+    const senderEmail = from_email || from || sender || '';
+    const senderName = from_name || sender_name || '';
+    const emailSubject = subject || '(No Subject)';
+    const emailBody = text || plain || body || '';
+    const messageId = message_id || email_message_id || '';
+
+    if (!senderEmail || !emailBody) {
+      res.status(400).json({ error: 'from/from_email and text/body are required' });
+      return;
+    }
+
+    // Resolve brand from the "to" address or default
+    const brandId = await resolveBrandId(req);
+
+    // Check if this is a reply to an existing ticket (subject contains [Ticket #123])
+    const ticketMatch = emailSubject.match(/\[Ticket #(\d+)\]/);
+    if (ticketMatch) {
+      const ticketNumber = parseInt(ticketMatch[1], 10);
+      const { data: existingTicket } = await supabase
+        .from('tickets')
+        .select('id, status')
+        .eq('ticket_number', ticketNumber)
+        .single();
+
+      if (existingTicket) {
+        // Add reply to existing ticket
+        await ticketService.addTicketMessage(existingTicket.id, {
+          sender_type: 'customer',
+          sender_name: senderName || undefined,
+          sender_email: senderEmail,
+          content: emailBody,
+          metadata: messageId ? { email_message_id: messageId } : undefined,
+        });
+
+        // Reopen if resolved/closed
+        if (existingTicket.status === 'resolved' || existingTicket.status === 'closed') {
+          await ticketService.updateTicket(existingTicket.id, { status: 'open' });
+        }
+
+        console.log(`[webhook] Email reply added to ticket #${ticketNumber} from ${senderEmail}`);
+        res.json({ success: true, action: 'reply_added', ticketNumber });
+        return;
+      }
+    }
+
+    // New ticket from email
+    const ticket = await ticketService.createTicket({
+      source: 'email',
+      subject: emailSubject,
+      customer_email: senderEmail,
+      customer_name: senderName || undefined,
+      priority: 'medium',
+      brand_id: brandId,
+    });
+
+    await ticketService.addTicketMessage(ticket.id, {
+      sender_type: 'customer',
+      sender_name: senderName || undefined,
+      sender_email: senderEmail,
+      content: emailBody,
+      metadata: messageId ? { email_message_id: messageId } : undefined,
+    });
+
+    // Send confirmation
+    sendTicketConfirmation({
+      to: senderEmail,
+      customerName: senderName || undefined,
+      ticketNumber: ticket.ticket_number,
+      subject: emailSubject,
+    }).catch((err) => console.error('[webhook] Confirmation email failed:', err));
+
+    console.log(`[webhook] Email ticket #${ticket.ticket_number} created from ${senderEmail}`);
+    res.status(201).json({ success: true, action: 'ticket_created', ticketNumber: ticket.ticket_number });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[webhook] POST /api/webhooks/email error:', message);
+    res.status(500).json({ error: 'Failed to process inbound email' });
+  }
+});
+
 // Ticket and agent routes (require auth)
 app.use('/api/tickets', ticketRouter);
 app.use('/api/agents', agentRouter);
@@ -870,7 +974,7 @@ app.get('/api/widget/config', async (req, res) => {
       .from('ai_config')
       .select('key, value')
       .eq('brand_id', brandId)
-      .in('key', ['greeting', 'preset_actions', 'widget_design']);
+      .in('key', ['greeting', 'preset_actions', 'widget_design', 'contact_form_config']);
 
     const configMap = new Map(
       (rows ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
@@ -903,10 +1007,17 @@ app.get('/api/widget/config', async (req, res) => {
       // empty
     }
 
+    let formConfig = null;
+    try {
+      const raw = configMap.get('contact_form_config');
+      if (raw) formConfig = JSON.parse(raw);
+    } catch { /* empty */ }
+
     res.json({
       greeting: configMap.get('greeting') ?? 'Hi! How can I help you?',
       presetActions,
       design,
+      formConfig,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
