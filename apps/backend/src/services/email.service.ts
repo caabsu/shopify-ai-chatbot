@@ -21,7 +21,8 @@ export async function sendTicketConfirmation(opts: {
 
   const { to, customerName, ticketNumber, subject, brandName } = opts;
   const brand = brandName || 'Support';
-  const greeting = customerName ? `Hi ${customerName},` : 'Hi,';
+  const firstName = customerName ? customerName.split(' ')[0] : '';
+  const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
 
   const emailSubject = `[Ticket #${ticketNumber}] ${subject}`;
 

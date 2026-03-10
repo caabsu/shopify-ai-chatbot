@@ -20,16 +20,13 @@ export async function sendTicketReplyEmail(opts: {
     return { error: 'Email not configured' };
   }
 
-  const { to, customerName, ticketNumber, subject, replyContent, agentName, brandName } = opts;
+  const { to, ticketNumber, subject, replyContent, agentName, brandName } = opts;
   const brand = brandName || 'Support';
-  const greeting = customerName ? `Hi ${customerName},` : 'Hi,';
   const signature = agentName ? `${agentName}\n${brand} Team` : `${brand} Team`;
 
   const emailSubject = `Re: [Ticket #${ticketNumber}] ${subject}`;
 
-  const textBody = `${greeting}
-
-${replyContent}
+  const textBody = `${replyContent}
 
 ---
 ${signature}
@@ -38,7 +35,6 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
 
   const htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-  <p>${greeting}</p>
   <div style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(replyContent)}</div>
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
   <p style="color: #888; font-size: 13px;">
