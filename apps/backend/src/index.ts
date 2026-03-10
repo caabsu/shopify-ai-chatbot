@@ -184,64 +184,109 @@ const playgroundBaseStyles = `
     }
 `;
 
-const playgroundNavHtml = `
-  <!-- Announcement Bar -->
-  <div class="pg-announce">FREE SHIPPING ON ORDERS OVER $75 &mdash; SHOP NOW</div>
+// ── Playground Brand Configs ──────────────────────────────────────────────────
 
-  <!-- Navigation -->
-  <nav class="pg-nav">
-    <a href="#" class="pg-nav__logo">OUTLIGHT</a>
-    <ul class="pg-nav__links">
-      <li><a href="#">New Arrivals</a></li>
-      <li><a href="#">Collections</a></li>
-      <li><a href="#">Best Sellers</a></li>
-      <li><a href="#">Sale</a></li>
-      <li><a href="#">About</a></li>
-    </ul>
-    <div class="pg-nav__icons">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-    </div>
-  </nav>
-`;
+interface PlaygroundBrand {
+  name: string;
+  tagline: string;
+  heroTag: string;
+  heroTitle: string;
+  heroSub: string;
+  heroCta: string;
+  announcement: string;
+  accentColor: string;
+  bgGradientFrom: string;
+  bgGradientTo: string;
+  footerBg: string;
+  fontLink: string;
+  bodyFont: string;
+  headingFont: string;
+  products: Array<{ name: string; price: string }>;
+  navLinks: string[];
+}
 
-const playgroundFooterHtml = `
-  <!-- Footer -->
-  <footer class="pg-footer">
-    <div class="pg-footer__inner">
-      <div class="pg-footer__col">
-        <div class="pg-footer__col-title">Shop</div>
-        <a href="#">New Arrivals</a>
-        <a href="#">Best Sellers</a>
-        <a href="#">Collections</a>
-        <a href="#">Sale</a>
-      </div>
-      <div class="pg-footer__col">
-        <div class="pg-footer__col-title">Help</div>
-        <a href="#">Contact Us</a>
-        <a href="#">Shipping Info</a>
-        <a href="#">Returns &amp; Exchanges</a>
-        <a href="#">FAQ</a>
-      </div>
-      <div class="pg-footer__col">
-        <div class="pg-footer__col-title">About</div>
-        <a href="#">Our Story</a>
-        <a href="#">Sustainability</a>
-        <a href="#">Careers</a>
-        <a href="#">Press</a>
-      </div>
-      <div class="pg-footer__col">
-        <div class="pg-footer__col-title">Connect</div>
-        <a href="#">Instagram</a>
-        <a href="#">Twitter</a>
-        <a href="#">Pinterest</a>
-        <a href="#">Newsletter</a>
-      </div>
-    </div>
-    <div class="pg-footer__bottom">&copy; 2026 Outlight. All rights reserved. &mdash; This is a preview storefront.</div>
-  </footer>
-`;
+const PLAYGROUND_DEFAULTS: PlaygroundBrand = {
+  name: 'Store',
+  tagline: 'Welcome',
+  heroTag: 'New Collection',
+  heroTitle: 'Welcome to<br>Our Store',
+  heroSub: 'Discover our products.',
+  heroCta: 'Shop Now',
+  announcement: 'FREE SHIPPING ON ALL ORDERS',
+  accentColor: '#8a7060',
+  bgGradientFrom: '#f5f0eb',
+  bgGradientTo: '#ede4db',
+  footerBg: '#fafafa',
+  fontLink: '',
+  bodyFont: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  headingFont: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  products: [{ name: 'Sample Product', price: '$29.00' }],
+  navLinks: ['Shop', 'About', 'Contact'],
+};
+
+// Cache loaded brands for 5 min
+const playgroundBrandCache = new Map<string, { data: PlaygroundBrand; expiry: number }>();
+const PG_CACHE_TTL = 5 * 60 * 1000;
+
+async function getPlaygroundBrand(req: express.Request): Promise<PlaygroundBrand> {
+  const slug = (req.query.brand as string || '').toLowerCase() || 'outlight';
+  const cached = playgroundBrandCache.get(slug);
+  if (cached && Date.now() < cached.expiry) return cached.data;
+
+  try {
+    const { data: brand } = await supabase
+      .from('brands')
+      .select('name, settings')
+      .eq('slug', slug)
+      .eq('enabled', true)
+      .single();
+
+    if (!brand) return PLAYGROUND_DEFAULTS;
+
+    const s = (brand.settings as Record<string, unknown>)?.storefront as Record<string, unknown> | undefined;
+    if (!s) {
+      const fallback = { ...PLAYGROUND_DEFAULTS, name: brand.name as string };
+      playgroundBrandCache.set(slug, { data: fallback, expiry: Date.now() + PG_CACHE_TTL });
+      return fallback;
+    }
+
+    // Build font link from fontLink URL or custom fonts
+    let fontLink = '';
+    if (s.fontLink && typeof s.fontLink === 'string' && s.fontLink.startsWith('http')) {
+      fontLink = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="${s.fontLink}" rel="stylesheet">`;
+    }
+
+    const result: PlaygroundBrand = {
+      name: (brand.name as string) || PLAYGROUND_DEFAULTS.name,
+      tagline: (s.tagline as string) || PLAYGROUND_DEFAULTS.tagline,
+      heroTag: (s.heroTag as string) || PLAYGROUND_DEFAULTS.heroTag,
+      heroTitle: (s.heroTitle as string) || PLAYGROUND_DEFAULTS.heroTitle,
+      heroSub: (s.heroSub as string) || PLAYGROUND_DEFAULTS.heroSub,
+      heroCta: (s.heroCta as string) || PLAYGROUND_DEFAULTS.heroCta,
+      announcement: (s.announcement as string) || PLAYGROUND_DEFAULTS.announcement,
+      accentColor: (s.accentColor as string) || PLAYGROUND_DEFAULTS.accentColor,
+      bgGradientFrom: (s.bgGradientFrom as string) || PLAYGROUND_DEFAULTS.bgGradientFrom,
+      bgGradientTo: (s.bgGradientTo as string) || PLAYGROUND_DEFAULTS.bgGradientTo,
+      footerBg: (s.footerBg as string) || PLAYGROUND_DEFAULTS.footerBg,
+      fontLink,
+      bodyFont: (s.bodyFont as string) || PLAYGROUND_DEFAULTS.bodyFont,
+      headingFont: (s.headingFont as string) || PLAYGROUND_DEFAULTS.headingFont,
+      products: (s.products as Array<{ name: string; price: string }>) || PLAYGROUND_DEFAULTS.products,
+      navLinks: (s.navLinks as string[]) || PLAYGROUND_DEFAULTS.navLinks,
+    };
+
+    playgroundBrandCache.set(slug, { data: result, expiry: Date.now() + PG_CACHE_TTL });
+    return result;
+  } catch (err) {
+    console.error('[playground] Failed to load brand config:', err instanceof Error ? err.message : err);
+    return PLAYGROUND_DEFAULTS;
+  }
+}
+
+function brandQueryString(req: express.Request): string {
+  const slug = (req.query.brand as string || '').toLowerCase();
+  return slug && slug !== 'outlight' ? `?brand=${slug}` : '';
+}
 
 const playgroundDebugScript = `
   <script>
@@ -273,23 +318,56 @@ const playgroundDebugScript = `
 `;
 
 // Widget playground — mock Shopify store with functioning floating chat bubble
-app.get('/widget/playground', (_req, res) => {
+app.get('/widget/playground', async (req, res) => {
+  const brand = await getPlaygroundBrand(req);
+  const qs = brandQueryString(req);
+  const inkColor = brand.bgGradientFrom === '#F3EDE2' ? '#1C130A' : '#1a1a1a';
+
+  const productCardsHtml = brand.products
+    .map(
+      (p) => `
+      <div class="pg-product">
+        <div class="pg-product__img">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        </div>
+        <div class="pg-product__info">
+          <div class="pg-product__name">${p.name}</div>
+          <div class="pg-product__price">${p.price}</div>
+        </div>
+      </div>`
+    )
+    .join('\n');
+
+  const navLinksHtml = brand.navLinks.map((l) => `<li><a href="#">${l}</a></li>`).join('\n      ');
+
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Outlight Store — Preview</title>
+  <title>${brand.name} Store — Preview</title>
+  ${brand.fontLink}
   <style>
     ${playgroundBaseStyles}
     ${playgroundTabStyles}
+
+    body {
+      font-family: ${brand.bodyFont};
+      color: ${inkColor};
+    }
+
+    .pg-announce { background: ${inkColor}; }
+    .pg-nav__logo {
+      font-family: ${brand.headingFont};
+      color: ${inkColor};
+    }
 
     /* ── Hero ── */
     .pg-hero {
       position: relative;
       height: 480px;
-      background: linear-gradient(135deg, #f5f0eb 0%, #ede4db 100%);
+      background: linear-gradient(135deg, ${brand.bgGradientFrom} 0%, ${brand.bgGradientTo} 100%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -304,15 +382,16 @@ app.get('/widget/playground', (_req, res) => {
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      color: #8a7060;
+      color: ${brand.accentColor};
       margin-bottom: 16px;
     }
     .pg-hero__title {
+      font-family: ${brand.headingFont};
       font-size: 48px;
       font-weight: 700;
       letter-spacing: -0.03em;
       line-height: 1.1;
-      color: #1a1a1a;
+      color: ${inkColor};
       margin-bottom: 16px;
     }
     .pg-hero__sub {
@@ -324,7 +403,7 @@ app.get('/widget/playground', (_req, res) => {
     .pg-hero__btn {
       display: inline-block;
       padding: 14px 36px;
-      background: #1a1a1a;
+      background: ${inkColor};
       color: #fff;
       text-decoration: none;
       font-size: 14px;
@@ -332,7 +411,7 @@ app.get('/widget/playground', (_req, res) => {
       border-radius: 4px;
       transition: background 0.2s;
     }
-    .pg-hero__btn:hover { background: #333; }
+    .pg-hero__btn:hover { opacity: 0.85; }
 
     /* ── Section heading ── */
     .pg-section {
@@ -345,10 +424,11 @@ app.get('/widget/playground', (_req, res) => {
       margin-bottom: 40px;
     }
     .pg-section__title {
+      font-family: ${brand.headingFont};
       font-size: 28px;
       font-weight: 700;
       letter-spacing: -0.02em;
-      color: #1a1a1a;
+      color: ${inkColor};
     }
     .pg-section__sub {
       font-size: 14px;
@@ -376,7 +456,7 @@ app.get('/widget/playground', (_req, res) => {
     .pg-product__img {
       width: 100%;
       height: 280px;
-      background: #f0ece6;
+      background: ${brand.bgGradientFrom};
       display: flex;
       align-items: center;
       justify-content: center;
@@ -389,7 +469,7 @@ app.get('/widget/playground', (_req, res) => {
     .pg-product__name {
       font-size: 15px;
       font-weight: 600;
-      color: #1a1a1a;
+      color: ${inkColor};
       margin-bottom: 4px;
     }
     .pg-product__price {
@@ -415,18 +495,22 @@ app.get('/widget/playground', (_req, res) => {
       width: 40px;
       height: 40px;
       margin: 0 auto 12px;
-      color: #8a7060;
+      color: ${brand.accentColor};
     }
     .pg-feature__title {
       font-size: 14px;
       font-weight: 600;
-      color: #1a1a1a;
+      color: ${inkColor};
       margin-bottom: 4px;
     }
     .pg-feature__desc {
       font-size: 13px;
       color: #888;
     }
+
+    .pg-footer { background: ${brand.footerBg}; }
+    .pg-footer__col-title { color: ${inkColor}; }
+    .pg-footer__bottom { color: #aaa; }
 
     /* ── Responsive (storefront-specific) ── */
     @media (max-width: 640px) {
@@ -440,21 +524,35 @@ app.get('/widget/playground', (_req, res) => {
 </head>
 <body>
 
-  ${playgroundNavHtml}
+  <!-- Announcement Bar -->
+  <div class="pg-announce">${brand.announcement}</div>
+
+  <!-- Navigation -->
+  <nav class="pg-nav">
+    <a href="#" class="pg-nav__logo">${brand.name}</a>
+    <ul class="pg-nav__links">
+      ${navLinksHtml}
+    </ul>
+    <div class="pg-nav__icons">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+    </div>
+  </nav>
 
   <!-- Tab Bar -->
   <div class="pg-tabs">
-    <a href="/widget/playground" class="pg-tab pg-tab--active">Storefront</a>
-    <a href="/widget/playground-embedded" class="pg-tab">Embedded</a>
+    <a href="/widget/playground${qs}" class="pg-tab pg-tab--active">Storefront</a>
+    <a href="/widget/playground-embedded${qs}" class="pg-tab">Embedded</a>
   </div>
 
   <!-- Hero -->
   <section class="pg-hero">
     <div class="pg-hero__content">
-      <p class="pg-hero__tag">Spring Collection 2026</p>
-      <h1 class="pg-hero__title">Effortless Style,<br>Every Day</h1>
-      <p class="pg-hero__sub">Discover our curated selection of modern essentials designed for comfort and style.</p>
-      <a href="#" class="pg-hero__btn">Shop the Collection</a>
+      <p class="pg-hero__tag">${brand.heroTag}</p>
+      <h1 class="pg-hero__title">${brand.heroTitle}</h1>
+      <p class="pg-hero__sub">${brand.heroSub}</p>
+      <a href="#" class="pg-hero__btn">${brand.heroCta}</a>
     </div>
   </section>
 
@@ -462,45 +560,10 @@ app.get('/widget/playground', (_req, res) => {
   <section class="pg-section">
     <div class="pg-section__header">
       <h2 class="pg-section__title">Featured Products</h2>
-      <p class="pg-section__sub">Handpicked favorites from this season</p>
+      <p class="pg-section__sub">Handpicked favorites</p>
     </div>
     <div class="pg-products">
-      <div class="pg-product">
-        <div class="pg-product__img">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-        </div>
-        <div class="pg-product__info">
-          <div class="pg-product__name">Classic Linen Shirt</div>
-          <div class="pg-product__price">$68.00</div>
-        </div>
-      </div>
-      <div class="pg-product">
-        <div class="pg-product__img">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-        </div>
-        <div class="pg-product__info">
-          <div class="pg-product__name">Organic Cotton Tee</div>
-          <div class="pg-product__price">$42.00</div>
-        </div>
-      </div>
-      <div class="pg-product">
-        <div class="pg-product__img">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-        </div>
-        <div class="pg-product__info">
-          <div class="pg-product__name">Relaxed Fit Chinos</div>
-          <div class="pg-product__price">$85.00</div>
-        </div>
-      </div>
-      <div class="pg-product">
-        <div class="pg-product__img">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-        </div>
-        <div class="pg-product__info">
-          <div class="pg-product__name">Leather Weekend Bag</div>
-          <div class="pg-product__price">$195.00</div>
-        </div>
-      </div>
+      ${productCardsHtml}
     </div>
   </section>
 
@@ -509,7 +572,7 @@ app.get('/widget/playground', (_req, res) => {
     <div class="pg-feature">
       <svg class="pg-feature__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
       <div class="pg-feature__title">Free Shipping</div>
-      <div class="pg-feature__desc">On all orders over $75</div>
+      <div class="pg-feature__desc">On all orders</div>
     </div>
     <div class="pg-feature">
       <svg class="pg-feature__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
@@ -528,53 +591,37 @@ app.get('/widget/playground', (_req, res) => {
     </div>
   </div>
 
-  <!-- More Products -->
-  <section class="pg-section">
-    <div class="pg-section__header">
-      <h2 class="pg-section__title">New Arrivals</h2>
-      <p class="pg-section__sub">Fresh drops, just landed</p>
-    </div>
-    <div class="pg-products">
-      <div class="pg-product">
-        <div class="pg-product__img">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-        </div>
-        <div class="pg-product__info">
-          <div class="pg-product__name">Wool Blend Jacket</div>
-          <div class="pg-product__price">$245.00</div>
-        </div>
+  <!-- Footer -->
+  <footer class="pg-footer">
+    <div class="pg-footer__inner">
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Shop</div>
+        ${brand.navLinks.slice(0, 4).map((l) => `<a href="#">${l}</a>`).join('\n        ')}
       </div>
-      <div class="pg-product">
-        <div class="pg-product__img">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-        </div>
-        <div class="pg-product__info">
-          <div class="pg-product__name">Silk Scarf</div>
-          <div class="pg-product__price">$55.00</div>
-        </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Help</div>
+        <a href="#">Contact Us</a>
+        <a href="#">Shipping Info</a>
+        <a href="#">Returns &amp; Exchanges</a>
+        <a href="#">FAQ</a>
       </div>
-      <div class="pg-product">
-        <div class="pg-product__img">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-        </div>
-        <div class="pg-product__info">
-          <div class="pg-product__name">Canvas Sneakers</div>
-          <div class="pg-product__price">$98.00</div>
-        </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">About</div>
+        <a href="#">Our Story</a>
+        <a href="#">Sustainability</a>
+        <a href="#">Careers</a>
+        <a href="#">Press</a>
       </div>
-      <div class="pg-product">
-        <div class="pg-product__img">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-        </div>
-        <div class="pg-product__info">
-          <div class="pg-product__name">Minimalist Watch</div>
-          <div class="pg-product__price">$165.00</div>
-        </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Connect</div>
+        <a href="#">Instagram</a>
+        <a href="#">Twitter</a>
+        <a href="#">Pinterest</a>
+        <a href="#">Newsletter</a>
       </div>
     </div>
-  </section>
-
-  ${playgroundFooterHtml}
+    <div class="pg-footer__bottom">&copy; 2026 ${brand.name}. All rights reserved. &mdash; This is a preview storefront.</div>
+  </footer>
 
   <!-- Chat widget (loaded exactly like it would be on a real store) -->
   ${playgroundDebugScript}
@@ -584,17 +631,43 @@ app.get('/widget/playground', (_req, res) => {
 });
 
 // Widget playground — embedded mode (Contact Us mock page)
-app.get('/widget/playground-embedded', (_req, res) => {
+app.get('/widget/playground-embedded', async (req, res) => {
+  const brand = await getPlaygroundBrand(req);
+  const qs = brandQueryString(req);
+  const inkColor = brand.bgGradientFrom === '#F3EDE2' ? '#1C130A' : '#1a1a1a';
+  const brandSlug = (req.query.brand as string || '').toLowerCase();
+  const dataBrandAttr = brandSlug && brandSlug !== 'outlight'
+    ? ` data-brand="${brandSlug}"`
+    : '';
+
+  const navLinksHtml = brand.navLinks.map((l) => `<li><a href="#">${l}</a></li>`).join('\n      ');
+
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contact Us — Outlight Store</title>
+  <title>Contact Us — ${brand.name} Store</title>
+  ${brand.fontLink}
   <style>
     ${playgroundBaseStyles}
     ${playgroundTabStyles}
+
+    body {
+      font-family: ${brand.bodyFont};
+      color: ${inkColor};
+    }
+
+    .pg-announce { background: ${inkColor}; }
+    .pg-nav__logo {
+      font-family: ${brand.headingFont};
+      color: ${inkColor};
+    }
+
+    .pg-footer { background: ${brand.footerBg}; }
+    .pg-footer__col-title { color: ${inkColor}; }
+    .pg-footer__bottom { color: #aaa; }
 
     /* ── Contact Page ── */
     .pg-contact {
@@ -603,10 +676,11 @@ app.get('/widget/playground-embedded', (_req, res) => {
       padding: 48px 24px 64px;
     }
     .pg-contact__title {
+      font-family: ${brand.headingFont};
       font-size: 32px;
       font-weight: 700;
       letter-spacing: -0.02em;
-      color: #1a1a1a;
+      color: ${inkColor};
       margin-bottom: 12px;
     }
     .pg-contact__desc {
@@ -630,12 +704,26 @@ app.get('/widget/playground-embedded', (_req, res) => {
 </head>
 <body>
 
-  ${playgroundNavHtml}
+  <!-- Announcement Bar -->
+  <div class="pg-announce">${brand.announcement}</div>
+
+  <!-- Navigation -->
+  <nav class="pg-nav">
+    <a href="#" class="pg-nav__logo">${brand.name}</a>
+    <ul class="pg-nav__links">
+      ${navLinksHtml}
+    </ul>
+    <div class="pg-nav__icons">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+    </div>
+  </nav>
 
   <!-- Tab Bar -->
   <div class="pg-tabs">
-    <a href="/widget/playground" class="pg-tab">Storefront</a>
-    <a href="/widget/playground-embedded" class="pg-tab pg-tab--active">Embedded</a>
+    <a href="/widget/playground${qs}" class="pg-tab">Storefront</a>
+    <a href="/widget/playground-embedded${qs}" class="pg-tab pg-tab--active">Embedded</a>
   </div>
 
   <!-- Contact Us Content -->
@@ -643,12 +731,44 @@ app.get('/widget/playground-embedded', (_req, res) => {
     <h1 class="pg-contact__title">Contact Us</h1>
     <p class="pg-contact__desc">Have a question about your order, our products, or need help with a return? Our AI assistant is here to help you instantly. Just type your question below.</p>
     <div id="chat-embed" class="pg-contact__chat"></div>
+    <div id="support-contact-form" style="margin-top:32px;"></div>
   </div>
 
-  ${playgroundFooterHtml}
+  <!-- Footer -->
+  <footer class="pg-footer">
+    <div class="pg-footer__inner">
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Shop</div>
+        ${brand.navLinks.slice(0, 4).map((l) => `<a href="#">${l}</a>`).join('\n        ')}
+      </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Help</div>
+        <a href="#">Contact Us</a>
+        <a href="#">Shipping Info</a>
+        <a href="#">Returns &amp; Exchanges</a>
+        <a href="#">FAQ</a>
+      </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">About</div>
+        <a href="#">Our Story</a>
+        <a href="#">Sustainability</a>
+        <a href="#">Careers</a>
+        <a href="#">Press</a>
+      </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Connect</div>
+        <a href="#">Instagram</a>
+        <a href="#">Twitter</a>
+        <a href="#">Pinterest</a>
+        <a href="#">Newsletter</a>
+      </div>
+    </div>
+    <div class="pg-footer__bottom">&copy; 2026 ${brand.name}. All rights reserved. &mdash; This is a preview storefront.</div>
+  </footer>
 
   ${playgroundDebugScript}
   <script src="/widget/widget.js" data-mode="embedded" data-target="#chat-embed"></script>
+  <script src="/widget/contact-form.js"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
