@@ -61,6 +61,20 @@ body {
   color: var(--text-primary);
 }
 
+/* Ensure pointer cursor on all interactive elements — !important needed to override Tailwind v4 preflight */
+button,
+[role="button"],
+select,
+summary,
+a,
+label[for],
+input[type="checkbox"],
+input[type="radio"],
+input[type="submit"],
+input[type="button"] {
+  cursor: pointer !important;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
