@@ -20,6 +20,7 @@ interface BrandDesign {
   fontSize: string;
   fontFamily?: string;
   headingFontFamily?: string;
+  headingFontWeight?: string;
 }
 
 interface FormState {
@@ -130,6 +131,7 @@ function buildStyles(d: BrandDesign): string {
   const bg = d.backgroundColor;
   const bodyFont = d.fontFamily || "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   const headingFont = d.headingFontFamily || bodyFont;
+  const headingWeight = d.headingFontWeight || '700';
   const btnTextColor = isLightColor(primary) ? '#1a1a1a' : '#ffffff';
   const inputBorder = isLightColor(bg) ? '#d1d5db' : '#4a4a4a';
   const inputBg = isLightColor(bg) ? '#ffffff' : hexToRgba('#ffffff', 0.08);
@@ -156,7 +158,7 @@ function buildStyles(d: BrandDesign): string {
 .scf-title {
   font-family: ${headingFont};
   font-size: 1.65rem;
-  font-weight: 700;
+  font-weight: ${headingWeight};
   color: ${textColor};
   margin-bottom: 0.4rem;
   letter-spacing: -0.01em;
@@ -266,7 +268,7 @@ function buildStyles(d: BrandDesign): string {
 .scf-success-title {
   font-family: ${headingFont};
   font-size: 1.3rem;
-  font-weight: 700;
+  font-weight: ${headingWeight};
   color: ${textColor};
   margin-bottom: 0.5rem;
 }
@@ -326,7 +328,7 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
     const families: string[] = [];
     if (cfg.design.headingFontFamily) {
       const name = cfg.design.headingFontFamily.split(',')[0].replace(/['"]/g, '').trim();
-      if (name && !name.startsWith('-apple')) families.push(name.replace(/ /g, '+') + ':wght@400;600;700');
+      if (name && !name.startsWith('-apple')) families.push(name.replace(/ /g, '+') + ':wght@200;400;600;700');
     }
     if (cfg.design.fontFamily) {
       const name = cfg.design.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
