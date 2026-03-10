@@ -10,20 +10,28 @@ import type { AiResponse, NavigationButton, ProductCard, CartData } from '../typ
 
 const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
 
-// Config cache
-let configCache: { systemPrompt: string; brandVoice: string; promotions: string } | null = null;
-let configCacheExpiry = 0;
+// Per-brand config cache
+type AiConfigData = { systemPrompt: string; brandVoice: string; promotions: string };
+const configCacheMap = new Map<string, { data: AiConfigData; expiry: number }>();
 const CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-async function loadAiConfig(): Promise<{ systemPrompt: string; brandVoice: string; promotions: string }> {
-  if (configCache && Date.now() < configCacheExpiry) {
-    return configCache;
+async function loadAiConfig(brandId?: string): Promise<AiConfigData> {
+  const cacheKey = brandId ?? '_default';
+  const cached = configCacheMap.get(cacheKey);
+  if (cached && Date.now() < cached.expiry) {
+    return cached.data;
   }
 
-  const { data: rows, error } = await supabase
+  let query = supabase
     .from('ai_config')
     .select('key, value')
     .in('key', ['system_prompt', 'brand_voice', 'promotions']);
+
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
+  }
+
+  const { data: rows, error } = await query;
 
   if (error) {
     console.error('[ai.service] Failed to load ai_config:', error.message);
@@ -32,30 +40,30 @@ async function loadAiConfig(): Promise<{ systemPrompt: string; brandVoice: strin
 
   const configMap = new Map((rows ?? []).map((r: { key: string; value: string }) => [r.key, r.value]));
 
-  configCache = {
+  const data: AiConfigData = {
     systemPrompt: configMap.get('system_prompt') ?? 'You are a helpful customer support assistant.',
     brandVoice: configMap.get('brand_voice') ?? '',
     promotions: configMap.get('promotions') ?? '',
   };
-  configCacheExpiry = Date.now() + CONFIG_CACHE_TTL;
+  configCacheMap.set(cacheKey, { data, expiry: Date.now() + CONFIG_CACHE_TTL });
 
-  return configCache;
+  return data;
 }
 
 export async function processMessage(
   conversationId: string,
   userMessage: string,
-  context?: { customerEmail?: string; pageUrl?: string; cartId?: string }
+  context?: { customerEmail?: string; pageUrl?: string; cartId?: string; brandId?: string }
 ): Promise<AiResponse> {
   const startTime = Date.now();
 
   // 1. Load config
-  const aiConfig = await loadAiConfig();
+  const aiConfig = await loadAiConfig(context?.brandId);
 
   // 2. Load relevant knowledge
   let kbContext = '';
   try {
-    const docs = await knowledgeService.searchKnowledge(userMessage);
+    const docs = await knowledgeService.searchKnowledge(userMessage, context?.brandId);
     if (docs.length > 0) {
       kbContext = '\n\n## Relevant Knowledge Base Information\n' +
         docs.map((d) => `### ${d.title}\n${d.content}`).join('\n\n');
@@ -103,6 +111,7 @@ export async function processMessage(
     customerEmail: context?.customerEmail,
     pageUrl: context?.pageUrl,
     cartId: context?.cartId,
+    brandId: context?.brandId,
   };
 
   const navigationButtons: NavigationButton[] = [];

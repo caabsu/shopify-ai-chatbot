@@ -28,6 +28,7 @@ ticketRouter.get('/', async (req, res) => {
     } = req.query;
 
     const result = await ticketService.listTickets({
+      brand_id: req.agent?.brandId,
       status: status as string | undefined,
       priority: priority as string | undefined,
       source: source as string | undefined,
@@ -71,6 +72,7 @@ ticketRouter.post('/', async (req, res) => {
       order_id,
       tags,
       metadata,
+      brand_id: req.agent?.brandId,
     });
 
     res.status(201).json(ticket);
@@ -85,7 +87,7 @@ ticketRouter.post('/', async (req, res) => {
 ticketRouter.get('/:id', async (req, res) => {
   try {
     const ticket = await ticketService.getTicket(req.params.id);
-    if (!ticket) {
+    if (!ticket || (req.agent?.brandId && ticket.brand_id !== req.agent.brandId)) {
       res.status(404).json({ error: 'Ticket not found' });
       return;
     }
@@ -205,7 +207,7 @@ ticketRouter.get('/:id/events', async (req, res) => {
 // ── POST /:id/ai/draft — AI Draft Reply ────────────────────────────────────
 ticketRouter.post('/:id/ai/draft', async (req, res) => {
   try {
-    const draft = await aiAssistant.draftReply(req.params.id);
+    const draft = await aiAssistant.draftReply(req.params.id, req.agent?.brandId);
     res.json({ draft });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -229,7 +231,7 @@ ticketRouter.post('/:id/ai/summarize', async (req, res) => {
 // ── POST /:id/ai/suggest — AI Suggest Next Steps ───────────────────────────
 ticketRouter.post('/:id/ai/suggest', async (req, res) => {
   try {
-    const steps = await aiAssistant.suggestNextSteps(req.params.id);
+    const steps = await aiAssistant.suggestNextSteps(req.params.id, req.agent?.brandId);
     res.json({ steps });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

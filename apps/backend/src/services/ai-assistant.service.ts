@@ -8,12 +8,13 @@ const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
 
 const AI_MODEL = 'claude-sonnet-4-20250514';
 
-async function loadBrandVoice(): Promise<string> {
-  const { data: row } = await supabase
+async function loadBrandVoice(brandId?: string): Promise<string> {
+  let query = supabase
     .from('ai_config')
     .select('value')
-    .eq('key', 'brand_voice')
-    .single();
+    .eq('key', 'brand_voice');
+  if (brandId) query = query.eq('brand_id', brandId);
+  const { data: row } = await query.single();
 
   return row?.value ?? 'Friendly and helpful. Speak like a knowledgeable store associate.';
 }
@@ -54,9 +55,9 @@ function buildThreadText(messages: Awaited<ReturnType<typeof ticketService.getTi
 }
 
 // ── Draft Reply ────────────────────────────────────────────────────────────
-export async function draftReply(ticketId: string): Promise<string> {
+export async function draftReply(ticketId: string, brandId?: string): Promise<string> {
   const { ticket, messages, customerProfile } = await loadTicketContext(ticketId);
-  const brandVoice = await loadBrandVoice();
+  const brandVoice = await loadBrandVoice(brandId ?? ticket.brand_id);
   const threadText = buildThreadText(messages);
 
   let customerContext = '';
@@ -143,9 +144,9 @@ export async function summarizeThread(ticketId: string): Promise<string> {
 }
 
 // ── Suggest Next Steps ─────────────────────────────────────────────────────
-export async function suggestNextSteps(ticketId: string): Promise<string[]> {
+export async function suggestNextSteps(ticketId: string, brandId?: string): Promise<string[]> {
   const { ticket, messages, customerProfile } = await loadTicketContext(ticketId);
-  const brandVoice = await loadBrandVoice();
+  const brandVoice = await loadBrandVoice(brandId ?? ticket.brand_id);
   const threadText = buildThreadText(messages);
 
   let customerContext = '';

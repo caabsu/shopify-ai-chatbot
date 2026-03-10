@@ -1,7 +1,7 @@
 import { supabase } from '../config/supabase.js';
 import type { KnowledgeDocument } from '../types/index.js';
 
-export async function searchKnowledge(query: string): Promise<KnowledgeDocument[]> {
+export async function searchKnowledge(query: string, brandId?: string): Promise<KnowledgeDocument[]> {
   // Extract only alphanumeric words — strip emails, special chars, punctuation
   // that break PostgREST's filter parser (commas, @, etc.)
   const terms = query
@@ -12,10 +12,12 @@ export async function searchKnowledge(query: string): Promise<KnowledgeDocument[
 
   if (terms.length === 0) {
     // No meaningful terms — return top priority docs
-    const { data: rows } = await supabase
+    let fallback = supabase
       .from('knowledge_documents')
       .select()
-      .eq('enabled', true)
+      .eq('enabled', true);
+    if (brandId) fallback = fallback.eq('brand_id', brandId);
+    const { data: rows } = await fallback
       .order('priority', { ascending: false })
       .limit(5);
     return (rows ?? []) as KnowledgeDocument[];
@@ -28,6 +30,8 @@ export async function searchKnowledge(query: string): Promise<KnowledgeDocument[
     .from('knowledge_documents')
     .select()
     .eq('enabled', true);
+
+  if (brandId) queryBuilder = queryBuilder.eq('brand_id', brandId);
 
   // Build an OR filter matching any term in title or content
   const orConditions = searchTerms
@@ -43,10 +47,12 @@ export async function searchKnowledge(query: string): Promise<KnowledgeDocument[
   if (error) {
     console.error('[knowledge.service] searchKnowledge error:', error.message);
     // Fallback: return top priority docs instead of throwing
-    const { data: fallbackRows } = await supabase
+    let fallback = supabase
       .from('knowledge_documents')
       .select()
-      .eq('enabled', true)
+      .eq('enabled', true);
+    if (brandId) fallback = fallback.eq('brand_id', brandId);
+    const { data: fallbackRows } = await fallback
       .order('priority', { ascending: false })
       .limit(5);
     return (fallbackRows ?? []) as KnowledgeDocument[];
@@ -55,12 +61,16 @@ export async function searchKnowledge(query: string): Promise<KnowledgeDocument[
   return (rows ?? []) as KnowledgeDocument[];
 }
 
-export async function getByCategory(category: string): Promise<KnowledgeDocument[]> {
-  const { data: rows, error } = await supabase
+export async function getByCategory(category: string, brandId?: string): Promise<KnowledgeDocument[]> {
+  let query = supabase
     .from('knowledge_documents')
     .select()
     .eq('category', category)
-    .eq('enabled', true)
+    .eq('enabled', true);
+
+  if (brandId) query = query.eq('brand_id', brandId);
+
+  const { data: rows, error } = await query
     .order('priority', { ascending: false });
 
   if (error) {

@@ -8,6 +8,7 @@ import { chatRouter } from './controllers/chat.controller.js';
 import { ticketRouter } from './controllers/ticket.controller.js';
 import { agentRouter } from './controllers/agent.controller.js';
 import { supabase } from './config/supabase.js';
+import { resolveBrandId } from './config/brand.js';
 import { getToken } from './services/shopify-auth.service.js';
 import * as ticketService from './services/ticket.service.js';
 
@@ -673,6 +674,8 @@ app.post('/api/tickets/form', async (req, res) => {
       return;
     }
 
+    const brandId = await resolveBrandId(req);
+
     const ticket = await ticketService.createTicket({
       source: 'form',
       subject,
@@ -680,6 +683,7 @@ app.post('/api/tickets/form', async (req, res) => {
       customer_name: name,
       category,
       priority: 'medium',
+      brand_id: brandId,
     });
 
     await ticketService.addTicketMessage(ticket.id, {
@@ -708,6 +712,8 @@ app.post('/api/tickets/escalate', async (req, res) => {
       return;
     }
 
+    const brandId = await resolveBrandId(req);
+
     const ticket = await ticketService.createTicketFromEscalation(conversationId, {
       customer_email: customerEmail,
       customer_name: customerName,
@@ -715,6 +721,7 @@ app.post('/api/tickets/escalate', async (req, res) => {
       priority: priority ?? 'medium',
       summary,
       recommendedActions,
+      brandId,
     });
 
     console.log(`[server] Escalation ticket #${ticket.ticket_number} created for conversation ${conversationId}`);
@@ -731,11 +738,14 @@ app.use('/api/tickets', ticketRouter);
 app.use('/api/agents', agentRouter);
 
 // Widget config endpoint
-app.get('/api/widget/config', async (_req, res) => {
+app.get('/api/widget/config', async (req, res) => {
   try {
+    const brandId = await resolveBrandId(req);
+
     const { data: rows } = await supabase
       .from('ai_config')
       .select('key, value')
+      .eq('brand_id', brandId)
       .in('key', ['greeting', 'preset_actions', 'widget_design']);
 
     const configMap = new Map(

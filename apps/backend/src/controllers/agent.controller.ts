@@ -102,12 +102,14 @@ agentRouter.get('/me', agentAuthMiddleware, async (req, res) => {
 });
 
 // ── GET / — List Agents (Admin Only) ────────────────────────────────────────
-agentRouter.get('/', agentAuthMiddleware, requireAdmin, async (_req, res) => {
+agentRouter.get('/', agentAuthMiddleware, requireAdmin, async (req, res) => {
   try {
-    const { data: agents, error } = await supabase
+    const brandId = req.agent?.brandId;
+    let query = supabase
       .from('agents')
-      .select('id, brand_id, name, email, role, is_active, avatar_url, created_at, updated_at')
-      .order('created_at', { ascending: true });
+      .select('id, brand_id, name, email, role, is_active, avatar_url, created_at, updated_at');
+    if (brandId) query = query.eq('brand_id', brandId);
+    const { data: agents, error } = await query.order('created_at', { ascending: true });
 
     if (error) {
       console.error('[agent.controller] GET / error:', error.message);
@@ -147,6 +149,7 @@ agentRouter.post('/', agentAuthMiddleware, requireAdmin, async (req, res) => {
 
     const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 
+    const brandId = req.agent?.brandId;
     const { data: agent, error } = await supabase
       .from('agents')
       .insert({
@@ -156,6 +159,7 @@ agentRouter.post('/', agentAuthMiddleware, requireAdmin, async (req, res) => {
         role: role ?? 'agent',
         avatar_url: avatar_url ?? null,
         is_active: true,
+        ...(brandId ? { brand_id: brandId } : {}),
       })
       .select('id, brand_id, name, email, role, is_active, avatar_url, created_at, updated_at')
       .single();
@@ -192,10 +196,12 @@ agentRouter.patch('/:id', agentAuthMiddleware, requireAdmin, async (req, res) =>
       updates.password_hash = await bcrypt.hash(password, SALT_ROUNDS);
     }
 
-    const { data: agent, error } = await supabase
+    let updateQuery = supabase
       .from('agents')
       .update(updates)
-      .eq('id', req.params.id)
+      .eq('id', req.params.id);
+    if (req.agent?.brandId) updateQuery = updateQuery.eq('brand_id', req.agent.brandId);
+    const { data: agent, error } = await updateQuery
       .select('id, brand_id, name, email, role, is_active, avatar_url, notification_preferences, created_at, updated_at')
       .single();
 

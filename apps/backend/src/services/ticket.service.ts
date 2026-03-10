@@ -16,33 +16,37 @@ export async function createTicket(data: {
   order_id?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
+  brand_id?: string;
 }): Promise<Ticket> {
   const priority = data.priority ?? 'medium';
 
   let slaDeadline: string | null = null;
   try {
-    slaDeadline = await calculateSlaDeadline(priority);
+    slaDeadline = await calculateSlaDeadline(priority, data.brand_id);
   } catch (err) {
     console.warn('[ticket.service] Could not calculate SLA deadline:', err instanceof Error ? err.message : err);
   }
 
+  const insertPayload: Record<string, unknown> = {
+    source: data.source,
+    subject: data.subject,
+    customer_email: data.customer_email,
+    customer_name: data.customer_name ?? null,
+    customer_phone: data.customer_phone ?? null,
+    shopify_customer_id: data.shopify_customer_id ?? null,
+    priority,
+    category: data.category ?? null,
+    conversation_id: data.conversation_id ?? null,
+    order_id: data.order_id ?? null,
+    tags: data.tags ?? [],
+    metadata: data.metadata ?? null,
+    sla_deadline: slaDeadline,
+  };
+  if (data.brand_id) insertPayload.brand_id = data.brand_id;
+
   const { data: row, error } = await supabase
     .from('tickets')
-    .insert({
-      source: data.source,
-      subject: data.subject,
-      customer_email: data.customer_email,
-      customer_name: data.customer_name ?? null,
-      customer_phone: data.customer_phone ?? null,
-      shopify_customer_id: data.shopify_customer_id ?? null,
-      priority,
-      category: data.category ?? null,
-      conversation_id: data.conversation_id ?? null,
-      order_id: data.order_id ?? null,
-      tags: data.tags ?? [],
-      metadata: data.metadata ?? null,
-      sla_deadline: slaDeadline,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
@@ -79,6 +83,7 @@ export async function getTicket(id: string): Promise<Ticket | null> {
 
 // ── List Tickets with Filters ──────────────────────────────────────────────
 export async function listTickets(filters: {
+  brand_id?: string;
   status?: string;
   priority?: string;
   source?: string;
@@ -100,6 +105,9 @@ export async function listTickets(filters: {
 
   let query = supabase.from('tickets').select('*', { count: 'exact' });
 
+  if (filters.brand_id) {
+    query = query.eq('brand_id', filters.brand_id);
+  }
   if (filters.status) {
     query = query.eq('status', filters.status);
   }
@@ -300,6 +308,7 @@ export async function createTicketFromEscalation(
     priority?: Ticket['priority'];
     summary?: string;
     recommendedActions?: string[];
+    brandId?: string;
   }
 ): Promise<Ticket> {
   const ticket = await createTicket({
@@ -310,6 +319,7 @@ export async function createTicketFromEscalation(
     priority: data.priority ?? 'medium',
     category: 'ai_escalation',
     conversation_id: conversationId,
+    brand_id: data.brandId,
     metadata: {
       escalation_reason: data.reason,
       recommended_actions: data.recommendedActions ?? [],

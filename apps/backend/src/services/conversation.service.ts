@@ -2,6 +2,7 @@ import { supabase } from '../config/supabase.js';
 import type { Conversation, Message } from '../types/index.js';
 
 export async function createConversation(data: {
+  brand_id?: string;
   customer_email?: string;
   customer_name?: string;
   customer_phone?: string;

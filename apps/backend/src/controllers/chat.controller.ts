@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../config/supabase.js';
+import { resolveBrandId } from '../config/brand.js';
 import * as conversationService from '../services/conversation.service.js';
 import * as aiService from '../services/ai.service.js';
 import type { PresetAction } from '../types/index.js';
@@ -39,10 +40,14 @@ chatRouter.post('/session', async (req: Request, res: Response) => {
       pageUrl?: string;
     };
 
-    // Load greeting and presets
+    // Resolve brand
+    const brandId = await resolveBrandId(req);
+
+    // Load greeting and presets filtered by brand
     const { data: configRows } = await supabase
       .from('ai_config')
       .select('key, value')
+      .eq('brand_id', brandId)
       .in('key', ['greeting', 'preset_actions']);
 
     const configMap = new Map(
@@ -63,6 +68,7 @@ chatRouter.post('/session', async (req: Request, res: Response) => {
       const { data: existing } = await supabase
         .from('conversations')
         .select()
+        .eq('brand_id', brandId)
         .eq('metadata->>sessionId', sessionId)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
@@ -95,10 +101,11 @@ chatRouter.post('/session', async (req: Request, res: Response) => {
     // Create new conversation
     const newSessionId = sessionId || uuidv4();
     const conversation = await conversationService.createConversation({
+      brand_id: brandId,
       customer_email: customerEmail,
       customer_name: customerName,
       page_url: pageUrl,
-      metadata: { sessionId: newSessionId },
+      metadata: { sessionId: newSessionId, brandId },
     });
 
     // Store greeting as first assistant message
@@ -158,14 +165,18 @@ chatRouter.post('/message', async (req: Request, res: Response) => {
       return;
     }
 
+    // Use brand_id column (fallback to metadata for legacy conversations)
+    const brandId = conversation.brand_id || (conversation.metadata as Record<string, unknown> | null)?.brandId as string | undefined;
+
     // Resolve message text
     let messageText = message || '';
     if (presetActionId) {
-      const { data: configRows } = await supabase
+      let presetQuery = supabase
         .from('ai_config')
         .select('value')
-        .eq('key', 'preset_actions')
-        .single();
+        .eq('key', 'preset_actions');
+      if (brandId) presetQuery = presetQuery.eq('brand_id', brandId);
+      const { data: configRows } = await presetQuery.single();
 
       if (configRows) {
         try {
@@ -193,6 +204,7 @@ chatRouter.post('/message', async (req: Request, res: Response) => {
       customerEmail: conversation.customer_email ?? undefined,
       pageUrl: conversation.page_url ?? undefined,
       cartId: (conversation.metadata as Record<string, unknown> | null)?.cartId as string | undefined,
+      brandId,
     });
 
     // Store assistant response

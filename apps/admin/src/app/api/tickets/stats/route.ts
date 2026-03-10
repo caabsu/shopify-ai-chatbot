@@ -38,7 +38,12 @@ export async function GET() {
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('source', 'email'),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('source', 'form'),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('source', 'ai_escalation'),
-    supabase.from('ticket_events').select('*').order('created_at', { ascending: false }).limit(10),
+    supabase
+      .from('ticket_events')
+      .select('*, tickets!inner(brand_id)')
+      .eq('tickets.brand_id', brandId)
+      .order('created_at', { ascending: false })
+      .limit(10),
   ]);
 
   // Calculate avg first response time from tickets that have first_response_at

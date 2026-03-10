@@ -1,5 +1,18 @@
+export interface Brand {
+  id: string;
+  name: string;
+  slug: string;
+  shopify_shop: string;
+  password_hash: string | null;
+  settings: Record<string, unknown> | null;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Conversation {
   id: string;
+  brand_id: string;
   shopify_customer_id: string | null;
   customer_email: string | null;
   customer_name: string | null;

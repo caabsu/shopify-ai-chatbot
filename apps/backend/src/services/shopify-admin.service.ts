@@ -492,16 +492,20 @@ export async function initiateReturn(
   orderId: string,
   lineItemIds: string[],
   reason: string,
-  conversationId?: string
+  conversationId?: string,
+  brandId?: string
 ): Promise<InitiateReturnResult> {
+  const insertPayload: Record<string, unknown> = {
+    order_id: orderId,
+    line_item_ids: lineItemIds,
+    reason,
+    conversation_id: conversationId,
+  };
+  if (brandId) insertPayload.brand_id = brandId;
+
   const { data: row, error } = await supabase
     .from('return_requests')
-    .insert({
-      order_id: orderId,
-      line_item_ids: lineItemIds,
-      reason,
-      conversation_id: conversationId,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 

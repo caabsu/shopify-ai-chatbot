@@ -1,12 +1,13 @@
 import { supabase } from '../config/supabase.js';
 
 // ── Calculate SLA Deadline ─────────────────────────────────────────────────
-export async function calculateSlaDeadline(priority: string): Promise<string | null> {
-  const { data: rule, error } = await supabase
+export async function calculateSlaDeadline(priority: string, brandId?: string): Promise<string | null> {
+  let query = supabase
     .from('sla_rules')
     .select()
-    .eq('priority', priority)
-    .single();
+    .eq('priority', priority);
+  if (brandId) query = query.eq('brand_id', brandId);
+  const { data: rule, error } = await query.single();
 
   if (error || !rule) {
     console.warn(`[sla.service] No SLA rule found for priority "${priority}"`);
@@ -18,16 +19,18 @@ export async function calculateSlaDeadline(priority: string): Promise<string | n
 }
 
 // ── Check SLA Breaches ─────────────────────────────────────────────────────
-export async function checkSlaBreaches(): Promise<number> {
+export async function checkSlaBreaches(brandId?: string): Promise<number> {
   const now = new Date().toISOString();
 
   // Find tickets with breached SLAs
-  const { data: breached, error: fetchError } = await supabase
+  let query = supabase
     .from('tickets')
     .select('id, ticket_number')
     .in('status', ['open', 'pending'])
     .lt('sla_deadline', now)
     .eq('sla_breached', false);
+  if (brandId) query = query.eq('brand_id', brandId);
+  const { data: breached, error: fetchError } = await query;
 
   if (fetchError) {
     console.error('[sla.service] checkSlaBreaches fetch error:', fetchError.message);

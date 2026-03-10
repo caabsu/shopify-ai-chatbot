@@ -10,6 +10,7 @@ export interface ToolContext {
   customerEmail?: string;
   pageUrl?: string;
   cartId?: string;
+  brandId?: string;
 }
 
 export interface ToolResult {
@@ -76,14 +77,16 @@ export async function executeTool(
           toolInput.order_id as string,
           toolInput.line_item_ids as string[],
           toolInput.reason as string,
-          context.conversationId
+          context.conversationId,
+          context.brandId
         );
         return { success: true, data: result };
       }
 
       case 'search_knowledge_base': {
         const docs = await knowledgeService.searchKnowledge(
-          toolInput.query as string
+          toolInput.query as string,
+          context.brandId
         );
         return {
           success: true,
@@ -147,6 +150,7 @@ export async function executeTool(
                 priority: (toolInput.priority as 'low' | 'medium' | 'high' | 'urgent') ?? 'medium',
                 summary: escalationSummary,
                 recommendedActions,
+                brandId: context.brandId,
               }
             );
             ticketNumber = ticket.ticket_number;
