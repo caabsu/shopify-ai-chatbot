@@ -63,6 +63,8 @@ export interface WidgetDesign {
   fontFamily?: string;
   headingFontFamily?: string;
   headingFontWeight?: string;
+  headerFontSize?: string;
+  customCSS?: string;
 }
 
 export interface WidgetConfig {

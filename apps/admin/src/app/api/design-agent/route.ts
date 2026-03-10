@@ -33,6 +33,8 @@ const tools: Anthropic.Tool[] = [
         fontFamily: { type: 'string', description: 'CSS font-family for body text (e.g. "Bricolage Grotesque, sans-serif")' },
         headingFontFamily: { type: 'string', description: 'CSS font-family for header title (e.g. "Fraunces, serif")' },
         headingFontWeight: { type: 'string', description: 'CSS font-weight for header title (e.g. "200", "400", "600")' },
+        headerFontSize: { type: 'string', description: 'CSS font-size for the chat header title (e.g. "15px", "18px", "1.2rem")' },
+        customCSS: { type: 'string', description: 'Raw CSS to inject. Target widget classes: .aicb-fab (bubble), .aicb-window (chat window), .aicb-header (header bar), .aicb-header__title (title text), .aicb-messages (message area), .aicb-msg__bubble (message bubbles), .aicb-msg--user .aicb-msg__bubble (user bubble), .aicb-msg--assistant .aicb-msg__bubble (bot bubble), .aicb-input-bar (input area), .aicb-input-bar__input (text input), .aicb-input-bar__send (send button), .aicb-preset-card (action cards), .aicb-preset-card__icon (action icon), .aicb-welcome-tooltip (tooltip), .aicb-branding (branding badge). Use !important if needed to override defaults.' },
       },
       required: [],
     },
@@ -112,6 +114,9 @@ const tools: Anthropic.Tool[] = [
         },
         showOrderNumber: { type: 'boolean', description: 'Show the optional Order Number field' },
         showPhone: { type: 'boolean', description: 'Show the optional Phone field' },
+        headerFontSize: { type: 'string', description: 'CSS font-size for the form title (e.g. "2rem", "28px"). Default: "1.65rem"' },
+        headerFontWeight: { type: 'string', description: 'CSS font-weight for the form title (e.g. "200", "400", "700"). Default: "700"' },
+        customCSS: { type: 'string', description: 'Raw CSS to inject. Target form classes: .scf-wrap (container), .scf-title (heading), .scf-subtitle (subheading), .scf-field (field wrapper), .scf-label (field label), .scf-input (text inputs), .scf-select (dropdown), .scf-textarea (message box), .scf-submit (submit button), .scf-success (success state), .scf-success-title (success heading), .scf-success-text (success body), .scf-success-btn (reset button), .scf-divider (section divider). Use !important if needed.' },
       },
       required: [],
     },
@@ -120,30 +125,71 @@ const tools: Anthropic.Tool[] = [
 
 // ── System prompt ───────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a design and content specialist for an AI chatbot widget and contact form. You help brand owners customize the appearance and messaging of their customer support tools.
+const SYSTEM_PROMPT = `You are a design and content specialist for an AI chatbot widget and contact form. You help brand owners customize the appearance and messaging of their customer support tools. You have FULL control over every visual aspect.
 
 You have tools to read and modify:
-- **Widget Design** — colors, fonts, font weights, border radius, position, bubble icon, branding badge
+- **Widget Design** — colors, fonts, font sizes, font weights, border radius, position, bubble icon, branding badge, header font size, and arbitrary CSS overrides via customCSS
 - **Preset Actions** — the quick-action buttons shown to users (label, icon, prompt)
 - **Greeting** — the first message users see when opening the chat
-- **Contact Form** — the support contact form (header, subtitle, categories, submit button text, success messages, optional fields like order number and phone)
+- **Contact Form** — header, subtitle, categories, submit button text, success messages, optional fields, header font size/weight, and arbitrary CSS overrides via customCSS
 
 When the user asks you to change something, ALWAYS use your tools to:
 1. First read the current config (so you know what to preserve)
 2. Then apply the requested changes (merging with existing values)
 
+## Named Properties
 Available icons for preset actions: truck, return, search, contact, sparkles, leaf, repeat, user, help, tag, package, headphones.
-
 Available bubble icons: chat, headset, sparkle, help.
-Available border radius: sharp (8px), rounded (16px), pill (24px).
-Available font sizes: small, medium, large.
+Preset border radius: sharp (8px), rounded (16px), pill (24px) — or use customCSS for any value.
+Preset font sizes: small (12.5px), medium (13.5px), large (15px) — or use headerFontSize for exact control.
 Available positions: bottom-right, bottom-left.
 
-When suggesting colors, provide hex codes. When suggesting fonts, use CSS font-family values with fallbacks.
+## Custom CSS (unlimited control)
+Both widget and form have a \`customCSS\` field for injecting arbitrary CSS. This gives you FULL control over every pixel.
 
-For contact form categories, use snake_case values (e.g. "order_issue") and human-readable labels (e.g. "Order Issue"). Recommended 4-6 categories. The form also has optional fields (order number, phone) that can be toggled on/off.
+**Widget CSS classes** (prefix: .aicb-):
+- \`.aicb-fab\` — floating action button (bubble)
+- \`.aicb-window\` — chat window container (width, height, shadow, border-radius)
+- \`.aicb-header\` — header bar (background gradient, padding)
+- \`.aicb-header__title\` — header title text (font-size, weight, color, letter-spacing)
+- \`.aicb-header__dot\` — online status dot
+- \`.aicb-messages\` — message list area (padding, gap, background)
+- \`.aicb-msg__bubble\` — message bubble (padding, border-radius, font-size)
+- \`.aicb-msg--user .aicb-msg__bubble\` — user message bubble
+- \`.aicb-msg--assistant .aicb-msg__bubble\` — bot message bubble
+- \`.aicb-msg__avatar\` — bot avatar circle
+- \`.aicb-input-bar\` — input bar wrapper
+- \`.aicb-input-bar__input\` — text input field
+- \`.aicb-input-bar__send\` — send button
+- \`.aicb-preset-card\` — preset action card
+- \`.aicb-preset-card__icon\` — preset action icon circle
+- \`.aicb-preset-card__label\` — preset action label text
+- \`.aicb-welcome-tooltip\` — welcome tooltip near bubble
+- \`.aicb-branding\` — powered-by branding badge
+- \`.aicb-product-card\` — product recommendation card
+- \`.aicb-nav-btn\` — navigation/link buttons
+- \`#aicb-root\` — root element (CSS variables: --aicb-primary, --aicb-bg, --aicb-radius, --aicb-font-size, --aicb-font-family, --aicb-heading-font, --aicb-heading-weight, --aicb-header-font-size)
 
-Be concise and proactive. After making changes, briefly confirm what was updated. If the user asks for suggestions, offer specific, opinionated recommendations based on modern design best practices.`;
+**Contact form CSS classes** (prefix: .scf-):
+- \`.scf-wrap\` — form container (max-width, font-family, font-size)
+- \`.scf-title\` — form heading (font-size, font-weight, color, letter-spacing)
+- \`.scf-subtitle\` — subheading text
+- \`.scf-field\` — field wrapper (margin)
+- \`.scf-label\` — field label (font-size, font-weight, color)
+- \`.scf-required\` — asterisk color
+- \`.scf-input\`, \`.scf-select\`, \`.scf-textarea\` — form inputs (border, padding, border-radius)
+- \`.scf-submit\` — submit button (background, color, border-radius, font)
+- \`.scf-row\` — two-column row layout
+- \`.scf-success\` — success state wrapper
+- \`.scf-success-icon\` — success checkmark circle
+- \`.scf-success-title\` — success heading
+- \`.scf-success-text\` — success body text
+- \`.scf-success-btn\` — "Send Another" button
+- \`.scf-divider\` — horizontal divider
+
+Use \`!important\` when needed to override base styles. When suggesting colors, provide hex codes. When suggesting fonts, use CSS font-family values with fallbacks. For contact form categories, use snake_case values and human-readable labels.
+
+Be concise and proactive. After making changes, briefly confirm what was updated. If the user asks for suggestions, offer specific, opinionated recommendations.`;
 
 // ── Tool handlers ───────────────────────────────────────────────────────────
 

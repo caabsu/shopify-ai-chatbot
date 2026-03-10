@@ -20,7 +20,6 @@ interface BrandDesign {
   fontSize: string;
   fontFamily?: string;
   headingFontFamily?: string;
-  headingFontWeight?: string;
 }
 
 interface FormState {
@@ -39,6 +38,9 @@ interface FormContentConfig {
   categories: Array<{ value: string; label: string }>;
   showOrderNumber: boolean;
   showPhone: boolean;
+  headerFontSize?: string;
+  headerFontWeight?: string;
+  customCSS?: string;
 }
 
 interface FormConfig {
@@ -124,14 +126,15 @@ function isLightColor(hex: string): boolean {
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
-function buildStyles(d: BrandDesign): string {
+function buildStyles(d: BrandDesign, ct: FormContentConfig): string {
   const radius = radiusValue(d.borderRadius);
   const baseFontSize = fontSizeBase(d.fontSize);
   const primary = d.primaryColor;
   const bg = d.backgroundColor;
   const bodyFont = d.fontFamily || "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   const headingFont = d.headingFontFamily || bodyFont;
-  const headingWeight = d.headingFontWeight || '700';
+  const headerWeight = ct.headerFontWeight || '700';
+  const headerSize = ct.headerFontSize || '1.65rem';
   const btnTextColor = isLightColor(primary) ? '#1a1a1a' : '#ffffff';
   const inputBorder = isLightColor(bg) ? '#d1d5db' : '#4a4a4a';
   const inputBg = isLightColor(bg) ? '#ffffff' : hexToRgba('#ffffff', 0.08);
@@ -157,8 +160,8 @@ function buildStyles(d: BrandDesign): string {
 }
 .scf-title {
   font-family: ${headingFont};
-  font-size: 1.65rem;
-  font-weight: ${headingWeight};
+  font-size: ${headerSize};
+  font-weight: ${headerWeight};
   color: ${textColor};
   margin-bottom: 0.4rem;
   letter-spacing: -0.01em;
@@ -268,7 +271,7 @@ function buildStyles(d: BrandDesign): string {
 .scf-success-title {
   font-family: ${headingFont};
   font-size: 1.3rem;
-  font-weight: ${headingWeight};
+  font-weight: ${headerWeight};
   color: ${textColor};
   margin-bottom: 0.5rem;
 }
@@ -319,8 +322,19 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
   if (!document.getElementById('scf-styles')) {
     const style = document.createElement('style');
     style.id = 'scf-styles';
-    style.textContent = buildStyles(cfg.design);
+    style.textContent = buildStyles(cfg.design, cfg.content);
     document.head.appendChild(style);
+  }
+
+  // Inject custom CSS from form config
+  if (cfg.content.customCSS) {
+    let customTag = document.getElementById('scf-custom-css');
+    if (!customTag) {
+      customTag = document.createElement('style');
+      customTag.id = 'scf-custom-css';
+      document.head.appendChild(customTag);
+    }
+    customTag.textContent = cfg.content.customCSS;
   }
 
   // Inject Google Fonts if custom fonts specified

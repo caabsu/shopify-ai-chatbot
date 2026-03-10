@@ -86,7 +86,21 @@ function applyDesign(root: HTMLElement, design: WidgetDesign): void {
   if (design.headingFontWeight) {
     root.style.setProperty('--aicb-heading-weight', design.headingFontWeight);
   }
+  if (design.headerFontSize) {
+    root.style.setProperty('--aicb-header-font-size', design.headerFontSize);
+  }
   loadGoogleFonts(design);
+
+  // Inject custom CSS
+  if (design.customCSS) {
+    let tag = document.getElementById('aicb-custom-css');
+    if (!tag) {
+      tag = document.createElement('style');
+      tag.id = 'aicb-custom-css';
+      document.head.appendChild(tag);
+    }
+    tag.textContent = design.customCSS;
+  }
 
   // Position
   if (design.position === 'bottom-left') {
