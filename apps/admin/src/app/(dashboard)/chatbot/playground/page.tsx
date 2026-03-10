@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { RotateCcw, Wrench, Hash, MessageSquare, ExternalLink } from 'lucide-react';
+import { useBrand } from '@/components/brand-context';
 
 export default function ChatbotPlaygroundPage() {
   const [iframeKey, setIframeKey] = useState(0);
@@ -11,7 +12,9 @@ export default function ChatbotPlaygroundPage() {
   const [lastTools, setLastTools] = useState<string[]>([]);
   const [allToolsUsed, setAllToolsUsed] = useState<string[]>([]);
 
+  const { brandSlug } = useBrand();
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+  const brandQs = brandSlug && brandSlug !== 'outlight' ? `brand=${brandSlug}` : '';
 
   const handleNewConversation = useCallback(() => {
     setIframeKey((k) => k + 1);
@@ -58,7 +61,7 @@ export default function ChatbotPlaygroundPage() {
         </div>
         <div className="flex items-center gap-2">
           <a
-            href={`${backendUrl}/widget/playground`}
+            href={`${backendUrl}/widget/playground${brandQs ? `?${brandQs}` : ''}`}
             target="_blank"
             rel="noopener"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors"
@@ -91,7 +94,7 @@ export default function ChatbotPlaygroundPage() {
         >
           <iframe
             key={iframeKey}
-            src={`${backendUrl}/widget/playground${iframeKey > 0 ? '?newconv=1' : ''}`}
+            src={`${backendUrl}/widget/playground?${[brandQs, iframeKey > 0 ? 'newconv=1' : ''].filter(Boolean).join('&')}`}
             className="absolute inset-0 w-full h-full border-0"
             style={{ background: 'var(--bg-primary)' }}
             allow="clipboard-read; clipboard-write"
