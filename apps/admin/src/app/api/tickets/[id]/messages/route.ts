@@ -73,28 +73,31 @@ export async function POST(
   });
 
   // Send email to customer for agent replies (not internal notes)
+  // Must await — Vercel terminates serverless functions after response is sent
   const isAgentReply = (body.sender_type || 'agent') === 'agent' && !body.is_internal_note;
   if (isAgentReply && ticket.customer_email) {
-    sendTicketReplyEmail({
-      to: ticket.customer_email,
-      customerName: ticket.customer_name || undefined,
-      ticketNumber: ticket.ticket_number,
-      subject: ticket.subject,
-      replyContent: body.content,
-      agentName: session.name || undefined,
-      brandName: session.brandName || undefined,
-    }).then((result) => {
+    try {
+      const result = await sendTicketReplyEmail({
+        to: ticket.customer_email,
+        customerName: ticket.customer_name || undefined,
+        ticketNumber: ticket.ticket_number,
+        subject: ticket.subject,
+        replyContent: body.content,
+        agentName: session.name || undefined,
+        brandName: session.brandName || undefined,
+      });
       if (result.messageId) {
-        // Store email message ID on the ticket message for threading
-        supabase
+        await supabase
           .from('ticket_messages')
           .update({ email_message_id: result.messageId })
-          .eq('id', message.id)
-          .then(() => {});
+          .eq('id', message.id);
       }
-    }).catch((err) => {
+      if (result.error) {
+        console.error('[ticket-reply] Email error:', result.error);
+      }
+    } catch (err) {
       console.error('[ticket-reply] Email send failed:', err);
-    });
+    }
   }
 
   return NextResponse.json({ message, ticket: updatedTicket }, { status: 201 });
