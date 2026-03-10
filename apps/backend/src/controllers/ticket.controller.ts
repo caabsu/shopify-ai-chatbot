@@ -100,7 +100,7 @@ ticketRouter.get('/:id', async (req, res) => {
     let customerProfile = null;
     if (ticket.customer_email) {
       try {
-        customerProfile = await customerProfileService.getCustomerByEmail(ticket.customer_email);
+        customerProfile = await customerProfileService.getCustomerByEmail(ticket.customer_email, ticket.brand_id);
       } catch {
         // Non-critical — continue without customer profile
       }

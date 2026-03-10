@@ -1,9 +1,11 @@
 import { config } from '../config/env.js';
-import { getToken } from './shopify-auth.service.js';
+import { getTokenForBrand } from './shopify-auth.service.js';
+import { getBrandShopifyConfig } from '../config/brand-shopify.js';
 
-async function shopifyGraphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
-  const token = await getToken();
-  const url = `https://${config.shopify.shop}.myshopify.com/admin/api/${config.shopify.apiVersion}/graphql.json`;
+async function shopifyGraphql<T>(query: string, variables?: Record<string, unknown>, brandId?: string): Promise<T> {
+  const token = await getTokenForBrand(brandId);
+  const brandConfig = await getBrandShopifyConfig(brandId);
+  const url = `https://${brandConfig.shop}.myshopify.com/admin/api/${config.shopify.apiVersion}/graphql.json`;
 
   const res = await fetch(url, {
     method: 'POST',
@@ -36,7 +38,8 @@ async function shopifyGraphql<T>(query: string, variables?: Record<string, unkno
 // ── Cancel Order ───────────────────────────────────────────────────────────
 export async function cancelOrder(
   orderId: string,
-  reason?: string
+  reason?: string,
+  brandId?: string
 ): Promise<{ success: boolean; message: string }> {
   const mutation = `
     mutation OrderCancel($orderId: ID!, $reason: OrderCancelReason!, $refund: Boolean!, $restock: Boolean!) {
@@ -59,7 +62,7 @@ export async function cancelOrder(
       reason: reason ?? 'CUSTOMER',
       refund: true,
       restock: true,
-    });
+    }, brandId);
 
     const errors = data.orderCancel.orderCancelUserErrors;
     if (errors.length > 0) {
@@ -81,7 +84,8 @@ export async function refundOrder(
   orderId: string,
   amount: number,
   reason?: string,
-  notify = true
+  notify = true,
+  brandId?: string
 ): Promise<{ success: boolean; message: string; refundId?: string }> {
   const mutation = `
     mutation RefundCreate($input: RefundInput!) {
@@ -126,7 +130,7 @@ export async function refundOrder(
           },
         ],
       },
-    });
+    }, brandId);
 
     const errors = data.refundCreate.userErrors;
     if (errors.length > 0) {
@@ -154,7 +158,8 @@ export async function refundOrder(
 export async function createDiscountCode(
   code: string,
   percentage: number,
-  expiryDays?: number
+  expiryDays?: number,
+  brandId?: string
 ): Promise<{ success: boolean; message: string; code?: string }> {
   const startsAt = new Date().toISOString();
   const endsAt = expiryDays
@@ -221,7 +226,7 @@ export async function createDiscountCode(
         } | null;
         userErrors: Array<{ field: string[]; message: string }>;
       };
-    }>(mutation, { basicCodeDiscount: input });
+    }>(mutation, { basicCodeDiscount: input }, brandId);
 
     const errors = data.discountCodeBasicCreate.userErrors;
     if (errors.length > 0) {

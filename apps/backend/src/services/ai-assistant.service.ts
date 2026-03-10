@@ -34,7 +34,7 @@ async function loadTicketContext(ticketId: string): Promise<{
   let customerProfile = null;
   if (ticket.customer_email) {
     try {
-      customerProfile = await customerProfileService.getCustomerByEmail(ticket.customer_email);
+      customerProfile = await customerProfileService.getCustomerByEmail(ticket.customer_email, ticket.brand_id);
     } catch (err) {
       console.warn('[ai-assistant.service] Could not load customer profile:', err instanceof Error ? err.message : err);
     }

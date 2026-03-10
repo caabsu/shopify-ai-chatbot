@@ -29,7 +29,9 @@ export async function executeTool(
       case 'search_products': {
         const result = await shopifyMcp.searchProducts(
           toolInput.query as string,
-          toolInput.context as string
+          toolInput.context as string,
+          undefined,
+          context.brandId
         );
         return { success: true, data: result };
       }
@@ -37,8 +39,8 @@ export async function executeTool(
       case 'get_product_details': {
         const productId = toolInput.product_id as string;
         const [mcpResult, metafields] = await Promise.all([
-          shopifyMcp.getProductDetails(productId),
-          shopifyAdmin.getProductMetafields(productId).catch((err) => {
+          shopifyMcp.getProductDetails(productId, undefined, context.brandId),
+          shopifyAdmin.getProductMetafields(productId, context.brandId).catch((err) => {
             console.warn('[tool-router] Failed to fetch metafields for', productId, ':', err instanceof Error ? err.message : err);
             return null;
           }),
@@ -51,7 +53,8 @@ export async function executeTool(
       case 'answer_store_policy': {
         const result = await shopifyMcp.searchPolicies(
           toolInput.query as string,
-          toolInput.context as string
+          toolInput.context as string,
+          context.brandId
         );
         return { success: true, data: result };
       }
@@ -60,14 +63,16 @@ export async function executeTool(
         const result = await shopifyAdmin.lookupOrder(
           toolInput.order_number as string,
           toolInput.email as string | undefined,
-          toolInput.phone as string | undefined
+          toolInput.phone as string | undefined,
+          context.brandId
         );
         return { success: true, data: result };
       }
 
       case 'check_return_eligibility': {
         const result = await shopifyAdmin.checkReturnEligibility(
-          toolInput.order_id as string
+          toolInput.order_id as string,
+          context.brandId
         );
         return { success: true, data: result };
       }
@@ -101,12 +106,12 @@ export async function executeTool(
           update_items: toolInput.update_items as Array<{ id: string; quantity: number }> | undefined,
           remove_line_ids: toolInput.remove_line_ids as string[] | undefined,
           discount_codes: toolInput.discount_codes as string[] | undefined,
-        });
+        }, context.brandId);
         return { success: true, data: result };
       }
 
       case 'get_cart': {
-        const result = await shopifyMcp.getCart(toolInput.cart_id as string);
+        const result = await shopifyMcp.getCart(toolInput.cart_id as string, context.brandId);
         return { success: true, data: result };
       }
 
@@ -124,7 +129,8 @@ export async function executeTool(
       case 'cancel_order': {
         const result = await shopifyActions.cancelOrder(
           toolInput.order_id as string,
-          toolInput.order_name as string
+          toolInput.order_name as string,
+          context.brandId
         );
         return { success: result.success, data: result };
       }

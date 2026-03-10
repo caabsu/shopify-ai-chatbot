@@ -1,5 +1,6 @@
 import { config } from '../config/env.js';
-import { getToken } from './shopify-auth.service.js';
+import { getTokenForBrand } from './shopify-auth.service.js';
+import { getBrandShopifyConfig } from '../config/brand-shopify.js';
 
 interface ShopifyCustomerProfile {
   id: string;
@@ -30,9 +31,10 @@ interface ShopifyOrderSummary {
   createdAt: string;
 }
 
-async function shopifyGraphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
-  const token = await getToken();
-  const url = `https://${config.shopify.shop}.myshopify.com/admin/api/${config.shopify.apiVersion}/graphql.json`;
+async function shopifyGraphql<T>(query: string, variables?: Record<string, unknown>, brandId?: string): Promise<T> {
+  const token = await getTokenForBrand(brandId);
+  const brandConfig = await getBrandShopifyConfig(brandId);
+  const url = `https://${brandConfig.shop}.myshopify.com/admin/api/${config.shopify.apiVersion}/graphql.json`;
 
   const res = await fetch(url, {
     method: 'POST',
@@ -63,7 +65,7 @@ async function shopifyGraphql<T>(query: string, variables?: Record<string, unkno
 }
 
 // ── Get Customer by Email ──────────────────────────────────────────────────
-export async function getCustomerByEmail(email: string): Promise<ShopifyCustomerProfile | null> {
+export async function getCustomerByEmail(email: string, brandId?: string): Promise<ShopifyCustomerProfile | null> {
   const query = `
     query CustomerByEmail($queryStr: String!) {
       customers(first: 1, query: $queryStr) {
@@ -108,7 +110,7 @@ export async function getCustomerByEmail(email: string): Promise<ShopifyCustomer
           };
         }>;
       };
-    }>(query, { queryStr: `email:${email}` });
+    }>(query, { queryStr: `email:${email}` }, brandId);
 
     const edge = data.customers.edges[0];
     if (!edge) {
@@ -137,7 +139,7 @@ export async function getCustomerByEmail(email: string): Promise<ShopifyCustomer
 }
 
 // ── Get Customer Orders ────────────────────────────────────────────────────
-export async function getCustomerOrders(email: string, limit = 10): Promise<ShopifyOrderSummary[]> {
+export async function getCustomerOrders(email: string, limit = 10, brandId?: string): Promise<ShopifyOrderSummary[]> {
   const query = `
     query CustomerOrders($queryStr: String!, $first: Int!) {
       orders(first: $first, query: $queryStr, sortKey: CREATED_AT, reverse: true) {
@@ -197,7 +199,7 @@ export async function getCustomerOrders(email: string, limit = 10): Promise<Shop
           };
         }>;
       };
-    }>(query, { queryStr: `email:${email}`, first: limit });
+    }>(query, { queryStr: `email:${email}`, first: limit }, brandId);
 
     return data.orders.edges.map((edge) => {
       const o = edge.node;

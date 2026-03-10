@@ -1,13 +1,16 @@
 import { config } from '../config/env.js';
-import { getToken } from './shopify-auth.service.js';
+import { getTokenForBrand } from './shopify-auth.service.js';
+import { getBrandShopifyConfig } from '../config/brand-shopify.js';
 import { supabase } from '../config/supabase.js';
 
 async function graphql<T = Record<string, unknown>>(
   query: string,
-  variables?: Record<string, unknown>
+  variables?: Record<string, unknown>,
+  brandId?: string
 ): Promise<T> {
-  const token = await getToken();
-  const url = `https://${config.shopify.shop}.myshopify.com/admin/api/${config.shopify.apiVersion}/graphql.json`;
+  const token = await getTokenForBrand(brandId);
+  const brandConfig = await getBrandShopifyConfig(brandId);
+  const url = `https://${brandConfig.shop}.myshopify.com/admin/api/${config.shopify.apiVersion}/graphql.json`;
 
   const res = await fetch(url, {
     method: 'POST',
@@ -69,7 +72,8 @@ export interface OrderLookupResult {
 export async function lookupOrder(
   orderNumber: string,
   email?: string,
-  phone?: string
+  phone?: string,
+  brandId?: string
 ): Promise<OrderLookupResult> {
   if (!email && !phone) {
     return { found: false, message: 'Please provide your email address or phone number to verify your identity.' };
@@ -154,7 +158,7 @@ export async function lookupOrder(
         };
       }>;
     };
-  }>(query, { queryStr: `name:#${cleanNumber}` });
+  }>(query, { queryStr: `name:#${cleanNumber}` }, brandId);
 
   const orderEdge = data.orders.edges[0];
   if (!orderEdge) {
@@ -223,7 +227,7 @@ export interface ShopPolicy {
   body: string;
 }
 
-export async function fetchLegalPolicies(): Promise<ShopPolicy[]> {
+export async function fetchLegalPolicies(brandId?: string): Promise<ShopPolicy[]> {
   const query = `
     query {
       shop {
@@ -242,7 +246,7 @@ export async function fetchLegalPolicies(): Promise<ShopPolicy[]> {
         body: string;
       }>;
     };
-  }>(query);
+  }>(query, undefined, brandId);
 
   return data.shop.shopPolicies
     .filter((p) => p.body && p.body.trim().length > 0)
@@ -253,7 +257,7 @@ export async function fetchLegalPolicies(): Promise<ShopPolicy[]> {
     }));
 }
 
-export async function getProductMetafields(productId: string): Promise<Record<string, string | number | null>> {
+export async function getProductMetafields(productId: string, brandId?: string): Promise<Record<string, string | number | null>> {
   const query = `
     query ProductMetafields($id: ID!) {
       product(id: $id) {
@@ -279,7 +283,7 @@ export async function getProductMetafields(productId: string): Promise<Record<st
         }>;
       };
     } | null;
-  }>(query, { id: productId });
+  }>(query, { id: productId }, brandId);
 
   if (!data.product) return {};
 
@@ -354,7 +358,7 @@ export interface CancelOrderResult {
   message: string;
 }
 
-export async function cancelOrder(orderId: string, orderName: string): Promise<CancelOrderResult> {
+export async function cancelOrder(orderId: string, orderName: string, brandId?: string): Promise<CancelOrderResult> {
   const mutation = `
     mutation OrderCancel($orderId: ID!, $reason: OrderCancelReason!, $refund: Boolean!, $restock: Boolean!) {
       orderCancel(orderId: $orderId, reason: $reason, refund: $refund, restock: $restock) {
@@ -375,7 +379,7 @@ export async function cancelOrder(orderId: string, orderName: string): Promise<C
     reason: 'CUSTOMER',
     refund: true,
     restock: true,
-  });
+  }, brandId);
 
   const errors = data.orderCancel.orderCancelUserErrors;
   if (errors.length > 0) {
@@ -402,7 +406,7 @@ export interface ReturnEligibilityResult {
   }>;
 }
 
-export async function checkReturnEligibility(orderId: string): Promise<ReturnEligibilityResult> {
+export async function checkReturnEligibility(orderId: string, brandId?: string): Promise<ReturnEligibilityResult> {
   const query = `
     query OrderReturnEligibility($id: ID!) {
       order(id: $id) {
@@ -442,7 +446,7 @@ export async function checkReturnEligibility(orderId: string): Promise<ReturnEli
         }>;
       };
     } | null;
-  }>(query, { id: orderId });
+  }>(query, { id: orderId }, brandId);
 
   if (!data.order) {
     return { items: [] };
