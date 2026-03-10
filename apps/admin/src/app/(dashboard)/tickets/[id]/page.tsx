@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Tag, User, Bot, Cpu, MessageSquare, Plus, X,
   ChevronDown, ChevronUp, Send, StickyNote, Sparkles, ListChecks, FileText,
-  ShoppingCart, RefreshCcw, ReceiptText, TicketPercent,
+  ShoppingCart, RefreshCcw, ReceiptText,
   Mail, FormInput, Clock, AlertCircle,
 } from 'lucide-react';
 import { formatDate, cn } from '@/lib/utils';
@@ -814,18 +814,6 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 onClick={() => alert('Issue Refund: Coming in Phase 4')}
               >
                 <RefreshCcw size={12} /> Issue Refund
-              </button>
-              <button
-                className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors"
-                style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
-                onClick={() => alert('Create Discount: Coming in Phase 4')}
-              >
-                <TicketPercent size={12} /> Create Discount
               </button>
             </div>
           </div>
