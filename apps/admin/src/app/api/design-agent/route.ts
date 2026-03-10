@@ -82,6 +82,40 @@ const tools: Anthropic.Tool[] = [
       required: ['greeting'],
     },
   },
+  {
+    name: 'get_contact_form_config',
+    description: 'Get the current contact form configuration (header, subtitle, categories, success messages, field visibility).',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
+    name: 'update_contact_form_config',
+    description: 'Update the contact form configuration. Only include fields you want to change.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        headerTitle: { type: 'string', description: 'Form heading text (e.g. "Get in Touch")' },
+        subtitle: { type: 'string', description: 'Paragraph below the heading explaining the form purpose' },
+        submitButtonText: { type: 'string', description: 'Text on the submit button (e.g. "Send Message")' },
+        successTitle: { type: 'string', description: 'Title shown after successful submission (e.g. "Message Received")' },
+        successMessage: { type: 'string', description: 'Body text shown after successful submission' },
+        categories: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              value: { type: 'string', description: 'Internal value (snake_case slug)' },
+              label: { type: 'string', description: 'Display label shown in the dropdown' },
+            },
+            required: ['value', 'label'],
+          },
+          description: 'Dropdown categories for "What can we help with?" (recommended 4-6)',
+        },
+        showOrderNumber: { type: 'boolean', description: 'Show the optional Order Number field' },
+        showPhone: { type: 'boolean', description: 'Show the optional Phone field' },
+      },
+      required: [],
+    },
+  },
 ];
 
 // ── System prompt ───────────────────────────────────────────────────────────
@@ -92,6 +126,7 @@ You have tools to read and modify:
 - **Widget Design** — colors, fonts, font weights, border radius, position, bubble icon, branding badge
 - **Preset Actions** — the quick-action buttons shown to users (label, icon, prompt)
 - **Greeting** — the first message users see when opening the chat
+- **Contact Form** — the support contact form (header, subtitle, categories, submit button text, success messages, optional fields like order number and phone)
 
 When the user asks you to change something, ALWAYS use your tools to:
 1. First read the current config (so you know what to preserve)
@@ -105,6 +140,8 @@ Available font sizes: small, medium, large.
 Available positions: bottom-right, bottom-left.
 
 When suggesting colors, provide hex codes. When suggesting fonts, use CSS font-family values with fallbacks.
+
+For contact form categories, use snake_case values (e.g. "order_issue") and human-readable labels (e.g. "Order Issue"). Recommended 4-6 categories. The form also has optional fields (order number, phone) that can be toggled on/off.
 
 Be concise and proactive. After making changes, briefly confirm what was updated. If the user asks for suggestions, offer specific, opinionated recommendations based on modern design best practices.`;
 
@@ -167,6 +204,26 @@ async function handleTool(
         { onConflict: 'brand_id,key' },
       );
       return greeting;
+    }
+
+    case 'get_contact_form_config': {
+      const { data } = await supabase
+        .from('ai_config').select('value')
+        .eq('brand_id', brandId).eq('key', 'contact_form_config').single();
+      return data?.value || '{}';
+    }
+
+    case 'update_contact_form_config': {
+      const { data: existing } = await supabase
+        .from('ai_config').select('value')
+        .eq('brand_id', brandId).eq('key', 'contact_form_config').single();
+      const current = existing?.value ? JSON.parse(existing.value) : {};
+      const updated = { ...current, ...input };
+      await supabase.from('ai_config').upsert(
+        { brand_id: brandId, key: 'contact_form_config', value: JSON.stringify(updated), updated_at: new Date().toISOString() },
+        { onConflict: 'brand_id,key' },
+      );
+      return JSON.stringify(updated);
     }
 
     default:

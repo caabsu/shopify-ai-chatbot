@@ -29,8 +29,20 @@ interface FormState {
   error: string | null;
 }
 
+interface FormContentConfig {
+  headerTitle: string;
+  subtitle: string;
+  submitButtonText: string;
+  successTitle: string;
+  successMessage: string;
+  categories: Array<{ value: string; label: string }>;
+  showOrderNumber: boolean;
+  showPhone: boolean;
+}
+
 interface FormConfig {
   design: BrandDesign;
+  content: FormContentConfig;
   brandSlug: string;
   backendUrl: string;
 }
@@ -45,13 +57,22 @@ const DEFAULT_DESIGN: BrandDesign = {
   fontSize: 'medium',
 };
 
-const CATEGORIES = [
-  { value: 'order_issue', label: 'Order Issue' },
-  { value: 'return_refund', label: 'Return / Refund' },
-  { value: 'product_inquiry', label: 'Product Question' },
-  { value: 'shipping', label: 'Shipping' },
-  { value: 'other', label: 'Other' },
-];
+const DEFAULT_CONTENT: FormContentConfig = {
+  headerTitle: 'Get in Touch',
+  subtitle: 'Have a question or need help? Fill out the form below and we\'ll respond as soon as we can.',
+  submitButtonText: 'Send Message',
+  successTitle: 'Message Received',
+  successMessage: 'Thank you for reaching out. We\'ll get back to you via email as soon as possible.',
+  categories: [
+    { value: 'order_issue', label: 'Order Issue' },
+    { value: 'return_refund', label: 'Return / Refund' },
+    { value: 'product_inquiry', label: 'Product Question' },
+    { value: 'shipping', label: 'Shipping' },
+    { value: 'other', label: 'Other' },
+  ],
+  showOrderNumber: true,
+  showPhone: true,
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -322,6 +343,8 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
     }
   }
 
+  const ct = cfg.content;
+
   function render(): void {
     if (state.submitted) {
       container.innerHTML = `
@@ -330,11 +353,9 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
             <div class="scf-success-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
-            <div class="scf-success-title">Message Received</div>
+            <div class="scf-success-title">${ct.successTitle}</div>
             <div class="scf-success-text">
-              Thank you for reaching out. Your ticket number is
-              <span class="scf-success-ticket">#${state.ticketNumber}</span>.<br>
-              We'll get back to you via email as soon as possible.
+              ${ct.successMessage}${state.ticketNumber ? ` Your ticket number is <span class="scf-success-ticket">#${state.ticketNumber}</span>.` : ''}
             </div>
             <button class="scf-success-btn" id="scf-reset">Send Another Message</button>
           </div>
@@ -348,11 +369,30 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
       return;
     }
 
+    const optionalFields: string[] = [];
+    if (ct.showOrderNumber) {
+      optionalFields.push(`
+            <div class="scf-field">
+              <label class="scf-label">Order Number <span class="scf-optional">(optional)</span></label>
+              <input class="scf-input" name="order_number" placeholder="#1234" />
+            </div>`);
+    }
+    if (ct.showPhone) {
+      optionalFields.push(`
+            <div class="scf-field">
+              <label class="scf-label">Phone <span class="scf-optional">(optional)</span></label>
+              <input class="scf-input" name="phone" type="tel" placeholder="(555) 123-4567" autocomplete="tel" />
+            </div>`);
+    }
+    const optionalHtml = optionalFields.length > 0
+      ? `<hr class="scf-divider" /><div class="scf-row">${optionalFields.join('')}</div>`
+      : '';
+
     container.innerHTML = `
       <div class="scf-wrap">
         <div class="scf-header">
-          <h2 class="scf-title">${cfg.design.headerTitle || 'Get in Touch'}</h2>
-          <p class="scf-subtitle">Have a question or need help? Fill out the form below and we'll respond as soon as we can.</p>
+          <h2 class="scf-title">${ct.headerTitle}</h2>
+          <p class="scf-subtitle">${ct.subtitle}</p>
         </div>
         ${state.error ? `<div class="scf-form-error">${state.error}</div>` : ''}
         <form id="scf-form" novalidate>
@@ -371,7 +411,7 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
             <label class="scf-label">What can we help with? <span class="scf-required">*</span></label>
             <select class="scf-select" name="category" required>
               <option value="">Select a topic...</option>
-              ${CATEGORIES.map(c => `<option value="${c.value}">${c.label}</option>`).join('')}
+              ${ct.categories.map(c => `<option value="${c.value}">${c.label}</option>`).join('')}
             </select>
           </div>
 
@@ -385,22 +425,11 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
             <textarea class="scf-textarea" name="message" required placeholder="Tell us more details..."></textarea>
           </div>
 
-          <hr class="scf-divider" />
-
-          <div class="scf-row">
-            <div class="scf-field">
-              <label class="scf-label">Order Number <span class="scf-optional">(optional)</span></label>
-              <input class="scf-input" name="order_number" placeholder="#1234" />
-            </div>
-            <div class="scf-field">
-              <label class="scf-label">Phone <span class="scf-optional">(optional)</span></label>
-              <input class="scf-input" name="phone" type="tel" placeholder="(555) 123-4567" autocomplete="tel" />
-            </div>
-          </div>
+          ${optionalHtml}
 
           <input class="scf-honeypot" name="website" tabindex="-1" autocomplete="off" />
           <button type="submit" class="scf-submit" ${state.submitting ? 'disabled' : ''}>
-            ${state.submitting ? 'Sending...' : 'Send Message'}
+            ${state.submitting ? 'Sending...' : ct.submitButtonText}
           </button>
         </form>
       </div>`;
@@ -491,8 +520,9 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
 async function init(): Promise<void> {
   const { backendUrl, brandSlug } = getScriptInfo();
 
-  // Load brand design config
+  // Load brand design + form content config
   let design = { ...DEFAULT_DESIGN };
+  let content = { ...DEFAULT_CONTENT };
   try {
     const configUrl = `${backendUrl}/api/widget/config${brandSlug ? '?brand=' + brandSlug : ''}`;
     const res = await fetch(configUrl);
@@ -501,12 +531,15 @@ async function init(): Promise<void> {
       if (data.design) {
         design = { ...design, ...data.design };
       }
+      if (data.formConfig) {
+        content = { ...content, ...data.formConfig };
+      }
     }
   } catch {
     // Use defaults
   }
 
-  const cfg: FormConfig = { design, brandSlug, backendUrl };
+  const cfg: FormConfig = { design, content, brandSlug, backendUrl };
 
   // Find or create container
   const explicit = document.getElementById('support-contact-form');
