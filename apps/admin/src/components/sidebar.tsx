@@ -15,6 +15,8 @@ import {
   BookOpen,
   Settings,
   Headphones,
+  Paintbrush,
+  Palette,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -52,11 +54,13 @@ const navGroups: NavGroup[] = [
       { href: '/chatbot/ai-config', label: 'AI Config', icon: Brain },
       { href: '/chatbot/capabilities', label: 'Capabilities', icon: Zap },
       { href: '/chatbot/features', label: 'Features', icon: ToggleLeft },
+      { href: '/chatbot/design-agent', label: 'Design Agent', icon: Paintbrush },
     ],
   },
   {
     label: 'Manage',
     items: [
+      { href: '/design', label: 'Widget Design', icon: Palette },
       { href: '/knowledge', label: 'Knowledge Base', icon: BookOpen },
       { href: '/settings', label: 'Settings', icon: Settings },
     ],

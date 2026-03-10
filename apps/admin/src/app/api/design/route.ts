@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
+const ALLOWED_KEYS = [
+  'primaryColor', 'backgroundColor', 'headerTitle', 'position',
+  'bubbleIcon', 'welcomeMessage', 'inputPlaceholder', 'borderRadius',
+  'fontSize', 'showBrandingBadge', 'autoOpenDelay',
+  'fontFamily', 'headingFontFamily', 'headingFontWeight',
+];
+
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -19,11 +26,7 @@ export async function GET() {
 
   let design = null;
   if (data?.value) {
-    try {
-      design = JSON.parse(data.value);
-    } catch {
-      // ignore parse error
-    }
+    try { design = JSON.parse(data.value); } catch { /* ignore */ }
   }
 
   return NextResponse.json({ design });
@@ -34,33 +37,12 @@ export async function PUT(request: Request) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const {
-    primaryColor,
-    backgroundColor,
-    headerTitle,
-    position,
-    bubbleIcon,
-    welcomeMessage,
-    inputPlaceholder,
-    borderRadius,
-    fontSize,
-    showBrandingBadge,
-    autoOpenDelay,
-  } = body;
 
-  const design = {
-    primaryColor,
-    backgroundColor,
-    headerTitle,
-    position,
-    bubbleIcon,
-    welcomeMessage,
-    inputPlaceholder,
-    borderRadius,
-    fontSize,
-    showBrandingBadge,
-    autoOpenDelay,
-  };
+  // Only keep allowed keys
+  const design: Record<string, unknown> = {};
+  for (const key of ALLOWED_KEYS) {
+    if (body[key] !== undefined) design[key] = body[key];
+  }
 
   const { error } = await supabase
     .from('ai_config')
