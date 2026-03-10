@@ -4,13 +4,13 @@ import { useRouter } from 'next/navigation';
 import { LogOut, Sun, Moon } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 
-export function Header({ brandName }: { brandName: string }) {
+export function Header({ brandName, brandSlug }: { brandName: string; brandSlug: string }) {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    router.push(`/login/${brandSlug}`);
   }
 
   function toggleTheme() {

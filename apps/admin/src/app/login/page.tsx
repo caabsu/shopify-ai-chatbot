@@ -9,100 +9,73 @@ interface BrandOption {
   slug: string;
 }
 
-export default function LoginPage() {
+export default function LoginPortalPage() {
   const router = useRouter();
   const [brands, setBrands] = useState<BrandOption[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/auth/brands')
       .then((r) => r.json())
       .then((data) => {
-        setBrands(data.brands || []);
-        if (data.brands?.length === 1) {
-          setSelectedBrand(data.brands[0].slug);
+        const list: BrandOption[] = data.brands || [];
+        setBrands(list);
+        // If only one brand exists, go directly to its login
+        if (list.length === 1) {
+          router.replace(`/login/${list[0].slug}`);
         }
+        setLoading(false);
       })
-      .catch(() => setError('Failed to load brands'));
-  }, []);
+      .catch(() => setLoading(false));
+  }, [router]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brandSlug: selectedBrand, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'Login failed');
-        return;
-      }
-
-      router.push('/overview');
-    } catch {
-      setError('Network error');
-    } finally {
-      setLoading(false);
-    }
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h1 className="text-xl font-semibold text-center mb-6">Admin Dashboard</h1>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
-              <select
-                value={selectedBrand}
-                onChange={(e) => setSelectedBrand(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                required
-              >
-                <option value="">Select brand...</option>
-                {brands.map((b) => (
-                  <option key={b.slug} value={b.slug}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                placeholder="Enter password"
-                required
-              />
-            </div>
-
-            {error && <p className="text-sm text-red-600">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={loading || !selectedBrand}
-              className="w-full bg-black text-white rounded-lg py-2 text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
+      <div className="w-full max-w-md mx-4">
+        <div className="text-center mb-8">
+          <h1 className="text-lg font-semibold text-gray-900">Support Hub</h1>
+          <p className="text-sm text-gray-500 mt-1">Select your brand portal</p>
         </div>
+
+        <div className="space-y-3">
+          {brands.map((b) => (
+            <a
+              key={b.slug}
+              href={`/login/${b.slug}`}
+              className="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-5 py-4 shadow-sm hover:shadow-md hover:border-gray-300 transition-all group"
+            >
+              <div>
+                <div className="font-semibold text-gray-900 group-hover:text-black transition-colors">
+                  {b.name}
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">{b.slug}</div>
+              </div>
+              <svg
+                className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+          ))}
+        </div>
+
+        {brands.length === 0 && (
+          <div className="text-center text-sm text-gray-500">
+            No brands configured.
+          </div>
+        )}
       </div>
     </div>
   );
