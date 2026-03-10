@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabase.js';
 import type { Ticket, TicketMessage, TicketEvent } from '../types/index.js';
 import { calculateSlaDeadline } from './sla.service.js';
+import { sendTicketConfirmation } from './email.service.js';
 
 // ── Create Ticket ──────────────────────────────────────────────────────────
 export async function createTicket(data: {
@@ -344,6 +345,14 @@ export async function createTicketFromEscalation(
     .from('conversations')
     .update({ escalated_ticket_id: ticket.id, updated_at: new Date().toISOString() })
     .eq('id', conversationId);
+
+  // Send confirmation email
+  sendTicketConfirmation({
+    to: data.customer_email,
+    customerName: data.customer_name,
+    ticketNumber: ticket.ticket_number,
+    subject: ticket.subject,
+  }).catch((err) => console.error('[ticket.service] Escalation confirmation email failed:', err));
 
   console.log(`[ticket.service] Created escalation ticket #${ticket.ticket_number} from conversation ${conversationId}`);
   return ticket;
