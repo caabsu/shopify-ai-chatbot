@@ -612,7 +612,14 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                       cannedResponses.map((cr) => (
                         <button
                           key={cr.id}
-                          onClick={() => { setReplyContent(cr.content); setShowCannedDropdown(false); }}
+                          onClick={() => {
+                            const firstName = ticket.customer_name?.split(' ')[0];
+                            const personalized = firstName
+                              ? cr.content.replace(/\{\{name\}\}/gi, firstName).replace(/^/, `Hi ${firstName},\n\n`)
+                              : cr.content;
+                            setReplyContent(personalized);
+                            setShowCannedDropdown(false);
+                          }}
                           className="w-full text-left px-3 py-2 text-xs transition-colors"
                           style={{ color: 'var(--text-primary)' }}
                           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
