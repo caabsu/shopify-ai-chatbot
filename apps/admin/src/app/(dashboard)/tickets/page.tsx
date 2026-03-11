@@ -456,16 +456,28 @@ export default function TicketInboxPage() {
 
                         {/* Right side */}
                         <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                          {/* Priority */}
-                          <span
-                            className="text-[10px] font-medium px-2 py-0.5 rounded-full uppercase"
-                            style={{
-                              backgroundColor: priority.bg,
-                              color: priority.text,
-                            }}
-                          >
-                            {ticket.priority}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {/* Status */}
+                            <span
+                              className="text-[10px] font-medium px-2 py-0.5 rounded-full capitalize"
+                              style={{
+                                backgroundColor: STATUS_STYLES[ticket.status]?.bg || 'rgba(156,163,175,0.12)',
+                                color: STATUS_STYLES[ticket.status]?.text || '#9ca3af',
+                              }}
+                            >
+                              {ticket.status}
+                            </span>
+                            {/* Priority */}
+                            <span
+                              className="text-[10px] font-medium px-2 py-0.5 rounded-full uppercase"
+                              style={{
+                                backgroundColor: priority.bg,
+                                color: priority.text,
+                              }}
+                            >
+                              {ticket.priority}
+                            </span>
+                          </div>
 
                           {/* SLA */}
                           {sla && (
