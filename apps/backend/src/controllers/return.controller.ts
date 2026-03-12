@@ -10,6 +10,9 @@ import {
   sendReturnRefunded,
 } from '../services/email.service.js';
 import { lookupOrder } from '../services/shopify-admin.service.js';
+import * as returnSettingsService from '../services/return-settings.service.js';
+import * as returnEmailTemplateService from '../services/return-email-template.service.js';
+import { supabase } from '../config/supabase.js';
 
 export const returnRouter = Router();
 
@@ -24,6 +27,7 @@ returnRouter.post('/submit', async (req, res) => {
     }
 
     const brandId = await resolveBrandId(req);
+    const settings = await returnSettingsService.getReturnSettings(brandId);
 
     // 1. Create return request
     const returnRequest = await returnService.createReturnRequest({
@@ -76,6 +80,7 @@ returnRouter.post('/submit', async (req, res) => {
         orderNumber: order_number,
         items: itemsSummary,
         brandName: undefined,
+        brandId,
       }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
 
       sendReturnApproved({
@@ -84,6 +89,7 @@ returnRouter.post('/submit', async (req, res) => {
         returnRequestId: returnRequest.id,
         orderNumber: order_number,
         items: itemsSummary,
+        brandId,
       }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
       res.status(201).json({ return_request: updated, status: 'approved' });
@@ -103,6 +109,7 @@ returnRouter.post('/submit', async (req, res) => {
         returnRequestId: returnRequest.id,
         orderNumber: order_number,
         items: itemsSummary,
+        brandId,
       }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
 
       sendReturnDenied({
@@ -112,6 +119,7 @@ returnRouter.post('/submit', async (req, res) => {
         orderNumber: order_number,
         items: itemsSummary,
         reason: 'Your return request does not meet our return policy requirements.',
+        brandId,
       }).catch((err) => console.error('[return.controller] Denial email failed:', err));
 
       res.status(201).json({ return_request: updated, status: 'denied' });
@@ -137,7 +145,7 @@ returnRouter.post('/submit', async (req, res) => {
       };
 
       // If AI is confident enough, auto-execute
-      if (aiRecommendation.confidence >= 0.85 && aiRecommendation.decision === 'approve') {
+      if (aiRecommendation.confidence >= settings.ai_confidence_threshold && aiRecommendation.decision === 'approve') {
         aiUpdatePayload.status = 'approved';
         aiUpdatePayload.resolution_type = aiRecommendation.suggested_resolution === 'exchange'
           ? 'exchange'
@@ -155,6 +163,7 @@ returnRouter.post('/submit', async (req, res) => {
           returnRequestId: returnRequest.id,
           orderNumber: order_number,
           items: itemsSummary,
+          brandId,
         }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
 
         sendReturnApproved({
@@ -163,13 +172,14 @@ returnRouter.post('/submit', async (req, res) => {
           returnRequestId: returnRequest.id,
           orderNumber: order_number,
           items: itemsSummary,
+          brandId,
         }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
         res.status(201).json({ return_request: updated, status: 'approved' });
         return;
       }
 
-      if (aiRecommendation.confidence >= 0.85 && aiRecommendation.decision === 'deny') {
+      if (aiRecommendation.confidence >= settings.ai_confidence_threshold && aiRecommendation.decision === 'deny') {
         aiUpdatePayload.status = 'denied';
         aiUpdatePayload.decided_at = new Date().toISOString();
         aiUpdatePayload.decided_by = 'ai_auto';
@@ -182,6 +192,7 @@ returnRouter.post('/submit', async (req, res) => {
           returnRequestId: returnRequest.id,
           orderNumber: order_number,
           items: itemsSummary,
+          brandId,
         }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
 
         sendReturnDenied({
@@ -191,6 +202,7 @@ returnRouter.post('/submit', async (req, res) => {
           orderNumber: order_number,
           items: itemsSummary,
           reason: aiRecommendation.reasoning,
+          brandId,
         }).catch((err) => console.error('[return.controller] Denial email failed:', err));
 
         res.status(201).json({ return_request: updated, status: 'denied' });
@@ -207,6 +219,7 @@ returnRouter.post('/submit', async (req, res) => {
         returnRequestId: returnRequest.id,
         orderNumber: order_number,
         items: itemsSummary,
+        brandId,
       }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
 
       res.status(201).json({ return_request: updated, status: 'pending_review' });
@@ -220,6 +233,7 @@ returnRouter.post('/submit', async (req, res) => {
       returnRequestId: returnRequest.id,
       orderNumber: order_number,
       items: itemsSummary,
+      brandId,
     }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
 
     res.status(201).json({ return_request: returnRequest, status: 'pending_review' });
@@ -387,6 +401,188 @@ returnRouter.delete('/rules/:id', async (req, res) => {
   }
 });
 
+// ── GET /settings — Return Settings ─────────────────────────────────────
+returnRouter.get('/settings', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const settings = await returnSettingsService.getReturnSettings(brandId);
+    res.json(settings);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] GET /settings error:', message);
+    res.status(500).json({ error: 'Failed to get return settings' });
+  }
+});
+
+// ── PUT /settings — Update Return Settings ──────────────────────────────
+returnRouter.put('/settings', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const updated = await returnSettingsService.updateReturnSettings(brandId, req.body);
+    res.json(updated);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] PUT /settings error:', message);
+    res.status(500).json({ error: 'Failed to update return settings' });
+  }
+});
+
+// ── GET /emails — List All Email Templates ──────────────────────────────
+returnRouter.get('/emails', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const templates = await returnEmailTemplateService.getTemplates(brandId);
+    res.json({ templates });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] GET /emails error:', message);
+    res.status(500).json({ error: 'Failed to list email templates' });
+  }
+});
+
+// ── GET /emails/:type — Single Email Template ───────────────────────────
+returnRouter.get('/emails/:type', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const validTypes = ['confirmation', 'approved', 'denied', 'refunded'];
+    if (!validTypes.includes(req.params.type)) {
+      res.status(400).json({ error: 'Invalid template type' });
+      return;
+    }
+    const template = await returnEmailTemplateService.getTemplate(
+      brandId,
+      req.params.type as 'confirmation' | 'approved' | 'denied' | 'refunded',
+    );
+    if (!template) {
+      res.status(404).json({ error: 'Template not found' });
+      return;
+    }
+    res.json(template);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] GET /emails/:type error:', message);
+    res.status(500).json({ error: 'Failed to get email template' });
+  }
+});
+
+// ── PUT /emails/:type — Update Email Template ───────────────────────────
+returnRouter.put('/emails/:type', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const validTypes = ['confirmation', 'approved', 'denied', 'refunded'];
+    if (!validTypes.includes(req.params.type)) {
+      res.status(400).json({ error: 'Invalid template type' });
+      return;
+    }
+    const updated = await returnEmailTemplateService.updateTemplate(
+      brandId,
+      req.params.type as 'confirmation' | 'approved' | 'denied' | 'refunded',
+      req.body,
+    );
+    res.json(updated);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] PUT /emails/:type error:', message);
+    res.status(500).json({ error: 'Failed to update email template' });
+  }
+});
+
+// ── GET /portal-design — Portal Design Config ───────────────────────────
+returnRouter.get('/portal-design', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { data, error } = await supabase
+      .from('ai_config')
+      .select('value')
+      .eq('brand_id', brandId)
+      .eq('key', 'return_portal_design')
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    let design = null;
+    if (data?.value) {
+      try { design = JSON.parse(data.value); } catch { /* ignore */ }
+    }
+
+    res.json({ design });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] GET /portal-design error:', message);
+    res.status(500).json({ error: 'Failed to get portal design' });
+  }
+});
+
+// ── PUT /portal-design — Update Portal Design ───────────────────────────
+returnRouter.put('/portal-design', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { error } = await supabase
+      .from('ai_config')
+      .upsert(
+        {
+          brand_id: brandId,
+          key: 'return_portal_design',
+          value: JSON.stringify(req.body),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'brand_id,key' },
+      );
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] PUT /portal-design error:', message);
+    res.status(500).json({ error: 'Failed to update portal design' });
+  }
+});
+
+// ── GET /portal-config — Public endpoint for widget ─────────────────────
+returnRouter.get('/portal-config', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const [settings, designRow] = await Promise.all([
+      returnSettingsService.getReturnSettings(brandId),
+      supabase
+        .from('ai_config')
+        .select('value')
+        .eq('brand_id', brandId)
+        .eq('key', 'return_portal_design')
+        .single(),
+    ]);
+
+    let design = null;
+    if (designRow.data?.value) {
+      try { design = JSON.parse(designRow.data.value); } catch { /* ignore */ }
+    }
+
+    res.json({
+      settings: {
+        return_window_days: settings.return_window_days,
+        require_photos: settings.require_photos,
+        available_reasons: settings.available_reasons,
+        reason_labels: settings.reason_labels,
+        available_resolutions: settings.available_resolutions,
+        portal_title: settings.portal_title,
+        portal_description: settings.portal_description,
+      },
+      design,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] GET /portal-config error:', message);
+    res.status(500).json({ error: 'Failed to get portal config' });
+  }
+});
+
 // ── GET / — List Return Requests ─────────────────────────────────────────
 returnRouter.get('/', async (req, res) => {
   try {
@@ -482,6 +678,7 @@ returnRouter.patch('/:id', async (req, res) => {
 
     // Send status-change emails
     if (status && status !== current.status) {
+      const brandId = await resolveBrandId(req);
       const itemsSummary = (updated.items ?? [])
         .map((i) => `${i.product_title} (x${i.quantity})`)
         .join(', ');
@@ -493,6 +690,7 @@ returnRouter.patch('/:id', async (req, res) => {
           returnRequestId: updated.id,
           orderNumber: updated.order_number,
           items: itemsSummary,
+          brandId,
         }).catch((err) => console.error('[return.controller] Approval email failed:', err));
       }
 
@@ -504,6 +702,7 @@ returnRouter.patch('/:id', async (req, res) => {
           orderNumber: updated.order_number,
           items: itemsSummary,
           reason: admin_notes ?? 'Your return request was not approved.',
+          brandId,
         }).catch((err) => console.error('[return.controller] Denial email failed:', err));
       }
 
@@ -515,6 +714,7 @@ returnRouter.patch('/:id', async (req, res) => {
           orderNumber: updated.order_number,
           items: itemsSummary,
           refundAmount: refund_amount ?? updated.refund_amount ?? undefined,
+          brandId,
         }).catch((err) => console.error('[return.controller] Refund email failed:', err));
       }
     }

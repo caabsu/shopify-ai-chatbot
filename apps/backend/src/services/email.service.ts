@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { getTemplate, renderTemplate } from './return-email-template.service.js';
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -79,20 +80,21 @@ interface ReturnEmailOpts {
   orderNumber: string;
   items: string;
   brandName?: string;
+  brandId?: string;
 }
 
-export async function sendReturnConfirmation(opts: ReturnEmailOpts): Promise<{ messageId?: string; error?: string }> {
+export async function sendReturnConfirmation(opts: ReturnEmailOpts): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
   if (!resend) return { error: 'Email not configured' };
 
-  const { to, customerName, returnRequestId, orderNumber, items, brandName } = opts;
+  const { to, customerName, returnRequestId, orderNumber, items, brandName, brandId } = opts;
   const brand = brandName || 'Support';
   const firstName = customerName ? customerName.split(' ')[0] : '';
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
   const refId = returnRequestId.slice(0, 8).toUpperCase();
 
-  const emailSubject = `We've received your return request — #${refId}`;
+  let emailSubject = `We've received your return request — #${refId}`;
 
-  const textBody = `${greeting}
+  let textBody = `${greeting}
 
 We've received your return request #${refId} for order ${orderNumber}.
 
@@ -103,7 +105,7 @@ Our team will review your request and get back to you shortly.
 ---
 ${brand} Team`;
 
-  const htmlBody = `
+  let htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
   <p>${greeting}</p>
   <p>We've received your return request <strong>#${escapeHtml(refId)}</strong> for order <strong>${escapeHtml(orderNumber)}</strong>.</p>
@@ -112,6 +114,28 @@ ${brand} Team`;
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
   <p style="color: #aaa; font-size: 13px;">${escapeHtml(brand)} Team</p>
 </div>`;
+
+  // Try DB template
+  if (brandId) {
+    try {
+      const tpl = await getTemplate(brandId, 'confirmation');
+      if (tpl) {
+        if (!tpl.enabled) return { skipped: true };
+        const vars: Record<string, string> = {
+          greeting: firstName ? `Hi ${firstName},` : 'Hi,',
+          ref_id: refId,
+          order_number: orderNumber,
+          items,
+          brand_name: brand,
+        };
+        emailSubject = renderTemplate(tpl.subject, vars);
+        htmlBody = renderTemplate(tpl.body_html, vars);
+        textBody = renderTemplate(tpl.body_text, vars);
+      }
+    } catch (err) {
+      console.error('[email] Failed to load template, using defaults:', err instanceof Error ? err.message : err);
+    }
+  }
 
   try {
     const { data, error } = await resend.emails.send({
@@ -136,18 +160,18 @@ ${brand} Team`;
   }
 }
 
-export async function sendReturnApproved(opts: ReturnEmailOpts): Promise<{ messageId?: string; error?: string }> {
+export async function sendReturnApproved(opts: ReturnEmailOpts): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
   if (!resend) return { error: 'Email not configured' };
 
-  const { to, customerName, returnRequestId, orderNumber, items, brandName } = opts;
+  const { to, customerName, returnRequestId, orderNumber, items, brandName, brandId } = opts;
   const brand = brandName || 'Support';
   const firstName = customerName ? customerName.split(' ')[0] : '';
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
   const refId = returnRequestId.slice(0, 8).toUpperCase();
 
-  const emailSubject = `Your return has been approved — #${refId}`;
+  let emailSubject = `Your return has been approved — #${refId}`;
 
-  const textBody = `${greeting}
+  let textBody = `${greeting}
 
 Great news! Your return request #${refId} for order ${orderNumber} has been approved.
 
@@ -163,7 +187,7 @@ Once we receive your return, we'll process your refund within 5-10 business days
 ---
 ${brand} Team`;
 
-  const htmlBody = `
+  let htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
   <p>${greeting}</p>
   <p>Great news! Your return request <strong>#${escapeHtml(refId)}</strong> for order <strong>${escapeHtml(orderNumber)}</strong> has been approved.</p>
@@ -178,6 +202,28 @@ ${brand} Team`;
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
   <p style="color: #aaa; font-size: 13px;">${escapeHtml(brand)} Team</p>
 </div>`;
+
+  // Try DB template
+  if (brandId) {
+    try {
+      const tpl = await getTemplate(brandId, 'approved');
+      if (tpl) {
+        if (!tpl.enabled) return { skipped: true };
+        const vars: Record<string, string> = {
+          greeting: firstName ? `Hi ${firstName},` : 'Hi,',
+          ref_id: refId,
+          order_number: orderNumber,
+          items,
+          brand_name: brand,
+        };
+        emailSubject = renderTemplate(tpl.subject, vars);
+        htmlBody = renderTemplate(tpl.body_html, vars);
+        textBody = renderTemplate(tpl.body_text, vars);
+      }
+    } catch (err) {
+      console.error('[email] Failed to load template, using defaults:', err instanceof Error ? err.message : err);
+    }
+  }
 
   try {
     const { data, error } = await resend.emails.send({
@@ -202,19 +248,19 @@ ${brand} Team`;
   }
 }
 
-export async function sendReturnDenied(opts: ReturnEmailOpts & { reason?: string }): Promise<{ messageId?: string; error?: string }> {
+export async function sendReturnDenied(opts: ReturnEmailOpts & { reason?: string }): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
   if (!resend) return { error: 'Email not configured' };
 
-  const { to, customerName, returnRequestId, orderNumber, items, reason, brandName } = opts;
+  const { to, customerName, returnRequestId, orderNumber, items, reason, brandName, brandId } = opts;
   const brand = brandName || 'Support';
   const firstName = customerName ? customerName.split(' ')[0] : '';
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
   const refId = returnRequestId.slice(0, 8).toUpperCase();
   const denialReason = reason || 'Your return request does not meet our return policy requirements.';
 
-  const emailSubject = `Update on your return request — #${refId}`;
+  let emailSubject = `Update on your return request — #${refId}`;
 
-  const textBody = `${greeting}
+  let textBody = `${greeting}
 
 Thank you for your return request #${refId} for order ${orderNumber}.
 
@@ -227,7 +273,7 @@ If you have any questions or believe this was made in error, please don't hesita
 ---
 ${brand} Team`;
 
-  const htmlBody = `
+  let htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
   <p>${greeting}</p>
   <p>Thank you for your return request <strong>#${escapeHtml(refId)}</strong> for order <strong>${escapeHtml(orderNumber)}</strong>.</p>
@@ -238,6 +284,29 @@ ${brand} Team`;
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
   <p style="color: #aaa; font-size: 13px;">${escapeHtml(brand)} Team</p>
 </div>`;
+
+  // Try DB template
+  if (brandId) {
+    try {
+      const tpl = await getTemplate(brandId, 'denied');
+      if (tpl) {
+        if (!tpl.enabled) return { skipped: true };
+        const vars: Record<string, string> = {
+          greeting: firstName ? `Hi ${firstName},` : 'Hi,',
+          ref_id: refId,
+          order_number: orderNumber,
+          items,
+          brand_name: brand,
+          denial_reason: denialReason,
+        };
+        emailSubject = renderTemplate(tpl.subject, vars);
+        htmlBody = renderTemplate(tpl.body_html, vars);
+        textBody = renderTemplate(tpl.body_text, vars);
+      }
+    } catch (err) {
+      console.error('[email] Failed to load template, using defaults:', err instanceof Error ? err.message : err);
+    }
+  }
 
   try {
     const { data, error } = await resend.emails.send({
@@ -262,19 +331,19 @@ ${brand} Team`;
   }
 }
 
-export async function sendReturnRefunded(opts: ReturnEmailOpts & { refundAmount?: number }): Promise<{ messageId?: string; error?: string }> {
+export async function sendReturnRefunded(opts: ReturnEmailOpts & { refundAmount?: number }): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
   if (!resend) return { error: 'Email not configured' };
 
-  const { to, customerName, returnRequestId, orderNumber, items, refundAmount, brandName } = opts;
+  const { to, customerName, returnRequestId, orderNumber, items, refundAmount, brandName, brandId } = opts;
   const brand = brandName || 'Support';
   const firstName = customerName ? customerName.split(' ')[0] : '';
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
   const refId = returnRequestId.slice(0, 8).toUpperCase();
   const amountStr = refundAmount !== undefined ? `$${refundAmount.toFixed(2)}` : 'your refund';
 
-  const emailSubject = `Your refund has been processed — #${refId}`;
+  let emailSubject = `Your refund has been processed — #${refId}`;
 
-  const textBody = `${greeting}
+  let textBody = `${greeting}
 
 Your refund of ${amountStr} for return request #${refId} (order ${orderNumber}) has been processed.
 
@@ -287,7 +356,7 @@ Thank you for your patience!
 ---
 ${brand} Team`;
 
-  const htmlBody = `
+  let htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
   <p>${greeting}</p>
   <p>Your refund of <strong>${escapeHtml(amountStr)}</strong> for return request <strong>#${escapeHtml(refId)}</strong> (order <strong>${escapeHtml(orderNumber)}</strong>) has been processed.</p>
@@ -297,6 +366,29 @@ ${brand} Team`;
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
   <p style="color: #aaa; font-size: 13px;">${escapeHtml(brand)} Team</p>
 </div>`;
+
+  // Try DB template
+  if (brandId) {
+    try {
+      const tpl = await getTemplate(brandId, 'refunded');
+      if (tpl) {
+        if (!tpl.enabled) return { skipped: true };
+        const vars: Record<string, string> = {
+          greeting: firstName ? `Hi ${firstName},` : 'Hi,',
+          ref_id: refId,
+          order_number: orderNumber,
+          items,
+          brand_name: brand,
+          refund_amount: amountStr,
+        };
+        emailSubject = renderTemplate(tpl.subject, vars);
+        htmlBody = renderTemplate(tpl.body_html, vars);
+        textBody = renderTemplate(tpl.body_text, vars);
+      }
+    } catch (err) {
+      console.error('[email] Failed to load template, using defaults:', err instanceof Error ? err.message : err);
+    }
+  }
 
   try {
     const { data, error } = await resend.emails.send({

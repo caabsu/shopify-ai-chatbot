@@ -209,3 +209,47 @@ export interface SlaRule {
   resolution_target_minutes: number;
   business_hours_only: boolean;
 }
+
+export interface ReturnSettings {
+  id: string;
+  brand_id: string;
+  return_window_days: number;
+  require_photos: boolean;
+  ai_confidence_threshold: number;
+  available_reasons: string[];
+  reason_labels: Record<string, string>;
+  available_resolutions: string[];
+  auto_close_days: number;
+  portal_title: string;
+  portal_description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReturnEmailTemplate {
+  id: string;
+  brand_id: string;
+  template_type: 'confirmation' | 'approved' | 'denied' | 'refunded';
+  enabled: boolean;
+  subject: string;
+  body_html: string;
+  body_text: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReturnPortalDesign {
+  primaryColor: string;
+  backgroundColor: string;
+  borderRadius: string;
+  fontSize: string;
+  fontFamily?: string;
+  headingFontFamily?: string;
+  buttonTextLookup: string;
+  buttonTextContinue: string;
+  buttonTextSubmit: string;
+  stepLabels: string[];
+  successTitle: string;
+  successMessage: string;
+  successButtonText: string;
+}

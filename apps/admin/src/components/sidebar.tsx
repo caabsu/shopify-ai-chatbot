@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Package,
   SlidersHorizontal,
+  Mail,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -59,7 +60,11 @@ const navGroups: NavGroup[] = [
     defaultCollapsed: false,
     items: [
       { href: '/returns', label: 'Return Requests', icon: Package },
-      { href: '/settings/returns', label: 'Return Rules', icon: SlidersHorizontal },
+      { href: '/returns/playground', label: 'Playground', icon: TestTube },
+      { href: '/returns/emails', label: 'Email Templates', icon: Mail },
+      { href: '/returns/design', label: 'Portal Design', icon: Palette },
+      { href: '/returns/rules', label: 'Return Rules', icon: SlidersHorizontal },
+      { href: '/returns/settings', label: 'Settings', icon: Settings },
     ],
   },
   {

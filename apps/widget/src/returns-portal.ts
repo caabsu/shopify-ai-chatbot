@@ -22,6 +22,32 @@ interface BrandDesign {
   fontSize: string;
   fontFamily?: string;
   headingFontFamily?: string;
+  buttonTextLookup?: string;
+  buttonTextContinue?: string;
+  buttonTextSubmit?: string;
+  stepLabels?: string[];
+  successTitle?: string;
+  successMessage?: string;
+  successButtonText?: string;
+}
+
+interface PortalConfig {
+  settings: {
+    return_window_days: number;
+    require_photos: boolean;
+    available_reasons: string[];
+    reason_labels: Record<string, string>;
+    available_resolutions: string[];
+    portal_title: string;
+    portal_description: string;
+  } | null;
+  design: BrandDesign | null;
+}
+
+declare global {
+  interface Window {
+    __SRP_DEBUG?: boolean;
+  }
 }
 
 interface OrderItem {
@@ -125,7 +151,7 @@ function escapeHtml(text: string): string {
   return el.innerHTML;
 }
 
-const RETURN_REASONS = [
+const DEFAULT_RETURN_REASONS = [
   { value: 'defective', label: 'Defective / Damaged' },
   { value: 'wrong_item', label: 'Wrong Item Received' },
   { value: 'not_as_described', label: 'Not as Described' },
@@ -134,6 +160,12 @@ const RETURN_REASONS = [
   { value: 'too_large', label: 'Too Large' },
   { value: 'other', label: 'Other' },
 ];
+
+function debugPost(type: string, data?: Record<string, unknown>): void {
+  if (window.__SRP_DEBUG && window.parent !== window) {
+    window.parent.postMessage({ type: `srp:${type}`, data }, '*');
+  }
+}
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
@@ -483,7 +515,25 @@ function buildStyles(d: BrandDesign): string {
 
 // ── Portal Renderer ──────────────────────────────────────────────────────────
 
-function createPortal(container: HTMLElement, backendUrl: string, brandSlug: string, design: BrandDesign): void {
+function createPortal(container: HTMLElement, backendUrl: string, brandSlug: string, design: BrandDesign, portalConfig: PortalConfig | null): void {
+  const returnReasons = portalConfig?.settings?.available_reasons
+    ? portalConfig.settings.available_reasons.map((slug) => ({
+        value: slug,
+        label: portalConfig.settings!.reason_labels[slug] || slug.replace(/_/g, ' '),
+      }))
+    : DEFAULT_RETURN_REASONS;
+
+  const portalTitle = portalConfig?.settings?.portal_title || 'Returns & Exchanges';
+  const portalDescription = portalConfig?.settings?.portal_description || 'Start a return or exchange in just a few steps.';
+  const btnTextLookup = design.buttonTextLookup || 'Find My Order';
+  const btnTextContinue = design.buttonTextContinue || 'Continue to Review';
+  const btnTextSubmit = design.buttonTextSubmit || 'Submit Return Request';
+  const stepLabelsList = design.stepLabels || ['Find Order', 'Select Items', 'Confirm'];
+  const successTitle = design.successTitle || 'Return Request Submitted';
+  const successMessage = design.successMessage || 'Your return request has been received.';
+  const successBtnText = design.successButtonText || 'Start Another Return';
+
+  debugPost('config_loaded', { settings: portalConfig?.settings || null });
   const state: PortalState = {
     step: 'lookup',
     loading: false,
@@ -510,9 +560,9 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
 
   function stepsHtml(): string {
     const steps: Array<{ num: number; label: string; key: Step }> = [
-      { num: 1, label: 'Find Order', key: 'lookup' },
-      { num: 2, label: 'Select Items', key: 'select_items' },
-      { num: 3, label: 'Confirm', key: 'confirm' },
+      { num: 1, label: stepLabelsList[0] || 'Find Order', key: 'lookup' },
+      { num: 2, label: stepLabelsList[1] || 'Select Items', key: 'select_items' },
+      { num: 3, label: stepLabelsList[2] || 'Confirm', key: 'confirm' },
     ];
     const stepOrder: Step[] = ['lookup', 'select_items', 'confirm', 'success'];
     const currentIdx = stepOrder.indexOf(state.step);
@@ -546,8 +596,8 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     container.innerHTML = `
       <div class="srp-wrap">
         <div class="srp-header">
-          <h2 class="srp-title">Returns & Exchanges</h2>
-          <p class="srp-subtitle">Start a return or exchange in just a few steps.</p>
+          <h2 class="srp-title">${escapeHtml(portalTitle)}</h2>
+          <p class="srp-subtitle">${escapeHtml(portalDescription)}</p>
         </div>
         ${stepsHtml()}
         ${state.error ? `<div class="srp-error">${escapeHtml(state.error)}</div>` : ''}
@@ -570,7 +620,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         </div>
       </div>
       <button class="srp-btn srp-btn--primary" id="srp-lookup" ${state.loading ? 'disabled' : ''}>
-        ${state.loading ? 'Looking up order...' : 'Find My Order'}
+        ${state.loading ? 'Looking up order...' : escapeHtml(btnTextLookup)}
       </button>`;
   }
 
@@ -598,7 +648,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
           <label class="srp-label">Reason for return <span class="srp-required">*</span></label>
           <select class="srp-select srp-reason-select" data-item-id="${item.id}">
             <option value="">Select a reason...</option>
-            ${RETURN_REASONS.map(r => `<option value="${r.value}" ${selected?.reason === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
+            ${returnReasons.map(r => `<option value="${r.value}" ${selected?.reason === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
           </select>
           <textarea class="srp-textarea" data-item-notes="${item.id}" placeholder="Additional details (optional)" rows="2">${escapeHtml(selected?.notes || '')}</textarea>
         </div>` : '';
@@ -638,7 +688,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         <input class="srp-input" id="srp-name" placeholder="Your full name" value="${escapeHtml(state.customerName)}" />
       </div>
       <button class="srp-btn srp-btn--primary" id="srp-continue" ${!hasSelection || !allHaveReasons ? 'disabled' : ''}>
-        Continue to Review
+        ${escapeHtml(btnTextContinue)}
       </button>`;
   }
 
@@ -647,7 +697,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     const items = Array.from(state.selectedItems.values());
 
     const itemsHtml = items.map(item => {
-      const reasonLabel = RETURN_REASONS.find(r => r.value === item.reason)?.label || item.reason;
+      const reasonLabel = returnReasons.find(r => r.value === item.reason)?.label || item.reason;
       return `
         <div class="srp-confirm-item">
           <div>
@@ -670,7 +720,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       <p class="srp-label" style="margin-bottom:6px;">Items to return:</p>
       <div class="srp-confirm-items">${itemsHtml}</div>
       <button class="srp-btn srp-btn--primary" id="srp-submit" ${state.loading ? 'disabled' : ''}>
-        ${state.loading ? 'Submitting...' : 'Submit Return Request'}
+        ${state.loading ? 'Submitting...' : escapeHtml(btnTextSubmit)}
       </button>`;
   }
 
@@ -689,9 +739,9 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
           <div class="srp-success-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
-          <div class="srp-success-title">Return Request Submitted</div>
+          <div class="srp-success-title">${escapeHtml(successTitle)}</div>
           <div class="srp-success-text">
-            Your return request has been received. Your reference number is:
+            ${escapeHtml(successMessage)} Your reference number is:
           </div>
           <div class="srp-success-ref">#${escapeHtml(shortRef)}</div>
           <div class="srp-success-status">${escapeHtml(statusLabel)}</div>
@@ -699,7 +749,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
             We've sent a confirmation email to <strong>${escapeHtml(state.email)}</strong>.
             ${state.resultStatus === 'approved' ? 'Your return has been approved — check your email for next steps.' : 'Our team will review your request and get back to you shortly.'}
           </div>
-          <button class="srp-btn srp-btn--secondary" id="srp-new" style="margin-top:20px;">Start Another Return</button>
+          <button class="srp-btn srp-btn--secondary" id="srp-new" style="margin-top:20px;">${escapeHtml(successBtnText)}</button>
         </div>
       </div>`;
 
@@ -812,6 +862,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       }
       state.step = 'confirm';
       state.error = null;
+      debugPost('step_change', { step: 'confirm' });
       render();
     });
 
@@ -873,6 +924,13 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       state.step = 'select_items';
       state.loading = false;
 
+      debugPost('order_loaded', {
+        order_name: data.order?.name,
+        item_count: state.items.length,
+        eligible_count: state.items.filter((i: OrderItem) => i.eligible).length,
+      });
+      debugPost('step_change', { step: 'select_items' });
+
       if (state.items.length === 0) {
         state.error = 'No items found in this order.';
         state.step = 'lookup';
@@ -929,6 +987,14 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       state.resultStatus = data.status || 'pending_review';
       state.step = 'success';
       state.loading = false;
+
+      debugPost('submit_result', {
+        status: data.status,
+        ref_id: state.referenceId,
+        ai_recommendation: data.return_request?.ai_recommendation || null,
+      });
+      debugPost('step_change', { step: 'success' });
+
       render();
     } catch {
       state.error = 'Network error. Please check your connection and try again.';
@@ -945,7 +1011,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
 async function init(): Promise<void> {
   const { backendUrl, brandSlug } = getScriptInfo();
 
-  // Load brand design
+  // Load brand design from widget config (base design)
   let design: BrandDesign = {
     primaryColor: '#18181b',
     backgroundColor: '#ffffff',
@@ -953,28 +1019,45 @@ async function init(): Promise<void> {
     fontSize: 'medium',
   };
 
+  let portalConfig: PortalConfig | null = null;
+
+  // Load portal-specific config (settings + design) and widget design in parallel
+  const brandParam = brandSlug ? '?brand=' + brandSlug : '';
   try {
-    const configUrl = `${backendUrl}/api/widget/config${brandSlug ? '?brand=' + brandSlug : ''}`;
-    const res = await fetch(configUrl);
-    if (res.ok) {
-      const data = await res.json();
+    const [widgetRes, portalRes] = await Promise.all([
+      fetch(`${backendUrl}/api/widget/config${brandParam}`).catch(() => null),
+      fetch(`${backendUrl}/api/returns/portal-config${brandParam}`).catch(() => null),
+    ]);
+
+    if (widgetRes?.ok) {
+      const data = await widgetRes.json();
       if (data.design) {
         design = { ...design, ...data.design };
+      }
+    }
+
+    if (portalRes?.ok) {
+      portalConfig = await portalRes.json();
+      // Merge portal-specific design overrides
+      if (portalConfig?.design) {
+        design = { ...design, ...portalConfig.design };
       }
     }
   } catch {
     // Use defaults
   }
 
+  debugPost('step_change', { step: 'lookup' });
+
   // Find or create container
   const explicit = document.getElementById('returns-portal');
   if (explicit) {
-    createPortal(explicit, backendUrl, brandSlug, design);
+    createPortal(explicit, backendUrl, brandSlug, design, portalConfig);
   } else {
     const container = document.createElement('div');
     container.id = 'returns-portal';
     document.body.appendChild(container);
-    createPortal(container, backendUrl, brandSlug, design);
+    createPortal(container, backendUrl, brandSlug, design, portalConfig);
   }
 }
 

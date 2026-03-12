@@ -910,6 +910,7 @@ app.get('/widget/playground-returns', async (req, res) => {
     <div class="pg-footer__bottom">&copy; 2026 ${brand.name}. All rights reserved. &mdash; This is a preview storefront.</div>
   </footer>
 
+  ${req.query.debug === '1' ? `<script>window.__SRP_DEBUG = true;</script>` : ''}
   <script src="/widget/returns-portal.js"${dataBrandAttr}></script>
 </body>
 </html>`);
