@@ -904,6 +904,35 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     state.error = null;
     render();
 
+    // Debug mode: use mock data, skip real API
+    if (window.__SRP_DEBUG) {
+      state.order = {
+        id: 'gid://shopify/Order/mock-001',
+        name: `#${orderNum || '1042'}`,
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        financialStatus: 'PAID',
+        fulfillmentStatus: 'FULFILLED',
+      };
+      state.items = [
+        { id: 'mock-li-1', title: 'Classic Crew-Neck Tee', variantTitle: 'Black / M', quantity: 1, price: '$34.99', image: '', eligible: true },
+        { id: 'mock-li-2', title: 'Slim Joggers', variantTitle: 'Navy / L', quantity: 1, price: '$64.99', image: '', eligible: true },
+        { id: 'mock-li-3', title: 'Limited Edition Cap', quantity: 1, price: '$24.99', image: '', eligible: false, eligibility_reason: 'Final sale item — not eligible for return' },
+      ];
+      state.selectedItems = new Map();
+      state.step = 'select_items';
+      state.loading = false;
+
+      debugPost('order_loaded', {
+        order_name: state.order.name,
+        item_count: state.items.length,
+        eligible_count: state.items.filter((i) => i.eligible).length,
+        mock: true,
+      });
+      debugPost('step_change', { step: 'select_items' });
+      render();
+      return;
+    }
+
     try {
       const res = await fetch(
         `${backendUrl}/api/returns/lookup?order_number=${encodeURIComponent(orderNum)}&email=${encodeURIComponent(email)}${brandParam ? '&' + brandParam.slice(1) : ''}`,
@@ -951,6 +980,25 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     state.loading = true;
     state.error = null;
     render();
+
+    // Debug mode: mock submission result
+    if (window.__SRP_DEBUG) {
+      const mockRefId = 'dbg-' + Math.random().toString(36).slice(2, 10);
+      state.referenceId = mockRefId;
+      state.resultStatus = 'approved';
+      state.step = 'success';
+      state.loading = false;
+
+      debugPost('submit_result', {
+        status: 'approved',
+        ref_id: mockRefId,
+        mock: true,
+        ai_recommendation: { decision: 'approve', confidence: 0.92, reasoning: 'Debug mock — auto-approved', suggested_resolution: 'refund' },
+      });
+      debugPost('step_change', { step: 'success' });
+      render();
+      return;
+    }
 
     const items = Array.from(state.selectedItems.values()).map(si => ({
       line_item_id: si.lineItemId,
