@@ -191,8 +191,8 @@ function buildStyles(d: BrandDesign): string {
 .srp-wrap {
   max-width: 100%;
   margin: 0 auto;
-  font-family: ${bodyFont};
-  font-size: ${baseFontSize};
+  font-family: ${bodyFont} !important;
+  font-size: ${baseFontSize} !important;
   color: ${textColor};
   line-height: 1.55;
 }
@@ -201,9 +201,9 @@ function buildStyles(d: BrandDesign): string {
 /* ── Header ── */
 .srp-header { margin-bottom: 1.75rem; }
 .srp-title {
-  font-family: ${headingFont};
-  font-size: 1.65rem;
-  font-weight: 700;
+  font-family: ${headingFont} !important;
+  font-size: 1.65rem !important;
+  font-weight: 700 !important;
   color: ${textColor};
   margin-bottom: 0.4rem;
   letter-spacing: -0.01em;
@@ -266,8 +266,8 @@ function buildStyles(d: BrandDesign): string {
 .srp-field { margin-bottom: 1.1rem; }
 .srp-label {
   display: block;
-  font-size: 0.85em;
-  font-weight: 600;
+  font-size: 0.85em !important;
+  font-weight: 600 !important;
   margin-bottom: 0.35rem;
   color: ${labelColor};
 }
@@ -275,12 +275,13 @@ function buildStyles(d: BrandDesign): string {
 .srp-input, .srp-select, .srp-textarea {
   width: 100%;
   padding: 0.65rem 0.85rem;
-  font-size: 0.92em;
-  font-family: ${bodyFont};
-  border: 1.5px solid ${inputBorder};
-  border-radius: ${radius};
-  background: ${inputBg};
-  color: ${textColor};
+  font-size: 0.92em !important;
+  font-family: ${bodyFont} !important;
+  border: 1.5px solid ${inputBorder} !important;
+  border-radius: ${radius} !important;
+  background: ${inputBg} !important;
+  color: ${textColor} !important;
+  text-transform: none !important;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .srp-input::placeholder, .srp-textarea::placeholder {
@@ -306,27 +307,28 @@ function buildStyles(d: BrandDesign): string {
   justify-content: center;
   gap: 6px;
   padding: 0.7rem 1.5rem;
-  font-size: 0.92em;
-  font-weight: 600;
-  font-family: ${headingFont};
+  font-size: 0.92em !important;
+  font-weight: 600 !important;
+  font-family: ${headingFont} !important;
   border: none;
-  border-radius: ${radius};
+  border-radius: ${radius} !important;
   cursor: pointer;
   transition: opacity 0.2s, transform 0.1s;
   letter-spacing: 0.01em;
+  text-transform: none !important;
 }
 .srp-btn:hover { opacity: 0.9; }
 .srp-btn:active { transform: scale(0.99); }
 .srp-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .srp-btn--primary {
-  background: ${primary};
-  color: ${btnTextColor};
+  background: ${primary} !important;
+  color: ${btnTextColor} !important;
   width: 100%;
 }
 .srp-btn--secondary {
-  background: transparent;
-  color: ${primary};
-  border: 1.5px solid ${primary};
+  background: transparent !important;
+  color: ${primary} !important;
+  border: 1.5px solid ${primary} !important;
 }
 .srp-btn--secondary:hover {
   background: ${hexToRgba(primary, 0.08)};

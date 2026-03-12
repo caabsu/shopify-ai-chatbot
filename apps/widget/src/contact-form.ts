@@ -150,8 +150,8 @@ function buildStyles(d: BrandDesign, ct: FormContentConfig): string {
 .scf-wrap {
   max-width: 580px;
   margin: 0 auto;
-  font-family: ${bodyFont};
-  font-size: ${baseFontSize};
+  font-family: ${bodyFont} !important;
+  font-size: ${baseFontSize} !important;
   color: ${textColor};
   line-height: 1.55;
 }
@@ -162,9 +162,9 @@ function buildStyles(d: BrandDesign, ct: FormContentConfig): string {
   margin-bottom: 1.75rem;
 }
 .scf-title {
-  font-family: ${headingFont};
-  font-size: ${headerSize};
-  font-weight: ${headerWeight};
+  font-family: ${headingFont} !important;
+  font-size: ${headerSize} !important;
+  font-weight: ${headerWeight} !important;
   color: ${textColor};
   margin-bottom: 0.4rem;
   letter-spacing: -0.01em;
@@ -178,8 +178,8 @@ function buildStyles(d: BrandDesign, ct: FormContentConfig): string {
 .scf-field { margin-bottom: 1.1rem; }
 .scf-label {
   display: block;
-  font-size: 0.85em;
-  font-weight: 600;
+  font-size: 0.85em !important;
+  font-weight: 600 !important;
   margin-bottom: 0.35rem;
   color: ${labelColor};
   letter-spacing: 0.01em;
@@ -188,12 +188,13 @@ function buildStyles(d: BrandDesign, ct: FormContentConfig): string {
 .scf-input, .scf-select, .scf-textarea {
   width: 100%;
   padding: 0.65rem 0.85rem;
-  font-size: 0.92em;
-  font-family: ${bodyFont};
-  border: 1.5px solid ${inputBorder};
-  border-radius: ${radius};
-  background: ${inputBg};
-  color: ${textColor};
+  font-size: 0.92em !important;
+  font-family: ${bodyFont} !important;
+  border: 1.5px solid ${inputBorder} !important;
+  border-radius: ${radius} !important;
+  background: ${inputBg} !important;
+  color: ${textColor} !important;
+  text-transform: none !important;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .scf-input::placeholder, .scf-textarea::placeholder {
@@ -227,17 +228,18 @@ function buildStyles(d: BrandDesign, ct: FormContentConfig): string {
 .scf-submit {
   width: 100%;
   padding: 0.75rem 1.5rem;
-  font-size: 0.95em;
-  font-weight: 600;
-  font-family: ${headingFont};
-  background: ${primary};
-  color: ${btnTextColor};
-  border: none;
-  border-radius: ${radius};
+  font-size: 0.95em !important;
+  font-weight: 600 !important;
+  font-family: ${headingFont} !important;
+  background: ${primary} !important;
+  color: ${btnTextColor} !important;
+  border: none !important;
+  border-radius: ${radius} !important;
   cursor: pointer;
   transition: opacity 0.2s, transform 0.1s;
   margin-top: 0.5rem;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
 }
 .scf-submit:hover { opacity: 0.9; }
 .scf-submit:active { transform: scale(0.99); }
@@ -292,13 +294,14 @@ function buildStyles(d: BrandDesign, ct: FormContentConfig): string {
   padding: 0.55rem 1.5rem;
   font-size: 0.85em;
   font-weight: 600;
-  font-family: ${headingFont};
-  background: transparent;
-  color: ${primary};
-  border: 1.5px solid ${primary};
-  border-radius: ${radius};
+  font-family: ${headingFont} !important;
+  background: transparent !important;
+  color: ${primary} !important;
+  border: 1.5px solid ${primary} !important;
+  border-radius: ${radius} !important;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
+  text-transform: none !important;
 }
 .scf-success-btn:hover {
   background: ${primary};
