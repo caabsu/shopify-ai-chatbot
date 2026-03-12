@@ -76,12 +76,54 @@ export interface FeatureToggle {
 export interface ReturnRequest {
   id: string;
   brand_id: string;
+  ticket_id: string | null;
   order_id: string;
-  line_item_ids: string[];
-  reason: string;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
-  conversation_id: string | null;
+  order_number: string;
+  customer_email: string;
+  customer_name: string | null;
+  status: string;
+  shopify_return_id: string | null;
+  ai_recommendation: { decision: string; confidence: number; reasoning: string; suggested_resolution?: string } | null;
+  resolution_type: string | null;
+  refund_amount: number | null;
+  admin_notes: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
   created_at: string;
+  updated_at: string;
+  metadata: Record<string, unknown> | null;
+  items?: ReturnItem[];
+}
+
+export interface ReturnItem {
+  id: string;
+  return_request_id: string;
+  line_item_id: string;
+  fulfillment_line_item_id: string;
+  product_title: string;
+  variant_title: string | null;
+  product_image_url: string | null;
+  quantity: number;
+  price: number;
+  reason: string;
+  reason_details: string | null;
+  photo_urls: string[] | null;
+  item_status: string;
+  denial_reason: string | null;
+  created_at: string;
+}
+
+export interface ReturnRule {
+  id: string;
+  brand_id: string;
+  name: string;
+  enabled: boolean;
+  priority: number;
+  conditions: Record<string, unknown>;
+  action: string;
+  resolution_type: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Ticket {

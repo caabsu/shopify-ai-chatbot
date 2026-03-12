@@ -7,6 +7,7 @@ import { healthRouter } from './controllers/health.controller.js';
 import { chatRouter } from './controllers/chat.controller.js';
 import { ticketRouter } from './controllers/ticket.controller.js';
 import { agentRouter } from './controllers/agent.controller.js';
+import { returnRouter } from './controllers/return.controller.js';
 import { supabase } from './config/supabase.js';
 import { resolveBrandId } from './config/brand.js';
 import { getToken } from './services/shopify-auth.service.js';
@@ -549,6 +550,7 @@ app.get('/widget/playground', async (req, res) => {
   <div class="pg-tabs">
     <a href="/widget/playground${qs}" class="pg-tab pg-tab--active">Storefront</a>
     <a href="/widget/playground-embedded${qs}" class="pg-tab">Embedded</a>
+    <a href="/widget/playground-returns${qs}" class="pg-tab">Returns</a>
   </div>
 
   <!-- Hero -->
@@ -729,6 +731,7 @@ app.get('/widget/playground-embedded', async (req, res) => {
   <div class="pg-tabs">
     <a href="/widget/playground${qs}" class="pg-tab">Storefront</a>
     <a href="/widget/playground-embedded${qs}" class="pg-tab pg-tab--active">Embedded</a>
+    <a href="/widget/playground-returns${qs}" class="pg-tab">Returns</a>
   </div>
 
   <!-- Contact Us Content -->
@@ -774,6 +777,140 @@ app.get('/widget/playground-embedded', async (req, res) => {
   ${playgroundDebugScript}
   <script src="/widget/widget.js" data-mode="embedded" data-target="#chat-embed"${dataBrandAttr}></script>
   <script src="/widget/contact-form.js"${dataBrandAttr}></script>
+</body>
+</html>`);
+});
+
+// Widget playground — returns portal page
+app.get('/widget/playground-returns', async (req, res) => {
+  const brand = await getPlaygroundBrand(req);
+  const qs = brandQueryString(req);
+  const inkColor = brand.bgGradientFrom === '#F3EDE2' ? '#1C130A' : '#1a1a1a';
+  const brandSlug = (req.query.brand as string || '').toLowerCase();
+  const dataBrandAttr = brandSlug && brandSlug !== 'outlight'
+    ? ` data-brand="${brandSlug}"`
+    : '';
+
+  const navLinksHtml = brand.navLinks.map((l) => `<li><a href="#">${l}</a></li>`).join('\n      ');
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Returns & Exchanges — ${brand.name} Store</title>
+  ${brand.fontLink}
+  <style>
+    ${playgroundBaseStyles}
+    ${playgroundTabStyles}
+
+    body {
+      font-family: ${brand.bodyFont};
+      color: ${inkColor};
+    }
+
+    .pg-announce { background: ${inkColor}; }
+    .pg-nav__logo {
+      font-family: ${brand.headingFont};
+      color: ${inkColor};
+    }
+
+    .pg-footer { background: ${brand.footerBg}; }
+    .pg-footer__col-title { color: ${inkColor}; }
+    .pg-footer__bottom { color: #aaa; }
+
+    .pg-returns {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px 64px;
+    }
+    .pg-returns__title {
+      font-family: ${brand.headingFont};
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: ${inkColor};
+      margin-bottom: 12px;
+    }
+    .pg-returns__desc {
+      font-size: 15px;
+      color: #666;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 640px) {
+      .pg-returns { padding: 32px 16px 48px; }
+      .pg-returns__title { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Announcement Bar -->
+  <div class="pg-announce">${brand.announcement}</div>
+
+  <!-- Navigation -->
+  <nav class="pg-nav">
+    <a href="#" class="pg-nav__logo">${brand.name}</a>
+    <ul class="pg-nav__links">
+      ${navLinksHtml}
+    </ul>
+    <div class="pg-nav__icons">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+    </div>
+  </nav>
+
+  <!-- Tab Bar -->
+  <div class="pg-tabs">
+    <a href="/widget/playground${qs}" class="pg-tab">Storefront</a>
+    <a href="/widget/playground-embedded${qs}" class="pg-tab">Embedded</a>
+    <a href="/widget/playground-returns${qs}" class="pg-tab pg-tab--active">Returns</a>
+  </div>
+
+  <!-- Returns Portal Content -->
+  <div class="pg-returns">
+    <h1 class="pg-returns__title">Returns & Exchanges</h1>
+    <p class="pg-returns__desc">We want you to be completely happy with your purchase. If something isn't right, start a return or exchange below. Just enter your order number and the email you used at checkout.</p>
+    <div id="returns-portal"></div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="pg-footer">
+    <div class="pg-footer__inner">
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Shop</div>
+        ${brand.navLinks.slice(0, 4).map((l) => `<a href="#">${l}</a>`).join('\n        ')}
+      </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Help</div>
+        <a href="#">Contact Us</a>
+        <a href="#">Shipping Info</a>
+        <a href="#">Returns &amp; Exchanges</a>
+        <a href="#">FAQ</a>
+      </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">About</div>
+        <a href="#">Our Story</a>
+        <a href="#">Sustainability</a>
+        <a href="#">Careers</a>
+        <a href="#">Press</a>
+      </div>
+      <div class="pg-footer__col">
+        <div class="pg-footer__col-title">Connect</div>
+        <a href="#">Instagram</a>
+        <a href="#">Twitter</a>
+        <a href="#">Pinterest</a>
+        <a href="#">Newsletter</a>
+      </div>
+    </div>
+    <div class="pg-footer__bottom">&copy; 2026 ${brand.name}. All rights reserved. &mdash; This is a preview storefront.</div>
+  </footer>
+
+  <script src="/widget/returns-portal.js"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
@@ -964,6 +1101,9 @@ app.post('/api/webhooks/email', async (req, res) => {
 // Ticket and agent routes (require auth)
 app.use('/api/tickets', ticketRouter);
 app.use('/api/agents', agentRouter);
+
+// Return portal routes
+app.use('/api/returns', returnRouter);
 
 // Widget config endpoint
 app.get('/api/widget/config', async (req, res) => {

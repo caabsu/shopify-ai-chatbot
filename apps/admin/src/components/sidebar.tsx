@@ -17,6 +17,7 @@ import {
   Headphones,
   Paintbrush,
   Palette,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +44,7 @@ const navGroups: NavGroup[] = [
     label: 'Support',
     items: [
       { href: '/tickets', label: 'Ticket Inbox', icon: Inbox },
+      { href: '/returns', label: 'Returns', icon: RotateCcw },
       { href: '/insights', label: 'Insights', icon: BarChart3 },
     ],
   },
