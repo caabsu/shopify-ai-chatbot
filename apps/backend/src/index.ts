@@ -821,28 +821,48 @@ app.get('/widget/playground-returns', async (req, res) => {
     .pg-footer__bottom { color: #aaa; }
 
     .pg-returns {
-      max-width: 720px;
+      max-width: 960px;
       margin: 0 auto;
       padding: 48px 24px 64px;
     }
-    .pg-returns__title {
-      font-family: ${brand.headingFont};
-      font-size: 32px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: ${inkColor};
-      margin-bottom: 12px;
+
+    .pg-debug-toggle {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1.5px solid #d1d5db;
+      cursor: pointer;
+      font-family: ${brand.bodyFont};
+      transition: all 0.15s;
     }
-    .pg-returns__desc {
-      font-size: 15px;
-      color: #666;
-      margin-bottom: 32px;
-      line-height: 1.6;
+    .pg-debug-toggle--on {
+      background: #dcfce7;
+      border-color: #16a34a;
+      color: #15803d;
     }
+    .pg-debug-toggle--off {
+      background: #fff;
+      border-color: #d1d5db;
+      color: #6b7280;
+    }
+    .pg-debug-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .pg-debug-toggle--on .pg-debug-dot { background: #16a34a; }
+    .pg-debug-toggle--off .pg-debug-dot { background: #d1d5db; }
 
     @media (max-width: 640px) {
       .pg-returns { padding: 32px 16px 48px; }
-      .pg-returns__title { font-size: 24px; }
     }
   </style>
 </head>
@@ -873,10 +893,14 @@ app.get('/widget/playground-returns', async (req, res) => {
 
   <!-- Returns Portal Content -->
   <div class="pg-returns">
-    <h1 class="pg-returns__title">Returns & Exchanges</h1>
-    <p class="pg-returns__desc">We want you to be completely happy with your purchase. If something isn't right, start a return or exchange below. Just enter your order number and the email you used at checkout.</p>
     <div id="returns-portal"></div>
   </div>
+
+  <!-- Debug Mode Toggle -->
+  <button class="pg-debug-toggle pg-debug-toggle--on" id="debug-toggle" onclick="toggleDebug()">
+    <span class="pg-debug-dot"></span>
+    <span id="debug-label">Debug Mode ON</span>
+  </button>
 
   <!-- Footer -->
   <footer class="pg-footer">
@@ -910,7 +934,28 @@ app.get('/widget/playground-returns', async (req, res) => {
     <div class="pg-footer__bottom">&copy; 2026 ${brand.name}. All rights reserved. &mdash; This is a preview storefront.</div>
   </footer>
 
-  ${req.query.debug === '1' ? `<script>window.__SRP_DEBUG = true;</script>` : ''}
+  <script>
+    // Debug mode ON by default in playground
+    window.__SRP_DEBUG = ${req.query.debug === '0' ? 'false' : 'true'};
+    function toggleDebug() {
+      window.__SRP_DEBUG = !window.__SRP_DEBUG;
+      var btn = document.getElementById('debug-toggle');
+      var label = document.getElementById('debug-label');
+      if (window.__SRP_DEBUG) {
+        btn.className = 'pg-debug-toggle pg-debug-toggle--on';
+        label.textContent = 'Debug Mode ON';
+      } else {
+        btn.className = 'pg-debug-toggle pg-debug-toggle--off';
+        label.textContent = 'Debug Mode OFF';
+      }
+      // Re-init portal with new debug state
+      var portal = document.getElementById('returns-portal');
+      if (portal) { portal.innerHTML = ''; }
+      var oldStyle = document.getElementById('srp-styles');
+      if (oldStyle) oldStyle.remove();
+      if (typeof init === 'function') init();
+    }
+  </script>
   <script src="/widget/returns-portal.js"${dataBrandAttr}></script>
 </body>
 </html>`);

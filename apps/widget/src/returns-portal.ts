@@ -187,7 +187,7 @@ function buildStyles(d: BrandDesign): string {
 
   return `
 .srp-wrap {
-  max-width: 620px;
+  max-width: 100%;
   margin: 0 auto;
   font-family: ${bodyFont};
   font-size: ${baseFontSize};
@@ -1108,6 +1108,9 @@ async function init(): Promise<void> {
     createPortal(container, backendUrl, brandSlug, design, portalConfig);
   }
 }
+
+// Expose init globally so the playground debug toggle can re-init
+(window as unknown as Record<string, unknown>).init = init;
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
