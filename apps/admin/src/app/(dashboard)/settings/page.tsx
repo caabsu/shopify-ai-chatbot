@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Building2, Clock, MessageSquareText, Users, ChevronRight, RotateCcw } from 'lucide-react';
+import { Building2, Clock, MessageSquareText, Users, ChevronRight } from 'lucide-react';
 
 const sections = [
   {
@@ -27,12 +27,6 @@ const sections = [
     icon: Users,
     label: 'Team Management',
     description: 'Add and manage support agents, roles, and permissions',
-  },
-  {
-    href: '/settings/returns',
-    icon: RotateCcw,
-    label: 'Return Rules',
-    description: 'Configure automated rules for handling return requests',
   },
 ];
 

@@ -18,6 +18,10 @@ import {
   Paintbrush,
   Palette,
   RotateCcw,
+  ChevronDown,
+  ChevronRight,
+  Package,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +35,8 @@ interface NavItem {
 interface NavGroup {
   label: string;
   items: NavItem[];
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
 }
 
 const navGroups: NavGroup[] = [
@@ -44,12 +50,22 @@ const navGroups: NavGroup[] = [
     label: 'Support',
     items: [
       { href: '/tickets', label: 'Ticket Inbox', icon: Inbox },
-      { href: '/returns', label: 'Returns', icon: RotateCcw },
       { href: '/insights', label: 'Insights', icon: BarChart3 },
     ],
   },
   {
+    label: 'Returns',
+    collapsible: true,
+    defaultCollapsed: false,
+    items: [
+      { href: '/returns', label: 'Return Requests', icon: Package },
+      { href: '/settings/returns', label: 'Return Rules', icon: SlidersHorizontal },
+    ],
+  },
+  {
     label: 'AI Chatbot',
+    collapsible: true,
+    defaultCollapsed: true,
     items: [
       { href: '/chatbot/conversations', label: 'Conversations', icon: MessageSquare },
       { href: '/chatbot/playground', label: 'Playground', icon: TestTube },
@@ -72,6 +88,15 @@ const navGroups: NavGroup[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const [openTicketCount, setOpenTicketCount] = useState(0);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const group of navGroups) {
+      if (group.collapsible) {
+        initial[group.label] = group.defaultCollapsed ?? false;
+      }
+    }
+    return initial;
+  });
 
   useEffect(() => {
     fetch('/api/tickets/stats')
@@ -81,6 +106,24 @@ export function Sidebar() {
       })
       .catch(() => {});
   }, []);
+
+  // Auto-expand a collapsed section if the current page is within it
+  useEffect(() => {
+    for (const group of navGroups) {
+      if (group.collapsible && collapsed[group.label]) {
+        const isInGroup = group.items.some(
+          (item) => pathname === item.href || pathname.startsWith(item.href + '/'),
+        );
+        if (isInGroup) {
+          setCollapsed((prev) => ({ ...prev, [group.label]: false }));
+        }
+      }
+    }
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleGroup(label: string) {
+    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
+  }
 
   return (
     <aside
@@ -113,61 +156,98 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 py-3 px-2 overflow-y-auto space-y-5">
-        {navGroups.map((group) => (
-          <div key={group.label}>
-            <p
-              className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
-              {group.label}
-            </p>
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const active =
-                  pathname === item.href || pathname.startsWith(item.href + '/');
-                const showBadge = item.href === '/tickets' && openTicketCount > 0;
+        {navGroups.map((group) => {
+          const isCollapsed = group.collapsible && collapsed[group.label];
+          const hasActiveChild = group.items.some(
+            (item) => pathname === item.href || pathname.startsWith(item.href + '/'),
+          );
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors'
-                    )}
+          return (
+            <div key={group.label}>
+              {group.collapsible ? (
+                <button
+                  onClick={() => toggleGroup(group.label)}
+                  className="w-full flex items-center justify-between px-3 mb-1.5 group"
+                  style={{ background: 'none', border: 'none', padding: '0 12px' }}
+                >
+                  <p
+                    className="text-[10px] font-semibold uppercase tracking-wider"
                     style={{
-                      backgroundColor: active ? 'color-mix(in srgb, var(--color-accent) 12%, transparent)' : 'transparent',
-                      color: active ? 'var(--color-accent)' : 'var(--text-secondary)',
-                      fontWeight: active ? 500 : 400,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!active) {
-                        e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-                        e.currentTarget.style.color = 'var(--text-primary)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!active) {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--text-secondary)';
-                      }
+                      color: hasActiveChild ? 'var(--color-accent)' : 'var(--text-tertiary)',
                     }}
                   >
-                    <item.icon size={16} strokeWidth={active ? 2 : 1.5} />
-                    <span className="flex-1">{item.label}</span>
-                    {showBadge && (
-                      <span
-                        className="text-[10px] font-medium px-1.5 py-0.5 rounded-full text-white"
-                        style={{ backgroundColor: 'var(--color-accent)' }}
+                    {group.label}
+                  </p>
+                  {isCollapsed ? (
+                    <ChevronRight
+                      size={12}
+                      style={{ color: 'var(--text-tertiary)' }}
+                    />
+                  ) : (
+                    <ChevronDown
+                      size={12}
+                      style={{ color: 'var(--text-tertiary)' }}
+                    />
+                  )}
+                </button>
+              ) : (
+                <p
+                  className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  {group.label}
+                </p>
+              )}
+              {!isCollapsed && (
+                <div className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const active =
+                      pathname === item.href || pathname.startsWith(item.href + '/');
+                    const showBadge = item.href === '/tickets' && openTicketCount > 0;
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          'flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors'
+                        )}
+                        style={{
+                          backgroundColor: active ? 'color-mix(in srgb, var(--color-accent) 12%, transparent)' : 'transparent',
+                          color: active ? 'var(--color-accent)' : 'var(--text-secondary)',
+                          fontWeight: active ? 500 : 400,
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!active) {
+                            e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                            e.currentTarget.style.color = 'var(--text-primary)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!active) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.color = 'var(--text-secondary)';
+                          }
+                        }}
                       >
-                        {openTicketCount}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
+                        <item.icon size={16} strokeWidth={active ? 2 : 1.5} />
+                        <span className="flex-1">{item.label}</span>
+                        {showBadge && (
+                          <span
+                            className="text-[10px] font-medium px-1.5 py-0.5 rounded-full text-white"
+                            style={{ backgroundColor: 'var(--color-accent)' }}
+                          >
+                            {openTicketCount}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Bottom */}
