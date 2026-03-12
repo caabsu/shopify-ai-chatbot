@@ -43,9 +43,9 @@ app.use(
 
 app.use(express.json({ limit: '1mb' }));
 
-// Serve widget static files
+// Serve widget static files (no caching in dev, short cache in prod)
 const widgetDir = path.resolve(process.cwd(), 'apps/widget/dist');
-app.use('/widget', express.static(widgetDir));
+app.use('/widget', express.static(widgetDir, { maxAge: 0, etag: false }));
 
 // Shared playground styles (tab bar + common layout)
 const playgroundTabStyles = `
@@ -321,6 +321,7 @@ const playgroundDebugScript = `
 
 // Widget playground — mock Shopify store with functioning floating chat bubble
 app.get('/widget/playground', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const brand = await getPlaygroundBrand(req);
   const qs = brandQueryString(req);
   const inkColor = brand.bgGradientFrom === '#F3EDE2' ? '#1C130A' : '#1a1a1a';
@@ -632,13 +633,14 @@ app.get('/widget/playground', async (req, res) => {
 
   <!-- Chat widget (loaded exactly like it would be on a real store) -->
   ${playgroundDebugScript}
-  <script src="/widget/widget.js"${dataBrandAttr}></script>
+  <script src="/widget/widget.js?_t=${Date.now()}"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
 
 // Widget playground — embedded mode (Contact Us mock page)
 app.get('/widget/playground-embedded', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const brand = await getPlaygroundBrand(req);
   const qs = brandQueryString(req);
   const inkColor = brand.bgGradientFrom === '#F3EDE2' ? '#1C130A' : '#1a1a1a';
@@ -678,7 +680,7 @@ app.get('/widget/playground-embedded', async (req, res) => {
 
     /* ── Contact Page ── */
     .pg-contact {
-      max-width: 640px;
+      max-width: 960px;
       margin: 0 auto;
       padding: 48px 24px 64px;
     }
@@ -775,14 +777,15 @@ app.get('/widget/playground-embedded', async (req, res) => {
   </footer>
 
   ${playgroundDebugScript}
-  <script src="/widget/widget.js" data-mode="embedded" data-target="#chat-embed"${dataBrandAttr}></script>
-  <script src="/widget/contact-form.js"${dataBrandAttr}></script>
+  <script src="/widget/widget.js?_t=${Date.now()}" data-mode="embedded" data-target="#chat-embed"${dataBrandAttr}></script>
+  <script src="/widget/contact-form.js?_t=${Date.now()}"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
 
 // Widget playground — returns portal page
 app.get('/widget/playground-returns', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const brand = await getPlaygroundBrand(req);
   const qs = brandQueryString(req);
   const inkColor = brand.bgGradientFrom === '#F3EDE2' ? '#1C130A' : '#1a1a1a';
@@ -956,7 +959,7 @@ app.get('/widget/playground-returns', async (req, res) => {
       if (typeof init === 'function') init();
     }
   </script>
-  <script src="/widget/returns-portal.js"${dataBrandAttr}></script>
+  <script src="/widget/returns-portal.js?_t=${Date.now()}"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
@@ -1153,6 +1156,7 @@ app.use('/api/returns', returnRouter);
 
 // Widget config endpoint
 app.get('/api/widget/config', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   try {
     const brandId = await resolveBrandId(req);
 
