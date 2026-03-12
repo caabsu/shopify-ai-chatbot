@@ -48,6 +48,7 @@ interface FormConfig {
   content: FormContentConfig;
   brandSlug: string;
   backendUrl: string;
+  noHeader: boolean;
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
@@ -79,10 +80,11 @@ const DEFAULT_CONTENT: FormContentConfig = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function getScriptInfo(): { backendUrl: string; brandSlug: string } {
+function getScriptInfo(): { backendUrl: string; brandSlug: string; noHeader: boolean } {
   const scripts = document.querySelectorAll('script[src]');
   let backendUrl = '';
   let brandSlug = '';
+  let noHeader = false;
 
   for (const script of scripts) {
     const el = script as HTMLScriptElement;
@@ -91,11 +93,12 @@ function getScriptInfo(): { backendUrl: string; brandSlug: string } {
         backendUrl = new URL(el.src).origin;
       } catch { /* ignore */ }
       brandSlug = el.getAttribute('data-brand') || '';
+      noHeader = el.hasAttribute('data-no-header');
       break;
     }
   }
 
-  return { backendUrl: backendUrl || 'http://localhost:3001', brandSlug };
+  return { backendUrl: backendUrl || 'http://localhost:3001', brandSlug, noHeader };
 }
 
 function radiusValue(r: string): string {
@@ -404,12 +407,15 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
       ? `<hr class="scf-divider" /><div class="scf-row">${optionalFields.join('')}</div>`
       : '';
 
-    container.innerHTML = `
-      <div class="scf-wrap">
+    const headerHtml = cfg.noHeader ? '' : `
         <div class="scf-header">
           <h2 class="scf-title">${ct.headerTitle}</h2>
           <p class="scf-subtitle">${ct.subtitle}</p>
-        </div>
+        </div>`;
+
+    container.innerHTML = `
+      <div class="scf-wrap">
+        ${headerHtml}
         ${state.error ? `<div class="scf-form-error">${state.error}</div>` : ''}
         <form id="scf-form" novalidate>
           <div class="scf-row">
@@ -529,12 +535,22 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
   }
 
   render();
+
+  // Listen for live design updates from parent (admin Design page)
+  window.addEventListener('message', (event) => {
+    if (event.data?.type === 'scf:design_update' && event.data.design) {
+      Object.assign(cfg.design, event.data.design);
+      const styleEl = document.getElementById('scf-styles');
+      if (styleEl) styleEl.textContent = buildStyles(cfg.design, cfg.content);
+      render();
+    }
+  });
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
-  const { backendUrl, brandSlug } = getScriptInfo();
+  const { backendUrl, brandSlug, noHeader } = getScriptInfo();
 
   // Load brand design + form content config
   let design = { ...DEFAULT_DESIGN };
@@ -555,7 +571,7 @@ async function init(): Promise<void> {
     // Use defaults
   }
 
-  const cfg: FormConfig = { design, content, brandSlug, backendUrl };
+  const cfg: FormConfig = { design, content, brandSlug, backendUrl, noHeader };
 
   // Find or create container
   const explicit = document.getElementById('support-contact-form');

@@ -100,10 +100,11 @@ interface PortalState {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function getScriptInfo(): { backendUrl: string; brandSlug: string } {
+function getScriptInfo(): { backendUrl: string; brandSlug: string; noHeader: boolean } {
   const scripts = document.querySelectorAll('script[src]');
   let backendUrl = '';
   let brandSlug = '';
+  let noHeader = false;
 
   for (const script of scripts) {
     const el = script as HTMLScriptElement;
@@ -112,11 +113,12 @@ function getScriptInfo(): { backendUrl: string; brandSlug: string } {
         backendUrl = new URL(el.src).origin;
       } catch { /* ignore */ }
       brandSlug = el.getAttribute('data-brand') || '';
+      noHeader = el.hasAttribute('data-no-header');
       break;
     }
   }
 
-  return { backendUrl: backendUrl || 'http://localhost:3001', brandSlug };
+  return { backendUrl: backendUrl || 'http://localhost:3001', brandSlug, noHeader };
 }
 
 function radiusValue(r: string): string {
@@ -515,7 +517,7 @@ function buildStyles(d: BrandDesign): string {
 
 // ── Portal Renderer ──────────────────────────────────────────────────────────
 
-function createPortal(container: HTMLElement, backendUrl: string, brandSlug: string, design: BrandDesign, portalConfig: PortalConfig | null): void {
+function createPortal(container: HTMLElement, backendUrl: string, brandSlug: string, design: BrandDesign, portalConfig: PortalConfig | null, noHeader: boolean): void {
   const returnReasons = portalConfig?.settings?.available_reasons
     ? portalConfig.settings.available_reasons.map((slug) => ({
         value: slug,
@@ -593,12 +595,15 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     else if (state.step === 'select_items') content = renderSelectItems();
     else if (state.step === 'confirm') content = renderConfirm();
 
-    container.innerHTML = `
-      <div class="srp-wrap">
+    const headerHtml = noHeader ? '' : `
         <div class="srp-header">
           <h2 class="srp-title">${escapeHtml(portalTitle)}</h2>
           <p class="srp-subtitle">${escapeHtml(portalDescription)}</p>
-        </div>
+        </div>`;
+
+    container.innerHTML = `
+      <div class="srp-wrap">
+        ${headerHtml}
         ${stepsHtml()}
         ${state.error ? `<div class="srp-error">${escapeHtml(state.error)}</div>` : ''}
         ${content}
@@ -1052,12 +1057,23 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
   }
 
   render();
+
+  // Listen for live design updates from parent (admin Portal Design page)
+  window.addEventListener('message', (event) => {
+    if (event.data?.type === 'srp:design_update' && event.data.design) {
+      const newDesign: BrandDesign = { ...design, ...event.data.design };
+      Object.assign(design, newDesign);
+      const styleEl = document.getElementById('srp-styles');
+      if (styleEl) styleEl.textContent = buildStyles(newDesign);
+      render();
+    }
+  });
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
-  const { backendUrl, brandSlug } = getScriptInfo();
+  const { backendUrl, brandSlug, noHeader } = getScriptInfo();
 
   // Load brand design from widget config (base design)
   let design: BrandDesign = {
@@ -1100,12 +1116,12 @@ async function init(): Promise<void> {
   // Find or create container
   const explicit = document.getElementById('returns-portal');
   if (explicit) {
-    createPortal(explicit, backendUrl, brandSlug, design, portalConfig);
+    createPortal(explicit, backendUrl, brandSlug, design, portalConfig, noHeader);
   } else {
     const container = document.createElement('div');
     container.id = 'returns-portal';
     document.body.appendChild(container);
-    createPortal(container, backendUrl, brandSlug, design, portalConfig);
+    createPortal(container, backendUrl, brandSlug, design, portalConfig, noHeader);
   }
 }
 

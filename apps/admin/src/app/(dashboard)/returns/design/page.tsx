@@ -85,6 +85,17 @@ export default function PortalDesignPage() {
 
   const [previewKey, setPreviewKey] = useState(0);
   const saveCountRef = useRef(0);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Send live design updates to the iframe via postMessage
+  useEffect(() => {
+    if (!loading && iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        { type: 'srp:design_update', design: settings },
+        '*',
+      );
+    }
+  }, [settings, loading]);
 
   const hasChanges = JSON.stringify(settings) !== JSON.stringify(original);
 
@@ -388,8 +399,9 @@ export default function PortalDesignPage() {
           >
             <div className="relative" style={{ height: '520px' }}>
               <iframe
+                ref={iframeRef}
                 key={previewKey}
-                src={`${backendUrl}/widget/playground-returns?${[brandSlug ? `brand=${brandSlug}` : '', 'debug=0'].filter(Boolean).join('&')}`}
+                src={`${backendUrl}/widget/playground-returns?${[brandSlug ? `brand=${brandSlug}` : ''].filter(Boolean).join('&')}`}
                 className="absolute inset-0 w-full h-full border-0"
                 style={{ background: '#ffffff' }}
                 title="Returns Portal Preview"
