@@ -206,8 +206,15 @@ export function Sidebar() {
               {!isCollapsed && (
                 <div className="space-y-0.5">
                   {group.items.map((item) => {
-                    const active =
+                    const couldMatch =
                       pathname === item.href || pathname.startsWith(item.href + '/');
+                    // Avoid false positives: if a sibling route is a longer prefix match, defer to it
+                    const active = couldMatch && !group.items.some(
+                      (sibling) =>
+                        sibling.href !== item.href &&
+                        sibling.href.startsWith(item.href + '/') &&
+                        (pathname === sibling.href || pathname.startsWith(sibling.href + '/')),
+                    );
                     const showBadge = item.href === '/tickets' && openTicketCount > 0;
 
                     return (
