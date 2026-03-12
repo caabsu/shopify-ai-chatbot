@@ -198,7 +198,9 @@ export function Sidebar() {
               ) : (
                 <p
                   className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider"
-                  style={{ color: 'var(--text-tertiary)' }}
+                  style={{
+                    color: hasActiveChild ? 'var(--color-accent)' : 'var(--text-tertiary)',
+                  }}
                 >
                   {group.label}
                 </p>
