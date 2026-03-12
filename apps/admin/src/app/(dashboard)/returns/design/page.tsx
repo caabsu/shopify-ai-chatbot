@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Save, Check, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Save, Check, RotateCcw, RefreshCw } from 'lucide-react';
 import { useBrand } from '@/components/brand-context';
 
 interface PortalDesign {
@@ -57,20 +57,6 @@ function radiusValue(r: string): string {
   return '12px';
 }
 
-function isLightColor(hex: string): boolean {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
-}
-
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 export default function PortalDesignPage() {
   const [settings, setSettings] = useState<PortalDesign>(DEFAULTS);
   const [original, setOriginal] = useState<PortalDesign>(DEFAULTS);
@@ -97,6 +83,9 @@ export default function PortalDesignPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const [previewKey, setPreviewKey] = useState(0);
+  const saveCountRef = useRef(0);
+
   const hasChanges = JSON.stringify(settings) !== JSON.stringify(original);
 
   const handleSave = useCallback(async () => {
@@ -109,6 +98,9 @@ export default function PortalDesignPage() {
     setOriginal({ ...settings });
     setSaving(false);
     setSaved(true);
+    saveCountRef.current += 1;
+    // Refresh preview iframe after save so it loads the new design from API
+    setPreviewKey(saveCountRef.current);
     setTimeout(() => setSaved(false), 2000);
   }, [settings]);
 
@@ -123,14 +115,6 @@ export default function PortalDesignPage() {
   }
 
   if (loading) return <div className="animate-pulse"><div className="h-96 rounded-xl" style={{ backgroundColor: 'var(--bg-tertiary)' }} /></div>;
-
-  const radius = radiusValue(settings.borderRadius);
-  const primary = settings.primaryColor;
-  const bg = settings.backgroundColor;
-  const btnText = isLightColor(primary) ? '#1a1a1a' : '#ffffff';
-  const textColor = isLightColor(bg) ? '#1a1a1a' : '#f5f5f5';
-  const subtextColor = isLightColor(bg) ? '#6b7280' : '#a0a0a0';
-  const inputBorder = isLightColor(bg) ? '#d1d5db' : '#4a4a4a';
 
   return (
     <div className="space-y-6">
@@ -383,142 +367,44 @@ export default function PortalDesignPage() {
           </div>
         </div>
 
-        {/* Right: Live Preview */}
+        {/* Right: Live Preview (actual widget in iframe) */}
         <div className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-            Preview
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              Live Preview
+            </h3>
+            <button
+              onClick={() => setPreviewKey((k) => k + 1)}
+              className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-colors"
+              style={{ color: 'var(--text-tertiary)', border: '1px solid var(--border-primary)' }}
+              title="Reload preview"
+            >
+              <RefreshCw size={10} /> Refresh
+            </button>
+          </div>
           <div
             className="rounded-xl overflow-hidden sticky top-20"
             style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
           >
-            {/* Mini portal preview */}
-            <div className="p-4" style={{ background: '#f5f5f5' }}>
-              <div style={{ background: bg, borderRadius: radius, padding: '20px', maxWidth: '100%', fontFamily: settings.fontFamily || 'system-ui, sans-serif' }}>
-                {/* Title */}
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontFamily: settings.headingFontFamily || settings.fontFamily || 'system-ui, sans-serif', fontSize: 16, fontWeight: 700, color: textColor, marginBottom: 4 }}>
-                    Returns & Exchanges
-                  </div>
-                  <div style={{ fontSize: 10, color: subtextColor }}>
-                    Start a return or exchange in just a few steps.
-                  </div>
-                </div>
-
-                {/* Steps */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 16 }}>
-                  {settings.stepLabels.map((label, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <div style={{
-                        width: 18, height: 18, borderRadius: '50%',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 8, fontWeight: 700,
-                        background: i === 0 ? primary : 'transparent',
-                        color: i === 0 ? btnText : subtextColor,
-                        border: i === 0 ? 'none' : `1.5px solid ${inputBorder}`,
-                      }}>
-                        {i + 1}
-                      </div>
-                      <span style={{ fontSize: 8, color: i === 0 ? primary : subtextColor, fontWeight: i === 0 ? 600 : 400 }}>
-                        {label}
-                      </span>
-                      {i < settings.stepLabels.length - 1 && (
-                        <div style={{ width: 20, height: 1.5, background: inputBorder, margin: '0 6px' }} />
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Form fields mock */}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 8, fontWeight: 600, color: subtextColor, marginBottom: 3 }}>Order Number</div>
-                    <div style={{
-                      border: `1.5px solid ${inputBorder}`,
-                      borderRadius: radius,
-                      padding: '6px 8px',
-                      fontSize: 9,
-                      color: subtextColor,
-                      background: isLightColor(bg) ? '#ffffff' : hexToRgba('#ffffff', 0.08),
-                    }}>
-                      #1001
-                    </div>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 8, fontWeight: 600, color: subtextColor, marginBottom: 3 }}>Email Address</div>
-                    <div style={{
-                      border: `1.5px solid ${inputBorder}`,
-                      borderRadius: radius,
-                      padding: '6px 8px',
-                      fontSize: 9,
-                      color: subtextColor,
-                      background: isLightColor(bg) ? '#ffffff' : hexToRgba('#ffffff', 0.08),
-                    }}>
-                      you@email.com
-                    </div>
-                  </div>
-                </div>
-
-                {/* Button */}
-                <div style={{
-                  background: primary,
-                  color: btnText,
-                  borderRadius: radius,
-                  padding: '8px 0',
-                  textAlign: 'center',
-                  fontSize: 10,
-                  fontWeight: 600,
-                }}>
-                  {settings.buttonTextLookup}
-                </div>
-              </div>
+            <div className="relative" style={{ height: '520px' }}>
+              <iframe
+                key={previewKey}
+                src={`${backendUrl}/widget/playground-returns?${[brandSlug ? `brand=${brandSlug}` : '', 'debug=0'].filter(Boolean).join('&')}`}
+                className="absolute inset-0 w-full h-full border-0"
+                style={{ background: '#ffffff' }}
+                title="Returns Portal Preview"
+              />
             </div>
-
-            {/* Success preview */}
-            <div className="px-4 py-3" style={{ borderTop: '1px solid var(--border-primary)' }}>
-              <p className="text-[10px] mb-2" style={{ color: 'var(--text-tertiary)' }}>Success Screen</p>
-              <div style={{
-                background: hexToRgba(primary, 0.06),
-                border: `1px solid ${hexToRgba(primary, 0.15)}`,
-                borderRadius: radius,
-                padding: '12px',
-                textAlign: 'center',
-              }}>
-                <div style={{
-                  width: 24, height: 24, borderRadius: '50%', background: primary,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 6px',
-                }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={btnText} strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: textColor }}>{settings.successTitle}</div>
-                <div style={{ fontSize: 8, color: subtextColor, marginTop: 2 }}>{settings.successMessage}</div>
-                <div style={{
-                  display: 'inline-block',
-                  marginTop: 6,
-                  border: `1px solid ${primary}`,
-                  color: primary,
-                  borderRadius: radius,
-                  padding: '3px 10px',
-                  fontSize: 8,
-                  fontWeight: 600,
-                }}>
-                  {settings.successButtonText}
-                </div>
-              </div>
-            </div>
-
-            {/* Open full preview */}
-            <div className="px-4 py-3" style={{ borderTop: '1px solid var(--border-primary)' }}>
+            <div className="px-4 py-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-primary)' }}>
+              <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                {saved ? 'Preview updated with saved design' : hasChanges ? 'Save to update preview' : 'Showing current design'}
+              </p>
               <a
                 href={`${backendUrl}/widget/playground-returns${brandSlug ? `?brand=${brandSlug}` : ''}`}
                 target="_blank"
                 rel="noopener"
-                className="text-xs font-medium block text-center py-1.5 rounded-lg transition-colors"
-                style={{
-                  color: 'var(--color-accent)',
-                  border: '1px solid var(--border-primary)',
-                }}
+                className="text-[10px] font-medium transition-colors"
+                style={{ color: 'var(--color-accent)' }}
               >
                 Open Full Preview
               </a>
