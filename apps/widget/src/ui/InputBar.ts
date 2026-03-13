@@ -19,6 +19,13 @@ export function createInputBar(onSend: (text: string) => void): HTMLElement {
   sendBtn.disabled = true;
   sendBtn.setAttribute('aria-label', 'Send message');
 
+  function updateSendState() {
+    const hasText = !!input.value.trim();
+    const loading = getState().isLoading;
+    sendBtn.disabled = !hasText || loading;
+    sendBtn.classList.toggle('aicb-input-bar__send--visible', hasText && !loading);
+  }
+
   function handleSend() {
     const text = input.value.trim();
     if (!text || getState().isLoading) return;
@@ -30,9 +37,7 @@ export function createInputBar(onSend: (text: string) => void): HTMLElement {
   }
 
   input.addEventListener('input', () => {
-    const hasText = !!input.value.trim();
-    sendBtn.disabled = !hasText || getState().isLoading;
-    sendBtn.classList.toggle('aicb-input-bar__send--visible', hasText);
+    updateSendState();
     // Auto-resize
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 100) + 'px';
@@ -47,9 +52,9 @@ export function createInputBar(onSend: (text: string) => void): HTMLElement {
 
   sendBtn.addEventListener('click', handleSend);
 
-  subscribe((state) => {
-    sendBtn.disabled = !input.value.trim() || state.isLoading;
-    input.disabled = state.isLoading;
+  subscribe(() => {
+    updateSendState();
+    // Never disable the input — let users type while waiting
   });
 
   inputWrap.appendChild(input);

@@ -255,6 +255,13 @@ function renderTypingIndicator(): HTMLElement {
   return wrapper;
 }
 
+function renderLoadingBar(): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'aicb-loading-bar';
+  wrapper.innerHTML = '<div class="aicb-loading-bar__track"><div class="aicb-loading-bar__fill"></div></div>';
+  return wrapper;
+}
+
 export function createMessageList(onPresetSelect: (id: string) => void): HTMLElement {
   const container = document.createElement('div');
   container.className = 'aicb-messages';
@@ -283,6 +290,7 @@ export function createMessageList(onPresetSelect: (id: string) => void): HTMLEle
 
       if (state.isLoading) {
         container.appendChild(renderTypingIndicator());
+        container.appendChild(renderLoadingBar());
       }
 
       prevCount = state.messages.length;

@@ -454,6 +454,33 @@
   }
 }
 
+/* ─── Loading Bar (always visible, can't be hidden by customCSS typing overrides) ─── */
+.aicb-loading-bar {
+  padding: 4px 0;
+  animation: aicb-msg-in 0.25s ease-out;
+}
+
+.aicb-loading-bar__track {
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.aicb-loading-bar__fill {
+  width: 40%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--aicb-primary);
+  opacity: 0.5;
+  animation: aicb-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes aicb-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
 /* ─── Navigation Buttons ─── */
 .aicb-msg__nav-buttons {
   display: flex;
