@@ -565,6 +565,9 @@ async function init(): Promise<void> {
       const data = await res.json();
       if (data.design) {
         design = { ...design, ...data.design };
+        // Contact form is always embedded on the page — force light background
+        // so text colors are calculated for readability on white/light pages.
+        design.backgroundColor = '#ffffff';
       }
       if (data.formConfig) {
         content = { ...content, ...data.formConfig };
