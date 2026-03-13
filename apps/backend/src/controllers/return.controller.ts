@@ -16,6 +16,58 @@ import { supabase } from '../config/supabase.js';
 
 export const returnRouter = Router();
 
+// ── POST /upload — Upload Return Image ───────────────────────────────────
+returnRouter.post('/upload', async (req, res) => {
+  try {
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.startsWith('image/')) {
+      res.status(400).json({ error: 'Content-Type must be an image type (image/jpeg, image/png, etc.)' });
+      return;
+    }
+
+    const ext = contentType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const filePath = `uploads/${filename}`;
+
+    // Collect raw body chunks
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+    }
+    const body = Buffer.concat(chunks);
+
+    if (body.length === 0) {
+      res.status(400).json({ error: 'Empty file' });
+      return;
+    }
+
+    if (body.length > 10 * 1024 * 1024) {
+      res.status(400).json({ error: 'File too large (max 10MB)' });
+      return;
+    }
+
+    const { error } = await supabase.storage
+      .from('return-images')
+      .upload(filePath, body, { contentType, upsert: false });
+
+    if (error) {
+      console.error('[return.controller] Storage upload error:', error.message);
+      res.status(500).json({ error: 'Failed to upload image' });
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('return-images')
+      .getPublicUrl(filePath);
+
+    res.json({ url: urlData.publicUrl, path: filePath });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] POST /upload error:', message);
+    res.status(500).json({ error: 'Failed to upload image' });
+  }
+});
+
 // ── POST /submit — Customer Submits a Return Request ─────────────────────
 returnRouter.post('/submit', async (req, res) => {
   try {
@@ -568,6 +620,7 @@ returnRouter.get('/portal-config', async (req, res) => {
       settings: {
         return_window_days: settings.return_window_days,
         require_photos: settings.require_photos,
+        require_photos_for_reasons: settings.require_photos_for_reasons || [],
         available_reasons: settings.available_reasons,
         reason_labels: settings.reason_labels,
         available_resolutions: settings.available_resolutions,

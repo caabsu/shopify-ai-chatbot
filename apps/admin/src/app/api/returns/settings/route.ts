@@ -48,9 +48,9 @@ export async function PUT(req: NextRequest) {
   const body = await req.json();
 
   const allowedKeys = [
-    'return_window_days', 'require_photos', 'ai_confidence_threshold',
-    'available_reasons', 'reason_labels', 'available_resolutions',
-    'auto_close_days', 'portal_title', 'portal_description',
+    'return_window_days', 'require_photos', 'require_photos_for_reasons',
+    'ai_confidence_threshold', 'available_reasons', 'reason_labels',
+    'available_resolutions', 'auto_close_days', 'portal_title', 'portal_description',
   ];
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };

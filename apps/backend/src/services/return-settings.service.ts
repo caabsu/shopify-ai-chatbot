@@ -7,6 +7,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_SETTINGS: Omit<ReturnSettings, 'id' | 'brand_id' | 'created_at' | 'updated_at'> = {
   return_window_days: 30,
   require_photos: false,
+  require_photos_for_reasons: ['defective', 'wrong_item', 'not_as_described'],
   ai_confidence_threshold: 0.85,
   available_reasons: ['defective', 'wrong_item', 'not_as_described', 'changed_mind', 'too_small', 'too_large', 'arrived_late', 'other'],
   reason_labels: {

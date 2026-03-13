@@ -6,6 +6,7 @@ import { Save, Check, Plus, X } from 'lucide-react';
 interface ReturnSettings {
   return_window_days: number;
   require_photos: boolean;
+  require_photos_for_reasons: string[];
   ai_confidence_threshold: number;
   available_reasons: string[];
   reason_labels: Record<string, string>;
@@ -18,6 +19,7 @@ interface ReturnSettings {
 const DEFAULTS: ReturnSettings = {
   return_window_days: 30,
   require_photos: false,
+  require_photos_for_reasons: ['defective', 'wrong_item', 'not_as_described'],
   ai_confidence_threshold: 0.85,
   available_reasons: ['defective', 'wrong_item', 'not_as_described', 'changed_mind', 'too_small', 'too_large', 'arrived_late', 'other'],
   reason_labels: {
@@ -305,30 +307,43 @@ export default function ReturnSettingsPage() {
           </div>
         </div>
 
-        {/* Photo Requirements */}
+        {/* Photo Requirements — Per Reason */}
         <div
           className="rounded-xl p-5"
           style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Photo Requirements</h3>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                Require customers to upload photos when submitting a return
-              </p>
-            </div>
-            <button
-              onClick={() => setSettings({ ...settings, require_photos: !settings.require_photos })}
-              className="w-10 h-6 rounded-full transition-colors relative flex-shrink-0"
-              style={{
-                backgroundColor: settings.require_photos ? 'var(--color-accent)' : 'var(--border-primary)',
-              }}
-            >
-              <div
-                className="w-4 h-4 bg-white rounded-full absolute top-1 transition-transform"
-                style={{ left: settings.require_photos ? '20px' : '4px' }}
-              />
-            </button>
+          <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Photo Requirements</h3>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
+            Require customers to upload photos for specific return reasons. Photos are always optional for unchecked reasons.
+          </p>
+          <div className="space-y-2">
+            {settings.available_reasons.map((slug) => {
+              const isRequired = settings.require_photos_for_reasons.includes(slug);
+              return (
+                <div key={slug} className="flex items-center justify-between py-1">
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    {settings.reason_labels[slug] || slug}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const updated = isRequired
+                        ? settings.require_photos_for_reasons.filter((r) => r !== slug)
+                        : [...settings.require_photos_for_reasons, slug];
+                      setSettings({ ...settings, require_photos_for_reasons: updated });
+                    }}
+                    className="w-9 h-5 rounded-full transition-colors relative flex-shrink-0"
+                    style={{
+                      backgroundColor: isRequired ? 'var(--color-accent)' : 'var(--border-primary)',
+                    }}
+                  >
+                    <div
+                      className="w-3.5 h-3.5 bg-white rounded-full absolute transition-transform"
+                      style={{ top: '3px', left: isRequired ? '17px' : '3px' }}
+                    />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 

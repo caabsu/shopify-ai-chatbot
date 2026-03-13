@@ -35,6 +35,7 @@ interface PortalConfig {
   settings: {
     return_window_days: number;
     require_photos: boolean;
+    require_photos_for_reasons: string[];
     available_reasons: string[];
     reason_labels: Record<string, string>;
     available_resolutions: string[];
@@ -76,6 +77,9 @@ interface SelectedItem {
   quantity: number;
   reason: string;
   notes?: string;
+  photoUrls: string[];
+  resolutionType: 'return' | 'exchange';
+  exchangeVariant?: string;
 }
 
 type Step = 'lookup' | 'select_items' | 'confirm' | 'success';
@@ -92,7 +96,7 @@ interface PortalState {
   items: OrderItem[];
   // Selection
   selectedItems: Map<string, SelectedItem>;
-  customerName: string;
+  uploadingFor: string | null; // item id currently uploading for
   // Result
   referenceId: string | null;
   resultStatus: string | null;
@@ -498,6 +502,112 @@ function buildStyles(d: BrandDesign): string {
   color: ${subtextColor};
 }
 
+/* ── Resolution toggle ── */
+.srp-resolution-toggle {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.srp-resolution-btn {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.82em;
+  font-weight: 600;
+  border: 1.5px solid ${cardBorder};
+  border-radius: ${radius};
+  background: transparent;
+  color: ${subtextColor};
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.srp-resolution-btn--active {
+  border-color: ${primary};
+  background: ${hexToRgba(primary, 0.08)};
+  color: ${primary};
+}
+.srp-exchange-input {
+  margin-top: 6px;
+}
+
+/* ── Image upload ── */
+.srp-upload-area {
+  margin-top: 8px;
+}
+.srp-upload-label {
+  font-size: 0.82em;
+  font-weight: 600;
+  color: ${labelColor};
+  margin-bottom: 4px;
+  display: block;
+}
+.srp-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.82em;
+  font-weight: 500;
+  border: 1.5px dashed ${inputBorder};
+  border-radius: ${radius};
+  background: transparent;
+  color: ${subtextColor};
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.srp-upload-btn:hover {
+  border-color: ${primary};
+  color: ${primary};
+}
+.srp-upload-btn svg { width: 14px; height: 14px; }
+.srp-upload-btn--uploading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.srp-upload-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.srp-upload-thumb {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid ${cardBorder};
+}
+.srp-upload-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.srp-upload-thumb__remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  padding: 0;
+}
+.srp-upload-required {
+  font-size: 0.78em;
+  color: ${primary};
+  font-weight: 500;
+  margin-left: 4px;
+}
+
 /* ── Back link ── */
 .srp-back {
   display: inline-flex;
@@ -537,6 +647,10 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
   const successMessage = design.successMessage || 'Your return request has been received.';
   const successBtnText = design.successButtonText || 'Start Another Return';
 
+  const availableResolutions = portalConfig?.settings?.available_resolutions || ['refund', 'store_credit', 'exchange'];
+  const hasExchangeOption = availableResolutions.includes('exchange');
+  const requirePhotosForReasons = portalConfig?.settings?.require_photos_for_reasons || [];
+
   debugPost('config_loaded', { settings: portalConfig?.settings || null });
   const state: PortalState = {
     step: 'lookup',
@@ -547,7 +661,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     order: null,
     items: [],
     selectedItems: new Map(),
-    customerName: '',
+    uploadingFor: null,
     referenceId: null,
     resultStatus: null,
   };
@@ -650,15 +764,53 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>'
         : '';
 
-      const reasonSection = isSelected ? `
-        <div class="srp-item-reason">
-          <label class="srp-label">Reason for return <span class="srp-required">*</span></label>
-          <select class="srp-select srp-reason-select" data-item-id="${item.id}">
-            <option value="">Select a reason...</option>
-            ${returnReasons.map(r => `<option value="${r.value}" ${selected?.reason === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
-          </select>
-          <textarea class="srp-textarea" data-item-notes="${item.id}" placeholder="Additional details (optional)" rows="2">${escapeHtml(selected?.notes || '')}</textarea>
-        </div>` : '';
+      let reasonSection = '';
+      if (isSelected && selected) {
+        const photoRequired = selected.reason && requirePhotosForReasons.includes(selected.reason);
+        const hasPhotos = selected.photoUrls.length > 0;
+        const isUploading = state.uploadingFor === item.id;
+
+        // Resolution toggle (Return vs Exchange)
+        const resolutionToggle = hasExchangeOption ? `
+          <div class="srp-resolution-toggle">
+            <button type="button" class="srp-resolution-btn ${selected.resolutionType === 'return' ? 'srp-resolution-btn--active' : ''}" data-resolution="${item.id}" data-type="return">Return</button>
+            <button type="button" class="srp-resolution-btn ${selected.resolutionType === 'exchange' ? 'srp-resolution-btn--active' : ''}" data-resolution="${item.id}" data-type="exchange">Exchange</button>
+          </div>
+          ${selected.resolutionType === 'exchange' ? `
+            <input class="srp-input srp-exchange-input" data-exchange-variant="${item.id}" placeholder="Preferred size/color/variant for exchange" value="${escapeHtml(selected.exchangeVariant || '')}" />
+          ` : ''}` : '';
+
+        // Photo upload section
+        const photoThumbs = selected.photoUrls.map((url, idx) => `
+          <div class="srp-upload-thumb">
+            <img src="${escapeHtml(url)}" alt="Upload ${idx + 1}" />
+            <button type="button" class="srp-upload-thumb__remove" data-remove-photo="${item.id}" data-photo-idx="${idx}">&times;</button>
+          </div>`).join('');
+
+        const uploadSection = `
+          <div class="srp-upload-area">
+            <span class="srp-upload-label">
+              Photos${photoRequired ? '<span class="srp-upload-required">(required for this reason)</span>' : ' (optional)'}
+            </span>
+            ${photoThumbs ? `<div class="srp-upload-previews">${photoThumbs}</div>` : ''}
+            <button type="button" class="srp-upload-btn ${isUploading ? 'srp-upload-btn--uploading' : ''}" data-upload-photo="${item.id}" ${isUploading ? 'disabled' : ''}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              ${isUploading ? 'Uploading...' : 'Upload Photo'}
+            </button>
+          </div>`;
+
+        reasonSection = `
+          <div class="srp-item-reason">
+            ${resolutionToggle}
+            <label class="srp-label" style="margin-top:8px;">Reason <span class="srp-required">*</span></label>
+            <select class="srp-select srp-reason-select" data-item-id="${item.id}">
+              <option value="">Select a reason...</option>
+              ${returnReasons.map(r => `<option value="${r.value}" ${selected.reason === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
+            </select>
+            <textarea class="srp-textarea" data-item-notes="${item.id}" placeholder="Additional details (optional)" rows="2">${escapeHtml(selected.notes || '')}</textarea>
+            ${uploadSection}
+          </div>`;
+      }
 
       return `
         <div class="${cls}" data-item-toggle="${item.eligible ? item.id : ''}">
@@ -677,7 +829,14 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     }).join('');
 
     const hasSelection = state.selectedItems.size > 0;
-    const allHaveReasons = Array.from(state.selectedItems.values()).every(si => si.reason);
+    const allValid = Array.from(state.selectedItems.values()).every(si => {
+      if (!si.reason) return false;
+      // Check photo requirement
+      if (requirePhotosForReasons.includes(si.reason) && si.photoUrls.length === 0) return false;
+      // Check exchange variant
+      if (si.resolutionType === 'exchange' && !si.exchangeVariant?.trim()) return false;
+      return true;
+    });
 
     return `
       <button class="srp-back" id="srp-back-lookup">
@@ -688,13 +847,9 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         <div class="srp-order-card__title">Order ${escapeHtml(order.name)}</div>
         <div class="srp-order-card__detail">Placed ${orderDate} · ${escapeHtml(order.fulfillmentStatus || 'Processing')}</div>
       </div>
-      <p class="srp-label" style="margin-bottom:10px;">Select items to return:</p>
+      <p class="srp-label" style="margin-bottom:10px;">Select items to return or exchange:</p>
       <div class="srp-items">${itemsHtml}</div>
-      <div class="srp-field">
-        <label class="srp-label">Your Name <span class="srp-required">*</span></label>
-        <input class="srp-input" id="srp-name" placeholder="Your full name" value="${escapeHtml(state.customerName)}" />
-      </div>
-      <button class="srp-btn srp-btn--primary" id="srp-continue" ${!hasSelection || !allHaveReasons ? 'disabled' : ''}>
+      <button class="srp-btn srp-btn--primary" id="srp-continue" ${!hasSelection || !allValid ? 'disabled' : ''}>
         ${escapeHtml(btnTextContinue)}
       </button>`;
   }
@@ -705,11 +860,16 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
 
     const itemsHtml = items.map(item => {
       const reasonLabel = returnReasons.find(r => r.value === item.reason)?.label || item.reason;
+      const resLabel = item.resolutionType === 'exchange' ? 'Exchange' : 'Return';
+      const exchangeInfo = item.resolutionType === 'exchange' && item.exchangeVariant
+        ? ` (want: ${escapeHtml(item.exchangeVariant)})`
+        : '';
+      const photoCount = item.photoUrls.length > 0 ? ` · ${item.photoUrls.length} photo(s)` : '';
       return `
         <div class="srp-confirm-item">
           <div>
             <div>${escapeHtml(item.title)}${item.variantTitle ? ` — ${escapeHtml(item.variantTitle)}` : ''}</div>
-            <div class="srp-confirm-item__reason">${escapeHtml(reasonLabel)}${item.notes ? ` — ${escapeHtml(item.notes)}` : ''}</div>
+            <div class="srp-confirm-item__reason">${escapeHtml(resLabel)}${exchangeInfo} · ${escapeHtml(reasonLabel)}${item.notes ? ` — ${escapeHtml(item.notes)}` : ''}${photoCount}</div>
           </div>
           <div>x${item.quantity}</div>
         </div>`;
@@ -722,9 +882,9 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       </button>
       <div class="srp-order-card">
         <div class="srp-order-card__title">Returning from Order ${escapeHtml(order.name)}</div>
-        <div class="srp-order-card__detail">${escapeHtml(state.customerName)} · ${escapeHtml(state.email)}</div>
+        <div class="srp-order-card__detail">${escapeHtml(state.email)}</div>
       </div>
-      <p class="srp-label" style="margin-bottom:6px;">Items to return:</p>
+      <p class="srp-label" style="margin-bottom:6px;">Items to return/exchange:</p>
       <div class="srp-confirm-items">${itemsHtml}</div>
       <button class="srp-btn srp-btn--primary" id="srp-submit" ${state.loading ? 'disabled' : ''}>
         ${state.loading ? 'Submitting...' : escapeHtml(btnTextSubmit)}
@@ -765,7 +925,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       state.order = null;
       state.items = [];
       state.selectedItems = new Map();
-      state.customerName = '';
+      state.uploadingFor = null;
       state.orderNumber = '';
       state.email = '';
       state.referenceId = null;
@@ -819,6 +979,8 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
               variantTitle: item.variantTitle,
               quantity: item.quantity,
               reason: '',
+              photoUrls: [],
+              resolutionType: 'return',
             });
           }
         }
@@ -834,8 +996,8 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         const selected = state.selectedItems.get(itemId);
         if (selected) {
           selected.reason = select.value;
-          // Re-render to update button state
-          updateContinueButton();
+          // Re-render to show/hide photo requirement
+          render();
         }
       });
     });
@@ -850,20 +1012,103 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       });
     });
 
-    // Name input
-    const nameInput = container.querySelector('#srp-name') as HTMLInputElement | null;
-    nameInput?.addEventListener('input', () => { state.customerName = nameInput.value; });
+    // Resolution toggle buttons
+    container.querySelectorAll('[data-resolution]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const btn = e.currentTarget as HTMLElement;
+        const itemId = btn.dataset.resolution!;
+        const type = btn.dataset.type as 'return' | 'exchange';
+        const selected = state.selectedItems.get(itemId);
+        if (selected) {
+          selected.resolutionType = type;
+          if (type !== 'exchange') selected.exchangeVariant = undefined;
+          render();
+        }
+      });
+    });
+
+    // Exchange variant inputs
+    container.querySelectorAll('[data-exchange-variant]').forEach(el => {
+      el.addEventListener('click', (e) => e.stopPropagation());
+      el.addEventListener('input', (e) => {
+        const input = e.target as HTMLInputElement;
+        const itemId = input.dataset.exchangeVariant!;
+        const selected = state.selectedItems.get(itemId);
+        if (selected) {
+          selected.exchangeVariant = input.value;
+          updateContinueButton();
+        }
+      });
+    });
+
+    // Photo upload buttons
+    container.querySelectorAll('[data-upload-photo]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const btn = e.currentTarget as HTMLElement;
+        const itemId = btn.dataset.uploadPhoto!;
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/jpeg,image/png,image/webp,image/gif';
+        fileInput.multiple = true;
+        fileInput.onchange = async () => {
+          const files = fileInput.files;
+          if (!files || files.length === 0) return;
+          state.uploadingFor = itemId;
+          render();
+
+          for (const file of Array.from(files)) {
+            try {
+              const res = await fetch(`${backendUrl}/api/returns/upload${brandParam}`, {
+                method: 'POST',
+                headers: { 'Content-Type': file.type },
+                body: file,
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const selected = state.selectedItems.get(itemId);
+                if (selected && data.url) {
+                  selected.photoUrls.push(data.url);
+                }
+              }
+            } catch {
+              // silently skip failed uploads
+            }
+          }
+
+          state.uploadingFor = null;
+          render();
+        };
+        fileInput.click();
+      });
+    });
+
+    // Photo remove buttons
+    container.querySelectorAll('[data-remove-photo]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const btn = e.currentTarget as HTMLElement;
+        const itemId = btn.dataset.removePhoto!;
+        const idx = parseInt(btn.dataset.photoIdx || '0', 10);
+        const selected = state.selectedItems.get(itemId);
+        if (selected) {
+          selected.photoUrls.splice(idx, 1);
+          render();
+        }
+      });
+    });
 
     // Continue button
     container.querySelector('#srp-continue')?.addEventListener('click', () => {
-      if (!state.customerName.trim()) {
-        state.error = 'Please enter your name.';
-        render();
-        return;
-      }
-      const allHaveReasons = Array.from(state.selectedItems.values()).every(si => si.reason);
-      if (!allHaveReasons) {
-        state.error = 'Please select a reason for each item.';
+      const allValid = Array.from(state.selectedItems.values()).every(si => {
+        if (!si.reason) return false;
+        if (requirePhotosForReasons.includes(si.reason) && si.photoUrls.length === 0) return false;
+        if (si.resolutionType === 'exchange' && !si.exchangeVariant?.trim()) return false;
+        return true;
+      });
+      if (!allValid) {
+        state.error = 'Please complete all required fields for each item.';
         render();
         return;
       }
@@ -887,8 +1132,13 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     const btn = container.querySelector('#srp-continue') as HTMLButtonElement | null;
     if (!btn) return;
     const hasSelection = state.selectedItems.size > 0;
-    const allHaveReasons = Array.from(state.selectedItems.values()).every(si => si.reason);
-    btn.disabled = !hasSelection || !allHaveReasons;
+    const allValid = Array.from(state.selectedItems.values()).every(si => {
+      if (!si.reason) return false;
+      if (requirePhotosForReasons.includes(si.reason) && si.photoUrls.length === 0) return false;
+      if (si.resolutionType === 'exchange' && !si.exchangeVariant?.trim()) return false;
+      return true;
+    });
+    btn.disabled = !hasSelection || !allValid;
   }
 
   async function handleLookup(): Promise<void> {
@@ -1014,7 +1264,14 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       quantity: si.quantity,
       reason: si.reason,
       customer_note: si.notes || null,
+      photo_urls: si.photoUrls.length > 0 ? si.photoUrls : null,
+      resolution_type: si.resolutionType === 'exchange' ? 'exchange' : null,
+      exchange_variant: si.resolutionType === 'exchange' ? si.exchangeVariant || null : null,
     }));
+
+    // Determine overall resolution type
+    const hasExchange = items.some(i => i.resolution_type === 'exchange');
+    const allExchange = items.every(i => i.resolution_type === 'exchange');
 
     try {
       const res = await fetch(`${backendUrl}/api/returns/submit${brandParam}`, {
@@ -1024,7 +1281,8 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
           order_id: state.order!.id,
           order_number: state.order!.name,
           customer_email: state.email.trim(),
-          customer_name: state.customerName.trim(),
+          customer_name: null,
+          resolution_type: allExchange ? 'exchange' : hasExchange ? 'exchange' : null,
           items,
         }),
       });

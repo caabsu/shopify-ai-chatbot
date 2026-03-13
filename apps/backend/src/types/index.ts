@@ -264,6 +264,7 @@ export interface ReturnSettings {
   brand_id: string;
   return_window_days: number;
   require_photos: boolean;
+  require_photos_for_reasons: string[];
   ai_confidence_threshold: number;
   available_reasons: string[];
   reason_labels: Record<string, string>;
