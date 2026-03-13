@@ -43,7 +43,7 @@ function loadGoogleFonts(design: WidgetDesign): void {
   if (design.fontFamily) {
     const name = design.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
     if (name && !name.startsWith('-apple') && !families.some(f => f.startsWith(name.replace(/ /g, '+')))) {
-      families.push(name.replace(/ /g, '+') + ':wght@400;500;600');
+      families.push(name.replace(/ /g, '+') + ':wght@300;400;500;600');
     }
   }
   if (families.length > 0 && !document.getElementById('aicb-gfonts')) {

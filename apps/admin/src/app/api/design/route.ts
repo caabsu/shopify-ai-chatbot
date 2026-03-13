@@ -7,6 +7,7 @@ const ALLOWED_KEYS = [
   'bubbleIcon', 'welcomeMessage', 'inputPlaceholder', 'borderRadius',
   'fontSize', 'showBrandingBadge', 'autoOpenDelay',
   'fontFamily', 'headingFontFamily', 'headingFontWeight',
+  'headerFontSize', 'customCSS',
 ];
 
 export async function GET() {
