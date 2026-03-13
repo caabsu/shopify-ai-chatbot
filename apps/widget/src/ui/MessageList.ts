@@ -229,7 +229,6 @@ function renderPresetCards(presets: PresetAction[], onSelect: (id: string) => vo
     card.innerHTML = `
       <div class="aicb-preset-card__icon">${iconSvg}</div>
       <span class="aicb-preset-card__label">${preset.label}</span>
-      <span class="aicb-preset-card__chevron">${CHEVRON_SVG}</span>
     `;
 
     card.addEventListener('click', () => onSelect(preset.id));

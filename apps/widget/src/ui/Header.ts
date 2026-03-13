@@ -8,7 +8,6 @@ export function createHeader(onMinimize: () => void, onClose: () => void): HTMLE
 
   header.innerHTML = `
     <div class="aicb-header__info">
-      <span class="aicb-header__dot"></span>
       <span class="aicb-header__title">${title}</span>
     </div>
     <div class="aicb-header__actions">
