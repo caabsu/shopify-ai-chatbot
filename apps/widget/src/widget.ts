@@ -252,7 +252,7 @@ async function initEmbedded(targetSelector: string) {
   }
 
   // Now create chat window — state has correct values for branding, title, etc.
-  const chatWindow = createChatWindow(() => {});
+  const chatWindow = createChatWindow(() => {}, initSession);
   root.appendChild(chatWindow);
   setState({ isOpen: true });
 
@@ -320,7 +320,7 @@ function initFloating() {
     // colors, branding badge, header title, placeholder are all correct
     await configReady;
 
-    chatWindow = createChatWindow(closeChatWindow);
+    chatWindow = createChatWindow(closeChatWindow, initSession);
     root.appendChild(chatWindow);
 
     // Initialize session if needed (first open or after page reload)

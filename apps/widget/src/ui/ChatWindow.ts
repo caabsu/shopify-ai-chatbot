@@ -1,15 +1,23 @@
 import { createHeader } from './Header.js';
 import { createMessageList } from './MessageList.js';
 import { createInputBar } from './InputBar.js';
-import { getState, setState, saveSession, subscribe } from '../state/store.js';
+import { getState, setState, saveSession, clearSession, subscribe } from '../state/store.js';
 import * as api from '../api/client.js';
 import type { WidgetMessage } from '../state/store.js';
 
-export function createChatWindow(onClose: () => void): HTMLElement {
+export function createChatWindow(onClose: () => void, onSessionInit?: () => Promise<void>): HTMLElement {
   const window = document.createElement('div');
   window.className = 'aicb-window';
 
-  const header = createHeader(onClose, onClose);
+  function handleReset() {
+    clearSession();
+    // Re-initialize a fresh session with greeting + preset actions
+    if (onSessionInit) {
+      onSessionInit();
+    }
+  }
+
+  const header = createHeader(onClose, onClose, handleReset);
   const messageList = createMessageList(handlePresetClick);
   const inputBar = createInputBar(handleSendMessage);
 

@@ -225,6 +225,15 @@
   color: #fff !important;
 }
 
+.aicb-header__reset {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.aicb-header__reset svg {
+  width: 15px;
+  height: 15px;
+}
+
 /* ─── Message List ─── */
 .aicb-messages {
   flex: 1;
