@@ -160,6 +160,7 @@ function buildStyles(d: BrandDesign, ct: FormContentConfig): string {
 /* ── Header ── */
 .scf-header {
   margin-bottom: 1.75rem;
+  text-align: center;
 }
 .scf-title {
   font-family: ${headingFont} !important;
