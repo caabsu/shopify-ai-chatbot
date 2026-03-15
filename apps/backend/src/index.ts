@@ -293,9 +293,16 @@ function brandQueryString(req: express.Request): string {
   return slug && slug !== 'outlight' ? `?brand=${slug}` : '';
 }
 
-// Pre-fetch widget config server-side so it can be inlined in playground HTML
-// This eliminates the client-side fetch round-trip that causes lag
+// ── Inline Config Helpers (cached, for playground/preview HTML) ───────────────
+
+const inlineConfigCache = new Map<string, { data: Record<string, unknown>; expiry: number }>();
+const INLINE_CACHE_TTL = 60 * 1000; // 1 minute
+
 async function getInlineWidgetConfig(brandId: string): Promise<Record<string, unknown>> {
+  const key = `widget:${brandId}`;
+  const cached = inlineConfigCache.get(key);
+  if (cached && Date.now() < cached.expiry) return cached.data;
+
   try {
     const { data: rows } = await supabase
       .from('ai_config')
@@ -319,13 +326,19 @@ async function getInlineWidgetConfig(brandId: string): Promise<Record<string, un
       if (raw) formConfig = JSON.parse(raw);
     } catch { /* ignore */ }
 
-    return { design, formConfig };
+    const result = { design, formConfig };
+    inlineConfigCache.set(key, { data: result, expiry: Date.now() + INLINE_CACHE_TTL });
+    return result;
   } catch {
     return { design: {}, formConfig: null };
   }
 }
 
 async function getInlinePortalConfig(brandId: string): Promise<Record<string, unknown> | null> {
+  const key = `portal:${brandId}`;
+  const cached = inlineConfigCache.get(key);
+  if (cached && Date.now() < cached.expiry) return cached.data;
+
   try {
     const { getReturnSettings } = await import('./services/return-settings.service.js');
     const [settings, designRow] = await Promise.all([
@@ -343,7 +356,7 @@ async function getInlinePortalConfig(brandId: string): Promise<Record<string, un
       try { design = JSON.parse(designRow.data.value); } catch { /* ignore */ }
     }
 
-    return {
+    const result = {
       settings: {
         return_window_days: settings.return_window_days,
         require_photos: settings.require_photos,
@@ -356,10 +369,118 @@ async function getInlinePortalConfig(brandId: string): Promise<Record<string, un
       },
       design,
     };
+    inlineConfigCache.set(key, { data: result, expiry: Date.now() + INLINE_CACHE_TTL });
+    return result;
   } catch {
     return null;
   }
 }
+
+// ── Lightweight Preview Endpoints ────────────────────────────────────────────
+// Minimal HTML for admin dashboard iframes — no storefront chrome, instant load.
+
+app.get('/widget/preview-returns', async (req, res) => {
+  const brandSlug = (req.query.brand as string || '').toLowerCase();
+  const dataBrandAttr = brandSlug && brandSlug !== 'outlight' ? ` data-brand="${brandSlug}"` : '';
+
+  // Run ALL queries in parallel — single await
+  const brandId = await resolveBrandId(req);
+  const [widgetConfig, portalConfig] = await Promise.all([
+    getInlineWidgetConfig(brandId),
+    getInlinePortalConfig(brandId),
+  ]);
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Returns Preview</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
+    #returns-portal { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+  </style>
+</head>
+<body>
+  <div id="returns-portal"></div>
+  <script>
+    window.__SRP_CONFIG = {
+      widgetDesign: ${JSON.stringify(widgetConfig.design || {})},
+      portalConfig: ${JSON.stringify(portalConfig)}
+    };
+    window.__SRP_DEBUG = ${req.query.debug === '1' ? 'true' : 'false'};
+  </script>
+  <script src="/widget/returns-portal.js"${dataBrandAttr}></script>
+</body>
+</html>`);
+});
+
+app.get('/widget/preview-embedded', async (req, res) => {
+  const brandSlug = (req.query.brand as string || '').toLowerCase();
+  const dataBrandAttr = brandSlug && brandSlug !== 'outlight' ? ` data-brand="${brandSlug}"` : '';
+
+  const brandId = await resolveBrandId(req);
+  const widgetConfig = await getInlineWidgetConfig(brandId);
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Form Preview</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
+    #chat-embed { height: 500px; border-radius: 16px; overflow: hidden; max-width: 960px; margin: 0 auto; }
+    #support-contact-form { max-width: 960px; margin: 24px auto 0; padding: 0 16px; }
+  </style>
+</head>
+<body>
+  <div id="chat-embed"></div>
+  <div id="support-contact-form"></div>
+  <script>
+    window.__SCF_CONFIG = {
+      design: ${JSON.stringify(widgetConfig.design || {})},
+      formConfig: ${JSON.stringify(widgetConfig.formConfig || null)}
+    };
+  </script>
+  ${playgroundDebugScript}
+  <script src="/widget/widget.js" data-mode="embedded" data-target="#chat-embed"${dataBrandAttr}></script>
+  <script src="/widget/contact-form.js"${dataBrandAttr}></script>
+</body>
+</html>`);
+});
+
+app.get('/widget/preview-chat', async (req, res) => {
+  const brandSlug = (req.query.brand as string || '').toLowerCase();
+  const dataBrandAttr = brandSlug && brandSlug !== 'outlight' ? ` data-brand="${brandSlug}"` : '';
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Preview</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fafafa; min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <script>
+    if (new URLSearchParams(window.location.search).has('newconv')) {
+      localStorage.removeItem('aicb_session');
+    }
+  </script>
+  ${playgroundDebugScript}
+  <script src="/widget/widget.js"${dataBrandAttr}></script>
+</body>
+</html>`);
+});
 
 const playgroundDebugScript = `
   <script>

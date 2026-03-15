@@ -401,7 +401,7 @@ export default function PortalDesignPage() {
               <iframe
                 ref={iframeRef}
                 key={previewKey}
-                src={`${backendUrl}/widget/playground-returns?${[brandSlug ? `brand=${brandSlug}` : ''].filter(Boolean).join('&')}`}
+                src={`${backendUrl}/widget/preview-returns?${[brandSlug ? `brand=${brandSlug}` : ''].filter(Boolean).join('&')}`}
                 className="absolute inset-0 w-full h-full border-0"
                 style={{ background: '#ffffff' }}
                 title="Returns Portal Preview"

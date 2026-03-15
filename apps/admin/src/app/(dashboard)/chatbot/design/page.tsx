@@ -127,8 +127,8 @@ export default function ChatbotDesignPage() {
   if (loading) return <div className="animate-pulse"><div className="h-96 rounded-xl" style={{ backgroundColor: 'var(--bg-tertiary)' }} /></div>;
 
   const iframeSrc = previewTab === 'storefront'
-    ? `${backendUrl}/widget/playground?${[brandQs, `_r=${previewKey}`].filter(Boolean).join('&')}`
-    : `${backendUrl}/widget/playground-embedded?${[brandQs, `_r=${previewKey}`].filter(Boolean).join('&')}`;
+    ? `${backendUrl}/widget/preview-chat?${[brandQs, `_r=${previewKey}`].filter(Boolean).join('&')}`
+    : `${backendUrl}/widget/preview-embedded?${[brandQs, `_r=${previewKey}`].filter(Boolean).join('&')}`;
 
   return (
     <div className="space-y-6">

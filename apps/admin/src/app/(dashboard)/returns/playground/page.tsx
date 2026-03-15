@@ -119,7 +119,7 @@ export default function ReturnsPlaygroundPage() {
         >
           <iframe
             key={iframeKey}
-            src={`${backendUrl}/widget/playground-returns?${[brandQs, 'debug=1'].filter(Boolean).join('&')}`}
+            src={`${backendUrl}/widget/preview-returns?${[brandQs, 'debug=1'].filter(Boolean).join('&')}`}
             className="absolute inset-0 w-full h-full border-0"
             style={{ background: 'var(--bg-primary)' }}
             title="Returns Portal Preview"

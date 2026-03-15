@@ -94,7 +94,7 @@ export default function ChatbotPlaygroundPage() {
         >
           <iframe
             key={iframeKey}
-            src={`${backendUrl}/widget/playground?${[brandQs, iframeKey > 0 ? 'newconv=1' : ''].filter(Boolean).join('&')}`}
+            src={`${backendUrl}/widget/preview-chat?${[brandQs, iframeKey > 0 ? 'newconv=1' : ''].filter(Boolean).join('&')}`}
             className="absolute inset-0 w-full h-full border-0"
             style={{ background: 'var(--bg-primary)' }}
             allow="clipboard-read; clipboard-write"
