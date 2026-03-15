@@ -43,9 +43,12 @@ app.use(
 
 app.use(express.json({ limit: '1mb' }));
 
-// Serve widget static files (no caching in dev, short cache in prod)
+// Serve widget static files with short caching so browser doesn't re-download every time
 const widgetDir = path.resolve(process.cwd(), 'apps/widget/dist');
-app.use('/widget', express.static(widgetDir, { maxAge: 0, etag: false }));
+app.use('/widget', express.static(widgetDir, {
+  maxAge: config.server.nodeEnv === 'production' ? '5m' : '1m',
+  etag: true,
+}));
 
 // Shared playground styles (tab bar + common layout)
 const playgroundTabStyles = `
@@ -288,6 +291,74 @@ async function getPlaygroundBrand(req: express.Request): Promise<PlaygroundBrand
 function brandQueryString(req: express.Request): string {
   const slug = (req.query.brand as string || '').toLowerCase();
   return slug && slug !== 'outlight' ? `?brand=${slug}` : '';
+}
+
+// Pre-fetch widget config server-side so it can be inlined in playground HTML
+// This eliminates the client-side fetch round-trip that causes lag
+async function getInlineWidgetConfig(brandId: string): Promise<Record<string, unknown>> {
+  try {
+    const { data: rows } = await supabase
+      .from('ai_config')
+      .select('key, value')
+      .eq('brand_id', brandId)
+      .in('key', ['widget_design', 'contact_form_config']);
+
+    const configMap = new Map(
+      (rows ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
+    );
+
+    let design: Record<string, unknown> = {};
+    try {
+      const raw = configMap.get('widget_design');
+      if (raw) design = JSON.parse(raw);
+    } catch { /* ignore */ }
+
+    let formConfig = null;
+    try {
+      const raw = configMap.get('contact_form_config');
+      if (raw) formConfig = JSON.parse(raw);
+    } catch { /* ignore */ }
+
+    return { design, formConfig };
+  } catch {
+    return { design: {}, formConfig: null };
+  }
+}
+
+async function getInlinePortalConfig(brandId: string): Promise<Record<string, unknown> | null> {
+  try {
+    const { getReturnSettings } = await import('./services/return-settings.service.js');
+    const [settings, designRow] = await Promise.all([
+      getReturnSettings(brandId),
+      supabase
+        .from('ai_config')
+        .select('value')
+        .eq('brand_id', brandId)
+        .eq('key', 'return_portal_design')
+        .single(),
+    ]);
+
+    let design = null;
+    if (designRow.data?.value) {
+      try { design = JSON.parse(designRow.data.value); } catch { /* ignore */ }
+    }
+
+    return {
+      settings: {
+        return_window_days: settings.return_window_days,
+        require_photos: settings.require_photos,
+        require_photos_for_reasons: settings.require_photos_for_reasons || [],
+        available_reasons: settings.available_reasons,
+        reason_labels: settings.reason_labels,
+        available_resolutions: settings.available_resolutions,
+        portal_title: settings.portal_title,
+        portal_description: settings.portal_description,
+      },
+      design,
+    };
+  } catch {
+    return null;
+  }
 }
 
 const playgroundDebugScript = `
@@ -633,7 +704,7 @@ app.get('/widget/playground', async (req, res) => {
 
   <!-- Chat widget (loaded exactly like it would be on a real store) -->
   ${playgroundDebugScript}
-  <script src="/widget/widget.js?_t=${Date.now()}"${dataBrandAttr}></script>
+  <script src="/widget/widget.js"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
@@ -648,6 +719,10 @@ app.get('/widget/playground-embedded', async (req, res) => {
   const dataBrandAttr = brandSlug && brandSlug !== 'outlight'
     ? ` data-brand="${brandSlug}"`
     : '';
+
+  // Pre-fetch widget config server-side to inline
+  const brandId = await resolveBrandId(req);
+  const widgetConfig = await getInlineWidgetConfig(brandId);
 
   const navLinksHtml = brand.navLinks.map((l) => `<li><a href="#">${l}</a></li>`).join('\n      ');
 
@@ -777,8 +852,15 @@ app.get('/widget/playground-embedded', async (req, res) => {
   </footer>
 
   ${playgroundDebugScript}
-  <script src="/widget/widget.js?_t=${Date.now()}" data-mode="embedded" data-target="#chat-embed"${dataBrandAttr}></script>
-  <script src="/widget/contact-form.js?_t=${Date.now()}"${dataBrandAttr}></script>
+  <script>
+    // Inline config — eliminates fetch round-trip for instant rendering
+    window.__SCF_CONFIG = {
+      design: ${JSON.stringify(widgetConfig.design || {})},
+      formConfig: ${JSON.stringify(widgetConfig.formConfig || null)}
+    };
+  </script>
+  <script src="/widget/widget.js" data-mode="embedded" data-target="#chat-embed"${dataBrandAttr}></script>
+  <script src="/widget/contact-form.js"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
@@ -793,6 +875,13 @@ app.get('/widget/playground-returns', async (req, res) => {
   const dataBrandAttr = brandSlug && brandSlug !== 'outlight'
     ? ` data-brand="${brandSlug}"`
     : '';
+
+  // Pre-fetch configs server-side to inline — eliminates client-side fetch lag
+  const brandId = await resolveBrandId(req);
+  const [widgetConfig, portalConfig] = await Promise.all([
+    getInlineWidgetConfig(brandId),
+    getInlinePortalConfig(brandId),
+  ]);
 
   const navLinksHtml = brand.navLinks.map((l) => `<li><a href="#">${l}</a></li>`).join('\n      ');
 
@@ -938,6 +1027,11 @@ app.get('/widget/playground-returns', async (req, res) => {
   </footer>
 
   <script>
+    // Inline config — eliminates fetch round-trip for instant rendering
+    window.__SRP_CONFIG = {
+      widgetDesign: ${JSON.stringify(widgetConfig.design || {})},
+      portalConfig: ${JSON.stringify(portalConfig)}
+    };
     // Debug mode ON by default in playground
     window.__SRP_DEBUG = ${req.query.debug === '0' ? 'false' : 'true'};
     function toggleDebug() {
@@ -959,7 +1053,7 @@ app.get('/widget/playground-returns', async (req, res) => {
       if (typeof init === 'function') init();
     }
   </script>
-  <script src="/widget/returns-portal.js?_t=${Date.now()}"${dataBrandAttr}></script>
+  <script src="/widget/returns-portal.js"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
@@ -1156,7 +1250,8 @@ app.use('/api/returns', returnRouter);
 
 // Widget config endpoint
 app.get('/api/widget/config', async (req, res) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  // Allow short browser caching to avoid repeated fetches on page loads
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   try {
     const brandId = await resolveBrandId(req);
 

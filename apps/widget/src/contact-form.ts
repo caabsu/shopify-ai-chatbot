@@ -555,39 +555,65 @@ function createForm(container: HTMLElement, cfg: FormConfig): void {
 async function init(): Promise<void> {
   const { backendUrl, brandSlug, noHeader } = getScriptInfo();
 
-  // Load brand design + form content config
+  // Check for inlined config (from playground HTML) to avoid network round-trip
+  const inlinedConfig = (window as unknown as Record<string, unknown>).__SCF_CONFIG as {
+    design?: Partial<BrandDesign>;
+    formConfig?: Partial<FormContentConfig>;
+  } | undefined;
+
+  // Start with defaults
   let design = { ...DEFAULT_DESIGN };
   let content = { ...DEFAULT_CONTENT };
-  try {
-    const configUrl = `${backendUrl}/api/widget/config${brandSlug ? '?brand=' + brandSlug : ''}`;
-    const res = await fetch(configUrl);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.design) {
-        design = { ...design, ...data.design };
-        // Contact form is always embedded on the page — force light background
-        // so text colors are calculated for readability on white/light pages.
-        design.backgroundColor = '#ffffff';
-      }
-      if (data.formConfig) {
-        content = { ...content, ...data.formConfig };
-      }
+
+  // If inlined config is available, use it immediately
+  if (inlinedConfig) {
+    if (inlinedConfig.design) {
+      design = { ...design, ...inlinedConfig.design };
+      design.backgroundColor = '#ffffff';
     }
-  } catch {
-    // Use defaults
+    if (inlinedConfig.formConfig) {
+      content = { ...content, ...inlinedConfig.formConfig };
+    }
   }
 
   const cfg: FormConfig = { design, content, brandSlug, backendUrl, noHeader };
 
   // Find or create container
-  const explicit = document.getElementById('support-contact-form');
-  if (explicit) {
-    createForm(explicit, cfg);
-  } else {
-    const container = document.createElement('div');
-    container.id = 'support-contact-form';
-    document.body.appendChild(container);
-    createForm(container, cfg);
+  const container = document.getElementById('support-contact-form') || (() => {
+    const el = document.createElement('div');
+    el.id = 'support-contact-form';
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  // Render immediately with current config (defaults or inlined)
+  createForm(container, cfg);
+
+  // If no inlined config, fetch in background and re-render with updated config
+  if (!inlinedConfig) {
+    const configUrl = `${backendUrl}/api/widget/config${brandSlug ? '?brand=' + brandSlug : ''}`;
+    fetch(configUrl).then(async (res) => {
+      if (!res.ok) return;
+      try {
+        const data = await res.json();
+        let updated = false;
+        if (data.design) {
+          Object.assign(cfg.design, data.design);
+          cfg.design.backgroundColor = '#ffffff';
+          updated = true;
+        }
+        if (data.formConfig) {
+          Object.assign(cfg.content, data.formConfig);
+          updated = true;
+        }
+        if (updated) {
+          // Update styles and re-render
+          const styleEl = document.getElementById('scf-styles');
+          if (styleEl) styleEl.textContent = buildStyles(cfg.design, cfg.content);
+          createForm(container, cfg);
+        }
+      } catch { /* ignore */ }
+    }).catch(() => { /* use defaults */ });
   }
 }
 

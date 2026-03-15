@@ -1335,7 +1335,13 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
 async function init(): Promise<void> {
   const { backendUrl, brandSlug, noHeader } = getScriptInfo();
 
-  // Load brand design from widget config (base design)
+  // Check for inlined config (from playground HTML) to avoid network round-trip
+  const inlinedConfig = (window as unknown as Record<string, unknown>).__SRP_CONFIG as {
+    widgetDesign?: Partial<BrandDesign>;
+    portalConfig?: PortalConfig;
+  } | undefined;
+
+  // Start with defaults
   let design: BrandDesign = {
     primaryColor: '#18181b',
     backgroundColor: '#ffffff',
@@ -1345,43 +1351,69 @@ async function init(): Promise<void> {
 
   let portalConfig: PortalConfig | null = null;
 
-  // Load portal-specific config (settings + design) and widget design in parallel
-  const brandParam = brandSlug ? '?brand=' + brandSlug : '';
-  try {
-    const [widgetRes, portalRes] = await Promise.all([
-      fetch(`${backendUrl}/api/widget/config${brandParam}`).catch(() => null),
-      fetch(`${backendUrl}/api/returns/portal-config${brandParam}`).catch(() => null),
-    ]);
-
-    if (widgetRes?.ok) {
-      const data = await widgetRes.json();
-      if (data.design) {
-        design = { ...design, ...data.design };
-      }
+  // If inlined config is available, use it immediately — no fetch needed
+  if (inlinedConfig) {
+    if (inlinedConfig.widgetDesign) {
+      design = { ...design, ...inlinedConfig.widgetDesign };
     }
-
-    if (portalRes?.ok) {
-      portalConfig = await portalRes.json();
-      // Merge portal-specific design overrides
+    if (inlinedConfig.portalConfig) {
+      portalConfig = inlinedConfig.portalConfig;
       if (portalConfig?.design) {
         design = { ...design, ...portalConfig.design };
       }
     }
-  } catch {
-    // Use defaults
   }
 
   debugPost('step_change', { step: 'lookup' });
 
   // Find or create container
-  const explicit = document.getElementById('returns-portal');
-  if (explicit) {
-    createPortal(explicit, backendUrl, brandSlug, design, portalConfig, noHeader);
-  } else {
-    const container = document.createElement('div');
-    container.id = 'returns-portal';
-    document.body.appendChild(container);
-    createPortal(container, backendUrl, brandSlug, design, portalConfig, noHeader);
+  const container = document.getElementById('returns-portal') || (() => {
+    const el = document.createElement('div');
+    el.id = 'returns-portal';
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  // Render immediately with current config (defaults or inlined)
+  createPortal(container, backendUrl, brandSlug, design, portalConfig, noHeader);
+
+  // If no inlined config, fetch in background and re-render with updated config
+  if (!inlinedConfig) {
+    const brandParam = brandSlug ? '?brand=' + brandSlug : '';
+    Promise.all([
+      fetch(`${backendUrl}/api/widget/config${brandParam}`).catch(() => null),
+      fetch(`${backendUrl}/api/returns/portal-config${brandParam}`).catch(() => null),
+    ]).then(async ([widgetRes, portalRes]) => {
+      let updated = false;
+
+      if (widgetRes?.ok) {
+        try {
+          const data = await widgetRes.json();
+          if (data.design) {
+            Object.assign(design, data.design);
+            updated = true;
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (portalRes?.ok) {
+        try {
+          portalConfig = await portalRes.json();
+          if (portalConfig?.design) {
+            Object.assign(design, portalConfig.design);
+            updated = true;
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (updated) {
+        // Re-render with fetched config
+        const styleEl = document.getElementById('srp-styles');
+        if (styleEl) styleEl.textContent = buildStyles(design);
+        container.innerHTML = '';
+        createPortal(container, backendUrl, brandSlug, design, portalConfig, noHeader);
+      }
+    }).catch(() => { /* use defaults */ });
   }
 }
 

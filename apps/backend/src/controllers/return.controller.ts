@@ -599,6 +599,8 @@ returnRouter.put('/portal-design', async (req, res) => {
 
 // ── GET /portal-config — Public endpoint for widget ─────────────────────
 returnRouter.get('/portal-config', async (req, res) => {
+  // Allow short browser caching to avoid repeated fetches on page loads
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
   try {
     const brandId = await resolveBrandId(req);
     const [settings, designRow] = await Promise.all([
