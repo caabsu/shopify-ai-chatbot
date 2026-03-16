@@ -1284,7 +1284,7 @@ app.post('/api/webhooks/email', async (req, res) => {
       message_id, email_message_id,      // message ID for threading
     } = req.body;
 
-    const senderEmail = from_email || from || sender || '';
+    const senderEmail = (from_email || from || sender || '').toLowerCase().trim();
     const senderName = from_name || sender_name || '';
     const emailSubject = subject || '(No Subject)';
     const emailBody = text || plain || body || '';
@@ -1292,6 +1292,37 @@ app.post('/api/webhooks/email', async (req, res) => {
 
     if (!senderEmail || !emailBody) {
       res.status(400).json({ error: 'from/from_email and text/body are required' });
+      return;
+    }
+
+    // ── Loop Prevention: reject emails from our own support addresses ──
+    // Collect all brand FROM addresses to detect self-referential loops
+    const ownAddresses = new Set<string>();
+    const defaultFrom = (process.env.EMAIL_FROM_ADDRESS || '').match(/<(.+?)>/)?.[1]?.toLowerCase();
+    if (defaultFrom) ownAddresses.add(defaultFrom);
+    // Check all RESEND/EMAIL env vars for brand-specific FROM addresses
+    for (const [key, value] of Object.entries(process.env)) {
+      if (key.startsWith('EMAIL_FROM_ADDRESS') && value) {
+        const match = value.match(/<(.+?)>/);
+        if (match) ownAddresses.add(match[1].toLowerCase());
+        else if (value.includes('@')) ownAddresses.add(value.toLowerCase().trim());
+      }
+    }
+    // Also check common noreply patterns
+    if (senderEmail.includes('noreply@') || senderEmail.includes('no-reply@')) {
+      ownAddresses.add(senderEmail); // will match below
+    }
+
+    if (ownAddresses.has(senderEmail)) {
+      console.log(`[webhook] Ignoring email from own address: ${senderEmail} (loop prevention)`);
+      res.json({ success: true, action: 'ignored', reason: 'Email from own support address — loop prevention' });
+      return;
+    }
+
+    // ── Loop Prevention: reject ticket confirmation bounce-backs ──
+    if (emailSubject.match(/^\[Ticket #\d+\]/) && emailBody.includes("We've received your message and created ticket")) {
+      console.log(`[webhook] Ignoring ticket confirmation bounce-back from ${senderEmail}`);
+      res.json({ success: true, action: 'ignored', reason: 'Ticket confirmation bounce-back' });
       return;
     }
 

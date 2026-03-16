@@ -263,7 +263,11 @@ export default function TicketInboxPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        const msg = `AI classified ${data.classified} ticket${data.classified !== 1 ? 's' : ''}, closed ${data.closed} non-support ticket${data.closed !== 1 ? 's' : ''}`;
+        const parts: string[] = [];
+        if (data.classified > 0) parts.push(`classified ${data.classified}`);
+        if (data.selfClosed > 0) parts.push(`deleted ${data.selfClosed} self-emails`);
+        if (data.closed > 0) parts.push(`closed ${data.closed} non-support`);
+        const msg = parts.length > 0 ? `AI Clean Up: ${parts.join(', ')}` : 'AI Clean Up: no action needed';
         setActionMessage({ text: msg, type: 'success' });
         loadTickets();
         loadCounts();
