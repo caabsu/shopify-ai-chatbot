@@ -80,6 +80,20 @@ export async function resolveBrandId(req: Request): Promise<string> {
   return DEFAULT_BRAND_ID;
 }
 
+/** Get the slug for a brand by ID (uses cache) */
+export async function getBrandSlug(brandId: string): Promise<string | null> {
+  const brands = await loadBrands();
+  const brand = brands.find((b) => b.id === brandId);
+  return brand?.slug ?? null;
+}
+
+/** Get the display name for a brand by ID (uses cache) */
+export async function getBrandName(brandId: string): Promise<string | null> {
+  const brands = await loadBrands();
+  const brand = brands.find((b) => b.id === brandId);
+  return brand?.name ?? null;
+}
+
 /** Invalidate cached brands (useful after brand updates) */
 export function invalidateBrandsCache(): void {
   brandsCache = null;

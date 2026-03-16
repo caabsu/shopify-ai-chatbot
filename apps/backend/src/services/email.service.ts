@@ -1,15 +1,57 @@
 import { Resend } from 'resend';
 import { getTemplate, renderTemplate } from './return-email-template.service.js';
+import { getBrandSlug, getBrandName } from '../config/brand.js';
 
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+// ── Per-Brand Resend Client Resolution ───────────────────────────────────────
+// Each brand can have its own Resend API key and FROM address via env vars:
+//   RESEND_API_KEY_<SLUG_UPPER>   (e.g. RESEND_API_KEY_OUTLIGHT)
+//   EMAIL_FROM_ADDRESS_<SLUG_UPPER> (e.g. EMAIL_FROM_ADDRESS_OUTLIGHT)
+// Falls back to the base RESEND_API_KEY / EMAIL_FROM_ADDRESS for brands
+// without dedicated env vars (e.g. Misu uses the defaults).
 
-const fromAddress = process.env.EMAIL_FROM_ADDRESS || 'Support <onboarding@resend.dev>';
+const resendClients = new Map<string, Resend>();
+
+function getResendClient(apiKey: string): Resend {
+  let client = resendClients.get(apiKey);
+  if (!client) {
+    client = new Resend(apiKey);
+    resendClients.set(apiKey, client);
+  }
+  return client;
+}
+
+interface BrandEmailConfig {
+  resend: Resend;
+  fromAddress: string;
+}
+
+const defaultApiKey = process.env.RESEND_API_KEY || '';
+const defaultFromAddress = process.env.EMAIL_FROM_ADDRESS || 'Support <onboarding@resend.dev>';
+
+async function getBrandEmailConfig(brandId?: string): Promise<BrandEmailConfig | null> {
+  let apiKey = defaultApiKey;
+  let fromAddress = defaultFromAddress;
+
+  if (brandId) {
+    const slug = await getBrandSlug(brandId);
+    if (slug) {
+      const upper = slug.toUpperCase();
+      const brandKey = process.env[`RESEND_API_KEY_${upper}`];
+      const brandFrom = process.env[`EMAIL_FROM_ADDRESS_${upper}`];
+      if (brandKey) apiKey = brandKey;
+      if (brandFrom) fromAddress = brandFrom;
+    }
+  }
+
+  if (!apiKey) return null;
+  return { resend: getResendClient(apiKey), fromAddress };
+}
 
 export function isEmailConfigured(): boolean {
-  return resend !== null;
+  return !!defaultApiKey;
 }
+
+// ── Ticket Confirmation Email ────────────────────────────────────────────────
 
 export async function sendTicketConfirmation(opts: {
   to: string;
@@ -17,11 +59,13 @@ export async function sendTicketConfirmation(opts: {
   ticketNumber: number;
   subject: string;
   brandName?: string;
+  brandId?: string;
 }): Promise<{ messageId?: string; error?: string }> {
-  if (!resend) return { error: 'Email not configured' };
+  const config = await getBrandEmailConfig(opts.brandId);
+  if (!config) return { error: 'Email not configured' };
 
-  const { to, customerName, ticketNumber, subject, brandName } = opts;
-  const brand = brandName || 'Support';
+  const { to, customerName, ticketNumber, subject } = opts;
+  const brand = opts.brandName || (opts.brandId ? await getBrandName(opts.brandId) : null) || 'Support';
   const firstName = customerName ? customerName.split(' ')[0] : '';
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
 
@@ -46,8 +90,8 @@ ${brand} Team`;
 </div>`;
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: fromAddress,
+    const { data, error } = await config.resend.emails.send({
+      from: config.fromAddress,
       to: [to],
       subject: emailSubject,
       text: textBody,
@@ -62,7 +106,7 @@ ${brand} Team`;
       return { error: error.message };
     }
 
-    console.log(`[email] Sent confirmation for ticket #${ticketNumber} to ${to}`);
+    console.log(`[email] Sent confirmation for ticket #${ticketNumber} to ${to} (from: ${config.fromAddress})`);
     return { messageId: data?.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -84,10 +128,11 @@ interface ReturnEmailOpts {
 }
 
 export async function sendReturnConfirmation(opts: ReturnEmailOpts): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
-  if (!resend) return { error: 'Email not configured' };
+  const config = await getBrandEmailConfig(opts.brandId);
+  if (!config) return { error: 'Email not configured' };
 
-  const { to, customerName, returnRequestId, orderNumber, items, brandName, brandId } = opts;
-  const brand = brandName || 'Support';
+  const { to, customerName, returnRequestId, orderNumber, items, brandId } = opts;
+  const brand = opts.brandName || (brandId ? await getBrandName(brandId) : null) || 'Support';
   const firstName = customerName ? customerName.split(' ')[0] : '';
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
   const refId = returnRequestId.slice(0, 8).toUpperCase();
@@ -138,8 +183,8 @@ ${brand} Team`;
   }
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: fromAddress,
+    const { data, error } = await config.resend.emails.send({
+      from: config.fromAddress,
       to: [to],
       subject: emailSubject,
       text: textBody,
@@ -151,7 +196,7 @@ ${brand} Team`;
       return { error: error.message };
     }
 
-    console.log(`[email] Sent return confirmation #${refId} to ${to}`);
+    console.log(`[email] Sent return confirmation #${refId} to ${to} (from: ${config.fromAddress})`);
     return { messageId: data?.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -161,10 +206,11 @@ ${brand} Team`;
 }
 
 export async function sendReturnApproved(opts: ReturnEmailOpts): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
-  if (!resend) return { error: 'Email not configured' };
+  const config = await getBrandEmailConfig(opts.brandId);
+  if (!config) return { error: 'Email not configured' };
 
-  const { to, customerName, returnRequestId, orderNumber, items, brandName, brandId } = opts;
-  const brand = brandName || 'Support';
+  const { to, customerName, returnRequestId, orderNumber, items, brandId } = opts;
+  const brand = opts.brandName || (brandId ? await getBrandName(brandId) : null) || 'Support';
   const firstName = customerName ? customerName.split(' ')[0] : '';
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
   const refId = returnRequestId.slice(0, 8).toUpperCase();
@@ -226,8 +272,8 @@ ${brand} Team`;
   }
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: fromAddress,
+    const { data, error } = await config.resend.emails.send({
+      from: config.fromAddress,
       to: [to],
       subject: emailSubject,
       text: textBody,
@@ -239,7 +285,7 @@ ${brand} Team`;
       return { error: error.message };
     }
 
-    console.log(`[email] Sent return approved #${refId} to ${to}`);
+    console.log(`[email] Sent return approved #${refId} to ${to} (from: ${config.fromAddress})`);
     return { messageId: data?.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -249,10 +295,11 @@ ${brand} Team`;
 }
 
 export async function sendReturnDenied(opts: ReturnEmailOpts & { reason?: string }): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
-  if (!resend) return { error: 'Email not configured' };
+  const config = await getBrandEmailConfig(opts.brandId);
+  if (!config) return { error: 'Email not configured' };
 
-  const { to, customerName, returnRequestId, orderNumber, items, reason, brandName, brandId } = opts;
-  const brand = brandName || 'Support';
+  const { to, customerName, returnRequestId, orderNumber, items, reason, brandId } = opts;
+  const brand = opts.brandName || (brandId ? await getBrandName(brandId) : null) || 'Support';
   const firstName = customerName ? customerName.split(' ')[0] : '';
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
   const refId = returnRequestId.slice(0, 8).toUpperCase();
@@ -309,8 +356,8 @@ ${brand} Team`;
   }
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: fromAddress,
+    const { data, error } = await config.resend.emails.send({
+      from: config.fromAddress,
       to: [to],
       subject: emailSubject,
       text: textBody,
@@ -322,7 +369,7 @@ ${brand} Team`;
       return { error: error.message };
     }
 
-    console.log(`[email] Sent return denied #${refId} to ${to}`);
+    console.log(`[email] Sent return denied #${refId} to ${to} (from: ${config.fromAddress})`);
     return { messageId: data?.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -332,10 +379,11 @@ ${brand} Team`;
 }
 
 export async function sendReturnRefunded(opts: ReturnEmailOpts & { refundAmount?: number }): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
-  if (!resend) return { error: 'Email not configured' };
+  const config = await getBrandEmailConfig(opts.brandId);
+  if (!config) return { error: 'Email not configured' };
 
-  const { to, customerName, returnRequestId, orderNumber, items, refundAmount, brandName, brandId } = opts;
-  const brand = brandName || 'Support';
+  const { to, customerName, returnRequestId, orderNumber, items, refundAmount, brandId } = opts;
+  const brand = opts.brandName || (brandId ? await getBrandName(brandId) : null) || 'Support';
   const firstName = customerName ? customerName.split(' ')[0] : '';
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
   const refId = returnRequestId.slice(0, 8).toUpperCase();
@@ -391,8 +439,8 @@ ${brand} Team`;
   }
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: fromAddress,
+    const { data, error } = await config.resend.emails.send({
+      from: config.fromAddress,
       to: [to],
       subject: emailSubject,
       text: textBody,
@@ -404,7 +452,7 @@ ${brand} Team`;
       return { error: error.message };
     }
 
-    console.log(`[email] Sent return refunded #${refId} to ${to}`);
+    console.log(`[email] Sent return refunded #${refId} to ${to} (from: ${config.fromAddress})`);
     return { messageId: data?.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';

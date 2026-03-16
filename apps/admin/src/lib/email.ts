@@ -1,10 +1,45 @@
 import { Resend } from 'resend';
 
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+// ── Per-Brand Resend Client Resolution ───────────────────────────────────────
+// Each brand can have its own Resend API key and FROM address via env vars:
+//   RESEND_API_KEY_<SLUG_UPPER>   (e.g. RESEND_API_KEY_OUTLIGHT)
+//   EMAIL_FROM_ADDRESS_<SLUG_UPPER> (e.g. EMAIL_FROM_ADDRESS_OUTLIGHT)
+// Falls back to the base RESEND_API_KEY / EMAIL_FROM_ADDRESS.
 
-const fromAddress = process.env.EMAIL_FROM_ADDRESS || 'Support <onboarding@resend.dev>';
+const resendClients = new Map<string, Resend>();
+
+function getResendClient(apiKey: string): Resend {
+  let client = resendClients.get(apiKey);
+  if (!client) {
+    client = new Resend(apiKey);
+    resendClients.set(apiKey, client);
+  }
+  return client;
+}
+
+interface BrandEmailConfig {
+  resend: Resend;
+  fromAddress: string;
+}
+
+const defaultApiKey = process.env.RESEND_API_KEY || '';
+const defaultFromAddress = process.env.EMAIL_FROM_ADDRESS || 'Support <onboarding@resend.dev>';
+
+function getBrandEmailConfig(brandSlug?: string): BrandEmailConfig | null {
+  let apiKey = defaultApiKey;
+  let fromAddress = defaultFromAddress;
+
+  if (brandSlug) {
+    const upper = brandSlug.toUpperCase();
+    const brandKey = process.env[`RESEND_API_KEY_${upper}`];
+    const brandFrom = process.env[`EMAIL_FROM_ADDRESS_${upper}`];
+    if (brandKey) apiKey = brandKey;
+    if (brandFrom) fromAddress = brandFrom;
+  }
+
+  if (!apiKey) return null;
+  return { resend: getResendClient(apiKey), fromAddress };
+}
 
 export async function sendTicketReplyEmail(opts: {
   to: string;
@@ -14,9 +49,11 @@ export async function sendTicketReplyEmail(opts: {
   replyContent: string;
   agentName?: string;
   brandName?: string;
+  brandSlug?: string;
 }): Promise<{ messageId?: string; error?: string }> {
-  if (!resend) {
-    console.warn('[email] RESEND_API_KEY not set — skipping email');
+  const config = getBrandEmailConfig(opts.brandSlug);
+  if (!config) {
+    console.warn('[email] No Resend API key configured — skipping email');
     return { error: 'Email not configured' };
   }
 
@@ -44,8 +81,8 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
 </div>`;
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: fromAddress,
+    const { data, error } = await config.resend.emails.send({
+      from: config.fromAddress,
       to: [to],
       subject: emailSubject,
       text: textBody,
@@ -60,7 +97,7 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
       return { error: error.message };
     }
 
-    console.log(`[email] Sent reply for ticket #${ticketNumber} to ${to} (id: ${data?.id})`);
+    console.log(`[email] Sent reply for ticket #${ticketNumber} to ${to} (from: ${config.fromAddress})`);
     return { messageId: data?.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';

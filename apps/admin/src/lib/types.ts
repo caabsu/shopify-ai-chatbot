@@ -148,6 +148,8 @@ export interface Ticket {
   resolved_at: string | null;
   closed_at: string | null;
   sla_deadline: string | null;
+  classification: string | null;
+  classification_confidence: number | null;
   sla_breached: boolean;
   created_at: string;
   updated_at: string;

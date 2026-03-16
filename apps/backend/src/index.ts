@@ -13,6 +13,7 @@ import { resolveBrandId } from './config/brand.js';
 import { getToken } from './services/shopify-auth.service.js';
 import * as ticketService from './services/ticket.service.js';
 import { sendTicketConfirmation } from './services/email.service.js';
+import { classifyEmail } from './services/email-classifier.service.js';
 
 const app = express();
 
@@ -1227,6 +1228,7 @@ app.post('/api/tickets/form', async (req, res) => {
       customerName: name,
       ticketNumber: ticket.ticket_number,
       subject,
+      brandId,
     }).catch((err) => console.error('[server] Confirmation email failed:', err));
 
     res.status(201).json({ success: true, ticketNumber: ticket.ticket_number });
@@ -1296,7 +1298,8 @@ app.post('/api/webhooks/email', async (req, res) => {
     // Resolve brand from the "to" address or default
     const brandId = await resolveBrandId(req);
 
-    // Check if this is a reply to an existing ticket (subject contains [Ticket #123])
+    // Check if this is a reply to an existing ticket
+    // Strategy 1: Subject contains [Ticket #123]
     const ticketMatch = emailSubject.match(/\[Ticket #(\d+)\]/);
     if (ticketMatch) {
       const ticketNumber = parseInt(ticketMatch[1], 10);
@@ -1307,7 +1310,6 @@ app.post('/api/webhooks/email', async (req, res) => {
         .single();
 
       if (existingTicket) {
-        // Add reply to existing ticket
         await ticketService.addTicketMessage(existingTicket.id, {
           sender_type: 'customer',
           sender_name: senderName || undefined,
@@ -1316,7 +1318,6 @@ app.post('/api/webhooks/email', async (req, res) => {
           metadata: messageId ? { email_message_id: messageId } : undefined,
         });
 
-        // Reopen if resolved/closed
         if (existingTicket.status === 'resolved' || existingTicket.status === 'closed') {
           await ticketService.updateTicket(existingTicket.id, { status: 'open' });
         }
@@ -1327,6 +1328,55 @@ app.post('/api/webhooks/email', async (req, res) => {
       }
     }
 
+    // Strategy 2: Match by Re:/Fwd: subject + same customer email (recent open/pending ticket)
+    if (!ticketMatch && (emailSubject.startsWith('Re:') || emailSubject.startsWith('RE:') || emailSubject.startsWith('Fwd:'))) {
+      const cleanSubject = emailSubject.replace(/^(Re:|RE:|Fwd:|FW:)\s*/i, '').trim();
+      const { data: recentTicket } = await supabase
+        .from('tickets')
+        .select('id, status, ticket_number')
+        .eq('customer_email', senderEmail)
+        .eq('brand_id', brandId)
+        .in('status', ['open', 'pending'])
+        .ilike('subject', `%${cleanSubject.slice(0, 80)}%`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (recentTicket) {
+        await ticketService.addTicketMessage(recentTicket.id, {
+          sender_type: 'customer',
+          sender_name: senderName || undefined,
+          sender_email: senderEmail,
+          content: emailBody,
+          metadata: messageId ? { email_message_id: messageId } : undefined,
+        });
+
+        if (recentTicket.status === 'resolved' || recentTicket.status === 'closed') {
+          await ticketService.updateTicket(recentTicket.id, { status: 'open' });
+        }
+
+        console.log(`[webhook] Email reply matched to ticket #${recentTicket.ticket_number} by subject from ${senderEmail}`);
+        res.json({ success: true, action: 'reply_added', ticketNumber: recentTicket.ticket_number });
+        return;
+      }
+    }
+
+    // Classify the inbound email with AI
+    const classification = await classifyEmail({
+      from: senderEmail,
+      subject: emailSubject,
+      body: emailBody,
+    });
+
+    console.log(`[webhook] Email from ${senderEmail} classified as: ${classification.classification} (confidence: ${classification.confidence.toFixed(2)})`);
+
+    // Only create tickets for customer support emails (or low-confidence classifications)
+    if (classification.classification !== 'customer_support' && classification.confidence >= 0.8) {
+      console.log(`[webhook] Discarding non-support email from ${senderEmail}: ${classification.classification} — ${classification.reason}`);
+      res.json({ success: true, action: 'discarded', classification: classification.classification, reason: classification.reason });
+      return;
+    }
+
     // New ticket from email
     const ticket = await ticketService.createTicket({
       source: 'email',
@@ -1335,6 +1385,8 @@ app.post('/api/webhooks/email', async (req, res) => {
       customer_name: senderName || undefined,
       priority: 'medium',
       brand_id: brandId,
+      classification: classification.classification,
+      classification_confidence: classification.confidence,
     });
 
     await ticketService.addTicketMessage(ticket.id, {
@@ -1345,16 +1397,19 @@ app.post('/api/webhooks/email', async (req, res) => {
       metadata: messageId ? { email_message_id: messageId } : undefined,
     });
 
-    // Send confirmation
-    sendTicketConfirmation({
-      to: senderEmail,
-      customerName: senderName || undefined,
-      ticketNumber: ticket.ticket_number,
-      subject: emailSubject,
-    }).catch((err) => console.error('[webhook] Confirmation email failed:', err));
+    // Send confirmation only for customer support emails
+    if (classification.classification === 'customer_support') {
+      sendTicketConfirmation({
+        to: senderEmail,
+        customerName: senderName || undefined,
+        ticketNumber: ticket.ticket_number,
+        subject: emailSubject,
+        brandId,
+      }).catch((err) => console.error('[webhook] Confirmation email failed:', err));
+    }
 
     console.log(`[webhook] Email ticket #${ticket.ticket_number} created from ${senderEmail}`);
-    res.status(201).json({ success: true, action: 'ticket_created', ticketNumber: ticket.ticket_number });
+    res.status(201).json({ success: true, action: 'ticket_created', ticketNumber: ticket.ticket_number, classification: classification.classification });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[webhook] POST /api/webhooks/email error:', message);
@@ -1405,6 +1460,12 @@ app.get('/api/widget/config', async (req, res) => {
       fontSize: 'medium',
       showBrandingBadge: true,
       autoOpenDelay: 0,
+      greetingHeader: '',
+      greetingSubtext: '',
+      headerSubtitle: '',
+      headerLogo: '',
+      brandingText: '',
+      theme: 'light',
     };
     try {
       const raw = configMap.get('widget_design');

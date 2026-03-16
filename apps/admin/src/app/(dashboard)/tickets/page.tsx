@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, Inbox, Mail, FormInput, Sparkles, AlertCircle, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Inbox, Mail, FormInput, Sparkles, AlertCircle, Clock, ChevronLeft, ChevronRight, CheckSquare, Square, XCircle, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Ticket } from '@/lib/types';
 
@@ -37,6 +37,15 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   pending: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
   resolved: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e' },
   closed: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' },
+};
+
+const CLASSIFICATION_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+  customer_support: { bg: 'rgba(34,197,94,0.1)', text: '#22c55e', label: 'Support' },
+  promotional: { bg: 'rgba(249,115,22,0.1)', text: '#f97316', label: 'Promo' },
+  transactional: { bg: 'rgba(59,130,246,0.1)', text: '#3b82f6', label: 'Transactional' },
+  automated: { bg: 'rgba(156,163,175,0.1)', text: '#9ca3af', label: 'Automated' },
+  spam: { bg: 'rgba(239,68,68,0.1)', text: '#ef4444', label: 'Spam' },
+  internal: { bg: 'rgba(168,85,247,0.1)', text: '#a855f7', label: 'Internal' },
 };
 
 interface FilterCounts {
@@ -97,6 +106,12 @@ export default function TicketInboxPage() {
   const [unassignedOnly, setUnassignedOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [orderBy, setOrderBy] = useState('sla_urgency');
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [aiAutoCloseLoading, setAiAutoCloseLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Counts
   const [counts, setCounts] = useState<FilterCounts>({
@@ -160,6 +175,107 @@ export default function TicketInboxPage() {
   useEffect(() => { loadCounts(); }, [loadCounts]);
   useEffect(() => { loadTickets(); }, [loadTickets]);
 
+  // Clear selection when filters change
+  useEffect(() => { setSelectedIds(new Set()); }, [statusFilter, sourceFilter, priorityFilter, page, search]);
+
+  // Clear action message after 4 seconds
+  useEffect(() => {
+    if (actionMessage) {
+      const timer = setTimeout(() => setActionMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionMessage]);
+
+  const toggleSelect = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selectedIds.size === tickets.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(tickets.map((t) => t.id)));
+    }
+  };
+
+  const bulkClose = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch('/api/tickets/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedIds), status: 'closed' }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMessage({ text: `Closed ${data.updated} ticket${data.updated !== 1 ? 's' : ''}`, type: 'success' });
+        setSelectedIds(new Set());
+        loadTickets();
+        loadCounts();
+      } else {
+        setActionMessage({ text: data.error || 'Failed to close tickets', type: 'error' });
+      }
+    } catch {
+      setActionMessage({ text: 'Failed to close tickets', type: 'error' });
+    }
+    setBulkLoading(false);
+  };
+
+  const bulkResolve = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch('/api/tickets/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedIds), status: 'resolved' }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMessage({ text: `Resolved ${data.updated} ticket${data.updated !== 1 ? 's' : ''}`, type: 'success' });
+        setSelectedIds(new Set());
+        loadTickets();
+        loadCounts();
+      } else {
+        setActionMessage({ text: data.error || 'Failed to resolve tickets', type: 'error' });
+      }
+    } catch {
+      setActionMessage({ text: 'Failed to resolve tickets', type: 'error' });
+    }
+    setBulkLoading(false);
+  };
+
+  const aiAutoClose = async () => {
+    if (!confirm('This will use AI to classify all unclassified open tickets and auto-close any that are not customer support (promotional, automated, spam, etc.). Continue?')) return;
+    setAiAutoCloseLoading(true);
+    try {
+      const res = await fetch('/api/tickets/ai-auto-close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const msg = `AI classified ${data.classified} ticket${data.classified !== 1 ? 's' : ''}, closed ${data.closed} non-support ticket${data.closed !== 1 ? 's' : ''}`;
+        setActionMessage({ text: msg, type: 'success' });
+        loadTickets();
+        loadCounts();
+      } else {
+        setActionMessage({ text: data.error || 'AI auto-close failed', type: 'error' });
+      }
+    } catch {
+      setActionMessage({ text: 'AI auto-close failed', type: 'error' });
+    }
+    setAiAutoCloseLoading(false);
+  };
+
   const viewFilters = [
     { key: '', label: 'All Tickets', count: counts.all },
     { key: 'open', label: 'Open', count: counts.open },
@@ -193,6 +309,8 @@ export default function TicketInboxPage() {
     setPage(1);
   }
 
+  const allSelected = tickets.length > 0 && selectedIds.size === tickets.length;
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -207,6 +325,21 @@ export default function TicketInboxPage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          {/* AI Auto-Close Button */}
+          <button
+            onClick={aiAutoClose}
+            disabled={aiAutoCloseLoading}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
+            style={{
+              backgroundColor: 'rgba(168,85,247,0.1)',
+              color: '#a855f7',
+              border: '1px solid rgba(168,85,247,0.2)',
+            }}
+            title="Use AI to classify and auto-close non-support emails"
+          >
+            <Zap size={14} />
+            {aiAutoCloseLoading ? 'Processing...' : 'AI Clean Up'}
+          </button>
           {/* Search */}
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
@@ -241,6 +374,71 @@ export default function TicketInboxPage() {
           </select>
         </div>
       </div>
+
+      {/* Action Message Toast */}
+      {actionMessage && (
+        <div
+          className="px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2"
+          style={{
+            backgroundColor: actionMessage.type === 'success' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+            color: actionMessage.type === 'success' ? '#22c55e' : '#ef4444',
+            border: `1px solid ${actionMessage.type === 'success' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
+          }}
+        >
+          {actionMessage.type === 'success' ? <CheckSquare size={14} /> : <AlertCircle size={14} />}
+          {actionMessage.text}
+        </div>
+      )}
+
+      {/* Bulk Actions Bar */}
+      {selectedIds.size > 0 && (
+        <div
+          className="flex items-center gap-3 px-4 py-2.5 rounded-lg"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--color-accent) 8%, var(--bg-primary))',
+            border: '1px solid color-mix(in srgb, var(--color-accent) 20%, transparent)',
+          }}
+        >
+          <span className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
+            {selectedIds.size} selected
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={bulkResolve}
+              disabled={bulkLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+              style={{
+                backgroundColor: 'rgba(34,197,94,0.1)',
+                color: '#22c55e',
+                border: '1px solid rgba(34,197,94,0.2)',
+              }}
+            >
+              <CheckSquare size={12} />
+              Resolve
+            </button>
+            <button
+              onClick={bulkClose}
+              disabled={bulkLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+              style={{
+                backgroundColor: 'rgba(156,163,175,0.1)',
+                color: '#9ca3af',
+                border: '1px solid rgba(156,163,175,0.2)',
+              }}
+            >
+              <XCircle size={12} />
+              Close
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs px-2 py-1.5 rounded-lg"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main layout: sidebar + list */}
       <div className="flex gap-4">
@@ -352,6 +550,19 @@ export default function TicketInboxPage() {
               boxShadow: 'var(--shadow-sm)',
             }}
           >
+            {/* Select All Header */}
+            {tickets.length > 0 && (
+              <div
+                className="flex items-center gap-3 px-4 py-2 border-b"
+                style={{ borderColor: 'var(--border-secondary)' }}
+              >
+                <button onClick={selectAll} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  {allSelected ? <CheckSquare size={14} style={{ color: 'var(--color-accent)' }} /> : <Square size={14} />}
+                  <span>{allSelected ? 'Deselect all' : 'Select all'}</span>
+                </button>
+              </div>
+            )}
+
             {loading ? (
               <div className="p-8 text-center">
                 <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading...</p>
@@ -369,138 +580,140 @@ export default function TicketInboxPage() {
                   const source = SOURCE_STYLES[ticket.source];
                   const priority = PRIORITY_STYLES[ticket.priority];
                   const hasNoAgentReply = !ticket.first_response_at && ticket.status === 'open';
+                  const isSelected = selectedIds.has(ticket.id);
+                  const cls = ticket.classification ? CLASSIFICATION_STYLES[ticket.classification] : null;
 
                   return (
-                    <Link
+                    <div
                       key={ticket.id}
-                      href={`/tickets/${ticket.id}`}
-                      className="block px-4 py-3 transition-colors"
+                      className="flex items-start gap-0 transition-colors"
                       style={{
-                        backgroundColor: 'transparent',
+                        backgroundColor: isSelected ? 'color-mix(in srgb, var(--color-accent) 5%, transparent)' : 'transparent',
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                        if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.backgroundColor = isSelected ? 'color-mix(in srgb, var(--color-accent) 5%, transparent)' : 'transparent';
                       }}
                     >
-                      <div className="flex items-start gap-3">
-                        {/* Unread dot */}
-                        <div className="pt-1.5 w-2 flex-shrink-0">
-                          {hasNoAgentReply && (
-                            <div
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: 'var(--color-accent)' }}
-                            />
-                          )}
-                        </div>
+                      {/* Checkbox */}
+                      <button
+                        onClick={(e) => toggleSelect(ticket.id, e)}
+                        className="flex-shrink-0 p-3 pt-4"
+                        style={{ color: isSelected ? 'var(--color-accent)' : 'var(--text-tertiary)' }}
+                      >
+                        {isSelected ? <CheckSquare size={15} /> : <Square size={15} />}
+                      </button>
 
-                        {/* Main content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            {/* Ticket number */}
-                            <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                              #{ticket.ticket_number}
-                            </span>
-                            {/* Subject */}
-                            <span
-                              className="text-sm font-medium truncate"
-                              style={{ color: 'var(--text-primary)' }}
-                            >
-                              {ticket.subject}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 mb-1.5">
-                            {/* Customer */}
-                            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                              {ticket.customer_name || ticket.customer_email}
-                            </span>
-                            {/* Source badge */}
-                            {source && (
-                              <span
-                                className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
-                                style={{
-                                  backgroundColor: source.bg,
-                                  color: source.text,
-                                }}
-                              >
-                                <source.icon size={10} />
-                                {source.label}
-                              </span>
+                      {/* Ticket Content — Link */}
+                      <Link
+                        href={`/tickets/${ticket.id}`}
+                        className="flex-1 min-w-0 px-2 py-3"
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Unread dot */}
+                          <div className="pt-1.5 w-2 flex-shrink-0">
+                            {hasNoAgentReply && (
+                              <div
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: 'var(--color-accent)' }}
+                              />
                             )}
                           </div>
 
-                          {/* Tags */}
-                          {ticket.tags && ticket.tags.length > 0 && (
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {ticket.tags.map((tag, i) => {
-                                const tc = getTagColor(i);
-                                return (
-                                  <span
-                                    key={tag}
-                                    className="text-[10px] px-1.5 py-0.5 rounded"
-                                    style={{
-                                      backgroundColor: tc.bg,
-                                      color: tc.text,
-                                    }}
-                                  >
-                                    {tag}
-                                  </span>
-                                );
-                              })}
+                          {/* Main content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                                #{ticket.ticket_number}
+                              </span>
+                              <span
+                                className="text-sm font-medium truncate"
+                                style={{ color: 'var(--text-primary)' }}
+                              >
+                                {ticket.subject}
+                              </span>
                             </div>
-                          )}
-                        </div>
 
-                        {/* Right side */}
-                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                          <div className="flex items-center gap-1.5">
-                            {/* Status */}
-                            <span
-                              className="text-[10px] font-medium px-2 py-0.5 rounded-full capitalize"
-                              style={{
-                                backgroundColor: STATUS_STYLES[ticket.status]?.bg || 'rgba(156,163,175,0.12)',
-                                color: STATUS_STYLES[ticket.status]?.text || '#9ca3af',
-                              }}
-                            >
-                              {ticket.status}
-                            </span>
-                            {/* Priority */}
-                            <span
-                              className="text-[10px] font-medium px-2 py-0.5 rounded-full uppercase"
-                              style={{
-                                backgroundColor: priority.bg,
-                                color: priority.text,
-                              }}
-                            >
-                              {ticket.priority}
-                            </span>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                {ticket.customer_name || ticket.customer_email}
+                              </span>
+                              {source && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
+                                  style={{ backgroundColor: source.bg, color: source.text }}
+                                >
+                                  <source.icon size={10} />
+                                  {source.label}
+                                </span>
+                              )}
+                              {cls && ticket.classification !== 'customer_support' && (
+                                <span
+                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                                  style={{ backgroundColor: cls.bg, color: cls.text }}
+                                >
+                                  {cls.label}
+                                </span>
+                              )}
+                            </div>
+
+                            {ticket.tags && ticket.tags.length > 0 && (
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {ticket.tags.map((tag, i) => {
+                                  const tc = getTagColor(i);
+                                  return (
+                                    <span
+                                      key={tag}
+                                      className="text-[10px] px-1.5 py-0.5 rounded"
+                                      style={{ backgroundColor: tc.bg, color: tc.text }}
+                                    >
+                                      {tag}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
 
-                          {/* SLA */}
-                          {sla && (
-                            <span
-                              className="text-[10px] font-medium flex items-center gap-1"
-                              style={{ color: sla.color }}
-                            >
-                              {sla.text === 'BREACHED' ? (
-                                <AlertCircle size={10} />
-                              ) : (
-                                <Clock size={10} />
-                              )}
-                              {sla.text}
-                            </span>
-                          )}
+                          {/* Right side */}
+                          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="text-[10px] font-medium px-2 py-0.5 rounded-full capitalize"
+                                style={{
+                                  backgroundColor: STATUS_STYLES[ticket.status]?.bg || 'rgba(156,163,175,0.12)',
+                                  color: STATUS_STYLES[ticket.status]?.text || '#9ca3af',
+                                }}
+                              >
+                                {ticket.status}
+                              </span>
+                              <span
+                                className="text-[10px] font-medium px-2 py-0.5 rounded-full uppercase"
+                                style={{ backgroundColor: priority.bg, color: priority.text }}
+                              >
+                                {ticket.priority}
+                              </span>
+                            </div>
 
-                          {/* Time */}
-                          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                            {timeAgo(ticket.updated_at)}
-                          </span>
+                            {sla && (
+                              <span
+                                className="text-[10px] font-medium flex items-center gap-1"
+                                style={{ color: sla.color }}
+                              >
+                                {sla.text === 'BREACHED' ? <AlertCircle size={10} /> : <Clock size={10} />}
+                                {sla.text}
+                              </span>
+                            )}
+
+                            <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                              {timeAgo(ticket.updated_at)}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </Link>
+                      </Link>
+                    </div>
                   );
                 })}
               </div>

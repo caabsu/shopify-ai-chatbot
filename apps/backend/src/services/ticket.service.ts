@@ -18,6 +18,8 @@ export async function createTicket(data: {
   tags?: string[];
   metadata?: Record<string, unknown>;
   brand_id?: string;
+  classification?: string;
+  classification_confidence?: number;
 }): Promise<Ticket> {
   const priority = data.priority ?? 'medium';
 
@@ -42,6 +44,8 @@ export async function createTicket(data: {
     tags: data.tags ?? [],
     metadata: data.metadata ?? null,
     sla_deadline: slaDeadline,
+    classification: data.classification ?? null,
+    classification_confidence: data.classification_confidence ?? null,
   };
   if (data.brand_id) insertPayload.brand_id = data.brand_id;
 
@@ -92,6 +96,8 @@ export async function listTickets(filters: {
   category?: string;
   search?: string;
   tags?: string[];
+  classification?: string;
+  exclude_classification?: string[];
   sla_breached?: boolean;
   page?: number;
   perPage?: number;
@@ -123,6 +129,14 @@ export async function listTickets(filters: {
   }
   if (filters.category) {
     query = query.eq('category', filters.category);
+  }
+  if (filters.classification) {
+    query = query.eq('classification', filters.classification);
+  }
+  if (filters.exclude_classification && filters.exclude_classification.length > 0) {
+    for (const cls of filters.exclude_classification) {
+      query = query.neq('classification', cls);
+    }
   }
   if (filters.sla_breached !== undefined) {
     query = query.eq('sla_breached', filters.sla_breached);
@@ -352,10 +366,93 @@ export async function createTicketFromEscalation(
     customerName: data.customer_name,
     ticketNumber: ticket.ticket_number,
     subject: ticket.subject,
+    brandId: data.brandId,
   }).catch((err) => console.error('[ticket.service] Escalation confirmation email failed:', err));
 
   console.log(`[ticket.service] Created escalation ticket #${ticket.ticket_number} from conversation ${conversationId}`);
   return ticket;
+}
+
+// ── Bulk Update Tickets ───────────────────────────────────────────────────
+export async function bulkUpdateTickets(
+  ids: string[],
+  updates: Partial<Pick<Ticket, 'status' | 'priority' | 'category' | 'classification'>>,
+  brandId?: string,
+  actorId?: string
+): Promise<{ updated: number; errors: string[] }> {
+  const errors: string[] = [];
+  let updated = 0;
+
+  const now = new Date().toISOString();
+  const updatePayload: Record<string, unknown> = { ...updates, updated_at: now };
+  if (updates.status === 'resolved') updatePayload.resolved_at = now;
+  if (updates.status === 'closed') updatePayload.closed_at = now;
+
+  let query = supabase
+    .from('tickets')
+    .update(updatePayload)
+    .in('id', ids);
+
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
+  }
+
+  const { data, error } = await query.select('id');
+
+  if (error) {
+    console.error('[ticket.service] bulkUpdateTickets error:', error.message);
+    errors.push(error.message);
+  } else {
+    updated = data?.length ?? 0;
+
+    // Log events for each ticket
+    if (updates.status) {
+      const actor: TicketEvent['actor'] = actorId ? 'agent' : 'system';
+      for (const row of data ?? []) {
+        await logEvent(row.id, 'status_changed', actor, actorId ?? null, null, updates.status);
+      }
+    }
+  }
+
+  return { updated, errors };
+}
+
+// ── Classify Unclassified Tickets ─────────────────────────────────────────
+export async function getUnclassifiedTickets(brandId: string, limit = 50): Promise<Ticket[]> {
+  const { data, error } = await supabase
+    .from('tickets')
+    .select('*')
+    .eq('brand_id', brandId)
+    .is('classification', null)
+    .in('status', ['open', 'pending'])
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('[ticket.service] getUnclassifiedTickets error:', error.message);
+    return [];
+  }
+
+  return (data ?? []) as Ticket[];
+}
+
+// ── Get Non-Support Tickets ───────────────────────────────────────────────
+export async function getNonSupportTickets(brandId: string): Promise<Ticket[]> {
+  const { data, error } = await supabase
+    .from('tickets')
+    .select('*')
+    .eq('brand_id', brandId)
+    .in('status', ['open', 'pending'])
+    .not('classification', 'is', null)
+    .neq('classification', 'customer_support')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[ticket.service] getNonSupportTickets error:', error.message);
+    return [];
+  }
+
+  return (data ?? []) as Ticket[];
 }
 
 // ── Internal: Log Event ────────────────────────────────────────────────────

@@ -85,6 +85,7 @@ export async function POST(
         replyContent: body.content,
         agentName: session.name || undefined,
         brandName: session.brandName || undefined,
+        brandSlug: session.brandSlug || undefined,
       });
       if (result.messageId) {
         await supabase

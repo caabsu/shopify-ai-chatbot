@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as ticketService from '../services/ticket.service.js';
 import * as aiAssistant from '../services/ai-assistant.service.js';
 import * as customerProfileService from '../services/customer-profile.service.js';
+import { classifyTicketContent } from '../services/email-classifier.service.js';
 import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
 
 export const ticketRouter = Router();
@@ -237,5 +238,177 @@ ticketRouter.post('/:id/ai/suggest', async (req, res) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[ticket.controller] POST /:id/ai/suggest error:', message);
     res.status(500).json({ error: 'Failed to generate AI suggestions' });
+  }
+});
+
+// ── POST /bulk/update — Bulk Update Tickets ──────────────────────────────
+ticketRouter.post('/bulk/update', async (req, res) => {
+  try {
+    const { ids, status, priority, category } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: 'ids array is required' });
+      return;
+    }
+
+    if (ids.length > 100) {
+      res.status(400).json({ error: 'Maximum 100 tickets per bulk operation' });
+      return;
+    }
+
+    const updates: Record<string, unknown> = {};
+    if (status) updates.status = status;
+    if (priority) updates.priority = priority;
+    if (category) updates.category = category;
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: 'At least one update field (status, priority, category) is required' });
+      return;
+    }
+
+    const result = await ticketService.bulkUpdateTickets(
+      ids,
+      updates as Parameters<typeof ticketService.bulkUpdateTickets>[1],
+      req.agent?.brandId,
+      req.agent?.id
+    );
+
+    res.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[ticket.controller] POST /bulk/update error:', message);
+    res.status(500).json({ error: 'Failed to bulk update tickets' });
+  }
+});
+
+// ── POST /ai/classify-unclassified — Classify open tickets that have no classification ──
+ticketRouter.post('/ai/classify-unclassified', async (req, res) => {
+  try {
+    const brandId = req.agent?.brandId;
+    if (!brandId) {
+      res.status(400).json({ error: 'Brand context required' });
+      return;
+    }
+
+    const tickets = await ticketService.getUnclassifiedTickets(brandId, 50);
+    if (tickets.length === 0) {
+      res.json({ classified: 0, results: [] });
+      return;
+    }
+
+    const results: Array<{ ticketId: string; ticketNumber: number; classification: string; confidence: number }> = [];
+
+    for (const ticket of tickets) {
+      // Get first customer message for classification
+      const messages = await ticketService.getTicketMessages(ticket.id);
+      const firstCustomerMsg = messages.find((m) => m.sender_type === 'customer');
+      const content = firstCustomerMsg?.content || ticket.subject;
+
+      const result = await classifyTicketContent({
+        subject: ticket.subject,
+        customerEmail: ticket.customer_email,
+        firstMessage: content,
+      });
+
+      // Update ticket with classification
+      await ticketService.updateTicket(ticket.id, {
+        category: result.classification === 'customer_support' ? (ticket.category || 'customer_support') : result.classification,
+      } as Parameters<typeof ticketService.updateTicket>[1]);
+
+      // Update classification fields directly
+      const { error } = await (await import('../config/supabase.js')).supabase
+        .from('tickets')
+        .update({
+          classification: result.classification,
+          classification_confidence: result.confidence,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', ticket.id);
+
+      if (error) {
+        console.error(`[ticket.controller] Failed to classify ticket #${ticket.ticket_number}:`, error.message);
+      }
+
+      results.push({
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticket_number,
+        classification: result.classification,
+        confidence: result.confidence,
+      });
+    }
+
+    res.json({ classified: results.length, results });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[ticket.controller] POST /ai/classify-unclassified error:', message);
+    res.status(500).json({ error: 'Failed to classify tickets' });
+  }
+});
+
+// ── POST /ai/auto-close-non-support — AI auto-close all non-support tickets ──
+ticketRouter.post('/ai/auto-close-non-support', async (req, res) => {
+  try {
+    const brandId = req.agent?.brandId;
+    if (!brandId) {
+      res.status(400).json({ error: 'Brand context required' });
+      return;
+    }
+
+    // First classify any unclassified tickets
+    const unclassified = await ticketService.getUnclassifiedTickets(brandId, 100);
+    const classified: string[] = [];
+
+    for (const ticket of unclassified) {
+      const messages = await ticketService.getTicketMessages(ticket.id);
+      const firstCustomerMsg = messages.find((m) => m.sender_type === 'customer');
+      const content = firstCustomerMsg?.content || ticket.subject;
+
+      const result = await classifyTicketContent({
+        subject: ticket.subject,
+        customerEmail: ticket.customer_email,
+        firstMessage: content,
+      });
+
+      const { error } = await (await import('../config/supabase.js')).supabase
+        .from('tickets')
+        .update({
+          classification: result.classification,
+          classification_confidence: result.confidence,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', ticket.id);
+
+      if (!error) classified.push(ticket.id);
+    }
+
+    // Now close all non-support tickets
+    const nonSupport = await ticketService.getNonSupportTickets(brandId);
+    const idsToClose = nonSupport.map((t) => t.id);
+
+    let closedCount = 0;
+    if (idsToClose.length > 0) {
+      const result = await ticketService.bulkUpdateTickets(
+        idsToClose,
+        { status: 'closed' },
+        brandId,
+        req.agent?.id
+      );
+      closedCount = result.updated;
+    }
+
+    res.json({
+      classified: classified.length,
+      closed: closedCount,
+      closedTickets: nonSupport.map((t) => ({
+        id: t.id,
+        ticketNumber: t.ticket_number,
+        subject: t.subject,
+        classification: t.classification,
+      })),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[ticket.controller] POST /ai/auto-close-non-support error:', message);
+    res.status(500).json({ error: 'Failed to auto-close non-support tickets' });
   }
 });
