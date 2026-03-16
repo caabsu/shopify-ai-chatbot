@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, Inbox, Mail, FormInput, Sparkles, AlertCircle, Clock, ChevronLeft, ChevronRight, CheckSquare, Square, XCircle, Zap } from 'lucide-react';
+import { Search, Inbox, Mail, FormInput, Sparkles, AlertCircle, Clock, ChevronLeft, ChevronRight, CheckSquare, Square, XCircle, Zap, Trash2, Archive } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Ticket } from '@/lib/types';
 
@@ -280,6 +280,61 @@ export default function TicketInboxPage() {
     setAiAutoCloseLoading(false);
   };
 
+  const closeAllVisible = async () => {
+    const count = total;
+    if (!confirm(`Close ALL ${count} tickets matching the current filter? This cannot be undone.`)) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch('/api/tickets/close-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: statusFilter || undefined,
+          source: sourceFilter || undefined,
+          priority: priorityFilter || undefined,
+          search: search || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMessage({ text: `Closed ${data.closed} tickets`, type: 'success' });
+        setSelectedIds(new Set());
+        loadTickets();
+        loadCounts();
+      } else {
+        setActionMessage({ text: data.error || 'Failed to close tickets', type: 'error' });
+      }
+    } catch {
+      setActionMessage({ text: 'Failed to close tickets', type: 'error' });
+    }
+    setBulkLoading(false);
+  };
+
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const deleteAllEmailTickets = async () => {
+    if (!confirm('WARNING: This will PERMANENTLY DELETE all email-sourced tickets and their messages. This is a one-time cleanup action and CANNOT be undone. Are you sure?')) return;
+    if (!confirm('FINAL CONFIRMATION: Permanently delete ALL email tickets? Type OK in the next prompt to confirm.')) return;
+    setDeleteLoading(true);
+    try {
+      const res = await fetch('/api/tickets/delete-all-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMessage({ text: `Permanently deleted ${data.deleted} email tickets`, type: 'success' });
+        setSelectedIds(new Set());
+        loadTickets();
+        loadCounts();
+      } else {
+        setActionMessage({ text: data.error || 'Failed to delete tickets', type: 'error' });
+      }
+    } catch {
+      setActionMessage({ text: 'Failed to delete tickets', type: 'error' });
+    }
+    setDeleteLoading(false);
+  };
+
   const viewFilters = [
     { key: '', label: 'All Tickets', count: counts.all },
     { key: 'open', label: 'Open', count: counts.open },
@@ -329,6 +384,36 @@ export default function TicketInboxPage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          {/* Close All */}
+          <button
+            onClick={closeAllVisible}
+            disabled={bulkLoading || total === 0}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
+            style={{
+              backgroundColor: 'rgba(156,163,175,0.1)',
+              color: '#9ca3af',
+              border: '1px solid rgba(156,163,175,0.2)',
+            }}
+            title="Close all tickets matching current filter"
+          >
+            <Archive size={14} />
+            Close All
+          </button>
+          {/* Delete All Email Tickets (one-time cleanup) */}
+          <button
+            onClick={deleteAllEmailTickets}
+            disabled={deleteLoading}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
+            style={{
+              backgroundColor: 'rgba(239,68,68,0.1)',
+              color: '#ef4444',
+              border: '1px solid rgba(239,68,68,0.2)',
+            }}
+            title="PERMANENTLY delete all email tickets (one-time cleanup)"
+          >
+            <Trash2 size={14} />
+            {deleteLoading ? 'Deleting...' : 'Delete All Emails'}
+          </button>
           {/* AI Auto-Close Button */}
           <button
             onClick={aiAutoClose}

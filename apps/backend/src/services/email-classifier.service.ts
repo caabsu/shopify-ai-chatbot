@@ -50,7 +50,7 @@ Classify as exactly one of: "customer_support", "promotional", "transactional", 
 Definitions:
 - customer_support: A real person asking for help, reporting an issue, asking about orders/returns/products, or following up on a previous request
 - promotional: Marketing emails, newsletters, sale announcements, partner outreach
-- transactional: Automated receipts, shipping notifications, payment confirmations
+- transactional: Automated receipts, shipping notifications, payment confirmations, chargeback notices, dispute notifications, fraud alerts from banks or payment processors
 - automated: Auto-replies, out-of-office, delivery failure notices, system notifications
 - spam: Unsolicited junk, phishing, scam emails
 - internal: Emails between team members, vendor communications, business-to-business

@@ -50,6 +50,8 @@ export async function sendTicketReplyEmail(opts: {
   agentName?: string;
   brandName?: string;
   brandSlug?: string;
+  inReplyToMessageId?: string;
+  originalMessage?: string;
 }): Promise<{ messageId?: string; error?: string }> {
   const config = getBrandEmailConfig(opts.brandSlug);
   if (!config) {
@@ -57,18 +59,26 @@ export async function sendTicketReplyEmail(opts: {
     return { error: 'Email not configured' };
   }
 
-  const { to, ticketNumber, subject, replyContent, agentName, brandName } = opts;
+  const { to, ticketNumber, subject, replyContent, agentName, brandName, inReplyToMessageId, originalMessage } = opts;
   const brand = brandName || 'Support';
   const signature = agentName ? `${agentName}\n${brand} Team` : `${brand} Team`;
 
   const emailSubject = `Re: [Ticket #${ticketNumber}] ${subject}`;
+
+  // Build quoted original message if available
+  const quotedOriginal = originalMessage
+    ? `\n\n--- Original Message ---\n${originalMessage}`
+    : '';
+  const quotedOriginalHtml = originalMessage
+    ? `<div style="margin-top: 24px; padding: 12px 16px; border-left: 3px solid #e5e5e5; color: #888; font-size: 13px; white-space: pre-wrap;">--- Original Message ---\n${escapeHtml(originalMessage)}</div>`
+    : '';
 
   const textBody = `${replyContent}
 
 ---
 ${signature}
 
-Ticket #${ticketNumber} — Please reply to this email to continue the conversation.`;
+Ticket #${ticketNumber} — Please reply to this email to continue the conversation.${quotedOriginal}`;
 
   const htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
@@ -78,7 +88,17 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
     ${escapeHtml(signature).replace(/\n/g, '<br>')}<br><br>
     <span style="color: #aaa;">Ticket #${ticketNumber} — Reply to this email to continue the conversation.</span>
   </p>
+  ${quotedOriginalHtml}
 </div>`;
+
+  // Build email threading headers
+  const headers: Record<string, string> = {
+    'X-Ticket-Number': String(ticketNumber),
+  };
+  if (inReplyToMessageId) {
+    headers['In-Reply-To'] = inReplyToMessageId;
+    headers['References'] = inReplyToMessageId;
+  }
 
   try {
     const { data, error } = await config.resend.emails.send({
@@ -87,9 +107,7 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
       subject: emailSubject,
       text: textBody,
       html: htmlBody,
-      headers: {
-        'X-Ticket-Number': String(ticketNumber),
-      },
+      headers,
     });
 
     if (error) {

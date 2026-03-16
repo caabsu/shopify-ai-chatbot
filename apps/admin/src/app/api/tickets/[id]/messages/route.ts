@@ -77,6 +77,20 @@ export async function POST(
   const isAgentReply = (body.sender_type || 'agent') === 'agent' && !body.is_internal_note;
   if (isAgentReply && ticket.customer_email) {
     try {
+      // Get the first customer message for quoting and the latest email_message_id for threading
+      const { data: customerMsgs } = await supabase
+        .from('ticket_messages')
+        .select('content, email_message_id, metadata')
+        .eq('ticket_id', id)
+        .eq('sender_type', 'customer')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const latestCustomerMsg = customerMsgs?.[0];
+      const inReplyToId = latestCustomerMsg?.email_message_id
+        || (latestCustomerMsg?.metadata as Record<string, unknown>)?.email_message_id as string
+        || undefined;
+
       const result = await sendTicketReplyEmail({
         to: ticket.customer_email,
         customerName: ticket.customer_name || undefined,
@@ -86,6 +100,8 @@ export async function POST(
         agentName: session.name || undefined,
         brandName: session.brandName || undefined,
         brandSlug: session.brandSlug || undefined,
+        inReplyToMessageId: inReplyToId,
+        originalMessage: latestCustomerMsg?.content?.slice(0, 1000) || undefined,
       });
       if (result.messageId) {
         await supabase

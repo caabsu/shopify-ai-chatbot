@@ -444,7 +444,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                         <span className="text-[10px] font-medium capitalize" style={{ color: 'var(--text-tertiary)' }}>
                           {m.role === 'assistant' ? 'AI' : m.role}
                         </span>
-                        <p className="text-xs whitespace-pre-wrap break-words mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                        <p className="text-xs whitespace-pre-wrap break-words mt-0.5" style={{ color: 'var(--text-secondary)', overflowWrap: 'anywhere' }}>
                           {m.content}
                         </p>
                       </div>
@@ -461,6 +461,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             style={{
               backgroundColor: 'var(--bg-primary)',
               border: '1px solid var(--border-primary)',
+              overflow: 'hidden',
             }}
           >
             <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-secondary)' }}>
@@ -469,7 +470,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 Thread ({messages.length})
               </h3>
             </div>
-            <div className="max-h-[50vh] overflow-y-auto p-4 space-y-4">
+            <div className="max-h-[50vh] overflow-y-auto p-4 space-y-4" style={{ overflowX: 'hidden' }}>
               {/* Events & messages interleaved by date */}
               {messages.length === 0 ? (
                 <p className="text-sm text-center py-4" style={{ color: 'var(--text-tertiary)' }}>
@@ -541,7 +542,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                           {formatDate(msg.created_at)}
                         </span>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap break-words" style={{ color: 'var(--text-primary)' }}>
+                      <p className="text-sm whitespace-pre-wrap break-words" style={{ color: 'var(--text-primary)', overflowWrap: 'anywhere', wordBreak: 'break-word', maxWidth: '100%', overflowX: 'hidden' }}>
                         {msg.content}
                       </p>
                     </div>

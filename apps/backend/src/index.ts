@@ -1282,6 +1282,7 @@ app.post('/api/webhooks/email', async (req, res) => {
       subject, to, to_email, recipient,  // recipient / subject
       text, body, plain, html,           // body content
       message_id, email_message_id,      // message ID for threading
+      thread_messages,                   // full thread history from Google Apps Script
     } = req.body;
 
     const senderEmail = (from_email || from || sender || '').toLowerCase().trim();
@@ -1420,13 +1421,33 @@ app.post('/api/webhooks/email', async (req, res) => {
       classification_confidence: classification.confidence,
     });
 
-    await ticketService.addTicketMessage(ticket.id, {
-      sender_type: 'customer',
-      sender_name: senderName || undefined,
-      sender_email: senderEmail,
-      content: emailBody,
-      metadata: messageId ? { email_message_id: messageId } : undefined,
-    });
+    // If thread_messages provided, store the full thread history (oldest first)
+    if (Array.isArray(thread_messages) && thread_messages.length > 0) {
+      for (const tm of thread_messages) {
+        const tmFrom = (tm.from_email || '').toLowerCase().trim();
+        const isOwnAddress = ownAddresses.has(tmFrom);
+        await ticketService.addTicketMessage(ticket.id, {
+          sender_type: isOwnAddress ? 'agent' : 'customer',
+          sender_name: tm.from_name || undefined,
+          sender_email: tmFrom || undefined,
+          content: tm.text || tm.body || '',
+          metadata: {
+            ...(tm.message_id ? { email_message_id: tm.message_id } : {}),
+            sent_at: tm.date || undefined,
+            is_thread_history: true,
+          },
+        });
+      }
+    } else {
+      // Single message — just store it
+      await ticketService.addTicketMessage(ticket.id, {
+        sender_type: 'customer',
+        sender_name: senderName || undefined,
+        sender_email: senderEmail,
+        content: emailBody,
+        metadata: messageId ? { email_message_id: messageId } : undefined,
+      });
+    }
 
     // Send confirmation only for customer support emails
     if (classification.classification === 'customer_support') {
