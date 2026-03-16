@@ -1,7 +1,7 @@
 import './styles/widget.css';
 import { createFloatingButton } from './ui/FloatingButton.js';
 import { createChatWindow } from './ui/ChatWindow.js';
-import { getState, setState, loadSession, saveSession } from './state/store.js';
+import { getState, setState, loadSession, saveSession, setBrandForStorage } from './state/store.js';
 import { initBaseUrl, setBrand, getConfig, createSession } from './api/client.js';
 import type { WidgetDesign } from './api/client.js';
 
@@ -335,7 +335,10 @@ function init() {
 
   // Detect brand from the script tag — critical for multi-brand isolation
   const brand = currentScript?.getAttribute('data-brand');
-  if (brand) setBrand(brand);
+  if (brand) {
+    setBrand(brand);
+    setBrandForStorage(brand);
+  }
 
   // Detect mode from the script tag that loaded this file
   const mode = currentScript?.getAttribute('data-mode');

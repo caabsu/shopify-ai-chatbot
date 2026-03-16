@@ -473,7 +473,7 @@ app.get('/widget/preview-chat', async (req, res) => {
 <body>
   <script>
     if (new URLSearchParams(window.location.search).has('newconv')) {
-      localStorage.removeItem('aicb_session');
+      Object.keys(localStorage).filter(function(k){return k.indexOf('aicb_session')===0;}).forEach(function(k){localStorage.removeItem(k);});
     }
   </script>
   ${playgroundDebugScript}
@@ -486,7 +486,7 @@ const playgroundDebugScript = `
   <script>
     // Clear session if this is a forced new conversation (from playground "New Conversation" button)
     if (new URLSearchParams(window.location.search).has('newconv')) {
-      localStorage.removeItem('aicb_session');
+      Object.keys(localStorage).filter(function(k){return k.indexOf('aicb_session')===0;}).forEach(function(k){localStorage.removeItem(k);});
     }
   </script>
   <script>

@@ -50,7 +50,19 @@ export interface WidgetState {
 }
 
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
-const STORAGE_KEY = 'aicb_session';
+const STORAGE_KEY_PREFIX = 'aicb_session';
+
+// Brand slug for session isolation — set via setBrandForStorage()
+let storageBrand = '';
+
+export function setBrandForStorage(slug: string): void {
+  storageBrand = slug;
+}
+
+function storageKey(): string {
+  // Always namespace — ensures old data under bare 'aicb_session' key is abandoned
+  return `${STORAGE_KEY_PREFIX}_${storageBrand || 'default'}`;
+}
 
 type Listener = (state: WidgetState) => void;
 
@@ -93,7 +105,7 @@ export function subscribe(fn: Listener): () => void {
 export function saveSession(): void {
   if (state.sessionId && state.conversationId) {
     localStorage.setItem(
-      STORAGE_KEY,
+      storageKey(),
       JSON.stringify({
         sessionId: state.sessionId,
         conversationId: state.conversationId,
@@ -106,11 +118,11 @@ export function saveSession(): void {
 
 export function loadSession(): { sessionId: string; conversationId: string; messages?: WidgetMessage[] } | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (Date.now() - data.lastActivity > SESSION_TIMEOUT) {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(storageKey());
       return null;
     }
     return {
@@ -124,7 +136,7 @@ export function loadSession(): { sessionId: string; conversationId: string; mess
 }
 
 export function clearSession(): void {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(storageKey());
   setState({
     sessionId: null,
     conversationId: null,
