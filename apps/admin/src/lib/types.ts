@@ -188,6 +188,7 @@ export interface AgentUser {
   brand_id: string;
   name: string;
   email: string;
+  agent_id?: string;
   role: 'admin' | 'agent';
   is_active: boolean;
   avatar_url: string | null;

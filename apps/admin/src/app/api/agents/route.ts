@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data: agents, error } = await supabase
     .from('agent_users')
-    .select('id, brand_id, name, email, role, is_active, avatar_url, created_at')
+    .select('id, brand_id, name, email, agent_id, role, is_active, avatar_url, created_at')
     .eq('brand_id', session.brandId)
     .order('created_at', { ascending: false });
 
@@ -28,10 +28,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const { name, email, password, role } = await request.json();
+  const { name, agentId, password, role } = await request.json();
 
-  if (!name || !email || !password) {
-    return NextResponse.json({ error: 'Name, email, and password are required' }, { status: 400 });
+  if (!name || !agentId || !password) {
+    return NextResponse.json({ error: 'Name, Agent ID, and password are required' }, { status: 400 });
   }
 
   if (role && !['admin', 'agent'].includes(role)) {
@@ -45,17 +45,18 @@ export async function POST(request: Request) {
     .insert({
       brand_id: session.brandId,
       name,
-      email: email.toLowerCase().trim(),
+      agent_id: agentId.toLowerCase().trim(),
+      email: `${agentId.toLowerCase().trim()}@placeholder`,
       password_hash: passwordHash,
       role: role || 'agent',
       is_active: true,
     })
-    .select('id, brand_id, name, email, role, is_active, avatar_url, created_at')
+    .select('id, brand_id, name, agent_id, role, is_active, avatar_url, created_at')
     .single();
 
   if (error) {
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'An agent with this email already exists' }, { status: 409 });
+      return NextResponse.json({ error: 'An agent with this ID already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Failed to create agent' }, { status: 500 });
   }

@@ -14,7 +14,7 @@ export default function TeamPage() {
 
   // Form
   const [formName, setFormName] = useState('');
-  const [formEmail, setFormEmail] = useState('');
+  const [formAgentId, setFormAgentId] = useState('');
   const [formPassword, setFormPassword] = useState('');
   const [formRole, setFormRole] = useState<'admin' | 'agent'>('agent');
   const [formSaving, setFormSaving] = useState(false);
@@ -31,7 +31,7 @@ export default function TeamPage() {
 
   async function handleCreate() {
     setFormError('');
-    if (!formName || !formEmail || !formPassword) {
+    if (!formName || !formAgentId.trim() || !formPassword) {
       setFormError('All fields are required');
       return;
     }
@@ -41,7 +41,7 @@ export default function TeamPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: formName,
-        email: formEmail,
+        agentId: formAgentId,
         password: formPassword,
         role: formRole,
       }),
@@ -52,7 +52,7 @@ export default function TeamPage() {
     } else {
       setShowModal(false);
       setFormName('');
-      setFormEmail('');
+      setFormAgentId('');
       setFormPassword('');
       setFormRole('agent');
       load();
@@ -117,7 +117,7 @@ export default function TeamPage() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-primary)' }}>
                 <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Email</th>
+                <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Agent ID</th>
                 <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Role</th>
                 <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Actions</th>
@@ -140,7 +140,7 @@ export default function TeamPage() {
                       <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{agent.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{agent.email}</td>
+                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{agent.agent_id || agent.email}</td>
                   <td className="px-4 py-3">
                     <span
                       className="text-xs px-2 py-0.5 rounded-full capitalize font-medium"
@@ -218,11 +218,12 @@ export default function TeamPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Agent ID</label>
                 <input
-                  type="email"
-                  value={formEmail}
-                  onChange={(e) => setFormEmail(e.target.value)}
+                  type="text"
+                  placeholder="e.g. sebastien"
+                  value={formAgentId}
+                  onChange={(e) => setFormAgentId(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2"
                   style={{
                     backgroundColor: 'var(--bg-secondary)',

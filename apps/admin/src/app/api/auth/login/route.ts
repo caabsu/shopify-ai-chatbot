@@ -5,7 +5,8 @@ import { signToken, COOKIE_NAME } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
 
 export async function POST(request: Request) {
-  const { brandSlug, password, email } = await request.json();
+  const { brandSlug, password, email, agentId } = await request.json();
+  const agentIdentifier = agentId || email; // support both agentId and legacy email
 
   if (!brandSlug || !password) {
     return NextResponse.json({ error: 'Brand and password are required' }, { status: 400 });
@@ -23,13 +24,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
   }
 
-  // Path 1: Email + password → agent_users lookup (individual user login)
-  if (email) {
+  // Path 1: Agent ID + password → agent_users lookup (individual user login)
+  if (agentIdentifier) {
     const { data: user, error: userError } = await supabase
       .from('agent_users')
       .select('*')
       .eq('brand_id', brand.id)
-      .eq('email', email.toLowerCase().trim())
+      .eq('agent_id', agentIdentifier.toLowerCase().trim())
       .eq('is_active', true)
       .single();
 

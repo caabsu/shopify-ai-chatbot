@@ -22,7 +22,7 @@ export default function BrandLoginPage() {
   const slug = params.slug as string;
 
   const [brand, setBrand] = useState<BrandDesign | null>(null);
-  const [email, setEmail] = useState('');
+  const [agentId, setAgentId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,8 +57,8 @@ export default function BrandLoginPage() {
 
     try {
       const body: Record<string, string> = { brandSlug: slug, password };
-      if (loginMode === 'agent' && email) {
-        body.email = email;
+      if (loginMode === 'agent' && agentId) {
+        body.agentId = agentId;
       }
 
       const res = await fetch('/api/auth/login', {
@@ -172,12 +172,12 @@ export default function BrandLoginPage() {
                   className="block text-xs font-medium mb-1.5 uppercase tracking-wider"
                   style={{ color: `${accentColor}cc` }}
                 >
-                  Email
+                  Agent ID
                 </label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  value={agentId}
+                  onChange={(e) => setAgentId(e.target.value)}
                   className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 transition-shadow"
                   style={{
                     borderColor: `${accentColor}30`,
@@ -185,7 +185,7 @@ export default function BrandLoginPage() {
                     // @ts-expect-error CSS custom property
                     '--tw-ring-color': `${accentColor}60`,
                   }}
-                  placeholder="you@example.com"
+                  placeholder="Your agent ID"
                   required
                   autoFocus
                 />
