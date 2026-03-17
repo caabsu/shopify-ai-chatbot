@@ -1,0 +1,150 @@
+{% comment %}
+  Outlight Contact Form Section
+
+  Add this file to your Shopify theme at: sections/outlight-contact-form.liquid
+  Then add it to any page via the theme editor or by adding {% section 'outlight-contact-form' %} to a template.
+
+  Settings:
+  - show_header: Toggle the built-in form header (title + subtitle)
+  - custom_heading: Optional custom heading above the form
+  - custom_subheading: Optional subheading text
+  - max_width: Container max width
+  - padding_top / padding_bottom: Vertical spacing
+{% endcomment %}
+
+{{ 'section-outlight-contact-form' | asset_url | stylesheet_tag }}
+
+<div
+  class="outlight-contact-section"
+  style="
+    padding-top: {{ section.settings.padding_top }}px;
+    padding-bottom: {{ section.settings.padding_bottom }}px;
+    max-width: {{ section.settings.max_width }}px;
+    margin: 0 auto;
+  "
+>
+  {% if section.settings.custom_heading != blank %}
+    <div class="outlight-contact-section__header">
+      <h2 class="outlight-contact-section__heading">{{ section.settings.custom_heading }}</h2>
+      {% if section.settings.custom_subheading != blank %}
+        <p class="outlight-contact-section__subheading">{{ section.settings.custom_subheading }}</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div id="support-contact-form"></div>
+</div>
+
+<script
+  src="https://shopify-ai-chatbot-production-9ab4.up.railway.app/widget/contact-form.js"
+  data-brand="outlight"
+  {% unless section.settings.show_header %}data-no-header{% endunless %}
+  defer
+></script>
+
+<style>
+  .outlight-contact-section {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .outlight-contact-section__header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .outlight-contact-section__heading {
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0 0 0.5rem;
+    color: inherit;
+  }
+
+  .outlight-contact-section__subheading {
+    font-size: 1rem;
+    line-height: 1.5;
+    opacity: 0.7;
+    margin: 0;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Ensure the form container doesn't inherit unwanted theme styles */
+  #support-contact-form {
+    width: 100%;
+  }
+
+  @media (max-width: 749px) {
+    .outlight-contact-section {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+
+    .outlight-contact-section__heading {
+      font-size: 1.5rem;
+    }
+  }
+</style>
+
+{% schema %}
+{
+  "name": "Contact Form",
+  "tag": "section",
+  "class": "section-outlight-contact",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_header",
+      "label": "Show built-in form header",
+      "default": true,
+      "info": "The form has its own title and subtitle. Disable this if you want to use a custom heading instead."
+    },
+    {
+      "type": "text",
+      "id": "custom_heading",
+      "label": "Custom heading",
+      "info": "Optional heading above the form. Leave blank to hide."
+    },
+    {
+      "type": "text",
+      "id": "custom_subheading",
+      "label": "Custom subheading",
+      "info": "Optional subheading below the custom heading."
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Max width (px)",
+      "min": 400,
+      "max": 1200,
+      "step": 20,
+      "default": 800
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "default": 40
+    }
+  ],
+  "presets": [
+    {
+      "name": "Contact Form"
+    }
+  ]
+}
+{% endschema %}

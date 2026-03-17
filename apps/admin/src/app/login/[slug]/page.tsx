@@ -22,10 +22,12 @@ export default function BrandLoginPage() {
   const slug = params.slug as string;
 
   const [brand, setBrand] = useState<BrandDesign | null>(null);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [loginMode, setLoginMode] = useState<'admin' | 'agent'>('agent');
 
   useEffect(() => {
     fetch(`/api/auth/brands/${encodeURIComponent(slug)}`)
@@ -54,10 +56,15 @@ export default function BrandLoginPage() {
     setLoading(true);
 
     try {
+      const body: Record<string, string> = { brandSlug: slug, password };
+      if (loginMode === 'agent' && email) {
+        body.email = email;
+      }
+
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brandSlug: slug, password }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
@@ -67,7 +74,12 @@ export default function BrandLoginPage() {
         return;
       }
 
-      router.push('/overview');
+      // Route based on role
+      if (data.role === 'agent') {
+        router.push('/agent/tickets');
+      } else {
+        router.push('/overview');
+      }
     } catch {
       setError('Network error');
     } finally {
@@ -115,13 +127,10 @@ export default function BrandLoginPage() {
           }}
         >
           {/* Brand identity */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <h1
               className="text-2xl font-bold tracking-tight mb-1"
-              style={{
-                fontFamily: headingFont || undefined,
-                color: accentColor,
-              }}
+              style={{ fontFamily: headingFont || undefined, color: accentColor }}
             >
               {brand.name}
             </h1>
@@ -130,7 +139,59 @@ export default function BrandLoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Login mode tabs */}
+          <div className="flex rounded-lg overflow-hidden mb-6" style={{ border: `1px solid ${accentColor}25` }}>
+            <button
+              type="button"
+              onClick={() => { setLoginMode('agent'); setError(''); }}
+              className="flex-1 py-2 text-xs font-medium uppercase tracking-wider transition-colors"
+              style={{
+                backgroundColor: loginMode === 'agent' ? accentColor : 'transparent',
+                color: loginMode === 'agent' ? '#fff' : `${accentColor}88`,
+              }}
+            >
+              Agent
+            </button>
+            <button
+              type="button"
+              onClick={() => { setLoginMode('admin'); setError(''); }}
+              className="flex-1 py-2 text-xs font-medium uppercase tracking-wider transition-colors"
+              style={{
+                backgroundColor: loginMode === 'admin' ? accentColor : 'transparent',
+                color: loginMode === 'admin' ? '#fff' : `${accentColor}88`,
+              }}
+            >
+              Admin
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {loginMode === 'agent' && (
+              <div>
+                <label
+                  className="block text-xs font-medium mb-1.5 uppercase tracking-wider"
+                  style={{ color: `${accentColor}cc` }}
+                >
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 transition-shadow"
+                  style={{
+                    borderColor: `${accentColor}30`,
+                    color: '#1a1a1a',
+                    // @ts-expect-error CSS custom property
+                    '--tw-ring-color': `${accentColor}60`,
+                  }}
+                  placeholder="you@example.com"
+                  required
+                  autoFocus
+                />
+              </div>
+            )}
+
             <div>
               <label
                 className="block text-xs font-medium mb-1.5 uppercase tracking-wider"
@@ -146,12 +207,12 @@ export default function BrandLoginPage() {
                 style={{
                   borderColor: `${accentColor}30`,
                   color: '#1a1a1a',
-                  // @ts-expect-error CSS custom property for focus ring
+                  // @ts-expect-error CSS custom property
                   '--tw-ring-color': `${accentColor}60`,
                 }}
-                placeholder="Enter password"
+                placeholder={loginMode === 'admin' ? 'Admin password' : 'Your password'}
                 required
-                autoFocus
+                autoFocus={loginMode === 'admin'}
               />
             </div>
 

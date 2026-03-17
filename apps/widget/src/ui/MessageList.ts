@@ -216,6 +216,20 @@ function renderMessage(msg: WidgetMessage): HTMLElement {
   return wrapper;
 }
 
+function renderGreetingCard(state: { messages: WidgetMessage[]; greetingHeader: string; greetingSubtext: string }): HTMLElement | null {
+  if (!state.greetingHeader) return null;
+
+  const card = document.createElement('div');
+  card.className = 'aicb-greeting-card';
+  card.innerHTML = `
+    <span class="aicb-greeting-card__header">${state.greetingHeader}</span>
+    <p class="aicb-greeting-card__title">${state.messages.length > 0 ? state.messages[0].content : ''}</p>
+    ${state.greetingSubtext ? `<p class="aicb-greeting-card__sub">${state.greetingSubtext}</p>` : ''}
+  `;
+
+  return card;
+}
+
 function renderPresetCards(presets: PresetAction[], onSelect: (id: string) => void): HTMLElement {
   const container = document.createElement('div');
   container.className = 'aicb-preset-cards';
@@ -228,7 +242,11 @@ function renderPresetCards(presets: PresetAction[], onSelect: (id: string) => vo
 
     card.innerHTML = `
       <div class="aicb-preset-card__icon">${iconSvg}</div>
-      <span class="aicb-preset-card__label">${preset.label}</span>
+      <div class="aicb-preset-card__text">
+        <span class="aicb-preset-card__label">${preset.label}</span>
+        ${preset.description ? `<span class="aicb-preset-card__desc">${preset.description}</span>` : ''}
+      </div>
+      <span class="aicb-preset-card__chevron">${CHEVRON_SVG}</span>
     `;
 
     card.addEventListener('click', () => onSelect(preset.id));
@@ -270,7 +288,7 @@ export function createMessageList(onPresetSelect: (id: string) => void): HTMLEle
   let prevLoading: boolean | null = null;
   let prevHasUserSent: boolean | null = null;
 
-  function render(state: { messages: WidgetMessage[]; isLoading: boolean; hasUserSentMessage: boolean; presetActions: PresetAction[] }) {
+  function render(state: { messages: WidgetMessage[]; isLoading: boolean; hasUserSentMessage: boolean; presetActions: PresetAction[]; greetingHeader: string; greetingSubtext: string }) {
     const needsRender =
       state.messages.length !== prevCount ||
       state.isLoading !== prevLoading ||
@@ -279,8 +297,16 @@ export function createMessageList(onPresetSelect: (id: string) => void): HTMLEle
     if (needsRender) {
       container.innerHTML = '';
 
-      for (const msg of state.messages) {
-        container.appendChild(renderMessage(msg));
+      // Use greeting card for first assistant message when greetingHeader is set
+      const useGreetingCard = !!state.greetingHeader && state.messages.length > 0 && state.messages[0].role === 'assistant';
+
+      for (let i = 0; i < state.messages.length; i++) {
+        if (i === 0 && useGreetingCard) {
+          const greetingEl = renderGreetingCard(state);
+          if (greetingEl) container.appendChild(greetingEl);
+          continue;
+        }
+        container.appendChild(renderMessage(state.messages[i]));
       }
 
       // Show preset action cards after greeting (before user sends anything)

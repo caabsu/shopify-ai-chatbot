@@ -4,11 +4,26 @@ export function createHeader(onMinimize: () => void, onClose: () => void, onRese
   const header = document.createElement('div');
   header.className = 'aicb-header';
 
-  const title = getState().headerTitle || 'Outlight Assistant';
+  const state = getState();
+  const title = state.headerTitle || 'Outlight Assistant';
+  const subtitle = state.headerSubtitle || '';
+  const logo = state.headerLogo || '';
+
+  const logoHtml = logo
+    ? `<span class="aicb-header__logo">${logo}</span>`
+    : '';
+
+  const subtitleHtml = subtitle
+    ? `<span class="aicb-header__subtitle">${subtitle}</span>`
+    : '';
 
   header.innerHTML = `
     <div class="aicb-header__info">
-      <span class="aicb-header__title">${title}</span>
+      ${logoHtml}
+      <div class="aicb-header__titles">
+        <span class="aicb-header__title">${title}</span>
+        ${subtitleHtml}
+      </div>
     </div>
     <div class="aicb-header__actions">
       <button class="aicb-header__btn aicb-header__reset" aria-label="New conversation">

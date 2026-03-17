@@ -4,6 +4,8 @@ import { cookies } from 'next/headers';
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'admin-secret-key-change-me');
 const COOKIE_NAME = 'admin_token';
 
+export type UserRole = 'admin' | 'agent';
+
 export interface JWTPayload {
   brandId: string;
   brandName: string;
@@ -11,6 +13,7 @@ export interface JWTPayload {
   userId?: string;
   name?: string;
   email?: string;
+  role: UserRole;
 }
 
 export async function signToken(payload: JWTPayload): Promise<string> {

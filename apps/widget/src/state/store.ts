@@ -27,6 +27,7 @@ export interface PresetAction {
   label: string;
   icon: string;
   prompt: string;
+  description?: string;
 }
 
 export interface WidgetState {
@@ -47,6 +48,11 @@ export interface WidgetState {
   fontSize: 'small' | 'medium' | 'large';
   showBrandingBadge: boolean;
   autoOpenDelay: number;
+  greetingHeader: string;
+  greetingSubtext: string;
+  headerSubtitle: string;
+  headerLogo: string;
+  brandingText: string;
 }
 
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
@@ -84,6 +90,11 @@ let state: WidgetState = {
   fontSize: 'medium',
   showBrandingBadge: true,
   autoOpenDelay: 0,
+  greetingHeader: '',
+  greetingSubtext: '',
+  headerSubtitle: '',
+  headerLogo: '',
+  brandingText: '',
 };
 
 const listeners: Set<Listener> = new Set();

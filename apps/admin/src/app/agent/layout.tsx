@@ -1,28 +1,28 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import { Sidebar } from '@/components/sidebar';
+import { AgentSidebar } from '@/components/agent-sidebar';
 import { Header } from '@/components/header';
 import { BrandProvider } from '@/components/brand-context';
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function AgentLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect('/login');
 
-  // Agents should not access admin dashboard routes
-  if (session.role === 'agent') redirect('/agent/tickets');
+  // Admins can also view agent workspace, but agents are the primary users
+  const role = session.role ?? 'admin';
 
   return (
     <BrandProvider value={{
       brandId: session.brandId,
       brandName: session.brandName,
       brandSlug: session.brandSlug,
-      role: session.role ?? 'admin',
+      role,
       userName: session.name,
       userEmail: session.email,
     }}>
       <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-        <Sidebar />
-        <Header brandName={session.brandName} brandSlug={session.brandSlug} userName={session.name} role={session.role ?? 'admin'} />
+        <AgentSidebar userName={session.name} />
+        <Header brandName={session.brandName} brandSlug={session.brandSlug} userName={session.name} role={role} />
         <main className="ml-56 pt-14">
           <div className="p-6">{children}</div>
         </main>

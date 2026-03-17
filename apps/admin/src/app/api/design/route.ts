@@ -8,6 +8,8 @@ const ALLOWED_KEYS = [
   'fontSize', 'showBrandingBadge', 'autoOpenDelay',
   'fontFamily', 'headingFontFamily', 'headingFontWeight',
   'headerFontSize', 'customCSS',
+  'greetingHeader', 'greetingSubtext',
+  'headerSubtitle', 'headerLogo', 'brandingText', 'theme',
 ];
 
 export async function GET() {

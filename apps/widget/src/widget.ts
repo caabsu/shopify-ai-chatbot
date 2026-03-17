@@ -61,10 +61,19 @@ function applyDesign(root: HTMLElement, design: WidgetDesign): void {
 
   root.style.setProperty('--aicb-primary', primary);
   root.style.setProperty('--aicb-primary-dark', darkenHex(primary, 15));
-  root.style.setProperty('--aicb-primary-header', darkenHex(primary, 47));
-  root.style.setProperty('--aicb-primary-header-end', darkenHex(primary, 55));
   root.style.setProperty('--aicb-primary-light', lightenHex(primary, 16));
   root.style.setProperty('--aicb-bg', bg);
+
+  // Dark theme: header uses bg color, add class for CSS overrides
+  if (design.theme === 'dark') {
+    root.classList.add('aicb-dark');
+    root.style.setProperty('--aicb-primary-header', bg);
+    root.style.setProperty('--aicb-primary-header-end', darkenHex(bg, 5));
+  } else {
+    root.classList.remove('aicb-dark');
+    root.style.setProperty('--aicb-primary-header', darkenHex(primary, 47));
+    root.style.setProperty('--aicb-primary-header-end', darkenHex(primary, 55));
+  }
 
   // Border radius
   const radiusMap = { sharp: '8px', rounded: '16px', pill: '24px' };
@@ -118,6 +127,11 @@ function applyDesign(root: HTMLElement, design: WidgetDesign): void {
     fontSize: design.fontSize || 'medium',
     showBrandingBadge: design.showBrandingBadge !== false,
     autoOpenDelay: design.autoOpenDelay || 0,
+    greetingHeader: design.greetingHeader || '',
+    greetingSubtext: design.greetingSubtext || '',
+    headerSubtitle: design.headerSubtitle || '',
+    headerLogo: design.headerLogo || '',
+    brandingText: design.brandingText || '',
   });
 }
 

@@ -65,11 +65,17 @@ export interface WidgetDesign {
   headingFontWeight?: string;
   headerFontSize?: string;
   customCSS?: string;
+  greetingHeader?: string;
+  greetingSubtext?: string;
+  headerSubtitle?: string;
+  headerLogo?: string;
+  brandingText?: string;
+  theme?: 'light' | 'dark';
 }
 
 export interface WidgetConfig {
   greeting: string;
-  presetActions: Array<{ id: string; label: string; icon: string; prompt: string }>;
+  presetActions: Array<{ id: string; label: string; icon: string; prompt: string; description?: string }>;
   design: WidgetDesign;
 }
 
@@ -77,7 +83,7 @@ export interface SessionResponse {
   sessionId: string;
   conversationId: string;
   greeting: string;
-  presetActions: Array<{ id: string; label: string; icon: string; prompt: string }>;
+  presetActions: Array<{ id: string; label: string; icon: string; prompt: string; description?: string }>;
   messages?: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>;
 }
 

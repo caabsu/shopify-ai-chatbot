@@ -28,9 +28,10 @@ export function createChatWindow(onClose: () => void, onSessionInit?: () => Prom
   // Branding badge
   const state = getState();
   if (state.showBrandingBadge) {
+    const badgeText = state.brandingText || 'Powered by Outlight';
     const branding = document.createElement('div');
     branding.className = 'aicb-branding';
-    branding.innerHTML = '<span class="aicb-branding__text">Powered by Outlight</span>';
+    branding.innerHTML = `<span class="aicb-branding__text">${badgeText}</span>`;
     window.appendChild(branding);
   }
 

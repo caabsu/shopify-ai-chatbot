@@ -32,3 +32,4 @@ coverage/
 .next/
 .vercel/
 out/
+.vercel
