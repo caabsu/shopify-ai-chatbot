@@ -688,4 +688,3 @@ tradeRouter.post('/portal/concierge', portalAuthMiddleware, async (req: Request,
     res.status(500).json({ error: 'Failed to submit concierge request' });
   }
 });
-# Trade program deployed
