@@ -98,7 +98,7 @@ const statusLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { 
 function validateOrigin(req: Request, res: Response, next: NextFunction) {
   const origin = req.headers.origin || '';
   const referer = req.headers.referer || '';
-  const allowedDomains = ['outlight.com', 'www.outlight.com', 'localhost'];
+  const allowedDomains = ['outlight.com', 'www.outlight.com', 'put1rp-iq.myshopify.com', 'localhost'];
   const isAllowed = allowedDomains.some((d) => origin.includes(d) || referer.includes(d));
   if (!isAllowed && origin !== '') {
     res.status(403).json({ error: 'Forbidden' });
