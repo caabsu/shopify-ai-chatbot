@@ -269,7 +269,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 <div className="flex items-center gap-2.5">
                   <User size={13} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
                   <span className="text-sm capitalize" style={{ color: 'var(--text-secondary)' }}>
-                    {member.business_type.replace(/_/g, ' ')}
+                    {(member.business_type || '').replace(/_/g, ' ')}
                   </span>
                 </div>
               )}

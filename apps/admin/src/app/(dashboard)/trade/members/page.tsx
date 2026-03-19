@@ -56,14 +56,18 @@ export default function TradeMembersPage() {
 
   const loadCounts = useCallback(async () => {
     try {
-      const res = await fetch('/api/trade/members/stats');
-      const data = await res.json();
-      setCounts({
-        all: data.all ?? 0,
-        active: data.active ?? 0,
-        suspended: data.suspended ?? 0,
-        revoked: data.revoked ?? 0,
-      });
+      const [activeRes, suspendedRes, revokedRes] = await Promise.all([
+        fetch('/api/trade/members?status=active&limit=0'),
+        fetch('/api/trade/members?status=suspended&limit=0'),
+        fetch('/api/trade/members?status=revoked&limit=0'),
+      ]);
+      const [activeData, suspendedData, revokedData] = await Promise.all([
+        activeRes.json(), suspendedRes.json(), revokedRes.json(),
+      ]);
+      const active = activeData.total ?? 0;
+      const suspended = suspendedData.total ?? 0;
+      const revoked = revokedData.total ?? 0;
+      setCounts({ all: active + suspended + revoked, active, suspended, revoked });
     } catch {
       // ignore
     }
@@ -273,7 +277,7 @@ export default function TradeMembersPage() {
                           className="text-xs capitalize"
                           style={{ color: 'var(--text-secondary)' }}
                         >
-                          {member.member_type.replace(/_/g, ' ')}
+                          {(member.business_type || '').replace(/_/g, ' ')}
                         </span>
                       </div>
 

@@ -91,7 +91,7 @@ export default function TradeOverviewPage() {
             >
               <div>
                 <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{app.full_name}</div>
-                <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>{app.company_name} &middot; {app.business_type.replace('_', ' ')}</div>
+                <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>{app.company_name} &middot; {(app.business_type || '').replace(/_/g, ' ')}</div>
               </div>
               <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 {new Date(app.created_at).toLocaleDateString()}
