@@ -339,7 +339,7 @@ tradeRouter.post('/applications/:id/approve', agentAuthMiddleware, async (req: R
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[trade.controller] POST /applications/:id/approve error:', message);
-    res.status(500).json({ error: 'Failed to approve application' });
+    res.status(500).json({ error: 'Failed to approve application', detail: message });
   }
 });
 
