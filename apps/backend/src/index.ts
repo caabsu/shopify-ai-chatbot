@@ -8,6 +8,7 @@ import { chatRouter } from './controllers/chat.controller.js';
 import { ticketRouter } from './controllers/ticket.controller.js';
 import { agentRouter } from './controllers/agent.controller.js';
 import { returnRouter } from './controllers/return.controller.js';
+import { tradeRouter } from './controllers/trade.controller.js';
 import { supabase } from './config/supabase.js';
 import { resolveBrandId } from './config/brand.js';
 import { getToken } from './services/shopify-auth.service.js';
@@ -1475,6 +1476,9 @@ app.use('/api/agents', agentRouter);
 
 // Return portal routes
 app.use('/api/returns', returnRouter);
+
+// Trade program routes
+app.use('/api/trade', tradeRouter);
 
 // Widget config endpoint
 app.get('/api/widget/config', async (req, res) => {
