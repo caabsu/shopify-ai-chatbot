@@ -93,6 +93,27 @@ export async function processMessage(
     systemPrompt += `\nCustomer cart ID: ${context.cartId}`;
   }
 
+  // Check if customer is a trade program member
+  if (context?.customerEmail && context?.brandId) {
+    try {
+      const { getMemberByEmail } = await import('./trade.service.js');
+      const tradeMember = await getMemberByEmail(context.customerEmail, context.brandId);
+      if (tradeMember && tradeMember.status === 'active') {
+        systemPrompt += `\n\n## Trade Program Member`;
+        systemPrompt += `\nThis customer is an ACTIVE TRADE PROGRAM MEMBER.`;
+        systemPrompt += `\nCompany: ${tradeMember.company_name}`;
+        systemPrompt += `\nBusiness type: ${tradeMember.business_type}`;
+        systemPrompt += `\nPayment terms: ${tradeMember.payment_terms}`;
+        systemPrompt += `\nTrade discount code: TRADE30 (30% off, applied automatically when logged in)`;
+        systemPrompt += `\nProvide concierge-level service. Address them by name. Reference their company when relevant.`;
+        systemPrompt += `\nIf they need help with orders, projects, or have questions, treat them as a VIP.`;
+        systemPrompt += `\nFor complex requests, offer to create a priority support ticket on their behalf.`;
+      }
+    } catch (err) {
+      // Non-fatal - continue without trade context
+    }
+  }
+
   // 4. Load conversation history
   const messages = await conversationService.getMessages(conversationId);
   const claudeMessages: Anthropic.MessageParam[] = messages

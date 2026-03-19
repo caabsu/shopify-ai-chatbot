@@ -54,12 +54,32 @@ chatRouter.post('/session', async (req: Request, res: Response) => {
       (configRows ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
     );
 
-    const greeting = configMap.get('greeting') ?? 'Hi there! How can I help you today?';
+    let greeting = configMap.get('greeting') ?? 'Hi there! How can I help you today?';
     let presetActions: PresetAction[] = [];
     try {
       presetActions = JSON.parse(configMap.get('preset_actions') ?? '[]');
     } catch {
       // Use empty presets
+    }
+
+    // Check if customer is a trade member for customized experience
+    if (customerEmail) {
+      try {
+        const { getMemberByEmail } = await import('../services/trade.service.js');
+        const tradeMember = await getMemberByEmail(customerEmail, brandId);
+        if (tradeMember && tradeMember.status === 'active') {
+          const firstName = tradeMember.contact_name.split(' ')[0];
+          greeting = `Welcome back, ${firstName}. As a Trade Program member, you have access to priority concierge support. How can I help with your projects today?`;
+          presetActions = [
+            { id: 'trade_orders', label: 'My orders', icon: 'package', prompt: 'Show me my recent orders and their status' },
+            { id: 'trade_pricing', label: 'Trade pricing', icon: 'tag', prompt: 'What are my trade program benefits and current discount?' },
+            { id: 'trade_project', label: 'Project help', icon: 'briefcase', prompt: 'I need help sourcing lighting for a project' },
+            { id: 'trade_support', label: 'Priority support', icon: 'headphones', prompt: 'I need to speak with someone about an issue' },
+          ];
+        }
+      } catch (err) {
+        // Non-fatal
+      }
     }
 
     // Resume existing session or create new
