@@ -23,6 +23,9 @@ import {
   Package,
   SlidersHorizontal,
   Mail,
+  Briefcase,
+  FileText,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +55,17 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/tickets', label: 'Ticket Inbox', icon: Inbox },
       { href: '/insights', label: 'Insights', icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Trade Program',
+    collapsible: true,
+    defaultCollapsed: false,
+    items: [
+      { href: '/trade', label: 'Overview', icon: Briefcase },
+      { href: '/trade/applications', label: 'Applications', icon: FileText },
+      { href: '/trade/members', label: 'Members', icon: Users },
+      { href: '/trade/settings', label: 'Settings', icon: Settings },
     ],
   },
   {
