@@ -1,13 +1,92 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
+import * as jose from 'jose';
 import { resolveBrandId } from '../config/brand.js';
+import { getBrandShopifyConfig } from '../config/brand-shopify.js';
 import { supabase } from '../config/supabase.js';
 import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
 import * as tradeService from '../services/trade.service.js';
 import { evaluateAutoApproveRules, processApproval, processRejection, processSuspension, processReactivation } from '../services/trade-approval.service.js';
 import { sendTradeApplicationReceivedEmail } from '../services/trade-email.service.js';
 import { findCustomerByEmail } from '../services/trade-shopify.service.js';
+import { graphql as shopifyGraphql } from '../services/shopify-admin.service.js';
+import { createTicket, addTicketMessage } from '../services/ticket.service.js';
 import { v4 as uuidv4 } from 'uuid';
+
+// ========== PORTAL AUTH ==========
+
+const PORTAL_JWT_SECRET = new TextEncoder().encode(
+  process.env.TRADE_PORTAL_JWT_SECRET || 'portal-secret-key-change-me'
+);
+
+export interface PortalMemberPayload {
+  member_id: string;
+  customer_id: string;
+  email: string;
+  company_name: string;
+  brand_id: string;
+}
+
+// Extend Express Request
+declare global {
+  namespace Express {
+    interface Request {
+      portalMember?: PortalMemberPayload;
+    }
+  }
+}
+
+export async function signPortalToken(payload: PortalMemberPayload): Promise<string> {
+  return new jose.SignJWT({ ...payload })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setExpirationTime('24h')
+    .setIssuedAt()
+    .sign(PORTAL_JWT_SECRET);
+}
+
+export async function portalAuthMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    let token: string | undefined;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    }
+
+    if (!token) {
+      const cookieHeader = req.headers.cookie;
+      if (cookieHeader) {
+        const parsed = cookieHeader.split(';').reduce<Record<string, string>>((acc, c) => {
+          const [key, val] = c.trim().split('=');
+          if (key && val) acc[key] = decodeURIComponent(val);
+          return acc;
+        }, {});
+        token = parsed['portal_session'];
+      }
+    }
+
+    if (!token) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const { payload } = await jose.jwtVerify(token, PORTAL_JWT_SECRET);
+
+    req.portalMember = {
+      member_id: payload.member_id as string,
+      customer_id: payload.customer_id as string,
+      email: payload.email as string,
+      company_name: payload.company_name as string,
+      brand_id: payload.brand_id as string,
+    };
+
+    next();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[portal-auth] Token verification failed:', message);
+    res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
 
 export const tradeRouter = Router();
 
@@ -417,5 +496,195 @@ tradeRouter.get('/analytics', agentAuthMiddleware, async (req: Request, res: Res
   } catch (err) {
     console.error('[trade.controller] GET /analytics error:', err);
     res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
+// ========== PORTAL ROUTES ==========
+
+// POST /api/trade/portal/auth/verify
+tradeRouter.post('/portal/auth/verify', async (req: Request, res: Response) => {
+  try {
+    const { shopify_access_token } = req.body;
+    if (!shopify_access_token) {
+      res.status(400).json({ error: 'Token required' });
+      return;
+    }
+
+    const brandId = await resolveBrandId(req);
+
+    // Call Shopify Customer Account API to validate token and get customer data
+    const config = await getBrandShopifyConfig(brandId);
+    const shopId = config.shop; // e.g., "put1rp-iq"
+    const customerAccountApiUrl = `https://shopify.com/${shopId}/account/customer/api/2025-01/graphql`;
+
+    const customerRes = await fetch(customerAccountApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${shopify_access_token}`,
+      },
+      body: JSON.stringify({
+        query: `{ customer { id emailAddress { emailAddress } firstName lastName } }`,
+      }),
+    });
+
+    if (!customerRes.ok) {
+      res.status(401).json({ error: 'Invalid Shopify token' });
+      return;
+    }
+
+    const customerData = await customerRes.json();
+    const email = customerData.data?.customer?.emailAddress?.emailAddress;
+    if (!email) {
+      res.status(401).json({ error: 'Could not resolve customer email' });
+      return;
+    }
+
+    // Look up trade member
+    const member = await tradeService.getMemberByEmail(email, brandId);
+    if (!member) {
+      res.status(403).json({ error: 'Not a trade program member', code: 'NOT_MEMBER' });
+      return;
+    }
+    if (member.status === 'suspended') {
+      res.status(403).json({ error: 'Trade account suspended', code: 'SUSPENDED' });
+      return;
+    }
+    if (member.status === 'revoked') {
+      res.status(403).json({ error: 'Trade account revoked', code: 'REVOKED' });
+      return;
+    }
+
+    // Issue portal session JWT
+    const portalToken = await signPortalToken({
+      member_id: member.id,
+      customer_id: member.shopify_customer_id,
+      email: member.email,
+      company_name: member.company_name,
+      brand_id: brandId,
+    });
+
+    res.json({ token: portalToken, member });
+  } catch (err) {
+    console.error('[trade.controller] POST /portal/auth/verify error:', err);
+    res.status(500).json({ error: 'Authentication failed' });
+  }
+});
+
+// GET /api/trade/portal/me
+tradeRouter.get('/portal/me', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const member = await tradeService.getMember(req.portalMember!.member_id);
+    if (!member) {
+      res.status(404).json({ error: 'Member not found' });
+      return;
+    }
+
+    const settings = await tradeService.getTradeSettings(req.portalMember!.brand_id);
+    res.json({ member, discount_code: settings.discount_code });
+  } catch (err) {
+    console.error('[trade.controller] GET /portal/me error:', err);
+    res.status(500).json({ error: 'Failed to fetch member profile' });
+  }
+});
+
+// GET /api/trade/portal/orders
+tradeRouter.get('/portal/orders', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const member = await tradeService.getMember(req.portalMember!.member_id);
+    if (!member) {
+      res.status(404).json({ error: 'Member not found' });
+      return;
+    }
+
+    const data = await shopifyGraphql<{
+      orders: { edges: Array<{ node: Record<string, unknown> }> };
+    }>(
+      `query($query: String!) {
+        orders(first: 50, query: $query, sortKey: CREATED_AT, reverse: true) {
+          edges { node {
+            id name createdAt totalPriceSet { shopMoney { amount currencyCode } }
+            displayFulfillmentStatus displayFinancialStatus
+            lineItems(first: 10) { edges { node { title quantity } } }
+          } }
+        }
+      }`,
+      { query: `email:${member.email}` },
+      req.portalMember!.brand_id
+    );
+
+    const orders = data.orders.edges.map((e) => e.node);
+    res.json({ orders });
+  } catch (err) {
+    console.error('[trade.controller] GET /portal/orders error:', err);
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+// GET /api/trade/portal/resources
+tradeRouter.get('/portal/resources', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const settings = await tradeService.getTradeSettings(req.portalMember!.brand_id);
+    const resources = (settings.metadata as Record<string, unknown>)?.resources || [];
+    res.json({ resources });
+  } catch (err) {
+    console.error('[trade.controller] GET /portal/resources error:', err);
+    res.status(500).json({ error: 'Failed to fetch resources' });
+  }
+});
+
+// POST /api/trade/portal/concierge
+tradeRouter.post('/portal/concierge', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { subject, message, order_id, category } = req.body;
+    if (!subject || !message) {
+      res.status(400).json({ error: 'Subject and message required' });
+      return;
+    }
+
+    const member = await tradeService.getMember(req.portalMember!.member_id);
+    if (!member) {
+      res.status(404).json({ error: 'Member not found' });
+      return;
+    }
+
+    const settings = await tradeService.getTradeSettings(req.portalMember!.brand_id);
+
+    // Create priority ticket in existing ticket system
+    const ticket = await createTicket({
+      source: 'form',
+      subject,
+      customer_email: member.email,
+      customer_name: member.contact_name,
+      shopify_customer_id: member.shopify_customer_id,
+      priority: settings.ticket_priority_level as 'low' | 'medium' | 'high' | 'urgent',
+      category: category || 'trade_concierge',
+      tags: ['trade-member', 'trade-concierge'],
+      order_id: order_id || undefined,
+      metadata: { trade_member_id: member.id, company_name: member.company_name },
+      brand_id: req.portalMember!.brand_id,
+    });
+
+    // Add the message as first ticket message
+    await addTicketMessage(ticket.id, {
+      sender_type: 'customer',
+      sender_name: member.contact_name,
+      sender_email: member.email,
+      content: message,
+    });
+
+    await tradeService.logTradeEvent({
+      brand_id: req.portalMember!.brand_id,
+      member_id: member.id,
+      event_type: 'concierge_request',
+      actor: 'customer',
+      actor_id: member.email,
+      details: { ticket_id: ticket.id, subject },
+    });
+
+    res.status(201).json({ ticket_number: ticket.ticket_number, message: 'Concierge request submitted' });
+  } catch (err) {
+    console.error('[trade.controller] POST /portal/concierge error:', err);
+    res.status(500).json({ error: 'Failed to submit concierge request' });
   }
 });
