@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSession } from '@/lib/auth';
 import { cookies } from 'next/headers';
+import { decodeJwt } from 'jose';
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code');
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Exchange code for access token with Shopify Customer Account API
+    // Exchange code for tokens with Shopify Customer Account API
     const tokenRes = await fetch('https://account.outlight.us/authentication/oauth/token', {
       method: 'POST',
       headers: {
@@ -30,13 +31,27 @@ export async function GET(req: NextRequest) {
     }
 
     const tokenData = await tokenRes.json();
-    console.log('[auth/callback] Token exchange succeeded, token type:', tokenData.token_type);
+    console.log('[auth/callback] Token exchange succeeded. Has id_token:', !!tokenData.id_token, 'Has access_token:', !!tokenData.access_token);
 
-    // Send token to backend for verification
+    // Decode the id_token to get customer email (it's a JWT with email claim)
+    let email: string | undefined;
+
+    if (tokenData.id_token) {
+      const claims = decodeJwt(tokenData.id_token);
+      email = claims.email as string;
+      console.log('[auth/callback] Decoded id_token email:', email);
+    }
+
+    if (!email) {
+      console.error('[auth/callback] No email found in id_token');
+      return NextResponse.redirect(new URL('/login?error=no_email', req.nextUrl.origin));
+    }
+
+    // Send email to backend for trade member verification (instead of Shopify token)
     const verifyRes = await fetch(`${process.env.BACKEND_URL}/api/trade/portal/auth/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shopify_access_token: tokenData.access_token }),
+      body: JSON.stringify({ email }),
     });
 
     const verifyText = await verifyRes.text();
