@@ -152,22 +152,23 @@ export async function createCompanyContact(
   brandId?: string
 ): Promise<void> {
   const data = await shopifyGraphQL<{
-    companyContactCreate: { userErrors: Array<{ message: string }> };
+    companyAssignCustomerAsContact: { companyContact: { id: string } | null; userErrors: Array<{ message: string }> };
   }>(
-    `mutation($companyId: ID!, $input: CompanyContactInput!) {
-      companyContactCreate(companyId: $companyId, input: $input) {
+    `mutation($companyId: ID!, $customerId: ID!) {
+      companyAssignCustomerAsContact(companyId: $companyId, customerId: $customerId) {
+        companyContact { id }
         userErrors { message }
       }
     }`,
     {
       companyId,
-      input: { customerId },
+      customerId,
     },
     brandId
   );
 
-  if (data.companyContactCreate.userErrors.length > 0) {
-    throw new Error(`Contact creation failed: ${data.companyContactCreate.userErrors[0].message}`);
+  if (data.companyAssignCustomerAsContact.userErrors.length > 0) {
+    throw new Error(`Contact creation failed: ${data.companyAssignCustomerAsContact.userErrors[0].message}`);
   }
 }
 
