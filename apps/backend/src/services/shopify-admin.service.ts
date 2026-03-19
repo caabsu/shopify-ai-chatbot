@@ -3,7 +3,7 @@ import { getTokenForBrand } from './shopify-auth.service.js';
 import { getBrandShopifyConfig } from '../config/brand-shopify.js';
 import { supabase } from '../config/supabase.js';
 
-async function graphql<T = Record<string, unknown>>(
+export async function graphql<T = Record<string, unknown>>(
   query: string,
   variables?: Record<string, unknown>,
   brandId?: string
