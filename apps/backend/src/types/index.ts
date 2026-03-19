@@ -306,3 +306,89 @@ export interface ReturnPortalDesign {
   successMessage: string;
   successButtonText: string;
 }
+
+// Trade Program Types
+
+export interface TradeApplication {
+  id: string;
+  brand_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  full_name: string;
+  email: string;
+  phone: string;
+  company_name: string;
+  business_type: 'interior_designer' | 'architect' | 'contractor' | 'hospitality' | 'developer' | 'other';
+  website_url: string;
+  project_description: string | null;
+  referral_source: string | null;
+  shopify_customer_id: string | null;
+  shopify_company_id: string | null;
+  auto_approved: boolean;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TradeMember {
+  id: string;
+  brand_id: string;
+  application_id: string;
+  status: 'active' | 'suspended' | 'revoked';
+  shopify_customer_id: string;
+  shopify_company_id: string;
+  company_name: string;
+  contact_name: string;
+  email: string;
+  phone: string;
+  business_type: string;
+  website_url: string;
+  payment_terms: 'DUE_ON_FULFILLMENT' | 'NET_30' | 'NET_60';
+  discount_code: string | null;
+  total_orders: number;
+  total_spent: number;
+  notes: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TradeSettings {
+  id: string;
+  brand_id: string;
+  auto_approve_enabled: boolean;
+  auto_approve_rules: {
+    rules: Array<{
+      id: string;
+      field: string;
+      condition: string;
+      value?: string;
+      enabled: boolean;
+    }>;
+    logic: 'all' | 'any';
+  };
+  default_discount_percent: number;
+  default_payment_terms: string;
+  welcome_email_template: string | null;
+  rejection_email_template: string | null;
+  discount_code: string;
+  concierge_email: string | null;
+  ticket_priority_level: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TradeActivityLog {
+  id: string;
+  brand_id: string;
+  member_id: string | null;
+  application_id: string | null;
+  event_type: string;
+  actor: 'system' | 'agent' | 'customer';
+  actor_id: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+}
