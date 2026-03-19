@@ -141,7 +141,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
       } else {
         const err = await res.json().catch(() => ({}));
         setSuccess(null);
-        alert(err.error ?? 'Failed to approve application.');
+        alert(err.detail ?? err.error ?? 'Failed to approve application.');
       }
     } finally {
       setApproving(false);

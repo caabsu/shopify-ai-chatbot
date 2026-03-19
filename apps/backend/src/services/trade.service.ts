@@ -80,7 +80,7 @@ export async function createApplication(data: {
   brand_id: string;
   full_name: string;
   email: string;
-  phone: string;
+  phone?: string;
   company_name: string;
   business_type: string;
   website_url: string;
@@ -208,7 +208,7 @@ export async function createMember(data: {
   company_name: string;
   contact_name: string;
   email: string;
-  phone: string;
+  phone?: string;
   business_type: string;
   website_url: string;
   payment_terms?: string;

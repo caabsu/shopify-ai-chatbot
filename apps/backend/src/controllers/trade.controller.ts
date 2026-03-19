@@ -122,7 +122,7 @@ tradeRouter.post('/apply', validateOrigin, applyLimiter, async (req: Request, re
     }
 
     // Validate required fields
-    if (!full_name || !email || !phone || !company_name || !business_type || !website_url) {
+    if (!full_name || !email || !company_name || !business_type || !website_url) {
       res.status(400).json({ error: 'Missing required fields' });
       return;
     }

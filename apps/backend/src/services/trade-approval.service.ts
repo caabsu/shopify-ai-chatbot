@@ -62,7 +62,7 @@ export async function processApproval(
       const firstName = nameParts[0] || application.full_name;
       const lastName = nameParts.slice(1).join(' ') || '';
       const customer = await shopifyB2B.createCustomer(
-        { firstName, lastName, email: application.email, phone: application.phone },
+        { firstName, lastName, email: application.email, phone: application.phone || undefined },
         options.brandId
       );
       shopifyCustomerId = customer.id;
