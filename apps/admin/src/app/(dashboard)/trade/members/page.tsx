@@ -6,14 +6,14 @@ import { Search, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface TradeMember {
   id: string;
-  customer_name: string;
-  customer_email: string;
-  company_name: string | null;
-  member_type: string;
+  contact_name: string;
+  email: string;
+  company_name: string;
+  business_type: string;
   status: string;
-  orders_count: number;
+  total_orders: number;
   total_spent: number;
-  approved_at: string;
+  created_at: string;
 }
 
 interface MembersResponse {
@@ -251,13 +251,13 @@ export default function TradeMembersPage() {
                           className="text-sm font-medium truncate"
                           style={{ color: 'var(--text-primary)' }}
                         >
-                          {member.customer_name}
+                          {member.contact_name}
                         </p>
                         <p
                           className="text-xs truncate"
                           style={{ color: 'var(--text-tertiary)' }}
                         >
-                          {member.customer_email}
+                          {member.email}
                         </p>
                       </div>
 
@@ -300,7 +300,7 @@ export default function TradeMembersPage() {
                           className="text-sm"
                           style={{ color: 'var(--text-secondary)' }}
                         >
-                          {member.orders_count}
+                          {member.total_orders}
                         </span>
                       </div>
 
@@ -320,7 +320,7 @@ export default function TradeMembersPage() {
                           className="text-xs"
                           style={{ color: 'var(--text-tertiary)' }}
                         >
-                          {new Date(member.approved_at).toLocaleDateString()}
+                          {new Date(member.created_at).toLocaleDateString()}
                         </span>
                       </div>
                     </div>

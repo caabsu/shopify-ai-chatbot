@@ -11,19 +11,17 @@ import { formatDate } from '@/lib/utils';
 
 interface TradeMemberDetail {
   id: string;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string | null;
-  company_name: string | null;
-  business_type: string | null;
-  website: string | null;
+  contact_name: string;
+  email: string;
+  phone: string;
+  company_name: string;
+  business_type: string;
+  website_url: string;
   status: string;
-  member_type: string;
-  payment_terms: string | null;
+  payment_terms: string;
   notes: string | null;
-  orders_count: number;
+  total_orders: number;
   total_spent: number;
-  approved_at: string;
   created_at: string;
   updated_at: string;
 }
@@ -226,11 +224,11 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                     color: 'var(--color-accent)',
                   }}
                 >
-                  {(member.customer_name || member.customer_email || '?').charAt(0).toUpperCase()}
+                  {(member.contact_name || member.email || '?').charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <h1 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {member.customer_name}
+                    {member.contact_name}
                   </h1>
                   <span
                     className="text-[11px] font-medium px-2 py-0.5 rounded-full"
@@ -248,13 +246,13 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex items-center gap-2.5">
                 <Mail size={13} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{member.customer_email}</span>
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{member.email}</span>
               </div>
 
-              {member.customer_phone && (
+              {member.phone && (
                 <div className="flex items-center gap-2.5">
                   <Phone size={13} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{member.customer_phone}</span>
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{member.phone}</span>
                 </div>
               )}
 
@@ -274,17 +272,17 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 </div>
               )}
 
-              {member.website && (
+              {member.website_url && (
                 <div className="flex items-center gap-2.5">
                   <Globe size={13} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
                   <a
-                    href={member.website.startsWith('http') ? member.website : `https://${member.website}`}
+                    href={member.website_url.startsWith('http') ? member.website_url : `https://${member.website_url}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm truncate hover:underline"
                     style={{ color: 'var(--color-accent)' }}
                   >
-                    {member.website}
+                    {member.website_url}
                   </a>
                 </div>
               )}
@@ -292,7 +290,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
               <div className="flex items-center gap-2.5">
                 <Calendar size={13} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  Member since {formatDate(member.approved_at)}
+                  Member since {formatDate(member.created_at)}
                 </span>
               </div>
             </div>
@@ -314,7 +312,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 </span>
               </div>
               <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                {member.orders_count}
+                {member.total_orders}
               </span>
             </div>
 
