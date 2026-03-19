@@ -10,14 +10,15 @@ export async function GET(req: NextRequest) {
 
   try {
     // Exchange code for access token with Shopify Customer Account API
-    const shopId = process.env.SHOPIFY_SHOP_ID || 'put1rp-iq';
-    const tokenRes = await fetch(`https://shopify.com/authentication/${shopId}/oauth/token`, {
+    // Token endpoint from: https://put1rp-iq.myshopify.com/.well-known/openid-configuration
+    const tokenRes = await fetch('https://account.outlight.us/authentication/oauth/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${Buffer.from(`${process.env.SHOPIFY_CLIENT_ID}:${process.env.SHOPIFY_CLIENT_SECRET}`).toString('base64')}`,
+      },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        client_id: process.env.SHOPIFY_CLIENT_ID!,
-        client_secret: process.env.SHOPIFY_CLIENT_SECRET!,
         redirect_uri: `${req.nextUrl.origin}/api/auth/callback`,
         code,
       }),

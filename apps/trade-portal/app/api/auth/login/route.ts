@@ -3,8 +3,7 @@ import { randomBytes } from 'crypto';
 
 export async function GET(req: NextRequest) {
   // Shopify Customer Account API OAuth
-  // Docs: https://shopify.dev/docs/storefronts/headless/building-with-the-customer-account-api/getting-started
-  const shopId = process.env.SHOPIFY_SHOP_ID || 'put1rp-iq';
+  // Endpoints discovered from: https://put1rp-iq.myshopify.com/.well-known/openid-configuration
   const clientId = process.env.SHOPIFY_CLIENT_ID!;
   const redirectUri = `${req.nextUrl.origin}/api/auth/callback`;
 
@@ -12,7 +11,7 @@ export async function GET(req: NextRequest) {
   const state = randomBytes(32).toString('hex');
   const nonce = randomBytes(32).toString('hex');
 
-  const authUrl = new URL(`https://shopify.com/authentication/${shopId}/oauth/authorize`);
+  const authUrl = new URL('https://account.outlight.us/authentication/oauth/authorize');
   authUrl.searchParams.set('client_id', clientId);
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -26,7 +25,7 @@ export async function GET(req: NextRequest) {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
-    maxAge: 600, // 10 minutes
+    maxAge: 600,
     path: '/',
   });
 
