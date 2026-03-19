@@ -513,9 +513,23 @@ tradeRouter.post('/portal/auth/verify', async (req: Request, res: Response) => {
     const brandId = await resolveBrandId(req);
 
     // Call Shopify Customer Account API to validate token and get customer data
+    // First, discover the correct endpoints from the store's OpenID configuration
     const config = await getBrandShopifyConfig(brandId);
-    const shopId = config.shop; // e.g., "put1rp-iq"
-    const customerAccountApiUrl = `https://shopify.com/${shopId}/account/customer/api/2025-01/graphql`;
+    const shopDomain = `${config.shop}.myshopify.com`;
+
+    let customerAccountApiUrl: string;
+    try {
+      const discoveryRes = await fetch(`https://${shopDomain}/.well-known/openid-configuration`);
+      const discoveryData = await discoveryRes.json();
+      // The issuer contains the numeric shop ID: https://shopify.com/authentication/{numeric_id}
+      const numericShopId = discoveryData.issuer?.split('/authentication/')?.[1];
+      customerAccountApiUrl = `https://shopify.com/${numericShopId}/account/customer/api/2025-01/graphql`;
+    } catch {
+      // Fallback: use the shop handle
+      customerAccountApiUrl = `https://shopify.com/${config.shop}/account/customer/api/2025-01/graphql`;
+    }
+
+    console.log('[trade.controller] Calling Customer Account API at:', customerAccountApiUrl);
 
     const customerRes = await fetch(customerAccountApiUrl, {
       method: 'POST',
@@ -529,11 +543,14 @@ tradeRouter.post('/portal/auth/verify', async (req: Request, res: Response) => {
     });
 
     if (!customerRes.ok) {
+      const errorBody = await customerRes.text();
+      console.error('[trade.controller] Customer Account API error:', customerRes.status, errorBody);
       res.status(401).json({ error: 'Invalid Shopify token' });
       return;
     }
 
     const customerData = await customerRes.json();
+    console.log('[trade.controller] Customer data:', JSON.stringify(customerData));
     const email = customerData.data?.customer?.emailAddress?.emailAddress;
     if (!email) {
       res.status(401).json({ error: 'Could not resolve customer email' });
