@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     // Exchange code for access token with Shopify Customer Account API
     const shopId = process.env.SHOPIFY_SHOP_ID || 'put1rp-iq';
-    const tokenRes = await fetch(`https://shopify.com/${shopId}/auth/oauth/token`, {
+    const tokenRes = await fetch(`https://shopify.com/authentication/${shopId}/oauth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
