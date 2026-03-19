@@ -16,5 +16,8 @@
     "build:widget": "npm run build --workspace=apps/widget",
     "build:admin": "npm run build --workspace=apps/admin",
     "start": "npm run start --workspace=apps/backend"
+  },
+  "dependencies": {
+    "express-rate-limit": "^8.3.1"
   }
 }
