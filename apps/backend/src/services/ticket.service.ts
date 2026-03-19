@@ -49,6 +49,35 @@ export async function createTicket(data: {
   };
   if (data.brand_id) insertPayload.brand_id = data.brand_id;
 
+  // Check if customer is a trade member — auto-upgrade priority
+  if (data.customer_email) {
+    try {
+      const { getMemberByEmail, getTradeSettings } = await import('./trade.service.js');
+      const brandId = data.brand_id || '';
+      const member = await getMemberByEmail(data.customer_email, brandId);
+      if (member) {
+        const settings = await getTradeSettings(member.brand_id);
+        // Upgrade priority if trade member and current priority is lower
+        const priorityRank: Record<string, number> = { low: 0, medium: 1, high: 2, urgent: 3 };
+        const currentRank = priorityRank[data.priority || 'medium'] || 1;
+        const tradeRank = priorityRank[settings.ticket_priority_level] || 2;
+        if (tradeRank > currentRank) {
+          data.priority = settings.ticket_priority_level as any;
+          insertPayload.priority = data.priority;
+        }
+        // Add trade tags
+        const existingTags = (insertPayload.tags as string[]) || [];
+        insertPayload.tags = [...existingTags, 'trade-member'];
+        // Merge trade metadata
+        const existingMeta = (insertPayload.metadata as Record<string, unknown>) || {};
+        insertPayload.metadata = { ...existingMeta, trade_member_id: member.id, trade_company: member.company_name };
+      }
+    } catch (err) {
+      console.error('[ticket.service] trade member check failed:', err);
+      // Non-fatal — continue with original priority
+    }
+  }
+
   const { data: row, error } = await supabase
     .from('tickets')
     .insert(insertPayload)
