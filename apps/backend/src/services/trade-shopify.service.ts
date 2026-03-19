@@ -41,8 +41,7 @@ export async function createCustomer(
         firstName: input.firstName,
         lastName: input.lastName,
         email: input.email,
-        phone: input.phone,
-        emailMarketingConsent: { marketingState: 'SUBSCRIBED' },
+        ...(input.phone ? { phone: input.phone } : {}),
       },
     },
     brandId
