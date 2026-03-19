@@ -714,6 +714,12 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                   <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                     {ticket.customer_email}
                   </p>
+                  {ticket.tags?.includes('trade-member') && (
+                    <div className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded mt-1"
+                      style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: 'var(--color-accent)' }}>
+                      Trade Member
+                    </div>
+                  )}
                 </div>
               </div>
               {ticket.customer_phone && (
