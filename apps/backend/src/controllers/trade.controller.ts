@@ -173,16 +173,21 @@ tradeRouter.post('/apply', validateOrigin, applyLimiter, async (req: Request, re
     const shouldAutoApprove = evaluateAutoApproveRules(application, settings);
 
     if (shouldAutoApprove) {
-      await processApproval(application, {
-        brandId,
-        actorType: 'system',
-      });
-      res.status(201).json({
-        success: true,
-        status: 'approved',
-        message: 'Your application has been approved. Check your email for details.',
-      });
-      return;
+      try {
+        await processApproval(application, {
+          brandId,
+          actorType: 'system',
+        });
+        res.status(201).json({
+          success: true,
+          status: 'approved',
+          message: 'Your application has been approved. Check your email for details.',
+        });
+        return;
+      } catch (approvalErr) {
+        console.error('[trade.controller] Auto-approval failed, falling back to manual review:', approvalErr instanceof Error ? approvalErr.message : approvalErr);
+        // Fall through to pending response — application is saved, admin can approve manually
+      }
     }
 
     // Send confirmation email
