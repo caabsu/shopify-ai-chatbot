@@ -103,10 +103,39 @@ export async function removeCustomerTags(
 
 // ========== B2B COMPANY OPERATIONS ==========
 
+export async function findCompanyByExternalId(
+  externalId: string,
+  brandId?: string
+): Promise<{ companyId: string; locationId: string } | null> {
+  const data = await shopifyGraphQL<{
+    companies: { edges: Array<{ node: { id: string; locations: { edges: Array<{ node: { id: string } }> } } }> };
+  }>(
+    `query($query: String!) {
+      companies(first: 1, query: $query) {
+        edges { node { id locations(first: 1) { edges { node { id } } } } }
+      }
+    }`,
+    { query: `external_id:${externalId}` },
+    brandId
+  );
+
+  const company = data.companies.edges[0]?.node;
+  if (!company) return null;
+
+  const locationId = company.locations.edges[0]?.node.id;
+  if (!locationId) return null;
+
+  return { companyId: company.id, locationId };
+}
+
 export async function createCompany(
   input: { name: string; externalId: string; note?: string },
   brandId?: string
 ): Promise<{ companyId: string; locationId: string }> {
+  // Check if company already exists (from a previous failed approval attempt)
+  const existing = await findCompanyByExternalId(input.externalId, brandId);
+  if (existing) return existing;
+
   const data = await shopifyGraphQL<{
     companyCreate: {
       company: { id: string; locations: { edges: Array<{ node: { id: string } }> } } | null;
