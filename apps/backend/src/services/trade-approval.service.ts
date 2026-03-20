@@ -53,38 +53,66 @@ export async function processApproval(
   let shopifyCustomerId = application.shopify_customer_id;
   let isNewCustomer = false;
 
-  if (!shopifyCustomerId) {
-    const existing = await shopifyB2B.findCustomerByEmail(application.email, options.brandId);
-    if (existing) {
-      shopifyCustomerId = existing.id;
-    } else {
-      const nameParts = application.full_name.split(' ');
-      const firstName = nameParts[0] || application.full_name;
-      const lastName = nameParts.slice(1).join(' ') || '';
-      const customer = await shopifyB2B.createCustomer(
-        { firstName, lastName, email: application.email, phone: application.phone || undefined },
-        options.brandId
-      );
-      shopifyCustomerId = customer.id;
-      isNewCustomer = true;
+  try {
+    if (!shopifyCustomerId) {
+      const existing = await shopifyB2B.findCustomerByEmail(application.email, options.brandId);
+      if (existing) {
+        shopifyCustomerId = existing.id;
+      } else {
+        const nameParts = application.full_name.split(' ');
+        const firstName = nameParts[0] || application.full_name;
+        const lastName = nameParts.slice(1).join(' ') || '';
+        const customer = await shopifyB2B.createCustomer(
+          { firstName, lastName, email: application.email, phone: application.phone || undefined },
+          options.brandId
+        );
+        shopifyCustomerId = customer.id;
+        isNewCustomer = true;
+      }
     }
+  } catch (err) {
+    throw new Error(`[Step 1 - Customer] ${err instanceof Error ? err.message : err}`);
   }
 
+  console.log(`[trade-approval] Step 1 done: customerId=${shopifyCustomerId}`);
+
   // Step 2: Create Shopify Company
-  const { companyId, locationId } = await shopifyB2B.createCompany(
-    {
-      name: application.company_name,
-      externalId: `TRADE-${application.id.slice(0, 8)}`,
-      note: `${application.business_type} | ${application.website_url}`,
-    },
-    options.brandId
-  );
+  let companyId: string;
+  let locationId: string;
+  try {
+    const result = await shopifyB2B.createCompany(
+      {
+        name: application.company_name,
+        externalId: `TRADE-${application.id.slice(0, 8)}`,
+        note: `${application.business_type} | ${application.website_url}`,
+      },
+      options.brandId
+    );
+    companyId = result.companyId;
+    locationId = result.locationId;
+  } catch (err) {
+    throw new Error(`[Step 2 - Company] ${err instanceof Error ? err.message : err}`);
+  }
+
+  console.log(`[trade-approval] Step 2 done: companyId=${companyId}, locationId=${locationId}`);
 
   // Step 3: Create Company Contact
-  await shopifyB2B.createCompanyContact(companyId, shopifyCustomerId, options.brandId);
+  try {
+    await shopifyB2B.createCompanyContact(companyId, shopifyCustomerId, options.brandId);
+  } catch (err) {
+    throw new Error(`[Step 3 - Contact] ${err instanceof Error ? err.message : err}`);
+  }
+
+  console.log(`[trade-approval] Step 3 done: contact created`);
 
   // Step 4: Assign catalog to company location
-  await shopifyB2B.assignCatalogToLocation(catalogId, locationId, options.brandId);
+  try {
+    await shopifyB2B.assignCatalogToLocation(catalogId, locationId, options.brandId);
+  } catch (err) {
+    throw new Error(`[Step 4 - Catalog] catalogId=${catalogId}, locationId=${locationId}: ${err instanceof Error ? err.message : err}`);
+  }
+
+  console.log(`[trade-approval] Step 4 done: catalog assigned`);
 
   // Step 5: Create trade_members record first (to get the real UUID)
   const paymentTerms = options.payment_terms || settings.default_payment_terms;
@@ -108,18 +136,22 @@ export async function processApproval(
   } as any);
 
   // Step 6: Update customer tags + metafields (using real member ID)
-  await shopifyB2B.updateCustomerTags(
-    shopifyCustomerId,
-    ['trade-program', `trade-${application.business_type}`],
-    [
-      { namespace: 'trade_program', key: 'company_name', value: application.company_name, type: 'single_line_text_field' },
-      { namespace: 'trade_program', key: 'business_type', value: application.business_type, type: 'single_line_text_field' },
-      { namespace: 'trade_program', key: 'status', value: 'active', type: 'single_line_text_field' },
-      { namespace: 'trade_program', key: 'approved_date', value: new Date().toISOString().split('T')[0], type: 'date' },
-      { namespace: 'trade_program', key: 'member_id', value: member.id, type: 'single_line_text_field' },
-    ],
-    options.brandId
-  );
+  try {
+    await shopifyB2B.updateCustomerTags(
+      shopifyCustomerId,
+      ['trade-program', `trade-${application.business_type}`],
+      [
+        { namespace: 'trade_program', key: 'company_name', value: application.company_name, type: 'single_line_text_field' },
+        { namespace: 'trade_program', key: 'business_type', value: application.business_type, type: 'single_line_text_field' },
+        { namespace: 'trade_program', key: 'status', value: 'active', type: 'single_line_text_field' },
+        { namespace: 'trade_program', key: 'approved_date', value: new Date().toISOString().split('T')[0], type: 'date' },
+        { namespace: 'trade_program', key: 'member_id', value: member.id, type: 'single_line_text_field' },
+      ],
+      options.brandId
+    );
+  } catch (err) {
+    throw new Error(`[Step 6 - Tags] customerId=${shopifyCustomerId}: ${err instanceof Error ? err.message : err}`);
+  }
 
   // Step 7: Update application
   await tradeService.updateApplication(application.id, {
