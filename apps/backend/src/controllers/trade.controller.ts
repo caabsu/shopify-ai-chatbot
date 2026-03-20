@@ -112,7 +112,7 @@ tradeRouter.get('/debug/catalogs', async (req: Request, res: Response) => {
   try {
     const brandId = await resolveBrandId(req);
     const data = await shopifyGraphql<{ catalogs: { edges: Array<{ node: { id: string; title: string; status: string } }> } }>(
-      `{ catalogs(first: 10, type: COMPANY_LOCATION) { edges { node { id title status } } } }`,
+      `{ catalogs(first: 20) { edges { node { id title status ... on CompanyLocationCatalog { companyLocationsCount } ... on MarketCatalog { markets(first:3) { edges { node { name } } } } } } } }`,
       {},
       brandId
     );
