@@ -209,14 +209,14 @@ export async function assignCatalogToLocation(
   const data = await shopifyGraphQL<{
     catalogContextUpdate: { userErrors: Array<{ message: string }> };
   }>(
-    `mutation($catalogId: ID!, $contextsToAdd: CatalogContextInput!) {
+    `mutation($catalogId: ID!, $contextsToAdd: CatalogContextInput) {
       catalogContextUpdate(catalogId: $catalogId, contextsToAdd: $contextsToAdd) {
         userErrors { message }
       }
     }`,
     {
       catalogId,
-      contextsToAdd: { companyLocationId: locationId },
+      contextsToAdd: { companyLocationIds: [locationId] },
     },
     brandId
   );
@@ -234,14 +234,14 @@ export async function removeCatalogFromLocation(
   const data = await shopifyGraphQL<{
     catalogContextUpdate: { userErrors: Array<{ message: string }> };
   }>(
-    `mutation($catalogId: ID!, $contextsToRemove: CatalogContextInput!) {
+    `mutation($catalogId: ID!, $contextsToRemove: CatalogContextInput) {
       catalogContextUpdate(catalogId: $catalogId, contextsToRemove: $contextsToRemove) {
         userErrors { message }
       }
     }`,
     {
       catalogId,
-      contextsToRemove: { companyLocationId: locationId },
+      contextsToRemove: { companyLocationIds: [locationId] },
     },
     brandId
   );
