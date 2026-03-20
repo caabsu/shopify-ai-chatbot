@@ -107,6 +107,21 @@ function validateOrigin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// ========== DIAGNOSTIC (temporary) ==========
+tradeRouter.get('/debug/catalogs', async (req: Request, res: Response) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const data = await shopifyGraphql<{ catalogs: { edges: Array<{ node: { id: string; title: string; status: string } }> } }>(
+      `{ catalogs(first: 10, type: COMPANY_LOCATION) { edges { node { id title status } } } }`,
+      {},
+      brandId
+    );
+    res.json(data.catalogs.edges.map((e: any) => e.node));
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 // ========== PUBLIC ROUTES ==========
 
 // POST /api/trade/apply
