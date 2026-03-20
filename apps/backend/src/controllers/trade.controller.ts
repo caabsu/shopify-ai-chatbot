@@ -112,21 +112,7 @@ tradeRouter.get('/debug/setup-b2b-catalog', async (req: Request, res: Response) 
   try {
     const brandId = await resolveBrandId(req);
 
-    // Step 1: Get the existing Trade Program market catalog's price list
-    const existingCatalog = await shopifyGraphql<any>(
-      `query {
-        catalog(id: "gid://shopify/MarketCatalog/158553505865") {
-          id
-          title
-          priceList { id name }
-          publication { id }
-        }
-      }`,
-      {},
-      brandId
-    );
-
-    // Step 2: Create a new CompanyLocationCatalog for B2B
+    // Step 1: Create a new CompanyLocationCatalog for B2B
     const createResult = await shopifyGraphql<any>(
       `mutation catalogCreate($input: CatalogCreateInput!) {
         catalogCreate(input: $input) {
@@ -178,7 +164,6 @@ tradeRouter.get('/debug/setup-b2b-catalog', async (req: Request, res: Response) 
     );
 
     res.json({
-      existingCatalog: existingCatalog.catalog,
       newCatalog: createResult.catalogCreate.catalog,
       priceList: priceListResult.priceListCreate,
       message: `Update trade_settings.metadata.shopify_catalog_id to: ${newCatalogId}`,
