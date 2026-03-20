@@ -153,6 +153,12 @@ export async function processApproval(
     throw new Error(`[Step 6 - Tags] customerId=${shopifyCustomerId}: ${err instanceof Error ? err.message : err}`);
   }
 
+  // Step 6b: Send account invite for new customers
+  if (isNewCustomer) {
+    await shopifyB2B.sendAccountInvite(shopifyCustomerId, options.brandId)
+      .catch((err) => console.error('[trade-approval] Account invite email failed:', err));
+  }
+
   // Step 7: Update application
   await tradeService.updateApplication(application.id, {
     status: 'approved',
