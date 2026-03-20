@@ -108,15 +108,81 @@ function validateOrigin(req: Request, res: Response, next: NextFunction) {
 }
 
 // ========== DIAGNOSTIC (temporary) ==========
-tradeRouter.get('/debug/catalogs', async (req: Request, res: Response) => {
+tradeRouter.get('/debug/setup-b2b-catalog', async (req: Request, res: Response) => {
   try {
     const brandId = await resolveBrandId(req);
-    const data = await shopifyGraphql<{ catalogs: { edges: Array<{ node: { id: string; title: string; status: string } }> } }>(
-      `{ catalogs(first: 20) { edges { node { id title status } } } }`,
+
+    // Step 1: Get the existing Trade Program market catalog's price list
+    const existingCatalog = await shopifyGraphql<any>(
+      `query {
+        catalog(id: "gid://shopify/MarketCatalog/158553505865") {
+          id
+          title
+          priceList { id name }
+          publication { id }
+        }
+      }`,
       {},
       brandId
     );
-    res.json(data.catalogs.edges.map((e: any) => e.node));
+
+    // Step 2: Create a new CompanyLocationCatalog for B2B
+    const createResult = await shopifyGraphql<any>(
+      `mutation catalogCreate($input: CatalogCreateInput!) {
+        catalogCreate(input: $input) {
+          catalog { id title status }
+          userErrors { field message }
+        }
+      }`,
+      {
+        input: {
+          title: 'Trade Program B2B',
+          status: 'ACTIVE',
+          context: {
+            companyLocationIds: [],
+          },
+        },
+      },
+      brandId
+    );
+
+    if (createResult.catalogCreate.userErrors.length > 0) {
+      res.status(400).json({ error: createResult.catalogCreate.userErrors });
+      return;
+    }
+
+    const newCatalogId = createResult.catalogCreate.catalog.id;
+
+    // Step 3: Create a price list with -30% adjustment for the new catalog
+    const priceListResult = await shopifyGraphql<any>(
+      `mutation priceListCreate($input: PriceListCreateInput!) {
+        priceListCreate(input: $input) {
+          priceList { id name }
+          userErrors { field message }
+        }
+      }`,
+      {
+        input: {
+          name: 'Trade Program -30%',
+          currency: 'USD',
+          parent: {
+            adjustment: {
+              type: 'PERCENTAGE_DECREASE',
+              value: 30,
+            },
+          },
+          catalogId: newCatalogId,
+        },
+      },
+      brandId
+    );
+
+    res.json({
+      existingCatalog: existingCatalog.catalog,
+      newCatalog: createResult.catalogCreate.catalog,
+      priceList: priceListResult.priceListCreate,
+      message: `Update trade_settings.metadata.shopify_catalog_id to: ${newCatalogId}`,
+    });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
