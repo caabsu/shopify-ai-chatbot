@@ -277,52 +277,62 @@ export async function createCompanyContact(
 
   console.log(`[trade-shopify] contactId=${contactId}, locationId=${locationId}`);
 
-  // Step 2: If we have contactId and locationId, assign ordering role
-  if (contactId && locationId) {
-    try {
-      // Get the "Order only" role ID
-      const rolesData = await shopifyGraphQL<{
-        companyContactRoles: { edges: Array<{ node: { id: string; name: string } }> };
-      }>(
-        `{ companyContactRoles(first: 10) { edges { node { id name } } } }`,
-        {},
-        brandId
-      );
+  // Step 2: Assign ordering role — required for the contact to place orders
+  if (!contactId) {
+    throw new Error('Contact creation returned no contactId — cannot assign ordering role');
+  }
+  if (!locationId) {
+    throw new Error('No locationId provided — cannot assign ordering role');
+  }
 
-      const allRoles = rolesData.companyContactRoles.edges.map(e => e.node);
-      console.log(`[trade-shopify] Available roles: ${JSON.stringify(allRoles)}`);
+  // Get available B2B contact roles
+  const rolesData = await shopifyGraphQL<{
+    companyContactRoles: { edges: Array<{ node: { id: string; name: string } }> };
+  }>(
+    `{ companyContactRoles(first: 10) { edges { node { id name } } } }`,
+    {},
+    brandId
+  );
 
-      // Try "order" first, fall back to first available role
-      const orderRole = allRoles.find(r => r.name.toLowerCase().includes('order')) || allRoles[0];
+  const allRoles = rolesData.companyContactRoles.edges.map(e => e.node);
+  console.log(`[trade-shopify] Available roles: ${JSON.stringify(allRoles)}`);
 
-      if (orderRole) {
-        const roleResult = await shopifyGraphQL<{
-          companyContactAssignRole: { companyContactRoleAssignment: { id: string } | null; userErrors: Array<{ message: string }> };
-        }>(
-          `mutation($companyContactId: ID!, $companyContactRoleId: ID!, $companyLocationId: ID!) {
-            companyContactAssignRole(companyContactId: $companyContactId, companyContactRoleId: $companyContactRoleId, companyLocationId: $companyLocationId) {
-              companyContactRoleAssignment { id }
-              userErrors { message }
-            }
-          }`,
-          {
-            companyContactId: contactId,
-            companyContactRoleId: orderRole.id,
-            companyLocationId: locationId,
-          },
-          brandId
-        );
-        if (roleResult.companyContactAssignRole.userErrors.length > 0) {
-          console.error(`[trade-shopify] Role assignment errors: ${JSON.stringify(roleResult.companyContactAssignRole.userErrors)}`);
-        } else {
-          console.log(`[trade-shopify] Assigned role "${orderRole.name}" (${orderRole.id}) to contact ${contactId}`);
-        }
-      } else {
-        console.warn('[trade-shopify] No roles found in companyContactRoles');
+  // Prefer "Location admin" for full permissions, fall back to any role with "order", then first available
+  const orderRole =
+    allRoles.find(r => r.name.toLowerCase().includes('admin')) ||
+    allRoles.find(r => r.name.toLowerCase().includes('order')) ||
+    allRoles[0];
+
+  if (!orderRole) {
+    throw new Error('No B2B contact roles found — check Shopify B2B settings');
+  }
+
+  const roleResult = await shopifyGraphQL<{
+    companyContactAssignRole: { companyContactRoleAssignment: { id: string } | null; userErrors: Array<{ message: string }> };
+  }>(
+    `mutation($companyContactId: ID!, $companyContactRoleId: ID!, $companyLocationId: ID!) {
+      companyContactAssignRole(companyContactId: $companyContactId, companyContactRoleId: $companyContactRoleId, companyLocationId: $companyLocationId) {
+        companyContactRoleAssignment { id }
+        userErrors { message }
       }
-    } catch (err) {
-      console.error('[trade-shopify] Failed to assign ordering role:', err instanceof Error ? err.message : err);
+    }`,
+    {
+      companyContactId: contactId,
+      companyContactRoleId: orderRole.id,
+      companyLocationId: locationId,
+    },
+    brandId
+  );
+
+  if (roleResult.companyContactAssignRole.userErrors.length > 0) {
+    const errors = roleResult.companyContactAssignRole.userErrors.map(e => e.message).join('; ');
+    // "already assigned" is fine on retries
+    if (!errors.toLowerCase().includes('already')) {
+      throw new Error(`Role assignment failed: ${errors}`);
     }
+    console.log(`[trade-shopify] Role already assigned, continuing.`);
+  } else {
+    console.log(`[trade-shopify] Assigned role "${orderRole.name}" (${orderRole.id}) to contact ${contactId} at location ${locationId}`);
   }
 }
 
