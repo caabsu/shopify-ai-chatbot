@@ -107,6 +107,31 @@ function validateOrigin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// ========== TEMP: Push theme file ==========
+tradeRouter.post('/debug/push-theme-file', async (req: Request, res: Response) => {
+  try {
+    const { key, value } = req.body;
+    if (!key || !value) { res.status(400).json({ error: 'key and value required' }); return; }
+    const brandId = await resolveBrandId(req);
+    const result = await shopifyGraphql<any>(
+      `mutation themeFilesUpsert($files: [OnlineStoreThemeFilesUpsertFileInput!]!, $themeId: ID!) {
+        themeFilesUpsert(files: $files, themeId: $themeId) {
+          upsertedThemeFiles { filename }
+          userErrors { field message }
+        }
+      }`,
+      {
+        themeId: 'gid://shopify/OnlineStoreTheme/186012401737',
+        files: [{ filename: key, body: { type: 'TEXT', value } }],
+      },
+      brandId
+    );
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 // ========== PUBLIC ROUTES ==========
 
 // POST /api/trade/apply
