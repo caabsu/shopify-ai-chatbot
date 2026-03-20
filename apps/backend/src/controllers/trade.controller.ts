@@ -107,62 +107,6 @@ function validateOrigin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// ========== DIAGNOSTIC (temporary) ==========
-tradeRouter.get('/debug/setup-catalog-products', async (req: Request, res: Response) => {
-  try {
-    const brandId = await resolveBrandId(req);
-    const catalogId = 'gid://shopify/CompanyLocationCatalog/158569922633';
-
-    // Step 1: Create a publication
-    const pubResult = await shopifyGraphql<any>(
-      `mutation publicationCreate($input: PublicationCreateInput!) {
-        publicationCreate(input: $input) {
-          publication { id }
-          userErrors { field message }
-        }
-      }`,
-      { input: { autoPublish: true, defaultState: 'ALL_PRODUCTS' } },
-      brandId
-    );
-
-    if (pubResult.publicationCreate.userErrors.length > 0) {
-      res.status(400).json({ step: 'publication', errors: pubResult.publicationCreate.userErrors });
-      return;
-    }
-
-    const publicationId = pubResult.publicationCreate.publication.id;
-
-    // Step 2: Associate publication with the B2B catalog
-    const updateResult = await shopifyGraphql<any>(
-      `mutation catalogUpdate($id: ID!, $input: CatalogUpdateInput!) {
-        catalogUpdate(id: $id, input: $input) {
-          catalog { id title status }
-          userErrors { field message }
-        }
-      }`,
-      {
-        id: catalogId,
-        input: { publicationId },
-      },
-      brandId
-    );
-
-    if (updateResult.catalogUpdate.userErrors.length > 0) {
-      res.status(400).json({ step: 'catalogUpdate', errors: updateResult.catalogUpdate.userErrors });
-      return;
-    }
-
-    res.json({
-      success: true,
-      publicationId,
-      catalog: updateResult.catalogUpdate.catalog,
-      message: 'Publication created with autoPublish=true and defaultState=ALL_PRODUCTS. All products should now be visible to trade members.',
-    });
-  } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
-  }
-});
-
 // ========== PUBLIC ROUTES ==========
 
 // POST /api/trade/apply
