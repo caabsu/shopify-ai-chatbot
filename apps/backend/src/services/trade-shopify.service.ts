@@ -196,6 +196,25 @@ export async function createCompany(
   const locationId = company.locations.edges[0]?.node.id;
   if (!locationId) throw new Error('Company created without default location');
 
+  // Set checkout to normal payment flow (not draft orders)
+  await shopifyGraphQL(
+    `mutation($id: ID!, $input: CompanyLocationUpdateInput!) {
+      companyLocationUpdate(companyLocationId: $id, input: $input) {
+        companyLocation { id }
+        userErrors { message }
+      }
+    }`,
+    {
+      id: locationId,
+      input: {
+        buyerExperienceConfiguration: {
+          checkoutToDraft: false,
+        },
+      },
+    },
+    brandId
+  ).catch((err) => console.error('[trade-shopify] Failed to set checkout mode:', err));
+
   return { companyId: company.id, locationId };
 }
 
