@@ -49,61 +49,75 @@ export async function processApproval(
     throw new Error('Trade catalog ID not configured in trade_settings.metadata.shopify_catalog_id');
   }
 
-  // Step 1: Create or find Shopify customer
+  // Steps 1-3: Create customer + company + contact with ordering role
+  // Use the combined companyCreate approach for new customers — this auto-assigns the
+  // "Ordering only" role without needing read_companies/write_companies scopes.
   let shopifyCustomerId = application.shopify_customer_id;
   let isNewCustomer = false;
-
-  try {
-    if (!shopifyCustomerId) {
-      const existing = await shopifyB2B.findCustomerByEmail(application.email, options.brandId);
-      if (existing) {
-        shopifyCustomerId = existing.id;
-      } else {
-        const nameParts = application.full_name.split(' ');
-        const firstName = nameParts[0] || application.full_name;
-        const lastName = nameParts.slice(1).join(' ') || '';
-        const customer = await shopifyB2B.createCustomer(
-          { firstName, lastName, email: application.email, phone: application.phone || undefined },
-          options.brandId
-        );
-        shopifyCustomerId = customer.id;
-        isNewCustomer = true;
-      }
-    }
-  } catch (err) {
-    throw new Error(`[Step 1 - Customer] ${err instanceof Error ? err.message : err}`);
-  }
-
-  console.log(`[trade-approval] Step 1 done: customerId=${shopifyCustomerId}`);
-
-  // Step 2: Create Shopify Company
   let companyId: string;
   let locationId: string;
-  try {
-    const result = await shopifyB2B.createCompany(
-      {
-        name: application.company_name,
-        externalId: `TRADE-${application.id.slice(0, 8)}`,
-        note: `${application.business_type} | ${application.website_url}`,
-      },
-      options.brandId
-    );
-    companyId = result.companyId;
-    locationId = result.locationId;
-  } catch (err) {
-    throw new Error(`[Step 2 - Company] ${err instanceof Error ? err.message : err}`);
+
+  const nameParts = application.full_name.split(' ');
+  const firstName = nameParts[0] || application.full_name;
+  const lastName = nameParts.slice(1).join(' ') || '';
+  const externalId = `TRADE-${application.id.slice(0, 8)}`;
+
+  // Check if customer already exists in Shopify
+  if (!shopifyCustomerId) {
+    const existing = await shopifyB2B.findCustomerByEmail(application.email, options.brandId).catch(() => null);
+    if (existing) {
+      shopifyCustomerId = existing.id;
+    }
   }
 
-  console.log(`[trade-approval] Step 2 done: companyId=${companyId}, locationId=${locationId}`);
+  if (!shopifyCustomerId) {
+    // NEW customer — use combined companyCreate with companyContact.
+    // This creates customer + company + contact + auto-assigns ordering role in one call.
+    try {
+      const result = await shopifyB2B.createCompanyWithContact(
+        {
+          name: application.company_name,
+          externalId,
+          note: `${application.business_type} | ${application.website_url}`,
+          contactEmail: application.email,
+          contactFirstName: firstName,
+          contactLastName: lastName,
+        },
+        options.brandId
+      );
+      companyId = result.companyId;
+      locationId = result.locationId;
+      shopifyCustomerId = result.customerId;
+      isNewCustomer = true;
+      console.log(`[trade-approval] Combined create done: companyId=${companyId}, locationId=${locationId}, customerId=${shopifyCustomerId}`);
+    } catch (err) {
+      throw new Error(`[Steps 1-3 - Combined Create] ${err instanceof Error ? err.message : err}`);
+    }
+  } else {
+    // EXISTING customer — create company separately, then assign contact.
+    // Note: role assignment requires read_companies + write_companies scopes on the Shopify app.
+    try {
+      const result = await shopifyB2B.createCompany(
+        {
+          name: application.company_name,
+          externalId,
+          note: `${application.business_type} | ${application.website_url}`,
+        },
+        options.brandId
+      );
+      companyId = result.companyId;
+      locationId = result.locationId;
+    } catch (err) {
+      throw new Error(`[Step 2 - Company] ${err instanceof Error ? err.message : err}`);
+    }
 
-  // Step 3: Create Company Contact
-  try {
-    await shopifyB2B.createCompanyContact(companyId, shopifyCustomerId, options.brandId, locationId);
-  } catch (err) {
-    throw new Error(`[Step 3 - Contact] ${err instanceof Error ? err.message : err}`);
+    try {
+      await shopifyB2B.createCompanyContact(companyId, shopifyCustomerId, options.brandId, locationId);
+    } catch (err) {
+      throw new Error(`[Step 3 - Contact] ${err instanceof Error ? err.message : err}`);
+    }
+    console.log(`[trade-approval] Separate create done: companyId=${companyId}, locationId=${locationId}`);
   }
-
-  console.log(`[trade-approval] Step 3 done: contact created`);
 
   // Step 4: Assign catalog to company location
   try {

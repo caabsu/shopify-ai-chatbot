@@ -219,6 +219,101 @@ export async function createCompany(
 }
 
 /**
+ * Create a company with a contact in a single mutation.
+ * This auto-assigns the "Ordering only" role to the contact at the default location,
+ * which is required for the contact to place B2B orders.
+ * This approach avoids needing companyContactRoles query (which requires read_companies scope).
+ */
+export async function createCompanyWithContact(
+  input: {
+    name: string;
+    externalId: string;
+    note?: string;
+    contactEmail: string;
+    contactFirstName: string;
+    contactLastName: string;
+  },
+  brandId?: string
+): Promise<{ companyId: string; locationId: string; customerId: string; contactId: string }> {
+  // Check if company already exists (handles retries)
+  const existing = await findCompanyByExternalId(input.externalId, brandId);
+  if (existing) {
+    // Company exists but we need contact + role info — fall back to separate assignment
+    throw new Error('COMPANY_EXISTS');
+  }
+
+  const data = await shopifyGraphQL<{
+    companyCreate: {
+      company: {
+        id: string;
+        locations: { edges: Array<{ node: { id: string } }> };
+        contacts: { edges: Array<{ node: { id: string; customer: { id: string } } }> };
+      } | null;
+      userErrors: Array<{ field: string[]; message: string }>;
+    };
+  }>(
+    `mutation($input: CompanyCreateInput!) {
+      companyCreate(input: $input) {
+        company {
+          id
+          locations(first: 1) { edges { node { id } } }
+          contacts(first: 1) { edges { node { id customer { id } } } }
+        }
+        userErrors { field message }
+      }
+    }`,
+    {
+      input: {
+        company: {
+          name: input.name,
+          externalId: input.externalId,
+          note: input.note || '',
+        },
+        companyContact: {
+          email: input.contactEmail,
+          firstName: input.contactFirstName,
+          lastName: input.contactLastName,
+        },
+      },
+    },
+    brandId
+  );
+
+  if (data.companyCreate.userErrors.length > 0) {
+    const errors = data.companyCreate.userErrors.map(e => `${e.field?.join('.')}: ${e.message}`).join('; ');
+    throw new Error(`Company+contact creation failed: ${errors}`);
+  }
+
+  const company = data.companyCreate.company;
+  if (!company) throw new Error('Company creation returned null');
+
+  const locationId = company.locations.edges[0]?.node.id;
+  if (!locationId) throw new Error('Company created without default location');
+
+  const contact = company.contacts.edges[0]?.node;
+  if (!contact) throw new Error('Company created without contact');
+
+  console.log(`[trade-shopify] Created company+contact in one call: companyId=${company.id}, locationId=${locationId}, contactId=${contact.id}, customerId=${contact.customer.id}`);
+
+  // Set checkout to normal payment flow
+  await shopifyGraphQL(
+    `mutation($id: ID!, $input: CompanyLocationUpdateInput!) {
+      companyLocationUpdate(companyLocationId: $id, input: $input) {
+        companyLocation { id }
+        userErrors { message }
+      }
+    }`,
+    {
+      id: locationId,
+      input: { buyerExperienceConfiguration: { checkoutToDraft: false } },
+    },
+    brandId
+  ).catch((err) => console.error('[trade-shopify] Failed to set checkout mode:', err));
+
+  return { companyId: company.id, locationId, customerId: contact.customer.id, contactId: contact.id };
+}
+
+/**
  * Assign a customer as a company contact.
  * Uses companyAssignCustomerAsContact which takes companyId and customerId as top-level args.
  * See: https://shopify.dev/docs/api/admin-graphql/latest/mutations/companyAssignCustomerAsContact
