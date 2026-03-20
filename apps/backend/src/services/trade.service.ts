@@ -198,6 +198,83 @@ export async function updateApplication(
   return data as TradeApplication;
 }
 
+export async function archiveApplication(id: string, brandId: string, actorId?: string): Promise<void> {
+  const { error } = await supabase
+    .from('trade_applications')
+    .update({ status: 'archived', updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('brand_id', brandId);
+
+  if (error) throw new Error('Failed to archive application');
+
+  await logTradeEvent({
+    brand_id: brandId,
+    application_id: id,
+    event_type: 'application_archived',
+    actor: 'agent',
+    actor_id: actorId,
+  });
+}
+
+export async function deleteApplication(id: string, brandId: string, actorId?: string): Promise<void> {
+  // Delete activity log entries first
+  await supabase
+    .from('trade_activity_log')
+    .delete()
+    .eq('application_id', id)
+    .eq('brand_id', brandId);
+
+  const { error } = await supabase
+    .from('trade_applications')
+    .delete()
+    .eq('id', id)
+    .eq('brand_id', brandId);
+
+  if (error) throw new Error('Failed to delete application');
+}
+
+export async function bulkArchiveApplications(ids: string[], brandId: string, actorId?: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('trade_applications')
+    .update({ status: 'archived', updated_at: new Date().toISOString() })
+    .in('id', ids)
+    .eq('brand_id', brandId)
+    .select('id');
+
+  if (error) throw new Error('Failed to archive applications');
+
+  const count = data?.length ?? 0;
+  for (const row of data ?? []) {
+    await logTradeEvent({
+      brand_id: brandId,
+      application_id: row.id,
+      event_type: 'application_archived',
+      actor: 'agent',
+      actor_id: actorId,
+    });
+  }
+  return count;
+}
+
+export async function bulkDeleteApplications(ids: string[], brandId: string): Promise<number> {
+  // Delete activity log entries first
+  await supabase
+    .from('trade_activity_log')
+    .delete()
+    .in('application_id', ids)
+    .eq('brand_id', brandId);
+
+  const { data, error } = await supabase
+    .from('trade_applications')
+    .delete()
+    .in('id', ids)
+    .eq('brand_id', brandId)
+    .select('id');
+
+  if (error) throw new Error('Failed to delete applications');
+  return data?.length ?? 0;
+}
+
 // ========== MEMBERS ==========
 
 export async function createMember(data: {

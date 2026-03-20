@@ -1,32 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
+import { cookies } from 'next/headers';
+
+const BACKEND_URL =
+  process.env.BACKEND_URL || 'https://shopify-ai-chatbot-production-9ab4.up.railway.app';
 
 export async function GET(_req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: settings, error } = await supabase
-    .from('trade_settings')
-    .select('*')
-    .eq('brand_id', session.brandId)
-    .single();
+  const cookieStore = await cookies();
+  const token = cookieStore.get('admin_token')?.value;
 
-  if (error && error.code !== 'PGRST116') {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  // Return default settings if none exist yet
-  return NextResponse.json({
-    settings: settings ?? {
-      brand_id: session.brandId,
-      discount_percentage: 20,
-      auto_approve: false,
-      require_business_license: false,
-      welcome_email_enabled: true,
-      portal_enabled: true,
-    },
+  const res = await fetch(`${BACKEND_URL}/api/trade/settings`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
+
+  const data = await res.json().catch(() => ({ error: 'Invalid response from backend' }));
+  return NextResponse.json(data, { status: res.status });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -36,18 +27,18 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
 
-  const { data: settings, error } = await supabase
-    .from('trade_settings')
-    .upsert(
-      { ...body, brand_id: session.brandId },
-      { onConflict: 'brand_id' }
-    )
-    .select()
-    .single();
+  const cookieStore = await cookies();
+  const token = cookieStore.get('admin_token')?.value;
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const res = await fetch(`${BACKEND_URL}/api/trade/settings`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
 
-  return NextResponse.json({ settings });
+  const data = await res.json().catch(() => ({ error: 'Invalid response from backend' }));
+  return NextResponse.json(data, { status: res.status });
 }

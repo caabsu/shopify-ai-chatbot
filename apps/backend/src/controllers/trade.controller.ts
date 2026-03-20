@@ -270,10 +270,11 @@ tradeRouter.get('/applications', agentAuthMiddleware, async (req: Request, res: 
     });
 
     // Get counts per status
-    const [pendingCount, approvedCount, rejectedCount] = await Promise.all([
+    const [pendingCount, approvedCount, rejectedCount, archivedCount] = await Promise.all([
       tradeService.listApplications({ brand_id: brandId, status: 'pending', limit: 0 }),
       tradeService.listApplications({ brand_id: brandId, status: 'approved', limit: 0 }),
       tradeService.listApplications({ brand_id: brandId, status: 'rejected', limit: 0 }),
+      tradeService.listApplications({ brand_id: brandId, status: 'archived', limit: 0 }),
     ]);
 
     res.json({
@@ -282,12 +283,47 @@ tradeRouter.get('/applications', agentAuthMiddleware, async (req: Request, res: 
         pending: pendingCount.total,
         approved: approvedCount.total,
         rejected: rejectedCount.total,
+        archived: archivedCount.total,
         all: pendingCount.total + approvedCount.total + rejectedCount.total,
       },
     });
   } catch (err) {
     console.error('[trade.controller] GET /applications error:', err);
     res.status(500).json({ error: 'Failed to list applications' });
+  }
+});
+
+// POST /api/trade/applications/bulk/archive (must be before :id routes)
+tradeRouter.post('/applications/bulk/archive', agentAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: 'ids array required' });
+      return;
+    }
+
+    const count = await tradeService.bulkArchiveApplications(ids, req.agent!.brandId, req.agent!.id);
+    res.json({ success: true, archived: count });
+  } catch (err) {
+    console.error('[trade.controller] POST /applications/bulk/archive error:', err);
+    res.status(500).json({ error: 'Failed to archive applications' });
+  }
+});
+
+// POST /api/trade/applications/bulk/delete (must be before :id routes)
+tradeRouter.post('/applications/bulk/delete', agentAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: 'ids array required' });
+      return;
+    }
+
+    const count = await tradeService.bulkDeleteApplications(ids, req.agent!.brandId);
+    res.json({ success: true, deleted: count });
+  } catch (err) {
+    console.error('[trade.controller] POST /applications/bulk/delete error:', err);
+    res.status(500).json({ error: 'Failed to delete applications' });
   }
 });
 
@@ -372,6 +408,48 @@ tradeRouter.post('/applications/:id/reject', agentAuthMiddleware, async (req: Re
   } catch (err) {
     console.error('[trade.controller] POST /applications/:id/reject error:', err);
     res.status(500).json({ error: 'Failed to reject application' });
+  }
+});
+
+// POST /api/trade/applications/:id/archive
+tradeRouter.post('/applications/:id/archive', agentAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const app = await tradeService.getApplication(req.params.id as string);
+    if (!app) {
+      res.status(404).json({ error: 'Application not found' });
+      return;
+    }
+    if (app.status === 'approved') {
+      res.status(400).json({ error: 'Cannot archive an approved application' });
+      return;
+    }
+
+    await tradeService.archiveApplication(app.id, req.agent!.brandId, req.agent!.id);
+    res.json({ success: true, message: 'Application archived' });
+  } catch (err) {
+    console.error('[trade.controller] POST /applications/:id/archive error:', err);
+    res.status(500).json({ error: 'Failed to archive application' });
+  }
+});
+
+// DELETE /api/trade/applications/:id
+tradeRouter.delete('/applications/:id', agentAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const app = await tradeService.getApplication(req.params.id as string);
+    if (!app) {
+      res.status(404).json({ error: 'Application not found' });
+      return;
+    }
+    if (app.status === 'approved') {
+      res.status(400).json({ error: 'Cannot delete an approved application' });
+      return;
+    }
+
+    await tradeService.deleteApplication(app.id, req.agent!.brandId, req.agent!.id);
+    res.json({ success: true, message: 'Application deleted' });
+  } catch (err) {
+    console.error('[trade.controller] DELETE /applications/:id error:', err);
+    res.status(500).json({ error: 'Failed to delete application' });
   }
 });
 
@@ -470,7 +548,16 @@ tradeRouter.patch('/members/:id', agentAuthMiddleware, async (req: Request, res:
 tradeRouter.get('/settings', agentAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const settings = await tradeService.getTradeSettings(req.agent!.brandId);
-    res.json({ settings });
+    // Map DB format to flat frontend format
+    const flatSettings = {
+      ...settings,
+      discount_percentage: settings.default_discount_percent,
+      auto_approve_rules: settings.auto_approve_rules?.rules || [],
+      auto_approve_logic: settings.auto_approve_rules?.logic || 'all',
+      ticket_priority: settings.ticket_priority_level,
+      default_payment_terms: (settings.default_payment_terms || 'DUE_ON_FULFILLMENT').toLowerCase(),
+    };
+    res.json({ settings: flatSettings });
   } catch (err) {
     console.error('[trade.controller] GET /settings error:', err);
     res.status(500).json({ error: 'Failed to fetch settings' });
@@ -480,9 +567,38 @@ tradeRouter.get('/settings', agentAuthMiddleware, async (req: Request, res: Resp
 // PATCH /api/trade/settings
 tradeRouter.patch('/settings', agentAuthMiddleware, async (req: Request, res: Response) => {
   try {
+    const body = req.body;
+    // Map flat frontend fields to DB schema
+    const updates: Record<string, unknown> = {};
+
+    if (body.auto_approve_enabled !== undefined) updates.auto_approve_enabled = body.auto_approve_enabled;
+    if (body.discount_percentage !== undefined) updates.default_discount_percent = body.discount_percentage;
+    if (body.discount_code !== undefined) updates.discount_code = body.discount_code;
+    if (body.concierge_email !== undefined) updates.concierge_email = body.concierge_email;
+    if (body.ticket_priority !== undefined) updates.ticket_priority_level = body.ticket_priority;
+
+    if (body.default_payment_terms !== undefined) {
+      updates.default_payment_terms = body.default_payment_terms.toUpperCase();
+    }
+
+    // Map flat auto_approve_rules array + logic to nested DB format
+    if (body.auto_approve_rules !== undefined) {
+      const rules = body.auto_approve_rules.map((r: Record<string, unknown>) => ({
+        id: r.id,
+        field: r.field,
+        condition: r.condition,
+        value: r.value || undefined,
+        enabled: true,
+      }));
+      updates.auto_approve_rules = {
+        rules,
+        logic: body.auto_approve_logic || 'all',
+      };
+    }
+
     const settings = await tradeService.updateTradeSettings(
       req.agent!.brandId,
-      req.body,
+      updates as Partial<import('../types/index.js').TradeSettings>,
       req.agent!.id
     );
     res.json({ settings });

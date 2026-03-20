@@ -312,7 +312,7 @@ export interface ReturnPortalDesign {
 export interface TradeApplication {
   id: string;
   brand_id: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'archived';
   full_name: string;
   email: string;
   phone: string;

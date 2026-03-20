@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, ExternalLink, CheckCircle, XCircle, Clock,
   User, Building2, Globe, Phone, Mail, FileText, Activity,
+  Archive, Trash2,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
@@ -23,11 +25,13 @@ interface TradeApplication {
   website?: string;
   project_description?: string;
   referral_source?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'archived';
   reviewed_at?: string;
   reviewed_by?: string;
   rejection_reason?: string;
   payment_terms?: string;
+  full_name?: string;
+  website_url?: string;
 }
 
 interface ActivityLogEntry {
@@ -49,6 +53,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   pending:  { bg: 'rgba(245,158,11,0.12)',  text: '#f59e0b' },
   approved: { bg: 'rgba(34,197,94,0.12)',   text: '#22c55e' },
   rejected: { bg: 'rgba(239,68,68,0.12)',   text: '#ef4444' },
+  archived: { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
 };
 
 const PAYMENT_TERMS = [
@@ -98,6 +103,7 @@ function InfoRow({
 
 export default function ApplicationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
 
   const [data, setData]       = useState<DetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +117,11 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
   const [rejectReason, setRejectReason] = useState('');
   const [rejecting, setRejecting]       = useState(false);
   const [rejectError, setRejectError]   = useState<string | null>(null);
+
+  // Archive/Delete state
+  const [archiving, setArchiving]       = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting]         = useState(false);
 
   async function loadData() {
     setLoading(true);
@@ -174,6 +185,37 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     }
   }
 
+  async function handleArchive() {
+    setArchiving(true);
+    try {
+      const res = await fetch(`/api/trade/applications/${id}/archive`, { method: 'POST' });
+      if (res.ok) {
+        setSuccess('Application archived.');
+        await loadData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error ?? 'Failed to archive application.');
+      }
+    } finally {
+      setArchiving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/trade/applications/${id}/delete`, { method: 'POST' });
+      if (res.ok) {
+        router.push('/trade/applications');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error ?? 'Failed to delete application.');
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   // ── Loading skeleton ──
   if (loading) {
     return (
@@ -202,6 +244,9 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
   const { application, activityLog } = data;
   const statusStyle = STATUS_STYLES[application.status] ?? STATUS_STYLES.pending;
   const isPending   = application.status === 'pending';
+  const canManage   = application.status !== 'approved';
+  const displayName = application.full_name || `${application.first_name || ''} ${application.last_name || ''}`.trim();
+  const websiteUrl  = application.website_url || application.website;
 
   return (
     <div className="space-y-4">
@@ -248,7 +293,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h1 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  {application.first_name} {application.last_name}
+                  {displayName}
                 </h1>
                 <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                   {application.company_name}
@@ -265,7 +310,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
             {/* Fields */}
             <div className="divide-y-0">
               <InfoRow icon={User} label="Full name">
-                {application.first_name} {application.last_name}
+                {displayName}
               </InfoRow>
 
               <InfoRow icon={Mail} label="Email">
@@ -291,16 +336,16 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                 {formatBusinessType(application.business_type)}
               </InfoRow>
 
-              {application.website && (
+              {websiteUrl && (
                 <InfoRow icon={Globe} label="Website">
                   <a
-                    href={application.website.startsWith('http') ? application.website : `https://${application.website}`}
+                    href={websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1"
                     style={{ color: 'var(--color-accent)' }}
                   >
-                    {application.website.replace(/^https?:\/\//, '')}
+                    {websiteUrl.replace(/^https?:\/\//, '')}
                     <ExternalLink size={11} />
                   </a>
                 </InfoRow>
@@ -513,6 +558,82 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
               </div>
             )}
           </div>
+
+          {/* Archive / Delete actions */}
+          {canManage && (
+            <div
+              className="rounded-xl p-5"
+              style={{
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border-primary)',
+              }}
+            >
+              <h3 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--text-tertiary)' }}>
+                Manage
+              </h3>
+              <div className="space-y-2">
+                {application.status !== 'archived' && (
+                  <button
+                    onClick={handleArchive}
+                    disabled={archiving}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50"
+                    style={{
+                      color: 'var(--text-secondary)',
+                      backgroundColor: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-primary)',
+                    }}
+                  >
+                    <Archive size={14} />
+                    {archiving ? 'Archiving...' : 'Archive application'}
+                  </button>
+                )}
+
+                {showDeleteConfirm ? (
+                  <div
+                    className="p-3 rounded-lg space-y-2"
+                    style={{
+                      backgroundColor: 'rgba(239,68,68,0.06)',
+                      border: '1px solid rgba(239,68,68,0.2)',
+                    }}
+                  >
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      Permanently delete this application? This cannot be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium rounded-lg"
+                        style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium rounded-lg text-white disabled:opacity-50"
+                        style={{ backgroundColor: '#dc2626' }}
+                      >
+                        {deleting ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
+                    style={{
+                      color: '#ef4444',
+                      backgroundColor: 'rgba(239,68,68,0.06)',
+                      border: '1px solid rgba(239,68,68,0.15)',
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    Delete application
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
       </div>

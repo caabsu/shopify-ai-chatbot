@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Get counts per status
-  const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
+  const [pendingRes, approvedRes, rejectedRes, archivedRes] = await Promise.all([
     supabase
       .from('trade_applications')
       .select('id', { count: 'exact', head: true })
@@ -53,6 +53,11 @@ export async function GET(req: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .eq('brand_id', session.brandId)
       .eq('status', 'rejected'),
+    supabase
+      .from('trade_applications')
+      .select('id', { count: 'exact', head: true })
+      .eq('brand_id', session.brandId)
+      .eq('status', 'archived'),
   ]);
 
   return NextResponse.json({
@@ -66,6 +71,7 @@ export async function GET(req: NextRequest) {
       pending: pendingRes.count ?? 0,
       approved: approvedRes.count ?? 0,
       rejected: rejectedRes.count ?? 0,
+      archived: archivedRes.count ?? 0,
     },
   });
 }
