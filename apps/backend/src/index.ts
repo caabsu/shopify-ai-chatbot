@@ -1195,7 +1195,7 @@ app.use('/api/chat', chatRouter);
 // ── POST /api/tickets/form — Public Contact Form Submission (no auth) ───────
 app.post('/api/tickets/form', async (req, res) => {
   try {
-    const { name, email, category, subject, message } = req.body;
+    const { name, email, category, subject, message, tags, priority } = req.body;
 
     if (!name || !email || !category || !subject || !message) {
       res.status(400).json({ error: 'name, email, category, subject, and message are required' });
@@ -1210,8 +1210,9 @@ app.post('/api/tickets/form', async (req, res) => {
       customer_email: email,
       customer_name: name,
       category,
-      priority: 'medium',
+      priority: priority || 'medium',
       brand_id: brandId,
+      tags: Array.isArray(tags) ? tags : undefined,
     });
 
     await ticketService.addTicketMessage(ticket.id, {
