@@ -207,8 +207,10 @@ export async function createCompany(
 export async function createCompanyContact(
   companyId: string,
   customerId: string,
-  brandId?: string
+  brandId?: string,
+  locationId?: string
 ): Promise<void> {
+  // Step 1: Assign customer as contact
   const data = await shopifyGraphQL<{
     companyAssignCustomerAsContact: {
       companyContact: { id: string } | null;
@@ -228,14 +230,58 @@ export async function createCompanyContact(
     brandId
   );
 
+  let contactId: string | null = null;
+
   if (data.companyAssignCustomerAsContact.userErrors.length > 0) {
     const errors = data.companyAssignCustomerAsContact.userErrors.map(e => e.message).join('; ');
-    // "already a contact" is not a real error on retries
     if (errors.toLowerCase().includes('already')) {
       console.log(`[trade-shopify] Customer already a contact of company, continuing.`);
-      return;
+    } else {
+      throw new Error(`Contact creation failed: ${errors}`);
     }
-    throw new Error(`Contact creation failed: ${errors}`);
+  } else {
+    contactId = data.companyAssignCustomerAsContact.companyContact?.id || null;
+  }
+
+  // Step 2: If we have contactId and locationId, assign ordering role
+  if (contactId && locationId) {
+    try {
+      // Get the "Order only" role ID
+      const rolesData = await shopifyGraphQL<{
+        companyContactRoles: { edges: Array<{ node: { id: string; name: string } }> };
+      }>(
+        `{ companyContactRoles(first: 10) { edges { node { id name } } } }`,
+        {},
+        brandId
+      );
+
+      const orderRole = rolesData.companyContactRoles.edges.find(
+        (e) => e.node.name.toLowerCase().includes('order')
+      );
+
+      if (orderRole) {
+        await shopifyGraphQL<{
+          companyContactAssignRole: { userErrors: Array<{ message: string }> };
+        }>(
+          `mutation($companyContactId: ID!, $companyContactRoleId: ID!, $companyLocationId: ID!) {
+            companyContactAssignRole(companyContactId: $companyContactId, companyContactRoleId: $companyContactRoleId, companyLocationId: $companyLocationId) {
+              userErrors { message }
+            }
+          }`,
+          {
+            companyContactId: contactId,
+            companyContactRoleId: orderRole.node.id,
+            companyLocationId: locationId,
+          },
+          brandId
+        );
+        console.log(`[trade-shopify] Assigned ordering role to contact ${contactId}`);
+      } else {
+        console.warn('[trade-shopify] No ordering role found in companyContactRoles');
+      }
+    } catch (err) {
+      console.error('[trade-shopify] Failed to assign ordering role:', err instanceof Error ? err.message : err);
+    }
   }
 }
 

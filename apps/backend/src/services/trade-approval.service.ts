@@ -98,7 +98,7 @@ export async function processApproval(
 
   // Step 3: Create Company Contact
   try {
-    await shopifyB2B.createCompanyContact(companyId, shopifyCustomerId, options.brandId);
+    await shopifyB2B.createCompanyContact(companyId, shopifyCustomerId, options.brandId, locationId);
   } catch (err) {
     throw new Error(`[Step 3 - Contact] ${err instanceof Error ? err.message : err}`);
   }
