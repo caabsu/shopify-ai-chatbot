@@ -511,6 +511,26 @@ export async function removeCatalogFromLocation(
 
 // ========== SEND CUSTOMER ACCOUNT INVITE ==========
 
+export async function deleteCustomer(customerId: string, brandId?: string): Promise<void> {
+  const data = await shopifyGraphQL<{
+    customerDelete: { deletedCustomerId: string | null; userErrors: Array<{ message: string }> };
+  }>(
+    `mutation($input: CustomerDeleteInput!) {
+      customerDelete(input: $input) {
+        deletedCustomerId
+        userErrors { message }
+      }
+    }`,
+    { input: { id: customerId } },
+    brandId
+  );
+
+  if (data.customerDelete.userErrors.length > 0) {
+    const errors = data.customerDelete.userErrors.map(e => e.message).join('; ');
+    throw new Error(`Customer deletion failed: ${errors}`);
+  }
+}
+
 export async function sendAccountInvite(customerId: string, brandId?: string): Promise<void> {
   await shopifyGraphQL(
     `mutation($id: ID!) {
