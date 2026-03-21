@@ -717,6 +717,14 @@ export default function TicketInboxPage() {
                               <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
                                 #{ticket.ticket_number}
                               </span>
+                              {ticket.tags?.includes('trade-member') && (
+                                <span
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide"
+                                  style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)' }}
+                                >
+                                  Trade
+                                </span>
+                              )}
                               <span
                                 className="text-sm font-medium truncate"
                                 style={{ color: 'var(--text-primary)' }}

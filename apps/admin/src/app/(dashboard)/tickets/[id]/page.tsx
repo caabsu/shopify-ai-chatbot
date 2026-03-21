@@ -222,6 +222,14 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             <span className="text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>
               #{ticket.ticket_number}
             </span>
+            {ticket.tags?.includes('trade-member') && (
+              <span
+                className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide"
+                style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)' }}
+              >
+                Trade
+              </span>
+            )}
             <h1 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
               {ticket.subject}
             </h1>

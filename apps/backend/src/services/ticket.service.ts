@@ -56,15 +56,14 @@ export async function createTicket(data: {
       const brandId = data.brand_id || '';
       const member = await getMemberByEmail(data.customer_email, brandId);
       if (member) {
-        const settings = await getTradeSettings(member.brand_id);
-        // Upgrade priority if trade member and current priority is lower
-        const priorityRank: Record<string, number> = { low: 0, medium: 1, high: 2, urgent: 3 };
-        const currentRank = priorityRank[data.priority || 'medium'] || 1;
-        const tradeRank = priorityRank[settings.ticket_priority_level] || 2;
-        if (tradeRank > currentRank) {
-          data.priority = settings.ticket_priority_level as any;
-          insertPayload.priority = data.priority;
-        }
+        // Trade members always get urgent priority
+        insertPayload.priority = 'urgent';
+        data.priority = 'urgent' as any;
+        // Recalculate SLA for urgent priority
+        try {
+          const urgentSla = await calculateSlaDeadline('urgent', data.brand_id);
+          if (urgentSla) insertPayload.sla_deadline = urgentSla;
+        } catch { /* keep existing SLA */ }
         // Add trade tags
         const existingTags = (insertPayload.tags as string[]) || [];
         insertPayload.tags = [...existingTags, 'trade-member'];
