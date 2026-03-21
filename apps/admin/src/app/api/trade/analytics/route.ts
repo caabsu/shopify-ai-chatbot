@@ -1,53 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 
 export async function GET(_req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const [activeMembersRes, pendingApplicationsRes, revenueRes, topMembersRes] =
-    await Promise.all([
-      // Count active members
-      supabase
-        .from('trade_members')
-        .select('id', { count: 'exact', head: true })
-        .eq('brand_id', session.brandId)
-        .eq('status', 'active'),
+  const cookieStore = await cookies();
+  const token = cookieStore.get('admin_token')?.value;
 
-      // Count pending applications
-      supabase
-        .from('trade_applications')
-        .select('id', { count: 'exact', head: true })
-        .eq('brand_id', session.brandId)
-        .eq('status', 'pending'),
+  const BACKEND_URL =
+    process.env.BACKEND_URL || 'https://shopify-ai-chatbot-production-9ab4.up.railway.app';
 
-      // Sum total_spent from active members
-      supabase
-        .from('trade_members')
-        .select('total_spent')
-        .eq('brand_id', session.brandId)
-        .eq('status', 'active'),
+  const res = await fetch(`${BACKEND_URL}/api/trade/analytics`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
-      // Top 5 members by total_spent
-      supabase
-        .from('trade_members')
-        .select('id, full_name, email, company_name, total_spent, status')
-        .eq('brand_id', session.brandId)
-        .eq('status', 'active')
-        .order('total_spent', { ascending: false })
-        .limit(5),
-    ]);
+  const data = await res.json().catch(() => ({}));
 
-  const totalRevenue = (revenueRes.data ?? []).reduce(
-    (sum, row) => sum + (row.total_spent ?? 0),
-    0
-  );
-
+  // Normalize field names for the frontend
   return NextResponse.json({
-    activeMembers: activeMembersRes.count ?? 0,
-    pendingApplications: pendingApplicationsRes.count ?? 0,
-    totalRevenue,
-    topMembers: topMembersRes.data ?? [],
+    total_members: data.total_members ?? data.activeMembers ?? 0,
+    pending_applications: data.pending_applications ?? data.pendingApplications ?? 0,
+    total_trade_revenue: data.total_trade_revenue ?? data.totalRevenue ?? 0,
+    avg_order_value: data.avg_order_value ?? 0,
+    top_members: data.top_members ?? data.topMembers ?? [],
   });
 }

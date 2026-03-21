@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   if (status && status !== 'all') query = query.eq('status', status);
   if (search) {
     query = query.or(
-      `full_name.ilike.%${search}%,email.ilike.%${search}%,company_name.ilike.%${search}%`
+      `contact_name.ilike.%${search}%,email.ilike.%${search}%,company_name.ilike.%${search}%`
     );
   }
 

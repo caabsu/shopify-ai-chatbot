@@ -217,21 +217,21 @@ export async function archiveApplication(id: string, brandId: string, actorId?: 
 }
 
 export async function deleteApplication(id: string, brandId: string, actorId?: string): Promise<void> {
-  // Nullify activity log references first (FK constraint prevents direct delete)
-  const { error: logErr } = await supabase
+  // Check if any member is linked — if so, cannot delete
+  const { count } = await supabase
+    .from('trade_members')
+    .select('id', { count: 'exact', head: true })
+    .eq('application_id', id);
+
+  if (count && count > 0) {
+    throw new Error('Cannot delete application with linked trade member');
+  }
+
+  // Clear activity log references (FK: trade_activity_log.application_id is nullable)
+  await supabase
     .from('trade_activity_log')
     .update({ application_id: null })
     .eq('application_id', id)
-    .eq('brand_id', brandId);
-
-  if (logErr) console.error('[trade.service] Failed to clear activity log refs:', logErr.message);
-
-  // Now delete the orphaned activity log entries
-  await supabase
-    .from('trade_activity_log')
-    .delete()
-    .is('application_id', null)
-    .is('member_id', null)
     .eq('brand_id', brandId);
 
   const { error } = await supabase
@@ -267,25 +267,30 @@ export async function bulkArchiveApplications(ids: string[], brandId: string, ac
 }
 
 export async function bulkDeleteApplications(ids: string[], brandId: string): Promise<number> {
-  // Nullify activity log references first (FK constraint)
+  // Find which applications have linked members (cannot delete those)
+  const { data: linkedMembers } = await supabase
+    .from('trade_members')
+    .select('application_id')
+    .in('application_id', ids);
+
+  const linkedIds = new Set((linkedMembers || []).map((m) => m.application_id));
+  const deletableIds = ids.filter((id) => !linkedIds.has(id));
+
+  if (deletableIds.length === 0) {
+    throw new Error('All selected applications have linked members and cannot be deleted');
+  }
+
+  // Clear activity log references
   await supabase
     .from('trade_activity_log')
     .update({ application_id: null })
-    .in('application_id', ids)
-    .eq('brand_id', brandId);
-
-  // Clean up orphaned log entries
-  await supabase
-    .from('trade_activity_log')
-    .delete()
-    .is('application_id', null)
-    .is('member_id', null)
+    .in('application_id', deletableIds)
     .eq('brand_id', brandId);
 
   const { data, error } = await supabase
     .from('trade_applications')
     .delete()
-    .in('id', ids)
+    .in('id', deletableIds)
     .eq('brand_id', brandId)
     .select('id');
 
