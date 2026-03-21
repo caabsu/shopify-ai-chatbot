@@ -217,11 +217,21 @@ export async function archiveApplication(id: string, brandId: string, actorId?: 
 }
 
 export async function deleteApplication(id: string, brandId: string, actorId?: string): Promise<void> {
-  // Delete activity log entries first
+  // Nullify activity log references first (FK constraint prevents direct delete)
+  const { error: logErr } = await supabase
+    .from('trade_activity_log')
+    .update({ application_id: null })
+    .eq('application_id', id)
+    .eq('brand_id', brandId);
+
+  if (logErr) console.error('[trade.service] Failed to clear activity log refs:', logErr.message);
+
+  // Now delete the orphaned activity log entries
   await supabase
     .from('trade_activity_log')
     .delete()
-    .eq('application_id', id)
+    .is('application_id', null)
+    .is('member_id', null)
     .eq('brand_id', brandId);
 
   const { error } = await supabase
@@ -230,7 +240,7 @@ export async function deleteApplication(id: string, brandId: string, actorId?: s
     .eq('id', id)
     .eq('brand_id', brandId);
 
-  if (error) throw new Error('Failed to delete application');
+  if (error) throw new Error('Failed to delete application: ' + error.message);
 }
 
 export async function bulkArchiveApplications(ids: string[], brandId: string, actorId?: string): Promise<number> {
@@ -257,11 +267,19 @@ export async function bulkArchiveApplications(ids: string[], brandId: string, ac
 }
 
 export async function bulkDeleteApplications(ids: string[], brandId: string): Promise<number> {
-  // Delete activity log entries first
+  // Nullify activity log references first (FK constraint)
+  await supabase
+    .from('trade_activity_log')
+    .update({ application_id: null })
+    .in('application_id', ids)
+    .eq('brand_id', brandId);
+
+  // Clean up orphaned log entries
   await supabase
     .from('trade_activity_log')
     .delete()
-    .in('application_id', ids)
+    .is('application_id', null)
+    .is('member_id', null)
     .eq('brand_id', brandId);
 
   const { data, error } = await supabase
@@ -271,7 +289,7 @@ export async function bulkDeleteApplications(ids: string[], brandId: string): Pr
     .eq('brand_id', brandId)
     .select('id');
 
-  if (error) throw new Error('Failed to delete applications');
+  if (error) throw new Error('Failed to delete applications: ' + error.message);
   return data?.length ?? 0;
 }
 
