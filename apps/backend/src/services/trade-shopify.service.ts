@@ -380,16 +380,16 @@ export async function createCompanyContact(
     throw new Error('No locationId provided — cannot assign ordering role');
   }
 
-  // Get available B2B contact roles
+  // Get available B2B contact roles from the company (roles are per-company, not store-wide)
   const rolesData = await shopifyGraphQL<{
-    companyContactRoles: { edges: Array<{ node: { id: string; name: string } }> };
+    company: { contactRoles: { edges: Array<{ node: { id: string; name: string } }> } } | null;
   }>(
-    `{ companyContactRoles(first: 10) { edges { node { id name } } } }`,
-    {},
+    `query($id: ID!) { company(id: $id) { contactRoles(first: 10) { edges { node { id name } } } } }`,
+    { id: companyId },
     brandId
   );
 
-  const allRoles = rolesData.companyContactRoles.edges.map(e => e.node);
+  const allRoles = rolesData.company?.contactRoles.edges.map(e => e.node) || [];
   console.log(`[trade-shopify] Available roles: ${JSON.stringify(allRoles)}`);
 
   // Prefer "Location admin" for full permissions, fall back to any role with "order", then first available

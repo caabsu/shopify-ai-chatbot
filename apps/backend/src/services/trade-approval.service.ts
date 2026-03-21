@@ -94,31 +94,29 @@ export async function processApproval(
       throw new Error(`[Steps 1-3 - Combined Create] ${err instanceof Error ? err.message : err}`);
     }
   } else {
-    // EXISTING customer — delete and recreate via combined companyCreate so the
-    // ordering role is auto-assigned (individual role mutations are scope-blocked).
+    // EXISTING customer — create company, then assign contact with proper role.
+    // Uses company.contactRoles (per-company) to discover role IDs.
     try {
-      await shopifyB2B.deleteCustomer(shopifyCustomerId, options.brandId);
-      console.log(`[trade-approval] Deleted existing customer ${shopifyCustomerId} for re-creation`);
-
-      const result = await shopifyB2B.createCompanyWithContact(
+      const result = await shopifyB2B.createCompany(
         {
           name: application.company_name,
           externalId,
           note: `${application.business_type} | ${application.website_url}`,
-          contactEmail: application.email,
-          contactFirstName: firstName,
-          contactLastName: lastName,
         },
         options.brandId
       );
       companyId = result.companyId;
       locationId = result.locationId;
-      shopifyCustomerId = result.customerId;
-      isNewCustomer = true;
-      console.log(`[trade-approval] Re-created via combined create: companyId=${companyId}, customerId=${shopifyCustomerId}`);
     } catch (err) {
-      throw new Error(`[Steps 2-3 - Existing Customer] ${err instanceof Error ? err.message : err}`);
+      throw new Error(`[Step 2 - Company] ${err instanceof Error ? err.message : err}`);
     }
+
+    try {
+      await shopifyB2B.createCompanyContact(companyId, shopifyCustomerId, options.brandId, locationId);
+    } catch (err) {
+      throw new Error(`[Step 3 - Contact] ${err instanceof Error ? err.message : err}`);
+    }
+    console.log(`[trade-approval] Existing customer flow done: companyId=${companyId}, locationId=${locationId}`);
   }
 
   // Step 4: Assign catalog to company location
