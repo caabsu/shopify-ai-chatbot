@@ -13,60 +13,84 @@
 
 import './styles/review-widget.css';
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types (matching actual API response format) ─────────────────────────────
+
+interface RatingDistribution {
+  stars: number;
+  count: number;
+}
 
 interface ReviewSummary {
   average_rating: number;
-  total_reviews: number;
-  rating_distribution: Record<string, number>;
+  total_count: number;
+  verified_count: number;
+  distribution: RatingDistribution[];
 }
 
-interface ReviewPhoto {
+interface ReviewMedia {
+  id: string;
   url: string;
-  alt?: string;
+  media_type: string;
+  sort_order: number;
 }
 
-interface OwnerReply {
+interface ReviewReply {
+  id: string;
+  author_name: string;
   body: string;
-  created_at: string;
+  published: boolean;
 }
 
 interface Review {
   id: string;
-  author_name: string;
+  product_id: string;
+  shopify_product_id: string;
+  customer_email: string;
+  customer_name: string;
+  customer_nickname: string;
   rating: number;
-  title?: string;
+  title: string | null;
   body: string;
-  verified: boolean;
+  status: string;
+  verified_purchase: boolean;
+  incentivized: boolean;
+  variant_title: string | null;
+  source: string;
+  featured: boolean;
+  helpful_count: number;
+  published_at: string;
+  submitted_at: string;
   created_at: string;
-  photos: ReviewPhoto[];
-  variant_label?: string;
-  owner_reply?: OwnerReply | null;
+  media: ReviewMedia[];
+  reply: ReviewReply | null;
 }
 
 interface ReviewsResponse {
   reviews: Review[];
-  page: number;
-  per_page: number;
   total: number;
-  total_pages: number;
-}
-
-interface WidgetConfig {
-  design?: DesignConfig;
+  page: number;
+  totalPages: number;
 }
 
 interface DesignConfig {
   starColor?: string;
-  headingColor?: string;
   textColor?: string;
-  mutedColor?: string;
-  verifiedColor?: string;
+  headingColor?: string;
   backgroundColor?: string;
-  dividerColor?: string;
-  replyBackground?: string;
-  fontFamily?: string;
+  headerText?: string;
+  buttonText?: string;
+  layout?: string;
+  showVerifiedBadge?: boolean;
+  showVariant?: boolean;
+  showDate?: boolean;
+  showPhotos?: boolean;
+  fontSize?: string;
   headingFontFamily?: string;
+  bodyFontFamily?: string;
+}
+
+interface WidgetConfig {
+  widget_design?: DesignConfig;
 }
 
 interface WidgetState {
@@ -114,7 +138,10 @@ function getScriptInfo(): { backendUrl: string; brandSlug: string } {
 function formatDate(dateStr: string): string {
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    const year = d.getFullYear();
+    return `${month}/${day}/${year}`;
   } catch {
     return dateStr;
   }
@@ -151,7 +178,6 @@ function createStarSvg(fill: 'full' | 'half' | 'empty', color: string, size: num
     path.setAttribute('stroke-width', '1');
     svg.appendChild(path);
   } else if (fill === 'half') {
-    // Define clip for half
     const defs = document.createElementNS(ns, 'defs');
     const clipId = 'orw-half-' + Math.random().toString(36).slice(2, 8);
     const clip = document.createElementNS(ns, 'clipPath');
@@ -165,7 +191,6 @@ function createStarSvg(fill: 'full' | 'half' | 'empty', color: string, size: num
     defs.appendChild(clip);
     svg.appendChild(defs);
 
-    // Filled half
     const filledPath = document.createElementNS(ns, 'path');
     filledPath.setAttribute('d', starPath);
     filledPath.setAttribute('fill', color);
@@ -174,7 +199,6 @@ function createStarSvg(fill: 'full' | 'half' | 'empty', color: string, size: num
     filledPath.setAttribute('clip-path', `url(#${clipId})`);
     svg.appendChild(filledPath);
 
-    // Empty outline
     const emptyPath = document.createElementNS(ns, 'path');
     emptyPath.setAttribute('d', starPath);
     emptyPath.setAttribute('fill', 'none');
@@ -222,23 +246,26 @@ function renderHeader(
 ): HTMLElement {
   const header = createEl('div', 'orw-header');
 
-  const title = createEl('div', 'orw-header-title', 'Customer Reviews');
+  const title = createEl('div', 'orw-header-title');
+  title.textContent = design.headerText || 'Customer Reviews';
   header.appendChild(title);
 
   const ratingRow = createEl('div', 'orw-header-rating');
-  const stars = renderStars(summary.average_rating, design.starColor || '#C4A265', 28);
+  const stars = renderStars(summary.average_rating, design.starColor || '#C4A265', 24);
   stars.classList.add('orw-header-stars');
+  ratingRow.appendChild(stars);
+
   const ratingNum = createEl('span', 'orw-header-rating-number');
   ratingNum.textContent = summary.average_rating.toFixed(1);
-  ratingRow.appendChild(stars);
   ratingRow.appendChild(ratingNum);
   header.appendChild(ratingRow);
 
   const count = createEl('div', 'orw-header-count');
-  count.textContent = `Based on ${summary.total_reviews} verified review${summary.total_reviews !== 1 ? 's' : ''}`;
+  count.textContent = `Based on ${summary.verified_count} verified review${summary.verified_count !== 1 ? 's' : ''}`;
   header.appendChild(count);
 
-  const btn = createEl('button', 'orw-header-btn', 'Write a Review');
+  const btn = createEl('button', 'orw-header-btn');
+  btn.textContent = design.buttonText || 'Write a Review';
   btn.addEventListener('click', onWriteReview);
   header.appendChild(btn);
 
@@ -252,69 +279,77 @@ function renderReviewCard(
 ): HTMLElement {
   const card = createEl('div', 'orw-card');
 
-  // Header row: name + verified + date
+  // Header row: name + verified dot + date
   const cardHeader = createEl('div', 'orw-card-header');
 
   const name = createEl('span', 'orw-card-name');
-  name.textContent = review.author_name;
+  name.textContent = review.customer_nickname || review.customer_name || 'Anonymous';
   cardHeader.appendChild(name);
 
-  if (review.verified) {
+  if (review.verified_purchase && design.showVerifiedBadge !== false) {
     const dot = createEl('span', 'orw-card-verified');
     cardHeader.appendChild(dot);
-    const vLabel = createEl('span', 'orw-card-verified-label', 'Verified');
-    cardHeader.appendChild(vLabel);
   }
 
-  const date = createEl('span', 'orw-card-date');
-  date.textContent = formatDate(review.created_at);
-  cardHeader.appendChild(date);
+  if (design.showDate !== false) {
+    const date = createEl('span', 'orw-card-date');
+    date.textContent = formatDate(review.submitted_at || review.published_at || review.created_at);
+    cardHeader.appendChild(date);
+  }
 
   card.appendChild(cardHeader);
 
   // Stars
   const starsRow = createEl('div', 'orw-card-stars');
-  starsRow.appendChild(renderStars(review.rating, design.starColor || '#C4A265', 16));
+  starsRow.appendChild(renderStars(review.rating, design.starColor || '#C4A265', 14));
   card.appendChild(starsRow);
 
-  // Body text
+  // Body text (wrapped in quotes via CSS ::before/::after)
   const body = createEl('div', 'orw-card-body');
   body.textContent = review.body;
   card.appendChild(body);
 
   // Photo thumbnails
-  if (review.photos && review.photos.length > 0) {
-    const photosRow = createEl('div', 'orw-card-photos');
-    const imageUrls = review.photos.map(p => p.url);
-    review.photos.forEach((photo, idx) => {
-      const thumb = createEl('div', 'orw-card-photo');
-      const img = createEl('img');
-      img.src = photo.url;
-      img.alt = photo.alt || `Review photo ${idx + 1}`;
-      img.loading = 'lazy';
-      thumb.appendChild(img);
-      thumb.addEventListener('click', () => onPhotoClick(imageUrls, idx));
-      photosRow.appendChild(thumb);
-    });
-    card.appendChild(photosRow);
+  if (design.showPhotos !== false && review.media && review.media.length > 0) {
+    const imageMedia = review.media.filter(m => m.media_type === 'image');
+    if (imageMedia.length > 0) {
+      const photosRow = createEl('div', 'orw-card-photos');
+      const imageUrls = imageMedia.map(m => m.url);
+      imageMedia.forEach((media, idx) => {
+        const thumb = createEl('div', 'orw-card-photo');
+        const img = createEl('img');
+        img.src = media.url;
+        img.alt = `Review photo ${idx + 1}`;
+        img.loading = 'lazy';
+        thumb.appendChild(img);
+        thumb.addEventListener('click', () => onPhotoClick(imageUrls, idx));
+        photosRow.appendChild(thumb);
+      });
+      card.appendChild(photosRow);
+    }
   }
 
   // Variant label
-  if (review.variant_label) {
+  if (design.showVariant !== false && review.variant_title) {
     const variant = createEl('div', 'orw-card-variant');
-    variant.textContent = `ITEM: ${review.variant_label}`;
+    const labelSpan = createEl('span', 'orw-card-variant-label', 'ITEM:  ');
+    variant.appendChild(labelSpan);
+    const valueSpan = createEl('span');
+    valueSpan.textContent = review.variant_title;
+    variant.appendChild(valueSpan);
     card.appendChild(variant);
   }
 
   // Owner reply
-  if (review.owner_reply && review.owner_reply.body) {
-    const reply = createEl('div', 'orw-card-reply');
-    const replyLabel = createEl('div', 'orw-card-reply-label', 'Store Reply');
-    reply.appendChild(replyLabel);
+  if (review.reply && review.reply.body && review.reply.published) {
+    const replyDiv = createEl('div', 'orw-card-reply');
+    const replyLabel = createEl('div', 'orw-card-reply-label');
+    replyLabel.textContent = review.reply.author_name || 'Store Owner';
+    replyDiv.appendChild(replyLabel);
     const replyBody = createEl('div', 'orw-card-reply-body');
-    replyBody.textContent = review.owner_reply.body;
-    reply.appendChild(replyBody);
-    card.appendChild(reply);
+    replyBody.textContent = review.reply.body;
+    replyDiv.appendChild(replyBody);
+    card.appendChild(replyDiv);
   }
 
   return card;
@@ -410,7 +445,7 @@ function renderReviewForm(
   token?: string,
 ): HTMLElement {
   const brandParam = brandSlug ? `?brand=${brandSlug}` : '';
-  const isInline = !!token; // inline form on email submission page
+  const isInline = !!token;
 
   const wrapper = isInline ? createEl('div', 'orw-inline-form') : createEl('div', 'orw-modal');
 
@@ -765,7 +800,6 @@ function renderReviewForm(
     if (newEmail && oldEmail !== undefined) newEmail.value = oldEmail;
   }
 
-  // Attach rerender to wrapper for external access
   (wrapper as unknown as Record<string, () => void>)._rerender = rerenderForm;
   formContainer = wrapper.parentElement;
 
@@ -781,7 +815,7 @@ function createReviewWidget(
   brandSlug: string,
   config: WidgetConfig,
 ): void {
-  const design: DesignConfig = config.design || {};
+  const design: DesignConfig = config.widget_design || {};
   const brandParam = brandSlug ? `?brand=${brandSlug}` : '';
 
   const state: WidgetState = {
@@ -809,12 +843,8 @@ function createReviewWidget(
   function applyDesign(d: DesignConfig): void {
     container.style.setProperty('--orw-star', d.starColor || '#C4A265');
     container.style.setProperty('--orw-text', d.textColor || '#333333');
-    container.style.setProperty('--orw-muted', d.mutedColor || '#999999');
-    container.style.setProperty('--orw-verified', d.verifiedColor || '#22c55e');
+    container.style.setProperty('--orw-heading', d.headingColor || '#C4A265');
     container.style.setProperty('--orw-bg', d.backgroundColor || '#ffffff');
-    container.style.setProperty('--orw-divider', d.dividerColor || '#eeeeee');
-    container.style.setProperty('--orw-reply-bg', d.replyBackground || '#f9f9f9');
-    container.style.setProperty('--orw-font', d.fontFamily || 'inherit');
   }
 
   applyDesign(design);
@@ -848,13 +878,11 @@ function createReviewWidget(
       closeForm,
       () => {
         closeForm();
-        // Refresh reviews
         fetchAll();
       },
     );
     document.body.appendChild(formEl);
 
-    // Close on Escape
     function handleEsc(e: KeyboardEvent): void {
       if (e.key === 'Escape' && state.formOpen) closeForm();
     }
@@ -898,12 +926,13 @@ function createReviewWidget(
     }
 
     // If no reviews yet
-    if (!state.summary || state.summary.total_reviews === 0) {
+    if (!state.summary || state.summary.total_count === 0) {
       const emptyHeader = createEl('div', 'orw-header');
-      const emptyTitle = createEl('div', 'orw-header-title', 'Customer Reviews');
+      const emptyTitle = createEl('div', 'orw-header-title');
+      emptyTitle.textContent = design.headerText || 'Customer Reviews';
       emptyHeader.appendChild(emptyTitle);
 
-      const emptyStars = renderStars(0, design.starColor || '#C4A265', 28);
+      const emptyStars = renderStars(0, design.starColor || '#C4A265', 24);
       emptyStars.classList.add('orw-header-stars');
       const emptyRating = createEl('div', 'orw-header-rating');
       emptyRating.appendChild(emptyStars);
@@ -924,6 +953,9 @@ function createReviewWidget(
       wrap.appendChild(emptyBody);
 
       container.appendChild(wrap);
+
+      // Post loaded event
+      window.parent.postMessage({ type: 'orw:loaded', data: { total: 0, average: 0 } }, '*');
       return;
     }
 
@@ -953,6 +985,15 @@ function createReviewWidget(
     }
 
     container.appendChild(wrap);
+
+    // Post loaded event
+    window.parent.postMessage({
+      type: 'orw:loaded',
+      data: {
+        total: state.summary.total_count,
+        average: state.summary.average_rating,
+      },
+    }, '*');
   }
 
   async function fetchAll(): Promise<void> {
@@ -965,20 +1006,20 @@ function createReviewWidget(
     try {
       const [summaryRes, reviewsRes] = await Promise.all([
         fetch(`${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}/summary${brandParam}`),
-        fetch(`${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=1&per_page=${state.perPage}${brandParam ? '&' + brandParam.slice(1) : ''}`),
+        fetch(`${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=1&per_page=${state.perPage}&sort=newest${brandParam ? '&' + brandParam.slice(1) : ''}`),
       ]);
 
       if (summaryRes.ok) {
         state.summary = await summaryRes.json();
       } else {
-        state.summary = { average_rating: 0, total_reviews: 0, rating_distribution: {} };
+        state.summary = { average_rating: 0, total_count: 0, verified_count: 0, distribution: [] };
       }
 
       if (reviewsRes.ok) {
         const data: ReviewsResponse = await reviewsRes.json();
         state.reviews = data.reviews || [];
         state.page = data.page || 1;
-        state.totalPages = data.total_pages || 0;
+        state.totalPages = data.totalPages || 0;
         state.totalReviews = data.total || 0;
       } else {
         state.reviews = [];
@@ -997,7 +1038,6 @@ function createReviewWidget(
     if (state.loadingMore || state.page >= state.totalPages) return;
 
     state.loadingMore = true;
-    // Update button text without full re-render
     const btn = container.querySelector('.orw-load-more') as HTMLButtonElement | null;
     if (btn) {
       btn.textContent = 'Loading...';
@@ -1007,14 +1047,14 @@ function createReviewWidget(
     const nextPage = state.page + 1;
     try {
       const res = await fetch(
-        `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=${nextPage}&per_page=${state.perPage}${brandParam ? '&' + brandParam.slice(1) : ''}`,
+        `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=${nextPage}&per_page=${state.perPage}&sort=newest${brandParam ? '&' + brandParam.slice(1) : ''}`,
       );
 
       if (res.ok) {
         const data: ReviewsResponse = await res.json();
         state.reviews = state.reviews.concat(data.reviews || []);
         state.page = data.page || nextPage;
-        state.totalPages = data.total_pages || state.totalPages;
+        state.totalPages = data.totalPages || state.totalPages;
       }
 
       state.loadingMore = false;
@@ -1054,7 +1094,6 @@ async function init(): Promise<void> {
     const token = formRoot.getAttribute('data-token') || '';
     const handle = formRoot.getAttribute('data-product-handle') || '';
 
-    // Fetch config
     let config: WidgetConfig = {};
     try {
       const res = await fetch(`${backendUrl}/api/reviews/widget/config${brandParam}`, {
@@ -1063,17 +1102,13 @@ async function init(): Promise<void> {
       if (res.ok) config = await res.json();
     } catch { /* use defaults */ }
 
-    const design: DesignConfig = config.design || {};
+    const design: DesignConfig = config.widget_design || {};
 
     // Apply CSS variables
     formRoot.style.setProperty('--orw-star', design.starColor || '#C4A265');
     formRoot.style.setProperty('--orw-text', design.textColor || '#333333');
-    formRoot.style.setProperty('--orw-muted', design.mutedColor || '#999999');
-    formRoot.style.setProperty('--orw-verified', design.verifiedColor || '#22c55e');
+    formRoot.style.setProperty('--orw-heading', design.headingColor || '#C4A265');
     formRoot.style.setProperty('--orw-bg', design.backgroundColor || '#ffffff');
-    formRoot.style.setProperty('--orw-divider', design.dividerColor || '#eeeeee');
-    formRoot.style.setProperty('--orw-reply-bg', design.replyBackground || '#f9f9f9');
-    formRoot.style.setProperty('--orw-font', design.fontFamily || 'inherit');
 
     const state: WidgetState = {
       loading: false,
@@ -1102,10 +1137,8 @@ async function init(): Promise<void> {
       backendUrl,
       brandSlug,
       state,
-      () => {}, // no close for inline
-      () => {
-        // Redirect or show thank you
-      },
+      () => {},
+      () => {},
       token,
     );
     formRoot.appendChild(formEl);
@@ -1116,7 +1149,7 @@ async function init(): Promise<void> {
   const container = document.getElementById('outlight-reviews')
     || document.querySelector('[data-outlight-reviews]') as HTMLElement | null;
 
-  if (!container) return; // No container found, do nothing
+  if (!container) return;
 
   const handle = container.getAttribute('data-product-handle') || '';
   if (!handle) {

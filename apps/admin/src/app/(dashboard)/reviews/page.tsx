@@ -19,25 +19,46 @@ import {
 } from 'lucide-react';
 import { useBrand } from '@/components/brand-context';
 
+interface ReviewMedia {
+  id: string;
+  url: string;
+  media_type: string;
+}
+
+interface ReviewReply {
+  id: string;
+  author_name: string;
+  body: string;
+}
+
 interface Review {
   id: string;
   product_id: string;
-  product_title: string;
-  product_handle: string;
-  customer_name: string;
+  shopify_product_id: string | null;
   customer_email: string;
+  customer_name: string;
+  customer_nickname: string | null;
   rating: number;
-  title: string;
+  title: string | null;
   body: string;
   status: 'published' | 'pending' | 'rejected' | 'archived';
   verified_purchase: boolean;
+  incentivized: boolean;
+  variant_title: string | null;
   source: string;
-  media_urls: string[];
-  admin_reply: string | null;
-  admin_reply_author: string | null;
-  admin_reply_at: string | null;
+  featured: boolean;
+  helpful_count: number;
+  report_count: number;
+  published_at: string | null;
+  submitted_at: string | null;
   created_at: string;
   updated_at: string;
+  brand_id: string;
+  product_title: string | null;
+  media_count: number;
+  // Populated when expanded (from detail endpoint)
+  media?: ReviewMedia[];
+  reply?: ReviewReply | null;
 }
 
 interface FilterCounts {
@@ -148,7 +169,7 @@ export default function AllReviewsPage() {
     try {
       const res = await fetch(`/api/reviews?${params}`);
       const data = await res.json();
-      setReviews(data.reviews ?? []);
+      setReviews(data.items ?? []);
       setTotal(data.total ?? 0);
       setTotalPages(data.totalPages ?? 1);
     } catch {
@@ -193,29 +214,11 @@ export default function AllReviewsPage() {
     if (selected.size === 0) return;
     setBulkLoading(true);
     try {
-      const statusMap: Record<string, string> = {
-        publish: 'published',
-        reject: 'rejected',
-        archive: 'archived',
-      };
-
-      if (action === 'delete') {
-        await Promise.all(
-          Array.from(selected).map((id) =>
-            fetch(`/api/reviews/${id}`, { method: 'DELETE' }),
-          ),
-        );
-      } else {
-        await Promise.all(
-          Array.from(selected).map((id) =>
-            fetch(`/api/reviews/${id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: statusMap[action] }),
-            }),
-          ),
-        );
-      }
+      await fetch('/api/reviews/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selected), action }),
+      });
       setSelected(new Set());
       loadReviews();
       loadCounts();
@@ -225,31 +228,56 @@ export default function AllReviewsPage() {
     setBulkLoading(false);
   }
 
-  function handleExpand(review: Review) {
+  async function handleExpand(review: Review) {
     if (expandedId === review.id) {
       setExpandedId(null);
-    } else {
-      setExpandedId(review.id);
-      setReplyText(review.admin_reply || '');
-      setReplyAuthor(review.admin_reply_author || '');
+      return;
+    }
+    setExpandedId(review.id);
+    setReplyText('');
+    setReplyAuthor('');
+
+    // Load detail (media + reply) from detail endpoint
+    try {
+      const res = await fetch(`/api/reviews/${review.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        const detail = data.review ?? data;
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.id === review.id
+              ? { ...r, media: detail.media ?? [], reply: detail.reply ?? null }
+              : r,
+          ),
+        );
+        if (detail.reply) {
+          setReplyText(detail.reply.body || '');
+          setReplyAuthor(detail.reply.author_name || '');
+        }
+      }
+    } catch {
+      // ignore
     }
   }
 
   async function handleSaveReply(reviewId: string) {
     setReplySaving(true);
     try {
-      await fetch(`/api/reviews/${reviewId}/reply`, {
-        method: 'PUT',
+      const res = await fetch(`/api/reviews/${reviewId}/reply`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reply: replyText, author: replyAuthor }),
+        body: JSON.stringify({ author_name: replyAuthor, body: replyText }),
       });
-      setReviews((prev) =>
-        prev.map((r) =>
-          r.id === reviewId
-            ? { ...r, admin_reply: replyText, admin_reply_author: replyAuthor, admin_reply_at: new Date().toISOString() }
-            : r,
-        ),
-      );
+      if (res.ok) {
+        const data = await res.json();
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.id === reviewId
+              ? { ...r, reply: data.reply ?? { author_name: replyAuthor, body: replyText, id: '' } }
+              : r,
+          ),
+        );
+      }
     } catch {
       // ignore
     }
@@ -273,7 +301,7 @@ export default function AllReviewsPage() {
   async function handleQuickStatus(reviewId: string, newStatus: string) {
     try {
       await fetch(`/api/reviews/${reviewId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
@@ -548,11 +576,22 @@ export default function AllReviewsPage() {
                                 className="text-sm font-medium truncate"
                                 style={{ color: 'var(--text-primary)' }}
                               >
-                                {review.customer_name || 'Anonymous'}
+                                {review.customer_nickname || review.customer_name || 'Anonymous'}
                               </span>
+                              {review.source && (
+                                <span
+                                  className="text-[9px] font-medium px-1.5 py-0.5 rounded-full uppercase"
+                                  style={{
+                                    backgroundColor: 'rgba(107,114,128,0.10)',
+                                    color: 'var(--text-tertiary)',
+                                  }}
+                                >
+                                  {review.source}
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs mb-1 truncate" style={{ color: 'var(--text-secondary)' }}>
-                              {review.product_title}
+                              {review.product_title || 'Unknown Product'}
                             </p>
                             <Stars rating={review.rating} size={12} />
                           </div>
@@ -582,16 +621,16 @@ export default function AllReviewsPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-2">
-                              {review.media_urls.length > 0 && (
+                              {review.media_count > 0 && (
                                 <span
                                   className="flex items-center gap-0.5 text-[10px]"
                                   style={{ color: 'var(--text-tertiary)' }}
                                 >
-                                  <Camera size={10} /> {review.media_urls.length}
+                                  <Camera size={10} /> {review.media_count}
                                 </span>
                               )}
                               <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                                {timeAgo(review.created_at)}
+                                {timeAgo(review.submitted_at || review.created_at)}
                               </span>
                             </div>
                             <div className="pt-0.5" style={{ color: 'var(--text-tertiary)' }}>
@@ -621,22 +660,29 @@ export default function AllReviewsPage() {
                               </p>
 
                               {/* Media gallery */}
-                              {review.media_urls.length > 0 && (
+                              {review.media && review.media.length > 0 && (
                                 <div className="flex gap-2 flex-wrap">
-                                  {review.media_urls.map((url, i) => (
+                                  {review.media.map((m, i) => (
                                     <a
-                                      key={i}
-                                      href={url}
+                                      key={m.id || i}
+                                      href={m.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="block w-20 h-20 rounded-lg overflow-hidden"
                                       style={{ border: '1px solid var(--border-primary)' }}
                                     >
-                                      <img
-                                        src={url}
-                                        alt={`Review photo ${i + 1}`}
-                                        className="w-full h-full object-cover"
-                                      />
+                                      {m.media_type === 'video' ? (
+                                        <video
+                                          src={m.url}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <img
+                                          src={m.url}
+                                          alt={`Review photo ${i + 1}`}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      )}
                                     </a>
                                   ))}
                                 </div>

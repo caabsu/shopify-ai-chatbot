@@ -62,9 +62,30 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Fetch media counts for the reviews
+  const reviewIds = (reviews ?? []).map((r) => r.id);
+  let mediaCountMap: Record<string, number> = {};
+
+  if (reviewIds.length > 0) {
+    for (let i = 0; i < reviewIds.length; i += 200) {
+      const batch = reviewIds.slice(i, i + 200);
+      const { data: mediaCounts } = await supabase
+        .from('review_media')
+        .select('review_id')
+        .in('review_id', batch);
+
+      if (mediaCounts) {
+        for (const m of mediaCounts) {
+          mediaCountMap[m.review_id] = (mediaCountMap[m.review_id] || 0) + 1;
+        }
+      }
+    }
+  }
+
   const items = (reviews ?? []).map((r) => ({
     ...r,
     product_title: r.product_id ? productMap[r.product_id] || null : null,
+    media_count: mediaCountMap[r.id] || 0,
   }));
 
   return NextResponse.json({

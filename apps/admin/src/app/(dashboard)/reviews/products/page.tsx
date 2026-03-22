@@ -9,10 +9,10 @@ interface Product {
   shopify_product_id: string;
   title: string;
   handle: string;
-  image_url: string | null;
+  featured_image_url: string | null;
   status: string;
   review_count: number;
-  average_rating: number | null;
+  average_rating: number;
   created_at: string;
 }
 
@@ -51,7 +51,7 @@ export default function ReviewProductsPage() {
     try {
       const res = await fetch('/api/reviews/products');
       const data = await res.json();
-      setProducts(data.products ?? []);
+      setProducts(data.items ?? []);
     } catch {
       setProducts([]);
     }
@@ -179,7 +179,7 @@ export default function ReviewProductsPage() {
                     key={product.id}
                     className="transition-colors cursor-pointer"
                     onClick={() => {
-                      window.location.href = `/reviews?product_id=${product.shopify_product_id}`;
+                      window.location.href = `/reviews?product_id=${product.id}`;
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
@@ -197,9 +197,9 @@ export default function ReviewProductsPage() {
                             border: '1px solid var(--border-primary)',
                           }}
                         >
-                          {product.image_url ? (
+                          {product.featured_image_url ? (
                             <img
-                              src={product.image_url}
+                              src={product.featured_image_url}
                               alt={product.title}
                               className="w-full h-full object-cover"
                             />
