@@ -392,3 +392,183 @@ export interface TradeActivityLog {
   details: Record<string, unknown>;
   created_at: string;
 }
+
+// ── Reviews ──────────────────────────────────────
+
+export interface Product {
+  id: string;
+  shopify_product_id: string;
+  title: string;
+  handle: string;
+  product_type: string | null;
+  vendor: string | null;
+  status: string;
+  featured_image_url: string | null;
+  variants: ProductVariant[];
+  tags: string[];
+  synced_at: string;
+  brand_id: string;
+  created_at: string;
+  updated_at: string;
+  review_count?: number;
+  average_rating?: number;
+}
+
+export interface ProductVariant {
+  id: string;
+  title: string;
+  price: string;
+  sku: string | null;
+}
+
+export interface Review {
+  id: string;
+  product_id: string;
+  shopify_product_id: string | null;
+  shopify_order_id: string | null;
+  customer_email: string;
+  customer_name: string;
+  customer_nickname: string | null;
+  rating: number;
+  title: string | null;
+  body: string;
+  status: 'pending' | 'published' | 'rejected' | 'archived';
+  verified_purchase: boolean;
+  incentivized: boolean;
+  variant_title: string | null;
+  source: 'import' | 'email_request' | 'organic' | 'manual';
+  import_source_id: string | null;
+  featured: boolean;
+  helpful_count: number;
+  report_count: number;
+  published_at: string | null;
+  submitted_at: string;
+  brand_id: string;
+  created_at: string;
+  updated_at: string;
+  media?: ReviewMedia[];
+  reply?: ReviewReply | null;
+  product?: Product;
+}
+
+export interface ReviewMedia {
+  id: string;
+  review_id: string;
+  storage_path: string;
+  url: string;
+  media_type: 'image' | 'video';
+  sort_order: number;
+  file_size: number | null;
+  width: number | null;
+  height: number | null;
+  created_at: string;
+}
+
+export interface ReviewReply {
+  id: string;
+  review_id: string;
+  author_name: string;
+  author_email: string | null;
+  body: string;
+  published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReviewRequest {
+  id: string;
+  shopify_order_id: string;
+  shopify_customer_id: string | null;
+  customer_email: string;
+  customer_name: string | null;
+  product_ids: string[];
+  status: 'scheduled' | 'sent' | 'reminded' | 'completed' | 'cancelled' | 'bounced' | 'expired';
+  scheduled_for: string;
+  sent_at: string | null;
+  reminder_scheduled_for: string | null;
+  reminder_sent_at: string | null;
+  completed_at: string | null;
+  token: string;
+  brand_id: string;
+  created_at: string;
+}
+
+export interface ReviewSettings {
+  id: string;
+  brand_id: string;
+  auto_publish: boolean;
+  auto_publish_min_rating: number;
+  auto_publish_verified_only: boolean;
+  profanity_filter: boolean;
+  request_enabled: boolean;
+  request_delay_days: number;
+  reminder_enabled: boolean;
+  reminder_delay_days: number;
+  incentive_enabled: boolean;
+  incentive_type: string | null;
+  incentive_value: string | null;
+  sender_name: string | null;
+  sender_email: string | null;
+  review_form_fields: Record<string, unknown>;
+  widget_design: ReviewWidgetDesign;
+  reviews_per_page: number;
+  default_sort: string;
+  show_verified_badge: boolean;
+  show_incentivized_disclosure: boolean;
+  incentivized_disclosure_text: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReviewWidgetDesign {
+  starColor: string;
+  starStyle: 'filled' | 'outlined';
+  backgroundColor: string;
+  textColor: string;
+  headingColor: string;
+  headingFontFamily: string;
+  bodyFontFamily: string;
+  fontSize: 'small' | 'medium' | 'large';
+  borderRadius: 'sharp' | 'rounded' | 'pill';
+  cardStyle: 'bordered' | 'shadow' | 'minimal';
+  buttonStyle: 'outlined' | 'filled' | 'minimal';
+  buttonText: string;
+  headerText: string;
+  reviewsPerPage: number;
+  defaultSort: 'newest' | 'oldest' | 'highest' | 'lowest' | 'most_helpful';
+  showVerifiedBadge: boolean;
+  showVariant: boolean;
+  showDate: boolean;
+  showPhotos: boolean;
+  layout: 'grid' | 'list';
+}
+
+export interface ReviewEmailTemplate {
+  id: string;
+  brand_id: string;
+  template_type: 'request' | 'reminder' | 'thank_you';
+  subject: string;
+  body_html: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReviewSummary {
+  average_rating: number;
+  total_count: number;
+  verified_count: number;
+  distribution: { stars: number; count: number }[];
+}
+
+export interface ReviewImportResult {
+  imported: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+}
+
+export interface ModerationResult {
+  action: 'publish' | 'pending' | 'reject';
+  reasons: string[];
+}

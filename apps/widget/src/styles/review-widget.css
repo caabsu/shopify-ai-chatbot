@@ -1,0 +1,631 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+   Outlight Review Widget — Styles
+   Prefix: orw-
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Reset & Container ── */
+.orw-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: var(--orw-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);
+  font-size: 15px;
+  color: var(--orw-text, #333333);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.orw-container *, .orw-container *::before, .orw-container *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Header ── */
+.orw-header {
+  text-align: center;
+  padding: 32px 16px 28px;
+  border-bottom: 1px solid var(--orw-divider, #eeeeee);
+  margin-bottom: 32px;
+}
+.orw-header-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--orw-star, #C4A265);
+  margin-bottom: 12px;
+  font-variant: small-caps;
+}
+.orw-header-rating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.orw-header-rating-number {
+  font-size: 42px;
+  font-weight: 700;
+  color: var(--orw-text, #333333);
+  line-height: 1;
+}
+.orw-header-stars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.orw-header-count {
+  font-size: 14px;
+  color: var(--orw-muted, #999999);
+  margin-bottom: 20px;
+}
+.orw-header-btn {
+  display: inline-block;
+  padding: 10px 28px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--orw-text, #333333);
+  background: transparent;
+  border: 1.5px solid var(--orw-text, #333333);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  font-family: inherit;
+}
+.orw-header-btn:hover {
+  background: var(--orw-text, #333333);
+  color: #ffffff;
+}
+
+/* ── Stars (generic) ── */
+.orw-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.orw-star-icon {
+  flex-shrink: 0;
+}
+
+/* ── Reviews Grid ── */
+.orw-reviews-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+/* ── Card ── */
+.orw-card {
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--orw-divider, #eeeeee);
+  border-right: 1px solid var(--orw-divider, #eeeeee);
+}
+.orw-reviews-grid .orw-card:nth-child(2n) {
+  border-right: none;
+}
+.orw-card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+.orw-card-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--orw-text, #333333);
+}
+.orw-card-verified {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--orw-verified, #22c55e);
+  flex-shrink: 0;
+}
+.orw-card-verified-label {
+  font-size: 11px;
+  color: var(--orw-verified, #22c55e);
+  font-weight: 500;
+}
+.orw-card-date {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--orw-muted, #999999);
+  white-space: nowrap;
+}
+.orw-card-stars {
+  margin-bottom: 10px;
+}
+.orw-card-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--orw-text, #333333);
+  margin-bottom: 12px;
+  font-style: italic;
+}
+.orw-card-body::before {
+  content: '\201C';
+}
+.orw-card-body::after {
+  content: '\201D';
+}
+.orw-card-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.orw-card-photo {
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--orw-divider, #eeeeee);
+  transition: opacity 0.2s;
+}
+.orw-card-photo:hover {
+  opacity: 0.8;
+}
+.orw-card-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.orw-card-variant {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--orw-muted, #999999);
+  margin-bottom: 8px;
+}
+.orw-card-reply {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--orw-reply-bg, #f9f9f9);
+  border-left: 3px solid var(--orw-star, #C4A265);
+  border-radius: 0 6px 6px 0;
+}
+.orw-card-reply-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--orw-text, #333333);
+  margin-bottom: 4px;
+}
+.orw-card-reply-body {
+  font-size: 13px;
+  color: var(--orw-text, #333333);
+  line-height: 1.6;
+}
+
+/* ── Load More ── */
+.orw-load-more-wrap {
+  text-align: center;
+  padding: 28px 16px;
+}
+.orw-load-more {
+  display: inline-block;
+  padding: 10px 32px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--orw-text, #333333);
+  background: transparent;
+  border: 1.5px solid var(--orw-divider, #eeeeee);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  font-family: inherit;
+}
+.orw-load-more:hover {
+  border-color: var(--orw-text, #333333);
+}
+.orw-load-more:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Empty State ── */
+.orw-empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--orw-muted, #999999);
+}
+.orw-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+.orw-empty-text {
+  font-size: 15px;
+  margin-bottom: 20px;
+}
+
+/* ── Loading ── */
+.orw-loading {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--orw-muted, #999999);
+}
+.orw-spinner {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--orw-divider, #eeeeee);
+  border-top-color: var(--orw-star, #C4A265);
+  border-radius: 50%;
+  animation: orw-spin 0.8s linear infinite;
+}
+@keyframes orw-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Error ── */
+.orw-error {
+  text-align: center;
+  padding: 32px 16px;
+  color: #991b1b;
+  font-size: 14px;
+}
+
+/* ── Modal (Review Form) ── */
+.orw-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  animation: orw-fade-in 0.2s ease;
+}
+@keyframes orw-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.orw-form {
+  background: #ffffff;
+  width: 90%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 8px;
+  padding: 32px;
+  position: relative;
+  animation: orw-slide-up 0.25s ease;
+}
+@keyframes orw-slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.orw-form-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--orw-muted, #999999);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.15s;
+}
+.orw-form-close:hover {
+  background: #f0f0f0;
+}
+.orw-form-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--orw-text, #333333);
+}
+.orw-form-field {
+  margin-bottom: 18px;
+}
+.orw-form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--orw-text, #333333);
+  margin-bottom: 6px;
+}
+.orw-form-required {
+  color: #dc2626;
+  margin-left: 2px;
+}
+.orw-form-input,
+.orw-form-textarea,
+.orw-form-select {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1.5px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--orw-text, #333333);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+.orw-form-input::placeholder,
+.orw-form-textarea::placeholder {
+  color: #9ca3af;
+}
+.orw-form-input:focus,
+.orw-form-textarea:focus,
+.orw-form-select:focus {
+  border-color: var(--orw-star, #C4A265);
+  box-shadow: 0 0 0 3px rgba(196, 162, 101, 0.15);
+}
+.orw-form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+.orw-form-row {
+  display: flex;
+  gap: 16px;
+}
+.orw-form-row .orw-form-field {
+  flex: 1;
+}
+
+/* ── Star Picker ── */
+.orw-star-picker {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.orw-star-picker-star {
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.orw-star-picker-star:hover {
+  transform: scale(1.15);
+}
+
+/* ── Photo Upload ── */
+.orw-photo-upload {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  color: var(--orw-muted, #999999);
+  font-size: 13px;
+}
+.orw-photo-upload:hover,
+.orw-photo-upload.orw-drag-over {
+  border-color: var(--orw-star, #C4A265);
+  background: rgba(196, 162, 101, 0.04);
+}
+.orw-photo-upload-icon {
+  margin-bottom: 6px;
+}
+.orw-photo-upload-text {
+  font-size: 13px;
+}
+.orw-photo-upload-hint {
+  font-size: 11px;
+  color: #b0b0b0;
+  margin-top: 4px;
+}
+.orw-photo-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.orw-photo-preview {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--orw-divider, #eeeeee);
+}
+.orw-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.orw-photo-preview-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  padding: 0;
+}
+
+/* ── Form Submit Button ── */
+.orw-form-submit {
+  width: 100%;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #ffffff;
+  background: var(--orw-star, #C4A265);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  font-family: inherit;
+  margin-top: 8px;
+}
+.orw-form-submit:hover {
+  opacity: 0.9;
+}
+.orw-form-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Form Success ── */
+.orw-form-success {
+  text-align: center;
+  padding: 32px 16px;
+}
+.orw-form-success-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  background: var(--orw-star, #C4A265);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.orw-form-success-icon svg {
+  width: 28px;
+  height: 28px;
+  color: #ffffff;
+}
+.orw-form-success-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--orw-text, #333333);
+  margin-bottom: 8px;
+}
+.orw-form-success-text {
+  font-size: 14px;
+  color: var(--orw-muted, #999999);
+  line-height: 1.6;
+}
+
+/* ── Form Error ── */
+.orw-form-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* ── Lightbox ── */
+.orw-lightbox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000000;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: orw-fade-in 0.2s ease;
+}
+.orw-lightbox-img {
+  max-width: 90%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.orw-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #ffffff;
+  font-size: 24px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.orw-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+.orw-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #ffffff;
+  font-size: 22px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.orw-lightbox-nav:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+.orw-lightbox-prev {
+  left: 16px;
+}
+.orw-lightbox-next {
+  right: 16px;
+}
+.orw-lightbox-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+/* ── Inline Form (email-based submission page) ── */
+.orw-inline-form {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .orw-reviews-grid {
+    grid-template-columns: 1fr;
+  }
+  .orw-card {
+    border-right: none;
+  }
+  .orw-header-rating-number {
+    font-size: 34px;
+  }
+  .orw-form {
+    width: 95%;
+    padding: 24px 20px;
+  }
+  .orw-form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+}

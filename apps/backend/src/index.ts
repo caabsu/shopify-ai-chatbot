@@ -9,6 +9,8 @@ import { ticketRouter } from './controllers/ticket.controller.js';
 import { agentRouter } from './controllers/agent.controller.js';
 import { returnRouter } from './controllers/return.controller.js';
 import { tradeRouter } from './controllers/trade.controller.js';
+import { reviewRouter } from './controllers/review.controller.js';
+import { processScheduledEmails, processScheduledReminders, expireOldRequests } from './services/review-email.service.js';
 import { supabase } from './config/supabase.js';
 import { resolveBrandId } from './config/brand.js';
 import { getToken } from './services/shopify-auth.service.js';
@@ -415,6 +417,55 @@ app.get('/widget/preview-returns', async (req, res) => {
     window.__SRP_DEBUG = ${req.query.debug === '1' ? 'true' : 'false'};
   </script>
   <script src="/widget/returns-portal.js"${dataBrandAttr}></script>
+</body>
+</html>`);
+});
+
+// Review widget preview (for admin playground)
+app.get('/widget/preview-reviews', (req, res) => {
+  const brandSlug = (req.query.brand as string || '').toLowerCase();
+  const dataBrandAttr = brandSlug && brandSlug !== 'outlight' ? ` data-brand="${brandSlug}"` : '';
+  const handle = (req.query.handle as string) || 'aven';
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Widget Preview</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
+    #outlight-reviews { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+  </style>
+</head>
+<body>
+  <div id="outlight-reviews" data-product-handle="${handle}"></div>
+  <script src="/widget/review-widget.js"${dataBrandAttr}></script>
+</body>
+</html>`);
+});
+
+// Review submission page (from email links)
+app.get('/review', (req, res) => {
+  const token = req.query.token as string;
+  if (!token) { res.status(400).send('Missing token'); return; }
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Write a Review</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
+  </style>
+</head>
+<body>
+  <div id="review-form-root" data-token="${token}"></div>
+  <script src="/widget/review-widget.js"></script>
 </body>
 </html>`);
 });
@@ -1481,6 +1532,9 @@ app.use('/api/returns', returnRouter);
 // Trade program routes
 app.use('/api/trade', tradeRouter);
 
+// Reviews routes
+app.use('/api/reviews', reviewRouter);
+
 // Widget config endpoint
 app.get('/api/widget/config', async (req, res) => {
   // Allow short browser caching to avoid repeated fetches on page loads
@@ -1617,6 +1671,18 @@ app.listen(config.server.port, async () => {
   console.log(`[server] Running on port ${config.server.port}`);
   console.log(`[server] Environment: ${config.server.nodeEnv}`);
   await runStartupChecks();
+
+  // Review email job runner (every 5 minutes)
+  setInterval(async () => {
+    try {
+      await processScheduledEmails();
+      await processScheduledReminders();
+      await expireOldRequests();
+    } catch (err) {
+      console.error('[review-email-job] Error:', err instanceof Error ? err.message : String(err));
+    }
+  }, 5 * 60 * 1000);
+  console.log('[server] Review email job runner started (5m interval)');
 });
 
 export { app };

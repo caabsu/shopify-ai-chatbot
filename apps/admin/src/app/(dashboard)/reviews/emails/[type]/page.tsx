@@ -1,0 +1,320 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { ArrowLeft, Save, Check, Eye, Code } from 'lucide-react';
+import Link from 'next/link';
+
+interface EmailTemplate {
+  id: string;
+  template_type: string;
+  enabled: boolean;
+  subject: string;
+  body_html: string;
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  request: 'Review Request',
+  reminder: 'Reminder',
+  thank_you: 'Thank You',
+};
+
+const AVAILABLE_VARIABLES = ['customer_name', 'product_title', 'review_link', 'brand_name'];
+
+const SAMPLE_VARS: Record<string, string> = {
+  customer_name: 'Jane',
+  product_title: 'Classic Tee',
+  review_link: 'https://example.com/review/abc123',
+  brand_name: 'Outlight',
+};
+
+export default function ReviewEmailTemplateEditorPage() {
+  const params = useParams();
+  const router = useRouter();
+  const type = params.type as string;
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState<'html' | 'preview'>('html');
+
+  const [enabled, setEnabled] = useState(true);
+  const [subject, setSubject] = useState('');
+  const [bodyHtml, setBodyHtml] = useState('');
+  const [originalSubject, setOriginalSubject] = useState('');
+  const [originalBody, setOriginalBody] = useState('');
+  const [originalEnabled, setOriginalEnabled] = useState(true);
+
+  useEffect(() => {
+    if (!TYPE_LABELS[type]) {
+      router.replace('/reviews/emails');
+      return;
+    }
+    fetch(`/api/reviews/emails/${type}`)
+      .then((r) => {
+        if (!r.ok) throw new Error('Not found');
+        return r.json();
+      })
+      .then((data) => {
+        setEnabled(data.enabled ?? true);
+        setSubject(data.subject ?? '');
+        setBodyHtml(data.body_html ?? '');
+        setOriginalEnabled(data.enabled ?? true);
+        setOriginalSubject(data.subject ?? '');
+        setOriginalBody(data.body_html ?? '');
+      })
+      .catch(() => {
+        // Template not found -- allow creating from scratch
+      })
+      .finally(() => setLoading(false));
+  }, [type, router]);
+
+  const hasChanges =
+    subject !== originalSubject || bodyHtml !== originalBody || enabled !== originalEnabled;
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      await fetch(`/api/reviews/emails/${type}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled, subject, body_html: bodyHtml }),
+      });
+      setOriginalSubject(subject);
+      setOriginalBody(bodyHtml);
+      setOriginalEnabled(enabled);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      // ignore
+    }
+    setSaving(false);
+  }, [type, enabled, subject, bodyHtml]);
+
+  function renderPreview(html: string): string {
+    let rendered = html;
+    for (const [key, value] of Object.entries(SAMPLE_VARS)) {
+      rendered = rendered.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+    }
+    return rendered;
+  }
+
+  if (loading) {
+    return (
+      <div className="animate-pulse space-y-4">
+        <div className="h-8 w-48 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+        <div className="h-96 rounded-xl" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/reviews/emails" className="transition-colors" style={{ color: 'var(--text-tertiary)' }}>
+            <ArrowLeft size={16} />
+          </Link>
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {TYPE_LABELS[type]} Email
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              Edit the {TYPE_LABELS[type]?.toLowerCase()} email template
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Enable toggle */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              {enabled ? 'Enabled' : 'Disabled'}
+            </span>
+            <button
+              onClick={() => setEnabled(!enabled)}
+              className="w-10 h-6 rounded-full transition-colors relative flex-shrink-0"
+              style={{
+                backgroundColor: enabled ? 'var(--color-accent)' : 'var(--border-primary)',
+              }}
+            >
+              <div
+                className="w-4 h-4 bg-white rounded-full absolute top-1 transition-transform"
+                style={{ left: enabled ? '20px' : '4px' }}
+              />
+            </button>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving || !hasChanges}
+            className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50"
+            style={{ backgroundColor: 'var(--color-accent)' }}
+          >
+            {saved ? (
+              <>
+                <Check size={14} /> Saved
+              </>
+            ) : saving ? (
+              'Saving...'
+            ) : (
+              <>
+                <Save size={14} /> Save
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Editor */}
+        <div className="space-y-4">
+          {/* Subject */}
+          <div
+            className="rounded-xl p-5"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-primary)',
+            }}
+          >
+            <label className="text-xs font-medium mb-2 block" style={{ color: 'var(--text-secondary)' }}>
+              Subject Line
+            </label>
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border-primary)',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+
+          {/* Body editor with tabs */}
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-primary)',
+            }}
+          >
+            <div className="flex" style={{ borderBottom: '1px solid var(--border-primary)' }}>
+              <button
+                onClick={() => setActiveTab('html')}
+                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
+                style={{
+                  color: activeTab === 'html' ? 'var(--color-accent)' : 'var(--text-tertiary)',
+                  borderBottom:
+                    activeTab === 'html'
+                      ? '2px solid var(--color-accent)'
+                      : '2px solid transparent',
+                }}
+              >
+                <Code size={12} /> HTML
+              </button>
+              <button
+                onClick={() => setActiveTab('preview')}
+                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
+                style={{
+                  color: activeTab === 'preview' ? 'var(--color-accent)' : 'var(--text-tertiary)',
+                  borderBottom:
+                    activeTab === 'preview'
+                      ? '2px solid var(--color-accent)'
+                      : '2px solid transparent',
+                }}
+              >
+                <Eye size={12} /> Preview
+              </button>
+            </div>
+            <div className="p-4">
+              {activeTab === 'html' ? (
+                <textarea
+                  value={bodyHtml}
+                  onChange={(e) => setBodyHtml(e.target.value)}
+                  rows={18}
+                  className="w-full text-xs font-mono rounded-lg px-3 py-2 focus:outline-none focus:ring-2 resize-y"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-primary)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              ) : (
+                <div
+                  className="rounded-lg p-4 text-sm min-h-[300px]"
+                  style={{ backgroundColor: '#ffffff' }}
+                  dangerouslySetInnerHTML={{ __html: renderPreview(bodyHtml) }}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Variables reference */}
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-primary)',
+            }}
+          >
+            <h4 className="text-xs font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
+              Available Variables
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {AVAILABLE_VARIABLES.map((v) => (
+                <span
+                  key={v}
+                  className="text-[10px] font-mono px-2 py-1 rounded"
+                  style={{
+                    backgroundColor: 'var(--bg-tertiary)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border-secondary)',
+                  }}
+                >
+                  {`{{${v}}}`}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Preview */}
+        <div className="space-y-3">
+          <h3
+            className="text-xs font-semibold uppercase tracking-wider"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            Preview
+          </h3>
+          <div
+            className="rounded-xl overflow-hidden sticky top-20"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-primary)',
+            }}
+          >
+            {/* Subject preview */}
+            <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-primary)' }}>
+              <p className="text-[10px] mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                Subject
+              </p>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                {renderPreview(subject)}
+              </p>
+            </div>
+            {/* Body preview */}
+            <div className="p-4">
+              <div
+                className="rounded-lg p-4 text-sm"
+                style={{ backgroundColor: '#ffffff', minHeight: 200 }}
+                dangerouslySetInnerHTML={{ __html: renderPreview(bodyHtml) }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

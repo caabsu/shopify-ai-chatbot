@@ -26,6 +26,8 @@ import {
   Briefcase,
   FileText,
   Users,
+  Star,
+  Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -79,6 +81,21 @@ const navGroups: NavGroup[] = [
       { href: '/returns/design', label: 'Portal Design', icon: Palette },
       { href: '/returns/rules', label: 'Return Rules', icon: SlidersHorizontal },
       { href: '/returns/settings', label: 'Settings', icon: Settings },
+    ],
+  },
+  {
+    label: 'Reviews',
+    collapsible: true,
+    defaultCollapsed: false,
+    items: [
+      { href: '/reviews', label: 'All Reviews', icon: Star },
+      { href: '/reviews/products', label: 'Products', icon: Package },
+      { href: '/reviews/playground', label: 'Playground', icon: TestTube },
+      { href: '/reviews/emails', label: 'Email Templates', icon: Mail },
+      { href: '/reviews/design', label: 'Widget Design', icon: Palette },
+      { href: '/reviews/analytics', label: 'Analytics', icon: BarChart3 },
+      { href: '/reviews/import', label: 'Import', icon: Upload },
+      { href: '/reviews/settings', label: 'Settings', icon: Settings },
     ],
   },
   {
