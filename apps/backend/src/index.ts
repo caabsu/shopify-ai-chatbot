@@ -11,6 +11,7 @@ import { returnRouter } from './controllers/return.controller.js';
 import { tradeRouter } from './controllers/trade.controller.js';
 import { reviewRouter } from './controllers/review.controller.js';
 import { processScheduledEmails, processScheduledReminders, expireOldRequests } from './services/review-email.service.js';
+import { registerWebhooks as registerReviewWebhooks } from './services/product-sync.service.js';
 import { supabase } from './config/supabase.js';
 import { resolveBrandId } from './config/brand.js';
 import { getToken } from './services/shopify-auth.service.js';
@@ -1671,6 +1672,11 @@ app.listen(config.server.port, async () => {
   console.log(`[server] Running on port ${config.server.port}`);
   console.log(`[server] Environment: ${config.server.nodeEnv}`);
   await runStartupChecks();
+
+  // Register Shopify webhooks for product sync + review collection
+  registerReviewWebhooks().catch(err =>
+    console.warn('[startup] Review webhook registration failed:', err instanceof Error ? err.message : String(err))
+  );
 
   // Review email job runner (every 5 minutes)
   setInterval(async () => {

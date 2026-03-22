@@ -274,6 +274,66 @@ export async function getProducts(brandId: string): Promise<Product[]> {
   }
 }
 
+export async function registerWebhooks(brandId?: string): Promise<void> {
+  const brandConfig = await getBrandShopifyConfig(brandId);
+  // Railway sets RAILWAY_PUBLIC_DOMAIN automatically
+  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
+  const callbackBase = railwayDomain
+    ? `https://${railwayDomain}`
+    : config.server.nodeEnv === 'production'
+      ? 'https://shopify-ai-chatbot-production-9ab4.up.railway.app'
+      : `http://localhost:${config.server.port}`;
+
+  const topics = [
+    { topic: 'PRODUCTS_CREATE', path: '/api/reviews/webhooks/shopify/products' },
+    { topic: 'PRODUCTS_UPDATE', path: '/api/reviews/webhooks/shopify/products' },
+    { topic: 'PRODUCTS_DELETE', path: '/api/reviews/webhooks/shopify/products' },
+    { topic: 'ORDERS_FULFILLED', path: '/api/reviews/webhooks/shopify/orders' },
+  ];
+
+  for (const { topic, path } of topics) {
+    const callbackUrl = `${callbackBase}${path}`;
+    try {
+      const mutation = `
+        mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
+          webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
+            webhookSubscription { id }
+            userErrors { field message }
+          }
+        }
+      `;
+
+      const result = await shopifyGraphql<{
+        webhookSubscriptionCreate: {
+          webhookSubscription: { id: string } | null;
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>(mutation, {
+        topic,
+        webhookSubscription: {
+          callbackUrl,
+          format: 'JSON',
+        },
+      }, brandId);
+
+      const errors = result.webhookSubscriptionCreate.userErrors;
+      if (errors.length > 0) {
+        // "already exists" is fine
+        const msg = errors.map(e => e.message).join('; ');
+        if (msg.toLowerCase().includes('already exists') || msg.toLowerCase().includes('has already been taken')) {
+          console.log(`[product-sync] Webhook ${topic}: already registered`);
+        } else {
+          console.warn(`[product-sync] Webhook ${topic} registration warning: ${msg}`);
+        }
+      } else {
+        console.log(`[product-sync] Webhook ${topic}: registered → ${callbackUrl}`);
+      }
+    } catch (err) {
+      console.error(`[product-sync] Failed to register webhook ${topic}:`, err instanceof Error ? err.message : String(err));
+    }
+  }
+}
+
 export async function getProductByHandle(handle: string, brandId: string): Promise<Product | null> {
   try {
     const { data, error } = await supabase
