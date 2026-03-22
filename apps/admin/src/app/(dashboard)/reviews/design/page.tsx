@@ -387,8 +387,8 @@ export default function ReviewWidgetDesignPage() {
                 </label>
                 <input
                   type="text"
-                  value={settings.fontFamily}
-                  onChange={(e) => setSettings({ ...settings, fontFamily: e.target.value })}
+                  value={settings.bodyFontFamily}
+                  onChange={(e) => setSettings({ ...settings, bodyFontFamily: e.target.value })}
                   placeholder="System default"
                   className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
                   style={inputStyle}
