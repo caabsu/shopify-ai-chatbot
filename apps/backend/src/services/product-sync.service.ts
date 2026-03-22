@@ -159,7 +159,7 @@ export async function fullSync(brandId: string): Promise<{ synced: number }> {
               ...product,
               updated_at: new Date().toISOString(),
             },
-            { onConflict: 'shopify_product_id,brand_id' },
+            { onConflict: 'shopify_product_id' },
           );
 
         if (error) {
@@ -242,7 +242,7 @@ export async function handleProductWebhook(
 
     const { error } = await supabase
       .from('products')
-      .upsert(productData, { onConflict: 'shopify_product_id,brand_id' });
+      .upsert(productData, { onConflict: 'shopify_product_id' });
 
     if (error) {
       console.error(`[product-sync] Failed to upsert product ${shopifyProductId}:`, error.message);

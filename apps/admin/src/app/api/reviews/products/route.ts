@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const search = searchParams.get('search');
   const page = parseInt(searchParams.get('page') || '1');
-  const perPage = parseInt(searchParams.get('per_page') || '50');
+  const perPage = parseInt(searchParams.get('per_page') || '500');
 
   let query = supabase
     .from('products')

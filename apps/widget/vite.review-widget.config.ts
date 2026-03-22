@@ -1,35 +1,41 @@
-import { defineConfig, Plugin } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import path from 'path';
 
+// Same CSS injection pattern as the working chat widget (vite.config.ts)
 function cssInjectPlugin(): Plugin {
-  let cssContent = '';
   return {
     name: 'css-inject',
     apply: 'build',
+    enforce: 'post',
     generateBundle(_options, bundle) {
-      for (const key of Object.keys(bundle)) {
-        if (key.endsWith('.css')) {
-          const chunk = bundle[key];
-          if (chunk.type === 'asset' && typeof chunk.source === 'string') {
-            cssContent = chunk.source;
-            delete bundle[key];
+      let cssContent = '';
+      const cssFiles: string[] = [];
+
+      for (const [fileName, chunk] of Object.entries(bundle)) {
+        if (fileName.endsWith('.css')) {
+          cssContent += (chunk as { source: string }).source;
+          cssFiles.push(fileName);
+        }
+      }
+
+      for (const f of cssFiles) {
+        delete bundle[f];
+      }
+
+      if (cssContent) {
+        for (const [, chunk] of Object.entries(bundle)) {
+          if (chunk.type === 'chunk' && chunk.isEntry) {
+            const injection = `(function(){var s=document.createElement('style');s.textContent=${JSON.stringify(cssContent)};document.head.appendChild(s)})();`;
+            chunk.code = injection + chunk.code;
+            break;
           }
         }
       }
-    },
-    renderChunk(code) {
-      if (cssContent) {
-        const escaped = cssContent.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
-        const injection = `(function(){var s=document.createElement('style');s.id='orw-styles';s.textContent=\`${escaped}\`;document.head.appendChild(s);})();`;
-        return injection + code;
-      }
-      return null;
     },
   };
 }
 
 export default defineConfig({
-  plugins: [cssInjectPlugin()],
   build: {
     lib: {
       entry: path.resolve(__dirname, 'src/review-widget.ts'),
@@ -47,4 +53,5 @@ export default defineConfig({
     },
     minify: 'esbuild',
   },
+  plugins: [cssInjectPlugin()],
 });

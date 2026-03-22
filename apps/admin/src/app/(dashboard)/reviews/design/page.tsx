@@ -8,8 +8,21 @@ interface WidgetDesign {
   starColor: string;
   textColor: string;
   headingColor: string;
-  fontFamily: string;
+  backgroundColor: string;
+  dividerColor: string;
+  verifiedBadgeColor: string;
+  dateColor: string;
+  bodyFontFamily: string;
   headingFontFamily: string;
+  bodyFontWeight: string;
+  headingFontWeight: string;
+  ratingFontFamily: string;
+  ratingFontWeight: string;
+  bodyFontSize: string;
+  headerTitleSize: string;
+  ratingNumberSize: string;
+  cardPadding: string;
+  photoSize: string;
   fontSize: 'small' | 'medium' | 'large';
   borderRadius: 'sharp' | 'rounded' | 'pill';
   cardStyle: 'bordered' | 'shadow' | 'minimal';
@@ -21,25 +34,42 @@ interface WidgetDesign {
   showVariant: boolean;
   showDate: boolean;
   showPhotos: boolean;
+  showHelpfulButton: boolean;
+  reviewsPerPage: number;
 }
 
 const DEFAULTS: WidgetDesign = {
   starColor: '#C4A265',
-  textColor: '#18181b',
-  headingColor: '#18181b',
-  fontFamily: '',
-  headingFontFamily: '',
+  textColor: '#333333',
+  headingColor: '#C4A265',
+  backgroundColor: '#ffffff',
+  dividerColor: '#eeeeee',
+  verifiedBadgeColor: '#4caf50',
+  dateColor: '#aaaaaa',
+  bodyFontFamily: 'Manrope',
+  headingFontFamily: 'Manrope',
+  bodyFontWeight: '400',
+  headingFontWeight: '600',
+  ratingFontFamily: 'Newsreader',
+  ratingFontWeight: '200',
+  bodyFontSize: '14px',
+  headerTitleSize: '11px',
+  ratingNumberSize: '42px',
+  cardPadding: '32px 28px',
+  photoSize: '64px',
   fontSize: 'medium',
   borderRadius: 'rounded',
   cardStyle: 'bordered',
-  buttonStyle: 'filled',
-  buttonText: 'Write a Review',
-  headerText: 'Customer Reviews',
+  buttonStyle: 'outlined',
+  buttonText: 'WRITE A REVIEW',
+  headerText: 'CUSTOMER REVIEWS',
   layout: 'grid',
   showVerifiedBadge: true,
   showVariant: true,
   showDate: true,
   showPhotos: true,
+  showHelpfulButton: false,
+  reviewsPerPage: 10,
 };
 
 const COLOR_PRESETS = [
