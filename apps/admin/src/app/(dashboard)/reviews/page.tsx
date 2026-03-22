@@ -16,6 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  Image,
+  X,
 } from 'lucide-react';
 import { useBrand } from '@/components/brand-context';
 
@@ -56,7 +58,6 @@ interface Review {
   brand_id: string;
   product_title: string | null;
   media_count: number;
-  // Populated when expanded (from detail endpoint)
   media?: ReviewMedia[];
   reply?: ReviewReply | null;
 }
@@ -67,6 +68,7 @@ interface FilterCounts {
   pending: number;
   rejected: number;
   archived: number;
+  with_photos: number;
 }
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; text: string }> = {
@@ -94,11 +96,104 @@ function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
         <Star
           key={i}
           size={size}
-          fill={i <= rating ? '#f59e0b' : 'none'}
-          stroke={i <= rating ? '#f59e0b' : 'var(--text-tertiary)'}
+          fill={i <= rating ? '#C4A265' : 'none'}
+          stroke={i <= rating ? '#C4A265' : 'var(--text-tertiary)'}
           strokeWidth={1.5}
         />
       ))}
+    </div>
+  );
+}
+
+// ── Lightbox Component ──
+function Lightbox({
+  images,
+  startIndex,
+  onClose,
+}: {
+  images: { url: string; media_type: string }[];
+  startIndex: number;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(startIndex);
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') setIndex((i) => (i - 1 + images.length) % images.length);
+      if (e.key === 'ArrowRight') setIndex((i) => (i + 1) % images.length);
+    }
+    document.addEventListener('keydown', handleKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = '';
+    };
+  }, [images.length, onClose]);
+
+  const img = images[index];
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors z-10"
+      >
+        <X size={28} />
+      </button>
+
+      {/* Counter */}
+      {images.length > 1 && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-sm font-medium">
+          {index + 1} / {images.length}
+        </div>
+      )}
+
+      {/* Image */}
+      <div onClick={(e) => e.stopPropagation()} className="relative max-w-[90vw] max-h-[90vh]">
+        {img.media_type === 'video' ? (
+          <video
+            src={img.url}
+            controls
+            className="max-w-[90vw] max-h-[90vh] rounded-lg"
+          />
+        ) : (
+          <img
+            src={img.url}
+            alt={`Review photo ${index + 1}`}
+            className="max-w-[90vw] max-h-[90vh] rounded-lg object-contain"
+          />
+        )}
+      </div>
+
+      {/* Nav arrows */}
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIndex((i) => (i - 1 + images.length) % images.length);
+            }}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors text-2xl"
+          >
+            &#8249;
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIndex((i) => (i + 1) % images.length);
+            }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors text-2xl"
+          >
+            &#8250;
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -115,6 +210,7 @@ export default function AllReviewsPage() {
   const [ratingFilter, setRatingFilter] = useState('');
   const [productFilter, setProductFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
+  const [mediaFilter, setMediaFilter] = useState('');
   const [search, setSearch] = useState('');
 
   const [counts, setCounts] = useState<FilterCounts>({
@@ -123,6 +219,7 @@ export default function AllReviewsPage() {
     pending: 0,
     rejected: 0,
     archived: 0,
+    with_photos: 0,
   });
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -136,6 +233,10 @@ export default function AllReviewsPage() {
 
   const [bulkLoading, setBulkLoading] = useState(false);
 
+  // Lightbox state
+  const [lightboxImages, setLightboxImages] = useState<{ url: string; media_type: string }[] | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
   const perPage = 20;
 
   const loadCounts = useCallback(async () => {
@@ -148,6 +249,7 @@ export default function AllReviewsPage() {
         pending: data.pending ?? 0,
         rejected: data.rejected ?? 0,
         archived: data.archived ?? 0,
+        with_photos: data.with_photos ?? 0,
       });
     } catch {
       // ignore
@@ -164,6 +266,7 @@ export default function AllReviewsPage() {
     if (ratingFilter) params.set('rating', ratingFilter);
     if (productFilter) params.set('product_id', productFilter);
     if (sourceFilter) params.set('source', sourceFilter);
+    if (mediaFilter) params.set('has_media', mediaFilter);
     if (search) params.set('search', search);
 
     try {
@@ -176,7 +279,7 @@ export default function AllReviewsPage() {
       setReviews([]);
     }
     setLoading(false);
-  }, [page, statusFilter, ratingFilter, productFilter, sourceFilter, search]);
+  }, [page, statusFilter, ratingFilter, productFilter, sourceFilter, mediaFilter, search]);
 
   useEffect(() => {
     loadCounts();
@@ -237,7 +340,6 @@ export default function AllReviewsPage() {
     setReplyText('');
     setReplyAuthor('');
 
-    // Load detail (media + reply) from detail endpoint
     try {
       const res = await fetch(`/api/reviews/${review.id}`);
       if (res.ok) {
@@ -312,6 +414,11 @@ export default function AllReviewsPage() {
     }
   }
 
+  function openLightbox(media: ReviewMedia[], startIdx: number) {
+    setLightboxImages(media);
+    setLightboxIndex(startIdx);
+  }
+
   const inputStyle = {
     backgroundColor: 'var(--bg-secondary)',
     border: '1px solid var(--border-primary)',
@@ -320,6 +427,15 @@ export default function AllReviewsPage() {
 
   return (
     <div className="space-y-4">
+      {/* Lightbox */}
+      {lightboxImages && (
+        <Lightbox
+          images={lightboxImages}
+          startIndex={lightboxIndex}
+          onClose={() => setLightboxImages(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -407,12 +523,13 @@ export default function AllReviewsPage() {
             </p>
             <div className="space-y-0.5">
               {viewFilters.map((f) => {
-                const active = statusFilter === f.key;
+                const active = statusFilter === f.key && !mediaFilter;
                 return (
                   <button
                     key={f.key}
                     onClick={() => {
                       setStatusFilter(f.key);
+                      setMediaFilter('');
                       setPage(1);
                     }}
                     className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[13px] transition-colors"
@@ -428,6 +545,50 @@ export default function AllReviewsPage() {
                     <span className="text-[11px] min-w-[20px] text-center" style={{ color: 'var(--text-tertiary)' }}>
                       {f.count}
                     </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Media Filter */}
+          <div>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 mb-2"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              Media
+            </p>
+            <div className="space-y-0.5">
+              {[
+                { key: '', label: 'All', icon: null },
+                { key: '1', label: 'With Photos', icon: Image },
+                { key: '0', label: 'Text Only', icon: null },
+              ].map((f) => {
+                const active = mediaFilter === f.key && f.key !== '';
+                return (
+                  <button
+                    key={f.key || 'all-media'}
+                    onClick={() => {
+                      setMediaFilter(f.key);
+                      setPage(1);
+                    }}
+                    className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[13px] transition-colors"
+                    style={{
+                      backgroundColor: active
+                        ? 'color-mix(in srgb, var(--color-accent) 10%, transparent)'
+                        : 'transparent',
+                      color: active ? 'var(--color-accent)' : 'var(--text-secondary)',
+                      fontWeight: active ? 500 : 400,
+                    }}
+                  >
+                    {f.icon && <f.icon size={12} />}
+                    <span>{f.label}</span>
+                    {f.key === '1' && (
+                      <span className="text-[11px] ml-auto" style={{ color: 'var(--text-tertiary)' }}>
+                        {counts.with_photos}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -478,8 +639,8 @@ export default function AllReviewsPage() {
               style={inputStyle}
             >
               <option value="">Any Source</option>
-              <option value="widget">Widget</option>
-              <option value="email">Email</option>
+              <option value="organic">Organic</option>
+              <option value="email_request">Email</option>
               <option value="import">Import</option>
               <option value="manual">Manual</option>
             </select>
@@ -498,8 +659,9 @@ export default function AllReviewsPage() {
           >
             {loading ? (
               <div className="p-8 text-center">
+                <Loader2 size={20} className="animate-spin mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
                 <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                  Loading...
+                  Loading reviews...
                 </p>
               </div>
             ) : reviews.length === 0 ? (
@@ -592,6 +754,9 @@ export default function AllReviewsPage() {
                             </div>
                             <p className="text-xs mb-1 truncate" style={{ color: 'var(--text-secondary)' }}>
                               {review.product_title || 'Unknown Product'}
+                              {review.variant_title && (
+                                <span style={{ color: 'var(--text-tertiary)' }}> — {review.variant_title}</span>
+                              )}
                             </p>
                             <Stars rating={review.rating} size={12} />
                           </div>
@@ -623,8 +788,8 @@ export default function AllReviewsPage() {
                             <div className="flex items-center gap-2">
                               {review.media_count > 0 && (
                                 <span
-                                  className="flex items-center gap-0.5 text-[10px]"
-                                  style={{ color: 'var(--text-tertiary)' }}
+                                  className="flex items-center gap-0.5 text-[10px] font-medium"
+                                  style={{ color: '#a855f7' }}
                                 >
                                   <Camera size={10} /> {review.media_count}
                                 </span>
@@ -656,35 +821,38 @@ export default function AllReviewsPage() {
                                 </h4>
                               )}
                               <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                                {review.body}
+                                &ldquo;{review.body}&rdquo;
                               </p>
 
-                              {/* Media gallery */}
+                              {/* Media gallery — clickable for lightbox */}
                               {review.media && review.media.length > 0 && (
-                                <div className="flex gap-2 flex-wrap">
-                                  {review.media.map((m, i) => (
-                                    <a
-                                      key={m.id || i}
-                                      href={m.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="block w-20 h-20 rounded-lg overflow-hidden"
-                                      style={{ border: '1px solid var(--border-primary)' }}
-                                    >
-                                      {m.media_type === 'video' ? (
-                                        <video
-                                          src={m.url}
-                                          className="w-full h-full object-cover"
-                                        />
-                                      ) : (
-                                        <img
-                                          src={m.url}
-                                          alt={`Review photo ${i + 1}`}
-                                          className="w-full h-full object-cover"
-                                        />
-                                      )}
-                                    </a>
-                                  ))}
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                                    Photos ({review.media.length})
+                                  </p>
+                                  <div className="flex gap-2 flex-wrap">
+                                    {review.media.map((m, i) => (
+                                      <button
+                                        key={m.id || i}
+                                        onClick={() => openLightbox(review.media!, i)}
+                                        className="block w-24 h-24 rounded-lg overflow-hidden transition-transform hover:scale-105 cursor-zoom-in"
+                                        style={{ border: '1px solid var(--border-primary)' }}
+                                      >
+                                        {m.media_type === 'video' ? (
+                                          <video
+                                            src={m.url}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <img
+                                            src={m.url}
+                                            alt={`Review photo ${i + 1}`}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
 
@@ -816,7 +984,7 @@ export default function AllReviewsPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                Page {page} of {totalPages}
+                Page {page} of {totalPages} ({total} reviews)
               </span>
               <div className="flex items-center gap-2">
                 <button

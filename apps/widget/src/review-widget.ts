@@ -112,6 +112,9 @@ interface WidgetState {
   formPhotos: { file: File; preview: string }[];
   formPhotoUrls: string[];
   formUploading: boolean;
+  activeSort: string;
+  activeRatingFilter: number | null;
+  activeMediaFilter: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -239,6 +242,85 @@ function renderStars(rating: number, color: string, size: number): HTMLDivElemen
 
 // ── Rendering Functions ─────────────────────────────────────────────────────
 
+function renderFilterBar(
+  summary: ReviewSummary,
+  state: WidgetState,
+  onSortChange: (sort: string) => void,
+  onRatingFilter: (rating: number | null) => void,
+  onMediaFilter: (active: boolean) => void,
+): HTMLElement {
+  const bar = createEl('div', 'orw-filters');
+
+  const left = createEl('div', 'orw-filters-left');
+
+  // "All Reviews" button
+  const allBtn = createEl('button', `orw-filter-btn${!state.activeRatingFilter && !state.activeMediaFilter ? ' orw-filter-btn--active' : ''}`);
+  allBtn.textContent = `All Reviews (${summary.total_count})`;
+  allBtn.addEventListener('click', () => {
+    onRatingFilter(null);
+    onMediaFilter(false);
+  });
+  left.appendChild(allBtn);
+
+  // "With Photos" button — count reviews with media
+  const mediaCount = state.reviews.length > 0
+    ? state.reviews.filter(r => r.media && r.media.length > 0).length
+    : 0;
+  const photosBtn = createEl('button', `orw-filter-btn${state.activeMediaFilter ? ' orw-filter-btn--active' : ''}`);
+  photosBtn.textContent = `With Photos (${mediaCount})`;
+  photosBtn.addEventListener('click', () => {
+    onMediaFilter(!state.activeMediaFilter);
+    onRatingFilter(null);
+  });
+  left.appendChild(photosBtn);
+
+  // Star filter buttons
+  for (let s = 5; s >= 1; s--) {
+    const starBtn = createEl('button', `orw-filter-btn${state.activeRatingFilter === s ? ' orw-filter-btn--active' : ''}`);
+    const starIcon = createEl('span', 'orw-filter-star-icon');
+    starIcon.appendChild(createStarSvg('full', state.activeRatingFilter === s ? '#ffffff' : '#C5A059', 11));
+    starBtn.appendChild(starIcon);
+    const numSpan = document.createTextNode(String(s));
+    starBtn.appendChild(numSpan);
+    starBtn.addEventListener('click', () => {
+      onRatingFilter(state.activeRatingFilter === s ? null : s);
+      onMediaFilter(false);
+    });
+    left.appendChild(starBtn);
+  }
+
+  bar.appendChild(left);
+
+  // Sort dropdown (right-aligned)
+  const right = createEl('div', 'orw-filters-right');
+  const sortLabel = createEl('span', 'orw-sort-label', 'Sort:');
+  right.appendChild(sortLabel);
+
+  const sortSelect = createEl('select', 'orw-sort-select') as HTMLSelectElement;
+  const sortOptions = [
+    { value: 'newest', label: 'Newest' },
+    { value: 'oldest', label: 'Oldest' },
+    { value: 'highest', label: 'Highest Rated' },
+    { value: 'lowest', label: 'Lowest Rated' },
+    { value: 'most_helpful', label: 'Most Helpful' },
+  ];
+  for (const opt of sortOptions) {
+    const option = createEl('option');
+    option.value = opt.value;
+    option.textContent = opt.label;
+    if (opt.value === state.activeSort) option.selected = true;
+    sortSelect.appendChild(option);
+  }
+  sortSelect.addEventListener('change', () => {
+    onSortChange(sortSelect.value);
+  });
+  right.appendChild(sortSelect);
+
+  bar.appendChild(right);
+
+  return bar;
+}
+
 function renderHeader(
   summary: ReviewSummary,
   design: DesignConfig,
@@ -251,7 +333,7 @@ function renderHeader(
   header.appendChild(title);
 
   const ratingRow = createEl('div', 'orw-header-rating');
-  const stars = renderStars(summary.average_rating, design.starColor || '#C4A265', 24);
+  const stars = renderStars(summary.average_rating, design.starColor || '#C5A059', 24);
   stars.classList.add('orw-header-stars');
   ratingRow.appendChild(stars);
 
@@ -301,7 +383,7 @@ function renderReviewCard(
 
   // Stars
   const starsRow = createEl('div', 'orw-card-stars');
-  starsRow.appendChild(renderStars(review.rating, design.starColor || '#C4A265', 14));
+  starsRow.appendChild(renderStars(review.rating, design.starColor || '#C5A059', 14));
   card.appendChild(starsRow);
 
   // Body text (wrapped in quotes via CSS ::before/::after)
@@ -500,7 +582,7 @@ function renderReviewForm(
   starField.appendChild(starLabel);
 
   const starPicker = createEl('div', 'orw-star-picker');
-  const starColor = design.starColor || '#C4A265';
+  const starColor = design.starColor || '#C5A059';
   for (let i = 1; i <= 5; i++) {
     const starBtn = createEl('span', 'orw-star-picker-star');
     const displayRating = state.formHoverRating || state.formRating;
@@ -837,14 +919,17 @@ function createReviewWidget(
     formPhotos: [],
     formPhotoUrls: [],
     formUploading: false,
+    activeSort: 'newest',
+    activeRatingFilter: null,
+    activeMediaFilter: false,
   };
 
   // Apply CSS custom properties
   function applyDesign(d: DesignConfig): void {
-    container.style.setProperty('--orw-star', d.starColor || '#C4A265');
-    container.style.setProperty('--orw-text', d.textColor || '#333333');
-    container.style.setProperty('--orw-heading', d.headingColor || '#C4A265');
-    container.style.setProperty('--orw-bg', d.backgroundColor || '#ffffff');
+    container.style.setProperty('--orw-star', d.starColor || '#C5A059');
+    container.style.setProperty('--orw-text', d.textColor || '#2D3338');
+    container.style.setProperty('--orw-heading', d.headingColor || '#C5A059');
+    container.style.setProperty('--orw-bg', d.backgroundColor || '#F9F9FB');
   }
 
   applyDesign(design);
@@ -932,7 +1017,7 @@ function createReviewWidget(
       emptyTitle.textContent = design.headerText || 'Customer Reviews';
       emptyHeader.appendChild(emptyTitle);
 
-      const emptyStars = renderStars(0, design.starColor || '#C4A265', 24);
+      const emptyStars = renderStars(0, design.starColor || '#C5A059', 24);
       emptyStars.classList.add('orw-header-stars');
       const emptyRating = createEl('div', 'orw-header-rating');
       emptyRating.appendChild(emptyStars);
@@ -963,10 +1048,40 @@ function createReviewWidget(
     const header = renderHeader(state.summary, design, openForm);
     wrap.appendChild(header);
 
+    // Filter/Sort bar
+    const filterBar = renderFilterBar(
+      state.summary,
+      state,
+      (sort: string) => {
+        state.activeSort = sort;
+        fetchAll();
+      },
+      (rating: number | null) => {
+        state.activeRatingFilter = rating;
+        state.activeMediaFilter = false;
+        fetchAll();
+      },
+      (active: boolean) => {
+        state.activeMediaFilter = active;
+        state.activeRatingFilter = null;
+        fetchAll();
+      },
+    );
+    wrap.appendChild(filterBar);
+
+    // Apply client-side filters
+    let displayReviews = state.reviews;
+    if (state.activeRatingFilter !== null) {
+      displayReviews = displayReviews.filter(r => r.rating === state.activeRatingFilter);
+    }
+    if (state.activeMediaFilter) {
+      displayReviews = displayReviews.filter(r => r.media && r.media.length > 0);
+    }
+
     // Review cards grid
-    if (state.reviews.length > 0) {
+    if (displayReviews.length > 0) {
       const grid = createEl('div', 'orw-reviews-grid');
-      state.reviews.forEach((review) => {
+      displayReviews.forEach((review) => {
         const card = renderReviewCard(review, design, showLightbox);
         grid.appendChild(card);
       });
@@ -1004,9 +1119,18 @@ function createReviewWidget(
     render();
 
     try {
+      const fetchPerPage = state.activeMediaFilter ? 100 : state.perPage;
+      let reviewUrl = `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=1&per_page=${fetchPerPage}&sort=${state.activeSort}`;
+      if (state.activeRatingFilter !== null) {
+        reviewUrl += `&rating=${state.activeRatingFilter}`;
+      }
+      if (brandParam) {
+        reviewUrl += '&' + brandParam.slice(1);
+      }
+
       const [summaryRes, reviewsRes] = await Promise.all([
         fetch(`${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}/summary${brandParam}`),
-        fetch(`${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=1&per_page=${state.perPage}&sort=newest${brandParam ? '&' + brandParam.slice(1) : ''}`),
+        fetch(reviewUrl),
       ]);
 
       if (summaryRes.ok) {
@@ -1046,9 +1170,14 @@ function createReviewWidget(
 
     const nextPage = state.page + 1;
     try {
-      const res = await fetch(
-        `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=${nextPage}&per_page=${state.perPage}&sort=newest${brandParam ? '&' + brandParam.slice(1) : ''}`,
-      );
+      let loadMoreUrl = `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=${nextPage}&per_page=${state.perPage}&sort=${state.activeSort}`;
+      if (state.activeRatingFilter !== null) {
+        loadMoreUrl += `&rating=${state.activeRatingFilter}`;
+      }
+      if (brandParam) {
+        loadMoreUrl += '&' + brandParam.slice(1);
+      }
+      const res = await fetch(loadMoreUrl);
 
       if (res.ok) {
         const data: ReviewsResponse = await res.json();
@@ -1105,10 +1234,11 @@ async function init(): Promise<void> {
     const design: DesignConfig = config.widget_design || {};
 
     // Apply CSS variables
-    formRoot.style.setProperty('--orw-star', design.starColor || '#C4A265');
-    formRoot.style.setProperty('--orw-text', design.textColor || '#333333');
-    formRoot.style.setProperty('--orw-heading', design.headingColor || '#C4A265');
-    formRoot.style.setProperty('--orw-bg', design.backgroundColor || '#ffffff');
+    formRoot.style.setProperty('--orw-star', design.starColor || '#C5A059');
+    formRoot.style.setProperty('--orw-text', design.textColor || '#2D3338');
+    formRoot.style.setProperty('--orw-heading', design.headingColor || '#C5A059');
+    formRoot.style.setProperty('--orw-bg', design.backgroundColor || '#F9F9FB');
+    formRoot.style.setProperty('--orw-divider', '#E8E8EC');
 
     const state: WidgetState = {
       loading: false,
@@ -1129,6 +1259,9 @@ async function init(): Promise<void> {
       formPhotos: [],
       formPhotoUrls: [],
       formUploading: false,
+      activeSort: 'newest',
+      activeRatingFilter: null,
+      activeMediaFilter: false,
     };
 
     const formEl = renderReviewForm(

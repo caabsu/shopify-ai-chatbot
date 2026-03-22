@@ -5,26 +5,26 @@ const cache = new Map<string, { data: ReviewSettings; expiresAt: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export const DEFAULT_WIDGET_DESIGN: ReviewWidgetDesign = {
-  starColor: '#C4A265',
+  starColor: '#C5A059',
   starStyle: 'filled',
-  backgroundColor: '#ffffff',
-  textColor: '#333333',
-  headingColor: '#111111',
-  headingFontFamily: 'inherit',
-  bodyFontFamily: 'inherit',
+  backgroundColor: '#F9F9FB',
+  textColor: '#2D3338',
+  headingColor: '#C5A059',
+  headingFontFamily: 'Manrope',
+  bodyFontFamily: 'Manrope',
   fontSize: 'medium',
   borderRadius: 'rounded',
   cardStyle: 'bordered',
-  buttonStyle: 'filled',
-  buttonText: 'Write a Review',
-  headerText: 'Customer Reviews',
+  buttonStyle: 'outlined',
+  buttonText: 'WRITE A REVIEW',
+  headerText: 'CUSTOMER REVIEWS',
   reviewsPerPage: 10,
   defaultSort: 'newest',
   showVerifiedBadge: true,
   showVariant: true,
   showDate: true,
   showPhotos: true,
-  layout: 'list',
+  layout: 'grid',
 };
 
 export const DEFAULT_REVIEW_SETTINGS: Omit<ReviewSettings, 'id' | 'brand_id' | 'created_at' | 'updated_at'> = {

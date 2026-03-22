@@ -36,16 +36,18 @@ interface WidgetDesign {
   showPhotos: boolean;
   showHelpfulButton: boolean;
   reviewsPerPage: number;
+  headerBackground: string;
+  foregroundColor: string;
 }
 
 const DEFAULTS: WidgetDesign = {
-  starColor: '#C4A265',
-  textColor: '#333333',
-  headingColor: '#C4A265',
-  backgroundColor: '#ffffff',
-  dividerColor: '#eeeeee',
+  starColor: '#C5A059',
+  textColor: '#2D3338',
+  headingColor: '#C5A059',
+  backgroundColor: '#F9F9FB',
+  dividerColor: '#E8E8EC',
   verifiedBadgeColor: '#4caf50',
-  dateColor: '#aaaaaa',
+  dateColor: '#8A9099',
   bodyFontFamily: 'Manrope',
   headingFontFamily: 'Manrope',
   bodyFontWeight: '400',
@@ -63,6 +65,8 @@ const DEFAULTS: WidgetDesign = {
   buttonStyle: 'outlined',
   buttonText: 'WRITE A REVIEW',
   headerText: 'CUSTOMER REVIEWS',
+  headerBackground: '#F4F0EB',
+  foregroundColor: '#131314',
   layout: 'grid',
   showVerifiedBadge: true,
   showVariant: true,
@@ -73,8 +77,8 @@ const DEFAULTS: WidgetDesign = {
 };
 
 const COLOR_PRESETS = [
-  { label: 'Gold', value: '#C4A265' },
-  { label: 'Black', value: '#18181b' },
+  { label: 'Gold', value: '#C5A059' },
+  { label: 'Charcoal', value: '#131314' },
   { label: 'Brown', value: '#6B4A37' },
   { label: 'Navy', value: '#1e3a5f' },
   { label: 'Forest', value: '#2d5a3d' },

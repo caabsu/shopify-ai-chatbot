@@ -32,6 +32,35 @@ export async function GET(req: NextRequest) {
     query = query.or(`title.ilike.%${search}%,body.ilike.%${search}%,customer_name.ilike.%${search}%,customer_email.ilike.%${search}%`);
   }
 
+  // Filter by media presence — requires a subquery
+  const hasMedia = searchParams.get('has_media');
+  if (hasMedia === '1') {
+    // Get review IDs that have media
+    const { data: mediaReviewIds } = await supabase
+      .from('review_media')
+      .select('review_id');
+    if (mediaReviewIds) {
+      const ids = [...new Set(mediaReviewIds.map((m) => m.review_id))];
+      if (ids.length > 0) {
+        query = query.in('id', ids);
+      } else {
+        // No reviews with media — return empty
+        return NextResponse.json({ items: [], total: 0, page, perPage, totalPages: 0 });
+      }
+    }
+  } else if (hasMedia === '0') {
+    // Get review IDs that have media, then exclude them
+    const { data: mediaReviewIds } = await supabase
+      .from('review_media')
+      .select('review_id');
+    if (mediaReviewIds) {
+      const ids = [...new Set(mediaReviewIds.map((m) => m.review_id))];
+      if (ids.length > 0) {
+        query = query.not('id', 'in', `(${ids.join(',')})`);
+      }
+    }
+  }
+
   query = query.order('created_at', { ascending: false });
 
   const from = (page - 1) * perPage;
