@@ -109,7 +109,7 @@ interface WidgetState {
   formError: string | null;
   formRating: number;
   formHoverRating: number;
-  formPhotos: { file: File; preview: string }[];
+  formPhotos: { file: File; preview: string; isVideo: boolean }[];
   formPhotoUrls: string[];
   formUploading: boolean;
   activeSort: string;
@@ -160,6 +160,19 @@ function createEl<K extends keyof HTMLElementTagNameMap>(
   if (className) el.className = className;
   if (textContent !== undefined) el.textContent = textContent;
   return el;
+}
+
+function buildPageNumbers(current: number, total: number): (number | string)[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | string)[] = [];
+  pages.push(1);
+  if (current > 3) pages.push('...');
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+    pages.push(i);
+  }
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
 }
 
 // ── SVG Stars ───────────────────────────────────────────────────────────────
@@ -695,7 +708,7 @@ function renderReviewForm(
 
   // Photo upload
   const photoField = createEl('div', 'orw-form-field');
-  const photoLabel = createEl('label', 'orw-form-label', 'Photos (optional)');
+  const photoLabel = createEl('label', 'orw-form-label', 'Photos & Videos (optional)');
   photoField.appendChild(photoLabel);
 
   const uploadArea = createEl('div', 'orw-photo-upload');
@@ -707,13 +720,13 @@ function renderReviewForm(
         <line x1="12" y1="3" x2="12" y2="15"/>
       </svg>
     </div>
-    <div class="orw-photo-upload-text">Drop photos here or click to upload</div>
-    <div class="orw-photo-upload-hint">Max 5 photos, JPEG/PNG/WebP</div>
+    <div class="orw-photo-upload-text">Drop files here or click to upload</div>
+    <div class="orw-photo-upload-hint">Max 5 files — JPEG, PNG, WebP, or MP4</div>
   `;
 
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
-  fileInput.accept = 'image/jpeg,image/png,image/webp';
+  fileInput.accept = 'image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime';
   fileInput.multiple = true;
   fileInput.style.display = 'none';
 
@@ -721,9 +734,10 @@ function renderReviewForm(
     const remaining = 5 - state.formPhotos.length;
     const toAdd = Array.from(files).slice(0, remaining);
     for (const file of toAdd) {
-      if (!file.type.startsWith('image/')) continue;
+      const isVideo = file.type.startsWith('video/');
+      if (!file.type.startsWith('image/') && !isVideo) continue;
       const preview = URL.createObjectURL(file);
-      state.formPhotos.push({ file, preview });
+      state.formPhotos.push({ file, preview, isVideo });
     }
     rerenderForm();
   }
@@ -757,10 +771,18 @@ function renderReviewForm(
     const previews = createEl('div', 'orw-photo-previews');
     state.formPhotos.forEach((photo, idx) => {
       const pv = createEl('div', 'orw-photo-preview');
-      const img = createEl('img');
-      img.src = photo.preview;
-      img.alt = `Upload ${idx + 1}`;
-      pv.appendChild(img);
+      if (photo.isVideo) {
+        const vid = createEl('video');
+        vid.src = photo.preview;
+        vid.muted = true;
+        (vid as HTMLVideoElement).preload = 'metadata';
+        pv.appendChild(vid);
+      } else {
+        const img = createEl('img');
+        img.src = photo.preview;
+        img.alt = `Upload ${idx + 1}`;
+        pv.appendChild(img);
+      }
 
       const removeBtn = createEl('button', 'orw-photo-preview-remove');
       removeBtn.innerHTML = '&times;';
@@ -842,7 +864,7 @@ function renderReviewForm(
     rerenderForm();
 
     try {
-      // Upload photos first
+      // Upload media first
       const photoUrls: string[] = [];
       for (const photo of state.formPhotos) {
         try {
@@ -853,10 +875,13 @@ function renderReviewForm(
             reader.readAsDataURL(photo.file);
           });
 
+          // Strip data URL prefix to get raw base64
+          const rawBase64 = base64.replace(/^data:[^;]+;base64,/, '');
+
           const res = await fetch(`${backendUrl}/api/reviews/upload${brandParam}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64, filename: photo.file.name }),
+            body: JSON.stringify({ file: rawBase64, content_type: photo.file.type }),
           });
           if (res.ok) {
             const data = await res.json();
@@ -1164,15 +1189,40 @@ function createReviewWidget(
       wrap.appendChild(grid);
     }
 
-    // Load More button
-    if (state.page < state.totalPages) {
-      const loadMoreWrap = createEl('div', 'orw-load-more-wrap');
-      const loadMoreBtn = createEl('button', 'orw-load-more');
-      loadMoreBtn.textContent = state.loadingMore ? 'Loading...' : 'Load More';
-      loadMoreBtn.disabled = state.loadingMore;
-      loadMoreBtn.addEventListener('click', loadMore);
-      loadMoreWrap.appendChild(loadMoreBtn);
-      wrap.appendChild(loadMoreWrap);
+    // Pagination controls
+    if (state.totalPages > 1) {
+      const pager = createEl('div', 'orw-pagination');
+
+      // Previous button
+      const prevBtn = createEl('button', 'orw-page-btn');
+      prevBtn.innerHTML = '&#8249;';
+      prevBtn.disabled = state.page <= 1;
+      prevBtn.addEventListener('click', () => goToPage(state.page - 1));
+      pager.appendChild(prevBtn);
+
+      // Page numbers
+      const pages = buildPageNumbers(state.page, state.totalPages);
+      for (const p of pages) {
+        if (p === '...') {
+          const dots = createEl('span', 'orw-page-dots', '...');
+          pager.appendChild(dots);
+        } else {
+          const num = p as number;
+          const pageBtn = createEl('button', `orw-page-num${num === state.page ? ' orw-page-num--active' : ''}`);
+          pageBtn.textContent = String(num);
+          pageBtn.addEventListener('click', () => goToPage(num));
+          pager.appendChild(pageBtn);
+        }
+      }
+
+      // Next button
+      const nextBtn = createEl('button', 'orw-page-btn');
+      nextBtn.innerHTML = '&#8250;';
+      nextBtn.disabled = state.page >= state.totalPages;
+      nextBtn.addEventListener('click', () => goToPage(state.page + 1));
+      pager.appendChild(nextBtn);
+
+      wrap.appendChild(pager);
     }
 
     container.appendChild(wrap);
@@ -1255,6 +1305,33 @@ function createReviewWidget(
     } catch {
       state.loading = false;
       state.error = 'Unable to load reviews. Please try again later.';
+      render();
+    }
+  }
+
+  async function goToPage(p: number): Promise<void> {
+    if (p < 1 || p > state.totalPages || p === state.page) return;
+    state.loading = true;
+    state.page = p;
+    render();
+
+    try {
+      let url = `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=${p}&per_page=${state.perPage}&sort=${state.activeSort}`;
+      if (brandParam) url += '&' + brandParam.slice(1);
+      const res = await fetch(url);
+      if (res.ok) {
+        const data: ReviewsResponse = await res.json();
+        state.reviews = data.reviews || [];
+        state.page = data.page || p;
+        state.totalPages = data.totalPages || state.totalPages;
+        state.totalReviews = data.total || state.totalReviews;
+      }
+      state.loading = false;
+      render();
+      // Scroll to top of widget
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch {
+      state.loading = false;
       render();
     }
   }

@@ -140,7 +140,7 @@ reviewRouter.post('/upload', async (req, res) => {
       return;
     }
 
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'video/quicktime'];
     if (!allowedTypes.includes(content_type)) {
       res.status(400).json({ error: 'Unsupported file type' });
       return;
@@ -153,8 +153,10 @@ reviewRouter.post('/upload', async (req, res) => {
       return;
     }
 
-    if (buffer.length > 10 * 1024 * 1024) {
-      res.status(400).json({ error: 'File too large (max 10MB)' });
+    const isVideo = content_type.startsWith('video/');
+    const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (buffer.length > maxSize) {
+      res.status(400).json({ error: `File too large (max ${isVideo ? '50' : '10'}MB)` });
       return;
     }
 

@@ -324,11 +324,14 @@ async function processRow(
 
     const reviewId = (created as Record<string, unknown>).id as string;
 
-    // Handle image import
+    // Handle media import (images and videos)
     if (row.img?.trim()) {
-      const imageUrls = row.img.split(';').map((u) => u.trim()).filter(Boolean);
+      // Loox uses comma-separated URLs; also support semicolons
+      const imageUrls = row.img.split(/[;,]/).map((u) => u.trim()).filter((u) => u.startsWith('http'));
       for (let i = 0; i < imageUrls.length; i++) {
-        const publicUrl = await downloadImageToStorage(imageUrls[i], reviewId);
+        const mediaUrl = imageUrls[i];
+        const isVideo = /\.(mp4|mov|webm|avi)(\?|$)/i.test(mediaUrl);
+        const publicUrl = await downloadImageToStorage(mediaUrl, reviewId);
         if (publicUrl) {
           await supabase
             .from('review_media')
@@ -336,7 +339,7 @@ async function processRow(
               review_id: reviewId,
               storage_path: publicUrl,
               url: publicUrl,
-              media_type: 'image',
+              media_type: isVideo ? 'video' : 'image',
               sort_order: i,
               file_size: null,
               width: null,

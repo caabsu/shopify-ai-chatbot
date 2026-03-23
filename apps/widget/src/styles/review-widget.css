@@ -467,6 +467,77 @@
   cursor: not-allowed;
 }
 
+/* ── Pagination ── */
+.orw-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 32px 16px;
+  background: #ffffff;
+}
+.orw-page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 18px;
+  color: #2D3338;
+  background: #ffffff;
+  border: 1px solid #D4D4D8;
+  border-radius: 0;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.orw-page-btn:hover:not(:disabled) {
+  border-color: #131314;
+}
+.orw-page-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.orw-page-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #2D3338;
+  background: #ffffff;
+  border: 1px solid #D4D4D8;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.orw-page-num:hover {
+  border-color: #131314;
+}
+.orw-page-num--active {
+  background: #131314;
+  color: #ffffff;
+  border-color: #131314;
+}
+.orw-page-num--active:hover {
+  background: #131314;
+  color: #ffffff;
+}
+.orw-page-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 36px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  color: #ADADAD;
+}
+
 /* ── Empty State ── */
 .orw-empty {
   text-align: center;
