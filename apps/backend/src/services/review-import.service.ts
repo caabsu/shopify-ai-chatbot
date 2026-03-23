@@ -69,16 +69,17 @@ function splitCSVLines(text: string): string[] {
     const char = text[i];
 
     if (char === '"') {
+      current += char;
       if (inQuotes && i + 1 < text.length && text[i + 1] === '"') {
+        // Escaped quote "" — pass both through, stay in quotes
         current += '"';
-        i++; // skip escaped quote
+        i++;
       } else {
         inQuotes = !inQuotes;
-        current += char;
       }
     } else if ((char === '\n' || char === '\r') && !inQuotes) {
       if (char === '\r' && i + 1 < text.length && text[i + 1] === '\n') {
-        i++; // skip \r\n
+        i++;
       }
       lines.push(current);
       current = '';
