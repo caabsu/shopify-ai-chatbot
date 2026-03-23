@@ -423,7 +423,7 @@ function renderHeader(
   header.appendChild(ratingRow);
 
   const count = createEl('div', 'orw-header-count');
-  count.textContent = `Based on ${summary.verified_count} verified review${summary.verified_count !== 1 ? 's' : ''}`;
+  count.textContent = `Based on ${summary.total_count} review${summary.total_count !== 1 ? 's' : ''}`;
   header.appendChild(count);
 
   const btn = createEl('button', 'orw-header-btn');
