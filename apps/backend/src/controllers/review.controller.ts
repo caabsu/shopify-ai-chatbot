@@ -498,6 +498,48 @@ reviewRouter.put('/admin/email-templates/:type', async (req, res) => {
   }
 });
 
+// POST /admin/clear-imports — Delete all imported reviews (for re-import)
+reviewRouter.post('/admin/clear-imports', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+
+    // Delete media for imported reviews first
+    const { data: importedReviews } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('brand_id', brandId)
+      .eq('source', 'import');
+
+    const ids = (importedReviews ?? []).map(r => r.id);
+    if (ids.length > 0) {
+      for (let i = 0; i < ids.length; i += 200) {
+        const batch = ids.slice(i, i + 200);
+        await supabase.from('review_media').delete().in('review_id', batch);
+        await supabase.from('review_replies').delete().in('review_id', batch);
+      }
+    }
+
+    // Delete all imported reviews
+    const { error, count } = await supabase
+      .from('reviews')
+      .delete({ count: 'exact' })
+      .eq('brand_id', brandId)
+      .eq('source', 'import');
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    console.log(`[review.controller] Cleared ${count} imported reviews for brand ${brandId}`);
+    res.json({ deleted: count });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[review.controller] POST /admin/clear-imports error:', message);
+    res.status(500).json({ error: 'Failed to clear imports' });
+  }
+});
+
 // POST /admin/import — Import reviews from CSV
 reviewRouter.post('/admin/import', async (req, res) => {
   try {
