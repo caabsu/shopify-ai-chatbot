@@ -50,7 +50,10 @@ reviewRouter.get('/product/:handle', async (req, res) => {
     });
 
     res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-    res.json(result);
+    res.json({
+      ...result,
+      totalPages: Math.ceil((result.total || 0) / perPage),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[review.controller] GET /product/:handle error:', message);
