@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const source = searchParams.get('source');
   const dateFrom = searchParams.get('date_from');
   const dateTo = searchParams.get('date_to');
+  const sort = searchParams.get('sort') || 'newest';
   const page = parseInt(searchParams.get('page') || '1');
   const perPage = parseInt(searchParams.get('per_page') || '20');
 
@@ -61,7 +62,21 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  query = query.order('created_at', { ascending: false });
+  switch (sort) {
+    case 'oldest':
+      query = query.order('created_at', { ascending: true });
+      break;
+    case 'highest':
+      query = query.order('rating', { ascending: false }).order('created_at', { ascending: false });
+      break;
+    case 'lowest':
+      query = query.order('rating', { ascending: true }).order('created_at', { ascending: false });
+      break;
+    case 'newest':
+    default:
+      query = query.order('created_at', { ascending: false });
+      break;
+  }
 
   const from = (page - 1) * perPage;
   const to = from + perPage - 1;

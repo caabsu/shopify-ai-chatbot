@@ -212,6 +212,7 @@ export default function AllReviewsPage() {
   const [sourceFilter, setSourceFilter] = useState('');
   const [mediaFilter, setMediaFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('newest');
 
   const [counts, setCounts] = useState<FilterCounts>({
     all: 0,
@@ -268,6 +269,7 @@ export default function AllReviewsPage() {
     if (sourceFilter) params.set('source', sourceFilter);
     if (mediaFilter) params.set('has_media', mediaFilter);
     if (search) params.set('search', search);
+    if (sort) params.set('sort', sort);
 
     try {
       const res = await fetch(`/api/reviews?${params}`);
@@ -279,7 +281,7 @@ export default function AllReviewsPage() {
       setReviews([]);
     }
     setLoading(false);
-  }, [page, statusFilter, ratingFilter, productFilter, sourceFilter, mediaFilter, search]);
+  }, [page, statusFilter, ratingFilter, productFilter, sourceFilter, mediaFilter, search, sort]);
 
   useEffect(() => {
     loadCounts();
@@ -447,27 +449,43 @@ export default function AllReviewsPage() {
             {total} {total === 1 ? 'review' : 'reviews'}
           </span>
         </div>
-        <div className="relative">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2"
-            style={{ color: 'var(--text-tertiary)' }}
-          />
-          <input
-            placeholder="Search reviews..."
-            value={search}
+        <div className="flex items-center gap-3">
+          <select
+            value={sort}
             onChange={(e) => {
-              setSearch(e.target.value);
+              setSort(e.target.value);
               setPage(1);
             }}
-            className="pl-9 pr-3 py-2 text-sm rounded-lg w-64 focus:outline-none focus:ring-2"
-            style={
-              {
-                ...inputStyle,
-                '--tw-ring-color': 'var(--color-accent)',
-              } as React.CSSProperties
-            }
-          />
+            className="text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+            style={inputStyle}
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="highest">Highest Rated</option>
+            <option value="lowest">Lowest Rated</option>
+          </select>
+          <div className="relative">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+            <input
+              placeholder="Search reviews..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-9 pr-3 py-2 text-sm rounded-lg w-64 focus:outline-none focus:ring-2"
+              style={
+                {
+                  ...inputStyle,
+                  '--tw-ring-color': 'var(--color-accent)',
+                } as React.CSSProperties
+              }
+            />
+          </div>
         </div>
       </div>
 

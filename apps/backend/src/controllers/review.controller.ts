@@ -496,9 +496,9 @@ reviewRouter.put('/admin/email-templates/:type', async (req, res) => {
 // POST /admin/import — Import reviews from CSV
 reviewRouter.post('/admin/import', async (req, res) => {
   try {
-    const { csv } = req.body;
+    const csv = req.body.csv || req.body.csv_text;
     if (!csv || typeof csv !== 'string') {
-      res.status(400).json({ error: 'csv (string) is required in request body' });
+      res.status(400).json({ error: 'csv or csv_text (string) is required in request body' });
       return;
     }
 

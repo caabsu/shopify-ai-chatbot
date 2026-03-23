@@ -113,8 +113,9 @@ interface WidgetState {
   formPhotoUrls: string[];
   formUploading: boolean;
   activeSort: string;
-  activeRatingFilter: number | null;
+  activeRatingFilters: Set<number>;
   activeMediaFilter: boolean;
+  filterDropdownOpen: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -144,7 +145,7 @@ function formatDate(dateStr: string): string {
     const month = d.getMonth() + 1;
     const day = d.getDate();
     const year = d.getFullYear();
-    return `${month}/${day}/${year}`;
+    return `${month}/${day.toString().padStart(2, '0')}/${year}`;
   } catch {
     return dateStr;
   }
@@ -246,57 +247,123 @@ function renderFilterBar(
   summary: ReviewSummary,
   state: WidgetState,
   onSortChange: (sort: string) => void,
-  onRatingFilter: (rating: number | null) => void,
+  onRatingToggle: (rating: number) => void,
   onMediaFilter: (active: boolean) => void,
+  onClearFilters: () => void,
 ): HTMLElement {
-  const bar = createEl('div', 'orw-filters');
+  const bar = createEl('div', 'orw-toolbar');
 
-  const left = createEl('div', 'orw-filters-left');
+  // Left side: review count
+  const countLabel = createEl('span', 'orw-toolbar-count');
+  const hasFilter = state.activeRatingFilters.size > 0 || state.activeMediaFilter;
+  countLabel.textContent = hasFilter
+    ? `Filtered — ${summary.total_count} total reviews`
+    : `${summary.total_count} reviews`;
+  bar.appendChild(countLabel);
 
-  // "All Reviews" button
-  const allBtn = createEl('button', `orw-filter-btn${!state.activeRatingFilter && !state.activeMediaFilter ? ' orw-filter-btn--active' : ''}`);
-  allBtn.textContent = `All Reviews (${summary.total_count})`;
-  allBtn.addEventListener('click', () => {
-    onRatingFilter(null);
-    onMediaFilter(false);
-  });
-  left.appendChild(allBtn);
+  // Right side: Filter + Sort buttons
+  const controls = createEl('div', 'orw-toolbar-controls');
 
-  // "With Photos" button — count reviews with media
-  const mediaCount = state.reviews.length > 0
-    ? state.reviews.filter(r => r.media && r.media.length > 0).length
-    : 0;
-  const photosBtn = createEl('button', `orw-filter-btn${state.activeMediaFilter ? ' orw-filter-btn--active' : ''}`);
-  photosBtn.textContent = `With Photos (${mediaCount})`;
-  photosBtn.addEventListener('click', () => {
-    onMediaFilter(!state.activeMediaFilter);
-    onRatingFilter(null);
-  });
-  left.appendChild(photosBtn);
+  // ── Filter Button + Dropdown ──
+  const filterWrap = createEl('div', 'orw-filter-wrap');
 
-  // Star filter buttons
-  for (let s = 5; s >= 1; s--) {
-    const starBtn = createEl('button', `orw-filter-btn${state.activeRatingFilter === s ? ' orw-filter-btn--active' : ''}`);
-    const starIcon = createEl('span', 'orw-filter-star-icon');
-    starIcon.appendChild(createStarSvg('full', state.activeRatingFilter === s ? '#ffffff' : '#C5A059', 11));
-    starBtn.appendChild(starIcon);
-    const numSpan = document.createTextNode(String(s));
-    starBtn.appendChild(numSpan);
-    starBtn.addEventListener('click', () => {
-      onRatingFilter(state.activeRatingFilter === s ? null : s);
-      onMediaFilter(false);
+  const activeCount = state.activeRatingFilters.size + (state.activeMediaFilter ? 1 : 0);
+  const filterBtn = createEl('button', 'orw-toolbar-btn');
+  filterBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`;
+  const filterLabel = document.createTextNode(activeCount > 0 ? ` Filter (${activeCount})` : ' Filter');
+  filterBtn.appendChild(filterLabel);
+  if (activeCount > 0) filterBtn.classList.add('orw-toolbar-btn--active');
+
+  const dropdown = createEl('div', 'orw-filter-dropdown');
+
+  // Dropdown header
+  const ddHeader = createEl('div', 'orw-filter-dd-header');
+  const ddTitle = createEl('span', 'orw-filter-dd-title', 'Filter Reviews');
+  ddHeader.appendChild(ddTitle);
+  if (hasFilter) {
+    const clearBtn = createEl('button', 'orw-filter-dd-clear', 'Clear all');
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onClearFilters();
     });
-    left.appendChild(starBtn);
+    ddHeader.appendChild(clearBtn);
+  }
+  dropdown.appendChild(ddHeader);
+
+  // Media section
+  const mediaSection = createEl('div', 'orw-filter-dd-section');
+  const mediaLabel = createEl('div', 'orw-filter-dd-label', 'MEDIA');
+  mediaSection.appendChild(mediaLabel);
+
+  const mediaBtn = createEl('button', `orw-filter-dd-option${state.activeMediaFilter ? ' orw-filter-dd-option--active' : ''}`);
+  mediaBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> With Photos`;
+  mediaBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onMediaFilter(!state.activeMediaFilter);
+  });
+  mediaSection.appendChild(mediaBtn);
+  dropdown.appendChild(mediaSection);
+
+  // Rating section
+  const ratingSection = createEl('div', 'orw-filter-dd-section');
+  const ratingLabel = createEl('div', 'orw-filter-dd-label', 'RATING');
+  ratingSection.appendChild(ratingLabel);
+
+  const ratingGrid = createEl('div', 'orw-filter-dd-ratings');
+  for (let s = 5; s >= 1; s--) {
+    const isActive = state.activeRatingFilters.has(s);
+    const rBtn = createEl('button', `orw-filter-dd-rating${isActive ? ' orw-filter-dd-rating--active' : ''}`);
+    const starsWrap = createEl('span', 'orw-filter-dd-rating-stars');
+    for (let i = 1; i <= 5; i++) {
+      starsWrap.appendChild(createStarSvg(
+        i <= s ? 'full' : 'empty',
+        isActive ? '#ffffff' : '#C5A059',
+        12,
+      ));
+    }
+    rBtn.appendChild(starsWrap);
+    const dist = summary.distribution?.find(d => d.stars === s);
+    const distCount = dist?.count ?? 0;
+    const countSpan = createEl('span', 'orw-filter-dd-rating-count', `(${distCount})`);
+    rBtn.appendChild(countSpan);
+    rBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onRatingToggle(s);
+    });
+    ratingGrid.appendChild(rBtn);
+  }
+  ratingSection.appendChild(ratingGrid);
+  dropdown.appendChild(ratingSection);
+
+  filterWrap.appendChild(filterBtn);
+  filterWrap.appendChild(dropdown);
+
+  // Open dropdown from state
+  if (state.filterDropdownOpen) {
+    dropdown.classList.add('orw-filter-dropdown--open');
   }
 
-  bar.appendChild(left);
+  // Toggle dropdown on click
+  filterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.filterDropdownOpen = !state.filterDropdownOpen;
+    dropdown.classList.toggle('orw-filter-dropdown--open');
+    if (state.filterDropdownOpen) {
+      const closeOnClick = (ev: MouseEvent) => {
+        if (!filterWrap.contains(ev.target as Node)) {
+          state.filterDropdownOpen = false;
+          dropdown.classList.remove('orw-filter-dropdown--open');
+          document.removeEventListener('click', closeOnClick);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', closeOnClick), 0);
+    }
+  });
 
-  // Sort dropdown (right-aligned)
-  const right = createEl('div', 'orw-filters-right');
-  const sortLabel = createEl('span', 'orw-sort-label', 'Sort:');
-  right.appendChild(sortLabel);
+  controls.appendChild(filterWrap);
 
-  const sortSelect = createEl('select', 'orw-sort-select') as HTMLSelectElement;
+  // ── Sort Dropdown ──
+  const sortSelect = createEl('select', 'orw-toolbar-sort') as HTMLSelectElement;
   const sortOptions = [
     { value: 'newest', label: 'Newest' },
     { value: 'oldest', label: 'Oldest' },
@@ -314,9 +381,9 @@ function renderFilterBar(
   sortSelect.addEventListener('change', () => {
     onSortChange(sortSelect.value);
   });
-  right.appendChild(sortSelect);
+  controls.appendChild(sortSelect);
 
-  bar.appendChild(right);
+  bar.appendChild(controls);
 
   return bar;
 }
@@ -920,8 +987,9 @@ function createReviewWidget(
     formPhotoUrls: [],
     formUploading: false,
     activeSort: 'newest',
-    activeRatingFilter: null,
+    activeRatingFilters: new Set<number>(),
     activeMediaFilter: false,
+    filterDropdownOpen: false,
   };
 
   // Apply CSS custom properties
@@ -929,7 +997,7 @@ function createReviewWidget(
     container.style.setProperty('--orw-star', d.starColor || '#C5A059');
     container.style.setProperty('--orw-text', d.textColor || '#2D3338');
     container.style.setProperty('--orw-heading', d.headingColor || '#C5A059');
-    container.style.setProperty('--orw-bg', d.backgroundColor || '#F9F9FB');
+    container.style.setProperty('--orw-bg', d.backgroundColor || '#ffffff');
   }
 
   applyDesign(design);
@@ -1054,25 +1122,33 @@ function createReviewWidget(
       state,
       (sort: string) => {
         state.activeSort = sort;
+        state.filterDropdownOpen = false;
         fetchAll();
       },
-      (rating: number | null) => {
-        state.activeRatingFilter = rating;
-        state.activeMediaFilter = false;
-        fetchAll();
+      (rating: number) => {
+        if (state.activeRatingFilters.has(rating)) {
+          state.activeRatingFilters.delete(rating);
+        } else {
+          state.activeRatingFilters.add(rating);
+        }
+        ensureFullLoadThenRender();
       },
       (active: boolean) => {
         state.activeMediaFilter = active;
-        state.activeRatingFilter = null;
-        fetchAll();
+        ensureFullLoadThenRender();
+      },
+      () => {
+        state.activeRatingFilters.clear();
+        state.activeMediaFilter = false;
+        ensureFullLoadThenRender();
       },
     );
     wrap.appendChild(filterBar);
 
-    // Apply client-side filters
+    // Apply client-side filters (media is always client-side, rating client-side for multi-select)
     let displayReviews = state.reviews;
-    if (state.activeRatingFilter !== null) {
-      displayReviews = displayReviews.filter(r => r.rating === state.activeRatingFilter);
+    if (state.activeRatingFilters.size > 0) {
+      displayReviews = displayReviews.filter(r => state.activeRatingFilters.has(r.rating));
     }
     if (state.activeMediaFilter) {
       displayReviews = displayReviews.filter(r => r.media && r.media.length > 0);
@@ -1111,7 +1187,34 @@ function createReviewWidget(
     }, '*');
   }
 
+  let fullLoaded = false;
+
+  async function ensureFullLoadThenRender(): Promise<void> {
+    // Re-render immediately so dropdown stays open and filters apply
+    render();
+
+    // If we haven't loaded the full set yet, fetch in background
+    const hasFilter = state.activeRatingFilters.size > 0 || state.activeMediaFilter;
+    if (hasFilter && !fullLoaded && state.totalReviews > state.reviews.length) {
+      let url = `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=1&per_page=100&sort=${state.activeSort}`;
+      if (brandParam) url += '&' + brandParam.slice(1);
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const data: ReviewsResponse = await res.json();
+          state.reviews = data.reviews || [];
+          state.page = data.page || 1;
+          state.totalPages = data.totalPages || 0;
+          state.totalReviews = data.total || 0;
+          fullLoaded = true;
+          render();
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
   async function fetchAll(): Promise<void> {
+    fullLoaded = false;
     state.loading = true;
     state.error = null;
     state.page = 1;
@@ -1119,11 +1222,9 @@ function createReviewWidget(
     render();
 
     try {
-      const fetchPerPage = state.activeMediaFilter ? 100 : state.perPage;
+      const hasClientFilter = state.activeMediaFilter || state.activeRatingFilters.size > 0;
+      const fetchPerPage = hasClientFilter ? 100 : state.perPage;
       let reviewUrl = `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=1&per_page=${fetchPerPage}&sort=${state.activeSort}`;
-      if (state.activeRatingFilter !== null) {
-        reviewUrl += `&rating=${state.activeRatingFilter}`;
-      }
       if (brandParam) {
         reviewUrl += '&' + brandParam.slice(1);
       }
@@ -1171,9 +1272,6 @@ function createReviewWidget(
     const nextPage = state.page + 1;
     try {
       let loadMoreUrl = `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=${nextPage}&per_page=${state.perPage}&sort=${state.activeSort}`;
-      if (state.activeRatingFilter !== null) {
-        loadMoreUrl += `&rating=${state.activeRatingFilter}`;
-      }
       if (brandParam) {
         loadMoreUrl += '&' + brandParam.slice(1);
       }
@@ -1237,8 +1335,7 @@ async function init(): Promise<void> {
     formRoot.style.setProperty('--orw-star', design.starColor || '#C5A059');
     formRoot.style.setProperty('--orw-text', design.textColor || '#2D3338');
     formRoot.style.setProperty('--orw-heading', design.headingColor || '#C5A059');
-    formRoot.style.setProperty('--orw-bg', design.backgroundColor || '#F9F9FB');
-    formRoot.style.setProperty('--orw-divider', '#E8E8EC');
+    formRoot.style.setProperty('--orw-bg', design.backgroundColor || '#ffffff');
 
     const state: WidgetState = {
       loading: false,
@@ -1260,8 +1357,9 @@ async function init(): Promise<void> {
       formPhotoUrls: [],
       formUploading: false,
       activeSort: 'newest',
-      activeRatingFilter: null,
+      activeRatingFilters: new Set<number>(),
       activeMediaFilter: false,
+      filterDropdownOpen: false,
     };
 
     const formEl = renderReviewForm(

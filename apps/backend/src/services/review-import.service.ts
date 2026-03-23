@@ -3,18 +3,29 @@ import type { ReviewImportResult } from '../types/index.js';
 
 interface LooxRow {
   id?: string;
+  handle?: string;
   product_handle?: string;
+  productid?: string;
   rating?: string;
   title?: string;
   body?: string;
+  review?: string;
   author?: string;
+  full_name?: string;
+  nickname?: string;
   email?: string;
   status?: string;
   created_at?: string;
+  date?: string;
   img?: string;
+  variant?: string;
+  verified_purchase?: string;
+  orderid?: string;
+  incentivized?: string;
   reply?: string;
   reply_author?: string;
   reply_date?: string;
+  replied_at?: string;
 }
 
 // ── CSV Parser ─────────────────────────────────────────────────────────────
@@ -213,9 +224,10 @@ async function processRow(
   rowIndex: number,
 ): Promise<'imported' | 'skipped' | string> {
   try {
-    const handle = row.product_handle?.trim();
+    // Support both "handle" (actual Loox export) and "product_handle" column names
+    const handle = (row.handle || row.product_handle)?.trim();
     if (!handle) {
-      return `Row ${rowIndex}: Missing product_handle`;
+      return `Row ${rowIndex}: Missing product handle`;
     }
 
     const rating = parseInt(row.rating ?? '', 10);
@@ -223,15 +235,14 @@ async function processRow(
       return `Row ${rowIndex}: Invalid rating "${row.rating}"`;
     }
 
-    const body = row.body?.trim();
+    // Support both "review" (actual Loox export) and "body" column names
+    const body = (row.review || row.body)?.trim();
     if (!body) {
       return `Row ${rowIndex}: Missing review body`;
     }
 
-    const email = row.email?.trim();
-    if (!email) {
-      return `Row ${rowIndex}: Missing email`;
-    }
+    // Email is often empty in Loox exports — generate a placeholder if missing
+    const email = row.email?.trim() || `imported-${row.id || rowIndex}@noreply.import`;
 
     const importSourceId = row.id?.trim() || null;
 
@@ -263,22 +274,34 @@ async function processRow(
     const looxStatus = row.status?.trim().toLowerCase();
     const status = looxStatus === 'active' || looxStatus === 'published' ? 'published' : 'pending';
 
-    const submittedAt = row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString();
+    // Support both "date" (actual Loox) and "created_at" column names
+    const dateStr = row.date || row.created_at;
+    const submittedAt = dateStr ? new Date(dateStr).toISOString() : new Date().toISOString();
+
+    // Support "full_name" (actual Loox) and "author"
+    const customerName = (row.full_name || row.author)?.trim() || email.split('@')[0];
+    const customerNickname = row.nickname?.trim() || null;
+
+    // Map verified_purchase, incentivized, variant, orderId from actual Loox columns
+    const verifiedPurchase = row.verified_purchase?.trim().toLowerCase() === 'true';
+    const incentivized = row.incentivized?.trim().toLowerCase() === 'true';
+    const variantTitle = row.variant?.trim() || null;
+    const shopifyOrderId = row.orderid?.trim() || null;
 
     const reviewRow = {
       product_id: product.id,
       shopify_product_id: product.shopify_product_id,
-      shopify_order_id: null,
+      shopify_order_id: shopifyOrderId,
       customer_email: email,
-      customer_name: row.author?.trim() || email.split('@')[0],
-      customer_nickname: null,
+      customer_name: customerName,
+      customer_nickname: customerNickname,
       rating,
       title: row.title?.trim() || null,
       body,
       status,
-      verified_purchase: false,
-      incentivized: false,
-      variant_title: null,
+      verified_purchase: verifiedPurchase,
+      incentivized,
+      variant_title: variantTitle,
       source: 'import' as const,
       import_source_id: importSourceId,
       featured: false,
@@ -326,15 +349,20 @@ async function processRow(
     // Handle reply import
     if (row.reply?.trim()) {
       const replyAuthor = row.reply_author?.trim() || 'Store Owner';
+      const replyDate = row.replied_at || row.reply_date;
+      const replyInsert: Record<string, unknown> = {
+        review_id: reviewId,
+        author_name: replyAuthor,
+        author_email: null,
+        body: row.reply.trim(),
+        published: true,
+      };
+      if (replyDate?.trim()) {
+        replyInsert.created_at = new Date(replyDate).toISOString();
+      }
       await supabase
         .from('review_replies')
-        .insert({
-          review_id: reviewId,
-          author_name: replyAuthor,
-          author_email: null,
-          body: row.reply.trim(),
-          published: true,
-        });
+        .insert(replyInsert);
     }
 
     return 'imported';
