@@ -234,6 +234,19 @@ export default function AllReviewsPage() {
 
   const [bulkLoading, setBulkLoading] = useState(false);
 
+  // Products for filter dropdown
+  const [products, setProducts] = useState<{ id: string; title: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/reviews/products');
+        const data = await res.json();
+        setProducts((data.products ?? data.items ?? []).map((p: Record<string, string>) => ({ id: p.id, title: p.title })));
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
   // Lightbox state
   const [lightboxImages, setLightboxImages] = useState<{ url: string; media_type: string }[] | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -661,6 +674,32 @@ export default function AllReviewsPage() {
               <option value="email_request">Email</option>
               <option value="import">Import</option>
               <option value="manual">Manual</option>
+            </select>
+          </div>
+
+          {/* Product Filter */}
+          <div>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 mb-2"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              Product
+            </p>
+            <select
+              value={productFilter}
+              onChange={(e) => {
+                setProductFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full text-xs rounded-lg px-2 py-1.5 focus:outline-none"
+              style={inputStyle}
+            >
+              <option value="">All Products</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
             </select>
           </div>
         </div>
