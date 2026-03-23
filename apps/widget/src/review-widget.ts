@@ -1170,8 +1170,19 @@ function createReviewWidget(
     );
     wrap.appendChild(filterBar);
 
-    // Apply client-side filters (media is always client-side, rating client-side for multi-select)
-    let displayReviews = state.reviews;
+    // Apply client-side filters and sorting
+    let displayReviews = [...state.reviews];
+
+    // Default: media-first, then newest — reviews with images/videos bubble to top
+    if (state.activeSort === 'newest') {
+      displayReviews.sort((a, b) => {
+        const aHas = a.media && a.media.length > 0 ? 1 : 0;
+        const bHas = b.media && b.media.length > 0 ? 1 : 0;
+        if (bHas !== aHas) return bHas - aHas;
+        return new Date(b.submitted_at || b.created_at).getTime() - new Date(a.submitted_at || a.created_at).getTime();
+      });
+    }
+
     if (state.activeRatingFilters.size > 0) {
       displayReviews = displayReviews.filter(r => state.activeRatingFilters.has(r.rating));
     }
@@ -1179,10 +1190,17 @@ function createReviewWidget(
       displayReviews = displayReviews.filter(r => r.media && r.media.length > 0);
     }
 
+    // Client-side pagination
+    const totalFiltered = displayReviews.length;
+    const clientTotalPages = Math.ceil(totalFiltered / state.perPage);
+    const clientPage = Math.min(state.page, clientTotalPages || 1);
+    const pageStart = (clientPage - 1) * state.perPage;
+    const pageReviews = displayReviews.slice(pageStart, pageStart + state.perPage);
+
     // Review cards grid
-    if (displayReviews.length > 0) {
+    if (pageReviews.length > 0) {
       const grid = createEl('div', 'orw-reviews-grid');
-      displayReviews.forEach((review) => {
+      pageReviews.forEach((review) => {
         const card = renderReviewCard(review, design, showLightbox);
         grid.appendChild(card);
       });
@@ -1190,27 +1208,27 @@ function createReviewWidget(
     }
 
     // Pagination controls
-    if (state.totalPages > 1) {
+    if (clientTotalPages > 1) {
       const pager = createEl('div', 'orw-pagination');
 
       // Previous button
       const prevBtn = createEl('button', 'orw-page-btn');
       prevBtn.innerHTML = '&#8249;';
-      prevBtn.disabled = state.page <= 1;
-      prevBtn.addEventListener('click', () => goToPage(state.page - 1));
+      prevBtn.disabled = clientPage <= 1;
+      prevBtn.addEventListener('click', () => { state.page = clientPage - 1; render(); container.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
       pager.appendChild(prevBtn);
 
       // Page numbers
-      const pages = buildPageNumbers(state.page, state.totalPages);
+      const pages = buildPageNumbers(clientPage, clientTotalPages);
       for (const p of pages) {
         if (p === '...') {
           const dots = createEl('span', 'orw-page-dots', '...');
           pager.appendChild(dots);
         } else {
           const num = p as number;
-          const pageBtn = createEl('button', `orw-page-num${num === state.page ? ' orw-page-num--active' : ''}`);
+          const pageBtn = createEl('button', `orw-page-num${num === clientPage ? ' orw-page-num--active' : ''}`);
           pageBtn.textContent = String(num);
-          pageBtn.addEventListener('click', () => goToPage(num));
+          pageBtn.addEventListener('click', () => { state.page = num; render(); container.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
           pager.appendChild(pageBtn);
         }
       }
@@ -1218,8 +1236,8 @@ function createReviewWidget(
       // Next button
       const nextBtn = createEl('button', 'orw-page-btn');
       nextBtn.innerHTML = '&#8250;';
-      nextBtn.disabled = state.page >= state.totalPages;
-      nextBtn.addEventListener('click', () => goToPage(state.page + 1));
+      nextBtn.disabled = clientPage >= clientTotalPages;
+      nextBtn.addEventListener('click', () => { state.page = clientPage + 1; render(); container.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
       pager.appendChild(nextBtn);
 
       wrap.appendChild(pager);
@@ -1272,9 +1290,8 @@ function createReviewWidget(
     render();
 
     try {
-      const hasClientFilter = state.activeMediaFilter || state.activeRatingFilters.size > 0;
-      const fetchPerPage = hasClientFilter ? 100 : state.perPage;
-      let reviewUrl = `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=1&per_page=${fetchPerPage}&sort=${state.activeSort}`;
+      // Always fetch all reviews so client-side media-first sort and filters work correctly
+      let reviewUrl = `${backendUrl}/api/reviews/product/${encodeURIComponent(handle)}?page=1&per_page=200&sort=${state.activeSort}`;
       if (brandParam) {
         reviewUrl += '&' + brandParam.slice(1);
       }

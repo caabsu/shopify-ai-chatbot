@@ -36,7 +36,7 @@ reviewRouter.get('/product/:handle', async (req, res) => {
     const brandId = await resolveBrandId(req);
     const { handle } = req.params;
     const page = parseInt(req.query.page as string, 10) || 1;
-    const perPage = Math.min(parseInt(req.query.per_page as string, 10) || 10, 50);
+    const perPage = Math.min(parseInt(req.query.per_page as string, 10) || 10, 200);
     const sort = (req.query.sort as string) || 'newest';
     const rating = req.query.rating ? parseInt(req.query.rating as string, 10) : undefined;
     const verified = req.query.verified === 'true' ? true : req.query.verified === 'false' ? false : undefined;
