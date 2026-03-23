@@ -15,7 +15,7 @@
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #ffffff;
+  background: #F9F9FB;
 }
 .orw-container *, .orw-container *::before, .orw-container *::after {
   box-sizing: border-box;
@@ -28,7 +28,7 @@
   text-align: center;
   padding: 48px 16px 36px;
   border-bottom: 1px solid #E8E8EC;
-  background: #ffffff;
+  background: #F9F9FB;
 }
 .orw-header-title {
   font-family: 'Manrope', sans-serif;
@@ -93,7 +93,7 @@
   justify-content: space-between;
   padding: 14px 28px;
   border-bottom: 1px solid #E8E8EC;
-  background: #ffffff;
+  background: #F9F9FB;
 }
 .orw-toolbar-count {
   font-family: 'Manrope', sans-serif;
@@ -115,7 +115,7 @@
   font-size: 12px;
   font-weight: 500;
   color: #2D3338;
-  background: #ffffff;
+  background: #F9F9FB;
   border: 1px solid #D4D4D8;
   border-radius: 0;
   cursor: pointer;
@@ -146,7 +146,7 @@
   font-size: 12px;
   font-weight: 500;
   color: #2D3338;
-  background: #ffffff;
+  background: #F9F9FB;
   border: 1px solid #D4D4D8;
   border-radius: 0;
   padding: 7px 14px;
@@ -176,7 +176,7 @@
   right: 0;
   z-index: 100;
   width: 260px;
-  background: #ffffff;
+  background: #F9F9FB;
   border: 1px solid #E8E8EC;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
   font-family: 'Manrope', sans-serif;
@@ -239,7 +239,7 @@
   font-size: 12px;
   font-weight: 400;
   color: #2D3338;
-  background: #ffffff;
+  background: #F9F9FB;
   border: 1px solid #E8E8EC;
   border-radius: 0;
   cursor: pointer;
@@ -275,7 +275,7 @@
   font-size: 12px;
   font-weight: 400;
   color: #2D3338;
-  background: #ffffff;
+  background: #F9F9FB;
   border: 1px solid #E8E8EC;
   border-radius: 0;
   cursor: pointer;
@@ -321,7 +321,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0;
-  background: #ffffff;
+  background: #F9F9FB;
 }
 
 /* ── Card ── */
@@ -329,7 +329,7 @@
   padding: 32px 28px;
   border-bottom: 1px solid #E8E8EC;
   border-right: 1px solid #E8E8EC;
-  background: #ffffff;
+  background: #F9F9FB;
 }
 .orw-reviews-grid .orw-card:nth-child(2n) {
   border-right: none;
@@ -441,7 +441,7 @@
 .orw-load-more-wrap {
   text-align: center;
   padding: 36px 16px;
-  background: #ffffff;
+  background: #F9F9FB;
 }
 .orw-load-more {
   display: inline-block;
@@ -474,7 +474,7 @@
   justify-content: center;
   gap: 4px;
   padding: 32px 16px;
-  background: #ffffff;
+  background: #F9F9FB;
 }
 .orw-page-btn {
   display: flex;
@@ -485,7 +485,7 @@
   font-family: 'Manrope', sans-serif;
   font-size: 18px;
   color: #2D3338;
-  background: #ffffff;
+  background: #F9F9FB;
   border: 1px solid #D4D4D8;
   border-radius: 0;
   cursor: pointer;
@@ -509,7 +509,7 @@
   font-size: 13px;
   font-weight: 400;
   color: #2D3338;
-  background: #ffffff;
+  background: #F9F9FB;
   border: 1px solid #D4D4D8;
   border-radius: 0;
   cursor: pointer;
@@ -543,7 +543,7 @@
   text-align: center;
   padding: 48px 16px;
   color: #8A9099;
-  background: #ffffff;
+  background: #F9F9FB;
 }
 .orw-empty-text {
   font-family: 'Manrope', sans-serif;
@@ -557,7 +557,7 @@
   text-align: center;
   padding: 48px 16px;
   color: #8A9099;
-  background: #ffffff;
+  background: #F9F9FB;
 }
 .orw-spinner {
   display: inline-block;
@@ -579,7 +579,7 @@
   color: #991b1b;
   font-family: 'Manrope', sans-serif;
   font-size: 14px;
-  background: #ffffff;
+  background: #F9F9FB;
 }
 
 /* ── Modal (Review Form) ── */
@@ -601,7 +601,7 @@
   to { opacity: 1; }
 }
 .orw-form {
-  background: #ffffff;
+  background: #F9F9FB;
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
