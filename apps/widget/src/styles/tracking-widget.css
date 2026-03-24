@@ -8,7 +8,7 @@
 .otw-container {
   max-width: 620px;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0 32px 80px;
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #2d3338;
   -webkit-font-smoothing: antialiased;
