@@ -95,7 +95,7 @@ export async function lookupByOrder(
       lookup_type: 'order',
       status: notFoundResult.status,
       carrier: null,
-    }).then(() => {}).catch(() => {});
+    }).then(null, () => {});
     return notFoundResult;
   }
 
@@ -149,7 +149,7 @@ export async function lookupByOrder(
       lookup_type: 'order',
       status: infoResult.status,
       carrier: null,
-    }).then(() => {}).catch(() => {});
+    }).then(null, () => {});
     return infoResult;
   }
 
@@ -217,7 +217,7 @@ export async function lookupByOrder(
     lookup_type: 'order',
     status: result.status,
     carrier: carrier !== 'unknown' ? carrier : null,
-  }).then(() => {}).catch(() => {});
+  }).then(null, () => {});
   return result;
 }
 
@@ -256,7 +256,7 @@ export async function lookupByTracking(
     lookup_type: 'tracking',
     status: trackResult.status,
     carrier: trackData.carrier !== 'unknown' ? trackData.carrier : null,
-  }).then(() => {}).catch(() => {});
+  }).then(null, () => {});
   return trackResult;
 }
 
