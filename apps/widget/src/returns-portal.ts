@@ -13,6 +13,8 @@
  *   4. Submits return request → gets confirmation with reference ID
  */
 
+import './styles/returns-portal.css';
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface BrandDesign {
@@ -125,32 +127,6 @@ function getScriptInfo(): { backendUrl: string; brandSlug: string; noHeader: boo
   return { backendUrl: backendUrl || 'http://localhost:3001', brandSlug, noHeader };
 }
 
-function radiusValue(r: string): string {
-  if (r === 'sharp') return '4px';
-  if (r === 'pill') return '24px';
-  return '12px';
-}
-
-function fontSizeBase(f: string): string {
-  if (f === 'small') return '13px';
-  if (f === 'large') return '16px';
-  return '14px';
-}
-
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-function isLightColor(hex: string): boolean {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
-}
-
 function escapeHtml(text: string): string {
   const el = document.createElement('span');
   el.textContent = text;
@@ -173,459 +149,17 @@ function debugPost(type: string, data?: Record<string, unknown>): void {
   }
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
+// ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function buildStyles(d: BrandDesign): string {
-  const radius = radiusValue(d.borderRadius);
-  const baseFontSize = fontSizeBase(d.fontSize);
-  const primary = d.primaryColor;
-  const bg = d.backgroundColor;
-  const bodyFont = d.fontFamily || "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-  const headingFont = d.headingFontFamily || bodyFont;
-  const btnTextColor = isLightColor(primary) ? '#1a1a1a' : '#ffffff';
-  const inputBorder = isLightColor(bg) ? '#d1d5db' : '#4a4a4a';
-  const inputBg = isLightColor(bg) ? '#ffffff' : hexToRgba('#ffffff', 0.08);
-  const textColor = isLightColor(bg) ? '#1a1a1a' : '#f5f5f5';
-  const subtextColor = isLightColor(bg) ? '#6b7280' : '#a0a0a0';
-  const labelColor = isLightColor(bg) ? '#374151' : '#d1d5db';
-  const focusRing = hexToRgba(primary, 0.2);
-  const cardBorder = isLightColor(bg) ? '#e5e7eb' : '#3a3a3a';
-
-  return `
-.srp-wrap {
-  max-width: 100%;
-  margin: 0 auto;
-  font-family: ${bodyFont} !important;
-  font-size: ${baseFontSize} !important;
-  color: ${textColor};
-  line-height: 1.55;
-}
-.srp-wrap *, .srp-wrap *::before, .srp-wrap *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-/* ── Header ── */
-.srp-header { margin-bottom: 1.75rem; }
-.srp-title {
-  font-family: ${headingFont} !important;
-  font-size: 1.65rem !important;
-  font-weight: 700 !important;
-  color: ${textColor};
-  margin-bottom: 0.4rem;
-  letter-spacing: -0.01em;
-}
-.srp-subtitle {
-  font-size: 0.92em;
-  color: ${subtextColor};
-}
-
-/* ── Steps indicator ── */
-.srp-steps {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin-bottom: 2rem;
-}
-.srp-step {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8em;
-  color: ${subtextColor};
-  font-weight: 500;
-}
-.srp-step--active { color: ${primary}; font-weight: 600; }
-.srp-step--done { color: ${primary}; }
-.srp-step__num {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8em;
-  font-weight: 700;
-  border: 2px solid ${cardBorder};
-  color: ${subtextColor};
-  flex-shrink: 0;
-}
-.srp-step--active .srp-step__num {
-  background: ${primary};
-  color: ${btnTextColor};
-  border-color: ${primary};
-}
-.srp-step--done .srp-step__num {
-  background: ${primary};
-  color: ${btnTextColor};
-  border-color: ${primary};
-}
-.srp-step__line {
-  flex: 1;
-  height: 2px;
-  background: ${cardBorder};
-  margin: 0 12px;
-}
-.srp-step--done + .srp-step__line,
-.srp-step__line--done { background: ${primary}; }
-
-/* ── Form fields ── */
-.srp-field { margin-bottom: 1.1rem; }
-.srp-label {
-  display: block;
-  font-size: 0.85em !important;
-  font-weight: 600 !important;
-  margin-bottom: 0.35rem;
-  color: ${labelColor};
-}
-.srp-required { color: ${primary}; margin-left: 2px; }
-.srp-input, .srp-select, .srp-textarea {
-  width: 100%;
-  padding: 0.65rem 0.85rem;
-  font-size: 0.92em !important;
-  font-family: ${bodyFont} !important;
-  border: 1.5px solid ${inputBorder} !important;
-  border-radius: ${radius} !important;
-  background: ${inputBg} !important;
-  color: ${textColor} !important;
-  text-transform: none !important;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.srp-input::placeholder, .srp-textarea::placeholder {
-  color: ${subtextColor};
-  opacity: 0.7;
-}
-.srp-input:focus, .srp-select:focus, .srp-textarea:focus {
-  outline: none;
-  border-color: ${primary};
-  box-shadow: 0 0 0 3px ${focusRing};
-}
-.srp-textarea { resize: vertical; min-height: 80px; }
-.srp-row { display: flex; gap: 1rem; }
-.srp-row .srp-field { flex: 1; }
-@media (max-width: 480px) {
-  .srp-row { flex-direction: column; gap: 0; }
-}
-
-/* ── Buttons ── */
-.srp-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0.7rem 1.5rem;
-  font-size: 0.92em !important;
-  font-weight: 600 !important;
-  font-family: ${headingFont} !important;
-  border: none;
-  border-radius: ${radius} !important;
-  cursor: pointer;
-  transition: opacity 0.2s, transform 0.1s;
-  letter-spacing: 0.01em;
-  text-transform: none !important;
-}
-.srp-btn:hover { opacity: 0.9; }
-.srp-btn:active { transform: scale(0.99); }
-.srp-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-.srp-btn--primary {
-  background: ${primary} !important;
-  color: ${btnTextColor} !important;
-  width: 100%;
-}
-.srp-btn--secondary {
-  background: transparent !important;
-  color: ${primary} !important;
-  border: 1.5px solid ${primary} !important;
-}
-.srp-btn--secondary:hover {
-  background: ${hexToRgba(primary, 0.08)};
-}
-
-/* ── Item cards ── */
-.srp-items { display: flex; flex-direction: column; gap: 12px; margin-bottom: 1.5rem; }
-.srp-item {
-  display: flex;
-  gap: 14px;
-  padding: 14px;
-  border: 1.5px solid ${cardBorder};
-  border-radius: ${radius};
-  transition: border-color 0.2s, background 0.2s;
-}
-.srp-item--selected {
-  border-color: ${primary};
-  background: ${hexToRgba(primary, 0.04)};
-}
-.srp-item--ineligible {
-  opacity: 0.5;
-}
-.srp-item__check {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border: 2px solid ${inputBorder};
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  margin-top: 2px;
-}
-.srp-item--selected .srp-item__check {
-  background: ${primary};
-  border-color: ${primary};
-}
-.srp-item--ineligible .srp-item__check {
-  cursor: not-allowed;
-}
-.srp-item__check svg { width: 14px; height: 14px; color: ${btnTextColor}; }
-.srp-item__info { flex: 1; min-width: 0; }
-.srp-item__title {
-  font-weight: 600;
-  font-size: 0.95em;
-  margin-bottom: 2px;
-}
-.srp-item__variant {
-  font-size: 0.82em;
-  color: ${subtextColor};
-}
-.srp-item__meta {
-  display: flex;
-  gap: 12px;
-  font-size: 0.82em;
-  color: ${subtextColor};
-  margin-top: 4px;
-}
-.srp-item__ineligible-reason {
-  font-size: 0.8em;
-  color: #dc2626;
-  margin-top: 4px;
-}
-
-/* ── Item reason (collapsible) ── */
-.srp-item-reason {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid ${cardBorder};
-}
-.srp-item-reason .srp-select,
-.srp-item-reason .srp-textarea {
-  margin-top: 6px;
-}
-
-/* ── Error ── */
-.srp-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-  padding: 0.7rem 1rem;
-  border-radius: ${radius};
-  font-size: 0.85em;
-  margin-bottom: 1rem;
-}
-
-/* ── Order summary card ── */
-.srp-order-card {
-  padding: 14px 16px;
-  background: ${hexToRgba(primary, 0.05)};
-  border: 1px solid ${hexToRgba(primary, 0.15)};
-  border-radius: ${radius};
-  margin-bottom: 1.5rem;
-  font-size: 0.9em;
-}
-.srp-order-card__title {
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-.srp-order-card__detail {
-  color: ${subtextColor};
-  font-size: 0.88em;
-}
-
-/* ── Success ── */
-.srp-success {
-  text-align: center;
-  padding: 2.5rem 2rem;
-  background: ${hexToRgba(primary, 0.06)};
-  border: 1.5px solid ${hexToRgba(primary, 0.15)};
-  border-radius: ${radius};
-}
-.srp-success-icon {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 1rem;
-  background: ${primary};
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.srp-success-icon svg { width: 28px; height: 28px; color: ${btnTextColor}; }
-.srp-success-title {
-  font-family: ${headingFont};
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: ${textColor};
-  margin-bottom: 0.5rem;
-}
-.srp-success-text {
-  font-size: 0.92em;
-  color: ${subtextColor};
-  line-height: 1.6;
-  margin-bottom: 0.3rem;
-}
-.srp-success-ref {
-  font-weight: 700;
-  color: ${primary};
-  font-size: 1.1em;
-}
-.srp-success-status {
-  display: inline-block;
-  margin-top: 12px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 0.8em;
-  font-weight: 600;
-  background: ${hexToRgba(primary, 0.12)};
-  color: ${primary};
-}
-
-/* ── Confirm summary ── */
-.srp-confirm-items { margin-bottom: 1.5rem; }
-.srp-confirm-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid ${cardBorder};
-  font-size: 0.9em;
-}
-.srp-confirm-item:last-child { border-bottom: none; }
-.srp-confirm-item__reason {
-  font-size: 0.82em;
-  color: ${subtextColor};
-}
-
-/* ── Resolution toggle ── */
-.srp-resolution-toggle {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-.srp-resolution-btn {
-  flex: 1;
-  padding: 6px 10px;
-  font-size: 0.82em;
-  font-weight: 600;
-  border: 1.5px solid ${cardBorder};
-  border-radius: ${radius};
-  background: transparent;
-  color: ${subtextColor};
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: center;
-}
-.srp-resolution-btn--active {
-  border-color: ${primary};
-  background: ${hexToRgba(primary, 0.08)};
-  color: ${primary};
-}
-.srp-exchange-input {
-  margin-top: 6px;
-}
-
-/* ── Image upload ── */
-.srp-upload-area {
-  margin-top: 8px;
-}
-.srp-upload-label {
-  font-size: 0.82em;
-  font-weight: 600;
-  color: ${labelColor};
-  margin-bottom: 4px;
-  display: block;
-}
-.srp-upload-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  font-size: 0.82em;
-  font-weight: 500;
-  border: 1.5px dashed ${inputBorder};
-  border-radius: ${radius};
-  background: transparent;
-  color: ${subtextColor};
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-.srp-upload-btn:hover {
-  border-color: ${primary};
-  color: ${primary};
-}
-.srp-upload-btn svg { width: 14px; height: 14px; }
-.srp-upload-btn--uploading {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.srp-upload-previews {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-.srp-upload-thumb {
-  position: relative;
-  width: 60px;
-  height: 60px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid ${cardBorder};
-}
-.srp-upload-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.srp-upload-thumb__remove {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  line-height: 1;
-  padding: 0;
-}
-.srp-upload-required {
-  font-size: 0.78em;
-  color: ${primary};
-  font-weight: 500;
-  margin-left: 4px;
-}
-
-/* ── Back link ── */
-.srp-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.85em;
-  color: ${subtextColor};
-  cursor: pointer;
-  margin-bottom: 1rem;
-  background: none;
-  border: none;
-  font-family: ${bodyFont};
-  transition: color 0.15s;
-}
-.srp-back:hover { color: ${textColor}; }
-.srp-back svg { width: 16px; height: 16px; }
-`;
-}
+const ICONS = {
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  checkCircle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  arrowLeft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>',
+  upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+  schedule: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+};
 
 // ── Portal Renderer ──────────────────────────────────────────────────────────
 
@@ -637,15 +171,16 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       }))
     : DEFAULT_RETURN_REASONS;
 
-  const portalTitle = portalConfig?.settings?.portal_title || 'Returns & Exchanges';
-  const portalDescription = portalConfig?.settings?.portal_description || 'Start a return or exchange in just a few steps.';
+  const portalTitle = portalConfig?.settings?.portal_title || 'Start a Return';
+  const portalDescription = portalConfig?.settings?.portal_description || 'We make returns and exchanges simple. Enter your order details to get started.';
   const btnTextLookup = design.buttonTextLookup || 'Find My Order';
   const btnTextContinue = design.buttonTextContinue || 'Continue to Review';
   const btnTextSubmit = design.buttonTextSubmit || 'Submit Return Request';
   const stepLabelsList = design.stepLabels || ['Find Order', 'Select Items', 'Confirm'];
   const successTitle = design.successTitle || 'Return Request Submitted';
   const successMessage = design.successMessage || 'Your return request has been received.';
-  const successBtnText = design.successButtonText || 'Start Another Return';
+  const successBtnText = design.successButtonText || 'Continue Shopping';
+  const returnWindowDays = portalConfig?.settings?.return_window_days || 30;
 
   const availableResolutions = portalConfig?.settings?.available_resolutions || ['refund', 'store_credit', 'exchange'];
   const hasExchangeOption = availableResolutions.includes('exchange');
@@ -666,17 +201,25 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     resultStatus: null,
   };
 
-  // Inject styles
-  if (!document.getElementById('srp-styles')) {
-    const style = document.createElement('style');
-    style.id = 'srp-styles';
-    style.textContent = buildStyles(design);
-    document.head.appendChild(style);
-  }
-
   const brandParam = brandSlug ? `?brand=${brandSlug}` : '';
 
-  function stepsHtml(): string {
+  // ── Step title map ──
+  function getStepTitle(): string {
+    if (state.step === 'lookup') return portalTitle;
+    if (state.step === 'select_items') return 'Select Items';
+    if (state.step === 'confirm') return 'Review & Submit';
+    return '';
+  }
+
+  function getStepSubtitle(): string {
+    if (state.step === 'lookup') return portalDescription;
+    if (state.step === 'select_items') return 'Choose the items you\'d like to return or exchange.';
+    if (state.step === 'confirm') return 'Please review your return details before submitting.';
+    return '';
+  }
+
+  // ── Progress Bar ──
+  function progressHtml(): string {
     const steps: Array<{ num: number; label: string; key: Step }> = [
       { num: 1, label: stepLabelsList[0] || 'Find Order', key: 'lookup' },
       { num: 2, label: stepLabelsList[1] || 'Select Items', key: 'select_items' },
@@ -685,21 +228,22 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     const stepOrder: Step[] = ['lookup', 'select_items', 'confirm', 'success'];
     const currentIdx = stepOrder.indexOf(state.step);
 
-    return `<div class="srp-steps">${steps.map((s, i) => {
+    return `<div class="srp-progress">${steps.map((s, i) => {
       const isDone = currentIdx > stepOrder.indexOf(s.key);
       const isActive = state.step === s.key;
-      const cls = isDone ? 'srp-step--done' : isActive ? 'srp-step--active' : '';
+      const cls = isDone ? 'srp-progress__step--done' : isActive ? 'srp-progress__step--active' : '';
       const line = i < steps.length - 1
-        ? `<div class="srp-step__line${isDone ? ' srp-step__line--done' : ''}"></div>`
+        ? `<div class="srp-progress__line${isDone ? ' srp-progress__line--done' : ''}"></div>`
         : '';
-      const checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>';
-      return `<div class="srp-step ${cls}">
-        <div class="srp-step__num">${isDone ? checkSvg : s.num}</div>
-        <span>${s.label}</span>
+      const dotContent = isDone ? ICONS.check : `${s.num}`;
+      return `<div class="srp-progress__step ${cls}">
+        <div class="srp-progress__dot">${dotContent}</div>
+        <span class="srp-progress__label">${s.label}</span>
       </div>${line}`;
     }).join('')}</div>`;
   }
 
+  // ── Main Render ──
   function render(): void {
     if (state.step === 'success') {
       renderSuccess();
@@ -713,14 +257,16 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
 
     const headerHtml = noHeader ? '' : `
         <div class="srp-header">
-          <h2 class="srp-title">${escapeHtml(portalTitle)}</h2>
-          <p class="srp-subtitle">${escapeHtml(portalDescription)}</p>
+          <div class="srp-eyebrow">Returns & Exchanges</div>
+          <h2 class="srp-title">${escapeHtml(getStepTitle())}</h2>
+          <p class="srp-subtitle">${escapeHtml(getStepSubtitle())}</p>
         </div>`;
 
     container.innerHTML = `
       <div class="srp-wrap">
         ${headerHtml}
-        ${stepsHtml()}
+        ${progressHtml()}
+        <div class="srp-divider"></div>
         ${state.error ? `<div class="srp-error">${escapeHtml(state.error)}</div>` : ''}
         ${content}
       </div>`;
@@ -728,6 +274,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     bindEvents();
   }
 
+  // ── Step 1: Find Order ──
   function renderLookup(): string {
     return `
       <div class="srp-row">
@@ -742,9 +289,14 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       </div>
       <button class="srp-btn srp-btn--primary" id="srp-lookup" ${state.loading ? 'disabled' : ''}>
         ${state.loading ? 'Looking up order...' : escapeHtml(btnTextLookup)}
-      </button>`;
+      </button>
+      <div class="srp-policy">
+        <div class="srp-policy__icon">${ICONS.info}</div>
+        <div class="srp-policy__text"><strong>${returnWindowDays}-Day Return Policy</strong> — Items must be in original condition with tags attached. Sale items and gift cards are final sale.</div>
+      </div>`;
   }
 
+  // ── Step 2: Select Items ──
   function renderSelectItems(): string {
     const order = state.order!;
     const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', {
@@ -760,9 +312,12 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
           ? 'srp-item srp-item--selected'
           : 'srp-item';
 
-      const checkSvg = isSelected
-        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>'
-        : '';
+      const checkSvg = isSelected ? ICONS.check : '';
+
+      // Image or placeholder
+      const imageHtml = item.image
+        ? `<img class="srp-item__image" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" />`
+        : `<div class="srp-item__image srp-item__image--placeholder">${ICONS.image}</div>`;
 
       let reasonSection = '';
       if (isSelected && selected) {
@@ -794,7 +349,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
             </span>
             ${photoThumbs ? `<div class="srp-upload-previews">${photoThumbs}</div>` : ''}
             <button type="button" class="srp-upload-btn ${isUploading ? 'srp-upload-btn--uploading' : ''}" data-upload-photo="${item.id}" ${isUploading ? 'disabled' : ''}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              ${ICONS.upload}
               ${isUploading ? 'Uploading...' : 'Upload Photo'}
             </button>
           </div>`;
@@ -815,12 +370,17 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       return `
         <div class="${cls}" data-item-toggle="${item.eligible ? item.id : ''}">
           <div class="srp-item__check">${checkSvg}</div>
+          ${imageHtml}
           <div class="srp-item__info">
-            <div class="srp-item__title">${escapeHtml(item.title)}</div>
-            ${item.variantTitle ? `<div class="srp-item__variant">${escapeHtml(item.variantTitle)}</div>` : ''}
-            <div class="srp-item__meta">
-              <span>Qty: ${item.quantity}</span>
-              <span>${item.price}</span>
+            <div class="srp-item__row">
+              <div>
+                <div class="srp-item__title">${escapeHtml(item.title)}</div>
+                ${item.variantTitle ? `<div class="srp-item__variant">${escapeHtml(item.variantTitle)}</div>` : ''}
+                <div class="srp-item__meta">
+                  <span>Qty: ${item.quantity}</span>
+                </div>
+              </div>
+              <div class="srp-item__price">${item.price}</div>
             </div>
             ${!item.eligible ? `<div class="srp-item__ineligible-reason">${escapeHtml(item.eligibility_reason || 'Not eligible for return')}</div>` : ''}
             ${reasonSection}
@@ -840,57 +400,81 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
 
     return `
       <button class="srp-back" id="srp-back-lookup">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
-        Back
+        ← Back
       </button>
-      <div class="srp-order-card">
-        <div class="srp-order-card__title">Order ${escapeHtml(order.name)}</div>
-        <div class="srp-order-card__detail">Placed ${orderDate} · ${escapeHtml(order.fulfillmentStatus || 'Processing')}</div>
+      <div class="srp-order-bar">
+        <span class="srp-order-bar__left">Order ${escapeHtml(order.name)}</span>
+        <span class="srp-order-bar__right">${orderDate} · ${escapeHtml(order.fulfillmentStatus || 'Processing')}</span>
       </div>
-      <p class="srp-label" style="margin-bottom:10px;">Select items to return or exchange:</p>
+      <div class="srp-section-label">Select items to return or exchange</div>
       <div class="srp-items">${itemsHtml}</div>
       <button class="srp-btn srp-btn--primary" id="srp-continue" ${!hasSelection || !allValid ? 'disabled' : ''}>
         ${escapeHtml(btnTextContinue)}
       </button>`;
   }
 
+  // ── Step 3: Confirm ──
   function renderConfirm(): string {
     const order = state.order!;
     const items = Array.from(state.selectedItems.values());
+
+    // Calculate estimated refund
+    const totalRefund = items.reduce((sum, item) => {
+      const orig = state.items.find(i => i.id === item.lineItemId);
+      if (!orig) return sum;
+      const price = parseFloat(orig.price.replace(/[^0-9.]/g, ''));
+      return sum + (isNaN(price) ? 0 : price * item.quantity);
+    }, 0);
 
     const itemsHtml = items.map(item => {
       const reasonLabel = returnReasons.find(r => r.value === item.reason)?.label || item.reason;
       const resLabel = item.resolutionType === 'exchange' ? 'Exchange' : 'Return';
       const exchangeInfo = item.resolutionType === 'exchange' && item.exchangeVariant
-        ? ` (want: ${escapeHtml(item.exchangeVariant)})`
+        ? ` → ${escapeHtml(item.exchangeVariant)}`
         : '';
       const photoCount = item.photoUrls.length > 0 ? ` · ${item.photoUrls.length} photo(s)` : '';
       return `
-        <div class="srp-confirm-item">
+        <div class="srp-summary-item">
           <div>
-            <div>${escapeHtml(item.title)}${item.variantTitle ? ` — ${escapeHtml(item.variantTitle)}` : ''}</div>
-            <div class="srp-confirm-item__reason">${escapeHtml(resLabel)}${exchangeInfo} · ${escapeHtml(reasonLabel)}${item.notes ? ` — ${escapeHtml(item.notes)}` : ''}${photoCount}</div>
+            <div class="srp-summary-item__name">${escapeHtml(item.title)}${item.variantTitle ? ` — ${escapeHtml(item.variantTitle)}` : ''}<span class="srp-summary-item__badge">${escapeHtml(resLabel)}</span></div>
+            <div class="srp-summary-item__reason">${escapeHtml(reasonLabel)}${exchangeInfo}${item.notes ? ` — ${escapeHtml(item.notes)}` : ''}${photoCount}</div>
           </div>
-          <div>x${item.quantity}</div>
+          <div class="srp-summary-item__qty">x${item.quantity}</div>
         </div>`;
     }).join('');
 
     return `
       <button class="srp-back" id="srp-back-items">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
-        Back
+        ← Back
       </button>
-      <div class="srp-order-card">
-        <div class="srp-order-card__title">Returning from Order ${escapeHtml(order.name)}</div>
-        <div class="srp-order-card__detail">${escapeHtml(state.email)}</div>
+      <div class="srp-summary-card">
+        <div class="srp-summary-card__label">Return Summary</div>
+        ${itemsHtml}
       </div>
-      <p class="srp-label" style="margin-bottom:6px;">Items to return/exchange:</p>
-      <div class="srp-confirm-items">${itemsHtml}</div>
-      <button class="srp-btn srp-btn--primary" id="srp-submit" ${state.loading ? 'disabled' : ''}>
+      <div class="srp-refund-card">
+        <div class="srp-refund-row">
+          <span class="srp-refund-row__label">Estimated Refund</span>
+          <span class="srp-refund-row__value srp-refund-row__value--large">$${totalRefund.toFixed(2)}</span>
+        </div>
+        <div class="srp-refund-row">
+          <span class="srp-refund-row__label">Refund Method</span>
+          <span class="srp-refund-row__value">Original payment method</span>
+        </div>
+        <div class="srp-refund-row">
+          <span class="srp-refund-row__label">Return Shipping</span>
+          <span class="srp-refund-row__value srp-refund-row__value--gold">Free</span>
+        </div>
+      </div>
+      <div class="srp-notice">
+        <div class="srp-notice__icon">${ICONS.schedule}</div>
+        <div class="srp-notice__text">Refunds are typically processed within 5–10 business days after we receive your return.</div>
+      </div>
+      <button class="srp-btn srp-btn--dark" id="srp-submit" ${state.loading ? 'disabled' : ''}>
         ${state.loading ? 'Submitting...' : escapeHtml(btnTextSubmit)}
       </button>`;
   }
 
+  // ── Success ──
   function renderSuccess(): void {
     const refId = state.referenceId || '';
     const shortRef = refId.slice(0, 8).toUpperCase();
@@ -900,23 +484,48 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         ? 'Denied'
         : 'Under Review';
 
+    // Calculate refund from selected items
+    const totalRefund = Array.from(state.selectedItems.values()).reduce((sum, item) => {
+      const orig = state.items.find(i => i.id === item.lineItemId);
+      if (!orig) return sum;
+      const price = parseFloat(orig.price.replace(/[^0-9.]/g, ''));
+      return sum + (isNaN(price) ? 0 : price * item.quantity);
+    }, 0);
+
     container.innerHTML = `
       <div class="srp-wrap">
         <div class="srp-success">
-          <div class="srp-success-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <div class="srp-success__icon-row">
+            <div class="srp-success__icon-line"></div>
+            <div class="srp-success__icon">${ICONS.checkCircle}</div>
+            <div class="srp-success__icon-line"></div>
           </div>
-          <div class="srp-success-title">${escapeHtml(successTitle)}</div>
-          <div class="srp-success-text">
-            ${escapeHtml(successMessage)} Your reference number is:
+          <div class="srp-success__title">${escapeHtml(successTitle)}</div>
+          <div class="srp-success__subtitle">
+            ${escapeHtml(successMessage)} A prepaid shipping label has been sent to <strong>${escapeHtml(state.email)}</strong>.
           </div>
-          <div class="srp-success-ref">#${escapeHtml(shortRef)}</div>
-          <div class="srp-success-status">${escapeHtml(statusLabel)}</div>
-          <div class="srp-success-text" style="margin-top:16px;">
-            We've sent a confirmation email to <strong>${escapeHtml(state.email)}</strong>.
-            ${state.resultStatus === 'approved' ? 'Your return has been approved — check your email for next steps.' : 'Our team will review your request and get back to you shortly.'}
+          <div class="srp-success__details">
+            <div class="srp-success__detail-row">
+              <span class="srp-success__detail-label">Return ID</span>
+              <span class="srp-success__detail-value">#${escapeHtml(shortRef)}</span>
+            </div>
+            <div class="srp-success__detail-row">
+              <span class="srp-success__detail-label">Status</span>
+              <span class="srp-success__detail-value">${escapeHtml(statusLabel)}</span>
+            </div>
+            <div class="srp-success__detail-row">
+              <span class="srp-success__detail-label">Refund Amount</span>
+              <span class="srp-success__detail-value">$${totalRefund.toFixed(2)}</span>
+            </div>
+            <div class="srp-success__detail-row">
+              <span class="srp-success__detail-label">Estimated Refund</span>
+              <span class="srp-success__detail-value">5–10 business days</span>
+            </div>
           </div>
-          <button class="srp-btn srp-btn--secondary" id="srp-new" style="margin-top:20px;">${escapeHtml(successBtnText)}</button>
+          <div class="srp-success__buttons">
+            <button class="srp-btn srp-btn--dark" id="srp-new">${escapeHtml(successBtnText)}</button>
+            <button class="srp-btn srp-btn--outline" id="srp-track">Track Return</button>
+          </div>
         </div>
       </div>`;
 
@@ -933,8 +542,14 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       state.error = null;
       render();
     });
+
+    container.querySelector('#srp-track')?.addEventListener('click', () => {
+      // Track return — could navigate or open a tracking view in future
+      // For now, just scroll to top or do nothing
+    });
   }
 
+  // ── Event Binding ──
   function bindEvents(): void {
     // Lookup step
     const lookupBtn = container.querySelector('#srp-lookup');
@@ -1323,8 +938,6 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     if (event.data?.type === 'srp:design_update' && event.data.design) {
       const newDesign: BrandDesign = { ...design, ...event.data.design };
       Object.assign(design, newDesign);
-      const styleEl = document.getElementById('srp-styles');
-      if (styleEl) styleEl.textContent = buildStyles(newDesign);
       render();
     }
   });
@@ -1343,9 +956,9 @@ async function init(): Promise<void> {
 
   // Start with defaults
   let design: BrandDesign = {
-    primaryColor: '#18181b',
-    backgroundColor: '#ffffff',
-    borderRadius: 'rounded',
+    primaryColor: '#C5A059',
+    backgroundColor: '#F9F9FB',
+    borderRadius: 'sharp',
     fontSize: 'medium',
   };
 
@@ -1408,8 +1021,6 @@ async function init(): Promise<void> {
 
       if (updated) {
         // Re-render with fetched config
-        const styleEl = document.getElementById('srp-styles');
-        if (styleEl) styleEl.textContent = buildStyles(design);
         container.innerHTML = '';
         createPortal(container, backendUrl, brandSlug, design, portalConfig, noHeader);
       }
