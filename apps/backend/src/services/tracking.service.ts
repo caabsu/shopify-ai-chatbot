@@ -74,8 +74,12 @@ export async function lookupByOrder(
       carrier: 'unknown',
       carrierDisplay: 'Unknown',
       status: 'not_found',
-      statusMessage: statusMessages.not_found ?? DEFAULT_STATUS_MESSAGES.not_found,
-      statusDetail: lookupResult.message ?? 'Order not found or email does not match.',
+      statusMessage: lookupResult.message?.includes('VERIFICATION_FAILED')
+        ? 'Email does not match.'
+        : (statusMessages.not_found ?? DEFAULT_STATUS_MESSAGES.not_found),
+      statusDetail: lookupResult.message?.includes('VERIFICATION_FAILED')
+        ? 'The email address you entered does not match this order. Please double-check and try again.'
+        : 'We couldn\'t find that order. Please check your order number and try again.',
       estimatedDelivery: null,
       signedBy: null,
       deliveredAt: null,
