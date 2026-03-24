@@ -32,27 +32,31 @@ interface TrackingEvent {
 }
 
 interface TrackingOrderInfo {
-  order_number: string;
-  line_items: {
+  orderNumber: string;
+  lineItems: {
     title: string;
-    variant_title?: string;
+    variant?: string | null;
     quantity: number;
     price: string;
-    image_url?: string;
+    imageUrl?: string | null;
   }[];
-  destination?: string;
-  total_price: string;
-  currency: string;
+  destination?: string | null;
+  transitDays?: number | null;
+  total?: string | null;
 }
 
 interface TrackingResult {
-  tracking_number: string;
+  trackingNumber: string;
   carrier?: string;
-  status: 'delivered' | 'in_transit' | 'exception' | 'info_received' | 'not_found';
-  status_detail?: string;
-  estimated_delivery?: string;
+  carrierDisplay?: string;
+  status: 'delivered' | 'in_transit' | 'out_for_delivery' | 'exception' | 'info_received' | 'not_found' | 'expired';
+  statusMessage?: string;
+  statusDetail?: string;
+  estimatedDelivery?: string | null;
+  signedBy?: string | null;
+  deliveredAt?: string | null;
   events: TrackingEvent[];
-  order?: TrackingOrderInfo;
+  order?: TrackingOrderInfo | null;
 }
 
 interface WidgetState {
@@ -162,12 +166,14 @@ function renderStatusIcon(status: TrackingResult['status']): SVGSVGElement {
       polyline('20 6 9 17 4 12');
       break;
     case 'in_transit':
+    case 'out_for_delivery':
       path('M1 3h15v13H1z');
       path('M16 8h4l3 3v5h-7V8z');
       circle('5.5', '18.5', '2.5');
       circle('18.5', '18.5', '2.5');
       break;
     case 'exception':
+    case 'expired':
       path('M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z');
       line('12', '9', '12', '13');
       line('12', '17', '12.01', '17');
@@ -300,18 +306,18 @@ function renderOrderDetails(order: TrackingOrderInfo): HTMLElement {
   // Label row
   const labelRow = createEl('div', 'otw-section-label-row');
   labelRow.appendChild(createEl('span', 'otw-section-label', 'Order Details'));
-  labelRow.appendChild(createEl('span', 'otw-tracking-number-text', `#${order.order_number}`));
+  labelRow.appendChild(createEl('span', 'otw-tracking-number-text', order.orderNumber));
   section.appendChild(labelRow);
 
   // Product list
   const list = createEl('div', 'otw-product-list');
-  for (const item of order.line_items) {
+  for (const item of (order.lineItems || [])) {
     const row = createEl('div', 'otw-product-row');
 
     // Image
-    if (item.image_url) {
+    if (item.imageUrl) {
       const img = createEl('img', 'otw-product-img') as HTMLImageElement;
-      img.src = item.image_url;
+      img.src = item.imageUrl;
       img.alt = item.title;
       img.loading = 'lazy';
       row.appendChild(img);
@@ -322,14 +328,14 @@ function renderOrderDetails(order: TrackingOrderInfo): HTMLElement {
     // Info
     const info = createEl('div', 'otw-product-info');
     info.appendChild(createEl('div', 'otw-product-title', item.title));
-    if (item.variant_title) {
-      info.appendChild(createEl('div', 'otw-product-variant', item.variant_title));
+    if (item.variant) {
+      info.appendChild(createEl('div', 'otw-product-variant', item.variant));
     }
     row.appendChild(info);
 
     // Price
     const priceCol = createEl('div', 'otw-product-price-col');
-    priceCol.appendChild(createEl('div', 'otw-product-price', formatPrice(item.price, order.currency)));
+    priceCol.appendChild(createEl('div', 'otw-product-price', `$${parseFloat(item.price).toFixed(2)}`));
     priceCol.appendChild(createEl('div', 'otw-product-qty', `×${item.quantity}`));
     row.appendChild(priceCol);
 
@@ -349,17 +355,21 @@ function renderOrderDetails(order: TrackingOrderInfo): HTMLElement {
     left.appendChild(destField);
   }
 
-  const transitField = createEl('div', 'otw-footer-field');
-  transitField.appendChild(createEl('span', 'otw-footer-label', 'Transit'));
-  transitField.appendChild(createEl('span', 'otw-footer-value', 'Standard Shipping'));
-  left.appendChild(transitField);
+  if (order.transitDays) {
+    const transitField = createEl('div', 'otw-footer-field');
+    transitField.appendChild(createEl('span', 'otw-footer-label', 'Transit'));
+    transitField.appendChild(createEl('span', 'otw-footer-value', `${order.transitDays} day${order.transitDays !== 1 ? 's' : ''}`));
+    left.appendChild(transitField);
+  }
 
   footer.appendChild(left);
 
-  const right = createEl('div', 'otw-order-footer-right');
-  right.appendChild(createEl('div', 'otw-total-label', 'Total'));
-  right.appendChild(createEl('div', 'otw-total-value', formatPrice(order.total_price, order.currency)));
-  footer.appendChild(right);
+  if (order.total) {
+    const right = createEl('div', 'otw-order-footer-right');
+    right.appendChild(createEl('div', 'otw-total-label', 'Total'));
+    right.appendChild(createEl('div', 'otw-total-value', order.total));
+    footer.appendChild(right);
+  }
 
   section.appendChild(footer);
 
@@ -380,19 +390,26 @@ function renderStatusSection(result: TrackingResult): HTMLElement {
   divider.appendChild(createEl('div', 'otw-status-divider-line'));
   status.appendChild(divider);
 
-  // Heading: human-readable status
+  // Heading: use statusMessage from API, or fallback to labels
   const statusLabels: Record<string, string> = {
-    delivered: 'Package Delivered',
-    in_transit: 'In Transit',
+    delivered: 'Your order has arrived.',
+    in_transit: 'Your order is on its way.',
+    out_for_delivery: 'Out for delivery today.',
     exception: 'Delivery Exception',
-    info_received: 'Information Received',
+    info_received: 'Shipping label created.',
     not_found: 'Tracking Not Found',
+    expired: 'Tracking information expired.',
   };
-  status.appendChild(createEl('div', 'otw-status-heading', statusLabels[result.status] ?? result.status));
+  status.appendChild(createEl('div', 'otw-status-heading', result.statusMessage || statusLabels[result.status] || result.status));
 
-  // Detail
-  const detail = result.status_detail
-    ?? (result.estimated_delivery ? `Estimated delivery: ${formatDate(result.estimated_delivery)}` : '');
+  // Detail line
+  const detailParts: string[] = [];
+  if (result.deliveredAt) detailParts.push(`Delivered ${formatDate(result.deliveredAt)}`);
+  if (result.signedBy) detailParts.push(`Signed by ${result.signedBy}`);
+  if (!result.deliveredAt && result.estimatedDelivery) detailParts.push(`Estimated delivery: ${formatDate(result.estimatedDelivery)}`);
+  if (!result.deliveredAt && !result.estimatedDelivery && result.statusDetail) detailParts.push(result.statusDetail);
+
+  const detail = detailParts.join(' · ');
   if (detail) {
     status.appendChild(createEl('div', 'otw-status-detail', detail));
   }
@@ -495,7 +512,7 @@ function renderResults(
     results.appendChild(createEl('div', 'otw-section-divider'));
     results.appendChild(renderTimeline(
       result.events,
-      result.tracking_number,
+      result.trackingNumber,
       state.showAllEvents,
       onToggleShowAll,
     ));
