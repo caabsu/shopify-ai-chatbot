@@ -628,6 +628,8 @@ returnRouter.get('/portal-config', async (req, res) => {
         available_resolutions: settings.available_resolutions,
         portal_title: settings.portal_title,
         portal_description: settings.portal_description,
+        restocking_fee_percent: settings.restocking_fee_percent ?? 20,
+        restocking_fee_exempt_reasons: settings.restocking_fee_exempt_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
       },
       design,
     });

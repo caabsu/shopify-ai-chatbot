@@ -43,6 +43,8 @@ interface PortalConfig {
     available_resolutions: string[];
     portal_title: string;
     portal_description: string;
+    restocking_fee_percent: number;
+    restocking_fee_exempt_reasons: string[];
   } | null;
   design: BrandDesign | null;
 }
@@ -418,13 +420,25 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     const order = state.order!;
     const items = Array.from(state.selectedItems.values());
 
-    // Calculate estimated refund
-    const totalRefund = items.reduce((sum, item) => {
+    // Calculate estimated refund with restocking fee
+    const feePercent = portalConfig?.settings?.restocking_fee_percent ?? 20;
+    const exemptReasons = portalConfig?.settings?.restocking_fee_exempt_reasons ?? ['defective', 'wrong_item', 'not_as_described'];
+
+    let subtotal = 0;
+    let totalFee = 0;
+    for (const item of items) {
       const orig = state.items.find(i => i.id === item.lineItemId);
-      if (!orig) return sum;
+      if (!orig) continue;
       const price = parseFloat(orig.price.replace(/[^0-9.]/g, ''));
-      return sum + (isNaN(price) ? 0 : price * item.quantity);
-    }, 0);
+      if (isNaN(price)) continue;
+      const lineTotal = price * item.quantity;
+      subtotal += lineTotal;
+      // Exempt reasons get full refund, others get restocking fee
+      if (!exemptReasons.includes(item.reason)) {
+        totalFee += lineTotal * (feePercent / 100);
+      }
+    }
+    const totalRefund = subtotal - totalFee;
 
     const itemsHtml = items.map(item => {
       const reasonLabel = returnReasons.find(r => r.value === item.reason)?.label || item.reason;
@@ -453,6 +467,15 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       </div>
       <div class="srp-refund-card">
         <div class="srp-refund-row">
+          <span class="srp-refund-row__label">Item Total</span>
+          <span class="srp-refund-row__value">$${subtotal.toFixed(2)}</span>
+        </div>
+        ${totalFee > 0 ? `
+        <div class="srp-refund-row">
+          <span class="srp-refund-row__label">Restocking Fee (${feePercent}%)</span>
+          <span class="srp-refund-row__value" style="color:#dc2626;">−$${totalFee.toFixed(2)}</span>
+        </div>` : ''}
+        <div class="srp-refund-row">
           <span class="srp-refund-row__label">Estimated Refund</span>
           <span class="srp-refund-row__value srp-refund-row__value--large">$${totalRefund.toFixed(2)}</span>
         </div>
@@ -465,6 +488,11 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
           <span class="srp-refund-row__value srp-refund-row__value--gold">Free</span>
         </div>
       </div>
+      ${totalFee > 0 ? `
+      <div class="srp-notice" style="border-color:rgba(197,160,89,0.2);">
+        <div class="srp-notice__icon">${ICONS.info}</div>
+        <div class="srp-notice__text">A ${feePercent}% restocking fee applies to items returned for reasons other than damage, defect, or wrong item received.</div>
+      </div>` : ''}
       <div class="srp-notice">
         <div class="srp-notice__icon">${ICONS.schedule}</div>
         <div class="srp-notice__text">Refunds are typically processed within 5–10 business days after we receive your return.</div>
@@ -484,13 +512,23 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         ? 'Denied'
         : 'Under Review';
 
-    // Calculate refund from selected items
-    const totalRefund = Array.from(state.selectedItems.values()).reduce((sum, item) => {
+    // Calculate refund from selected items with restocking fee
+    const feePercent = portalConfig?.settings?.restocking_fee_percent ?? 20;
+    const exemptReasons = portalConfig?.settings?.restocking_fee_exempt_reasons ?? ['defective', 'wrong_item', 'not_as_described'];
+    let subtotal = 0;
+    let totalFee = 0;
+    for (const item of Array.from(state.selectedItems.values())) {
       const orig = state.items.find(i => i.id === item.lineItemId);
-      if (!orig) return sum;
+      if (!orig) continue;
       const price = parseFloat(orig.price.replace(/[^0-9.]/g, ''));
-      return sum + (isNaN(price) ? 0 : price * item.quantity);
-    }, 0);
+      if (isNaN(price)) continue;
+      const lineTotal = price * item.quantity;
+      subtotal += lineTotal;
+      if (!exemptReasons.includes(item.reason)) {
+        totalFee += lineTotal * (feePercent / 100);
+      }
+    }
+    const totalRefund = subtotal - totalFee;
 
     container.innerHTML = `
       <div class="srp-wrap">

@@ -24,6 +24,8 @@ const DEFAULT_SETTINGS: Omit<ReturnSettings, 'id' | 'brand_id' | 'created_at' | 
   auto_close_days: 30,
   portal_title: 'Returns & Exchanges',
   portal_description: 'Start a return or exchange in just a few steps.',
+  restocking_fee_percent: 20,
+  restocking_fee_exempt_reasons: ['defective', 'wrong_item', 'not_as_described'],
 };
 
 export async function getReturnSettings(brandId: string): Promise<ReturnSettings> {

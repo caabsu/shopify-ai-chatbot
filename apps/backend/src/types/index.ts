@@ -275,6 +275,8 @@ export interface ReturnSettings {
   auto_close_days: number;
   portal_title: string;
   portal_description: string;
+  restocking_fee_percent: number;
+  restocking_fee_exempt_reasons: string[];
   created_at: string;
   updated_at: string;
 }
