@@ -36,16 +36,20 @@ function lightenHex(hex: string, amount: number): string {
 
 function loadGoogleFonts(design: WidgetDesign): void {
   const families: string[] = [];
-  if (design.headingFontFamily) {
-    const name = design.headingFontFamily.split(',')[0].replace(/['"]/g, '').trim();
-    if (name && !name.startsWith('-apple')) families.push(name.replace(/ /g, '+') + ':wght@200;400;600;700');
+  // Always load Newsreader (headings) and Manrope (body) for B3 Warm Tonal
+  const headingFont = design.headingFontFamily || "'Newsreader'";
+  const bodyFont = design.fontFamily || "'Manrope'";
+
+  const headingName = headingFont.split(',')[0].replace(/['"]/g, '').trim();
+  if (headingName && !headingName.startsWith('-apple')) {
+    families.push(headingName.replace(/ /g, '+') + ':wght@200;300;400');
   }
-  if (design.fontFamily) {
-    const name = design.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
-    if (name && !name.startsWith('-apple') && !families.some(f => f.startsWith(name.replace(/ /g, '+')))) {
-      families.push(name.replace(/ /g, '+') + ':wght@300;400;500;600');
-    }
+
+  const bodyName = bodyFont.split(',')[0].replace(/['"]/g, '').trim();
+  if (bodyName && !bodyName.startsWith('-apple') && !families.some(f => f.startsWith(bodyName.replace(/ /g, '+')))) {
+    families.push(bodyName.replace(/ /g, '+') + ':wght@200;300;400;500');
   }
+
   if (families.length > 0 && !document.getElementById('aicb-gfonts')) {
     const link = document.createElement('link');
     link.id = 'aicb-gfonts';
@@ -56,42 +60,35 @@ function loadGoogleFonts(design: WidgetDesign): void {
 }
 
 function applyDesign(root: HTMLElement, design: WidgetDesign): void {
-  const primary = design.primaryColor || '#6B4A37';
-  const bg = design.backgroundColor || '#ffffff';
+  const primary = design.primaryColor || '#C5A059';
+  const bg = design.backgroundColor || '#F9F9FB';
 
   root.style.setProperty('--aicb-primary', primary);
-  root.style.setProperty('--aicb-primary-dark', darkenHex(primary, 15));
+  root.style.setProperty('--aicb-gold', primary);
+  root.style.setProperty('--aicb-gold-hover', darkenHex(primary, 13));
+  root.style.setProperty('--aicb-primary-dark', darkenHex(primary, 13));
   root.style.setProperty('--aicb-primary-light', lightenHex(primary, 16));
   root.style.setProperty('--aicb-bg', bg);
+  root.style.setProperty('--aicb-surface', bg);
 
-  // Dark theme: header uses bg color, add class for CSS overrides
+  // Dark theme
   if (design.theme === 'dark') {
     root.classList.add('aicb-dark');
-    root.style.setProperty('--aicb-primary-header', bg);
-    root.style.setProperty('--aicb-primary-header-end', darkenHex(bg, 5));
   } else {
     root.classList.remove('aicb-dark');
-    root.style.setProperty('--aicb-primary-header', darkenHex(primary, 47));
-    root.style.setProperty('--aicb-primary-header-end', darkenHex(primary, 55));
   }
-
-  // Border radius
-  const radiusMap = { sharp: '8px', rounded: '16px', pill: '24px' };
-  const radius = radiusMap[design.borderRadius] || '16px';
-  root.style.setProperty('--aicb-radius', radius);
 
   // Font size
   const fontSizeMap = { small: '12.5px', medium: '13.5px', large: '15px' };
   const fontSize = fontSizeMap[design.fontSize] || '13.5px';
   root.style.setProperty('--aicb-font-size', fontSize);
 
-  // Custom fonts
-  if (design.fontFamily) {
-    root.style.setProperty('--aicb-font-family', design.fontFamily);
-  }
-  if (design.headingFontFamily) {
-    root.style.setProperty('--aicb-heading-font', design.headingFontFamily);
-  }
+  // Custom fonts — default to B3 Warm Tonal fonts
+  const fontFamily = design.fontFamily || "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+  const headingFont = design.headingFontFamily || "'Newsreader', Georgia, 'Times New Roman', serif";
+  root.style.setProperty('--aicb-font-family', fontFamily);
+  root.style.setProperty('--aicb-heading-font', headingFont);
+
   if (design.headingFontWeight) {
     root.style.setProperty('--aicb-heading-weight', design.headingFontWeight);
   }
@@ -119,18 +116,18 @@ function applyDesign(root: HTMLElement, design: WidgetDesign): void {
 
   // Push design settings into state for UI components
   setState({
-    headerTitle: design.headerTitle || 'Outlight Assistant',
+    headerTitle: design.headerTitle || 'Outlight',
     bubbleIcon: design.bubbleIcon || 'chat',
-    inputPlaceholder: design.inputPlaceholder || 'Type a message...',
+    inputPlaceholder: design.inputPlaceholder || 'Type your question...',
     welcomeMessage: design.welcomeMessage || '',
-    borderRadius: design.borderRadius || 'rounded',
+    borderRadius: design.borderRadius || 'sharp',
     fontSize: design.fontSize || 'medium',
     showBrandingBadge: design.showBrandingBadge !== false,
     autoOpenDelay: design.autoOpenDelay || 0,
-    greetingHeader: design.greetingHeader || '',
-    greetingSubtext: design.greetingSubtext || '',
-    headerSubtitle: design.headerSubtitle || '',
-    headerLogo: design.headerLogo || '',
+    greetingHeader: design.greetingHeader || 'WELCOME',
+    greetingSubtext: design.greetingSubtext || "Ask us anything \u2014 we're here to help",
+    headerSubtitle: design.headerSubtitle || 'CONCIERGE',
+    headerLogo: design.headerLogo || 'O',
     brandingText: design.brandingText || '',
   });
 }

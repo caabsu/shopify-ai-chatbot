@@ -18,6 +18,13 @@ const PRESET_ICONS: Record<string, string> = {
   headphones: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>`,
 };
 
+const PRESET_RIGHT_ICONS: Record<string, string> = {
+  truck: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`,
+  return: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`,
+  search: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  contact: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>`,
+};
+
 const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
 
 const CAROUSEL_LEFT_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
@@ -219,11 +226,16 @@ function renderMessage(msg: WidgetMessage): HTMLElement {
 function renderGreetingCard(state: { messages: WidgetMessage[]; greetingHeader: string; greetingSubtext: string }): HTMLElement | null {
   if (!state.greetingHeader) return null;
 
+  // Use first message content as the title, fallback to a default welcome heading
+  const titleText = (state.messages.length > 0 && state.messages[0].content)
+    ? state.messages[0].content
+    : 'How can we assist you?';
+
   const card = document.createElement('div');
   card.className = 'aicb-greeting-card';
   card.innerHTML = `
     <span class="aicb-greeting-card__header">${state.greetingHeader}</span>
-    <p class="aicb-greeting-card__title">${state.messages.length > 0 ? state.messages[0].content : ''}</p>
+    <p class="aicb-greeting-card__title">${titleText}</p>
     ${state.greetingSubtext ? `<p class="aicb-greeting-card__sub">${state.greetingSubtext}</p>` : ''}
   `;
 
@@ -238,15 +250,15 @@ function renderPresetCards(presets: PresetAction[], onSelect: (id: string) => vo
     const card = document.createElement('button');
     card.className = 'aicb-preset-card';
 
-    const iconSvg = PRESET_ICONS[preset.icon] || PRESET_ICONS['help'];
+    // Use the right-side material icon based on preset icon type
+    const rightIcon = PRESET_RIGHT_ICONS[preset.icon] || CHEVRON_SVG;
 
     card.innerHTML = `
-      <div class="aicb-preset-card__icon">${iconSvg}</div>
       <div class="aicb-preset-card__text">
         <span class="aicb-preset-card__label">${preset.label}</span>
         ${preset.description ? `<span class="aicb-preset-card__desc">${preset.description}</span>` : ''}
       </div>
-      <span class="aicb-preset-card__chevron">${CHEVRON_SVG}</span>
+      <span class="aicb-preset-card__chevron">${rightIcon}</span>
     `;
 
     card.addEventListener('click', () => onSelect(preset.id));

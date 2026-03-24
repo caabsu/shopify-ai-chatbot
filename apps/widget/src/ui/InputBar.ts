@@ -10,7 +10,7 @@ export function createInputBar(onSend: (text: string) => void): HTMLElement {
 
   const input = document.createElement('textarea');
   input.className = 'aicb-input-bar__input';
-  input.placeholder = getState().inputPlaceholder || 'Type a message...';
+  input.placeholder = getState().inputPlaceholder || 'Type your question...';
   input.rows = 1;
 
   const sendBtn = document.createElement('button');
