@@ -1,0 +1,565 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+   Outlight Tracking Widget — Styles
+   Prefix: otw-
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,200;0,300;0,400;1,200;1,300&family=Manrope:wght@300;400;500;600;700&display=swap');
+
+/* ── Reset & Container ── */
+.otw-container {
+  max-width: 720px;
+  margin: 0 auto;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: #2D3338;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #F9F9FB;
+}
+.otw-container *, .otw-container *::before, .otw-container *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Header ── */
+.otw-header {
+  text-align: center;
+  padding: 48px 24px 32px;
+  border-bottom: 1px solid #E8E8EC;
+  background: #F9F9FB;
+}
+.otw-header-eyebrow {
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #C5A059;
+  margin-bottom: 14px;
+}
+.otw-header-title {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 42px;
+  font-weight: 200;
+  font-style: italic;
+  color: #131314;
+  line-height: 1.1;
+  margin-bottom: 12px;
+}
+.otw-header-subtitle {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: #8A9099;
+}
+
+/* ── Tab Bar ── */
+.otw-tabs {
+  display: flex;
+  border-bottom: 1px solid #E8E8EC;
+  background: #F9F9FB;
+  padding: 0 24px;
+}
+.otw-tab {
+  padding: 16px 0;
+  margin-right: 32px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #ADADAD;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  outline: none;
+}
+.otw-tab:hover {
+  color: #2D3338;
+}
+.otw-tab--active {
+  color: #131314;
+  font-weight: 600;
+  border-bottom-color: #C5A059;
+}
+
+/* ── Form Section ── */
+.otw-form-section {
+  padding: 32px 24px;
+  background: #F9F9FB;
+}
+.otw-form-group {
+  margin-bottom: 16px;
+}
+.otw-input {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #2D3338;
+  background: #ffffff;
+  border: 1px solid #D4D4D8;
+  border-radius: 0;
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+.otw-input::placeholder {
+  color: #ADADAD;
+}
+.otw-input:focus {
+  border-color: #C5A059;
+}
+.otw-submit-btn {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #ffffff;
+  background: #C5A059;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.15s;
+  outline: none;
+}
+.otw-submit-btn:hover {
+  background: #b08e47;
+}
+.otw-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Error State ── */
+.otw-error {
+  padding: 16px 24px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  color: #c0392b;
+  background: #fdf2f2;
+  border: 1px solid #f5c6cb;
+  text-align: center;
+  margin: 0 24px 16px;
+}
+
+/* ── Loading ── */
+.otw-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+}
+.otw-spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid #E8E8EC;
+  border-top-color: #C5A059;
+  border-radius: 50%;
+  animation: otw-spin 0.7s linear infinite;
+}
+@keyframes otw-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Results Wrapper ── */
+.otw-results {
+  background: #F9F9FB;
+}
+
+/* ── Status Section ── */
+.otw-status {
+  padding: 40px 24px 32px;
+  text-align: center;
+}
+.otw-status-divider {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 24px;
+}
+.otw-status-divider-line {
+  flex: 1;
+  height: 1px;
+  background: #E8E8EC;
+}
+.otw-status-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 16px;
+  flex-shrink: 0;
+}
+.otw-status-icon--delivered {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+.otw-status-icon--in_transit {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+.otw-status-icon--exception {
+  background: #fff3e0;
+  color: #e65100;
+}
+.otw-status-icon--info_received {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+.otw-status-icon--not_found {
+  background: #fafafa;
+  color: #757575;
+}
+.otw-status-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.otw-status-heading {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 28px;
+  font-weight: 200;
+  font-style: italic;
+  color: #131314;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+.otw-status-detail {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: #8A9099;
+}
+
+/* ── Section Divider ── */
+.otw-section-divider {
+  height: 1px;
+  background: #E8E8EC;
+  margin: 0 24px;
+}
+
+/* ── Timeline Section ── */
+.otw-timeline-section {
+  padding: 28px 24px;
+}
+.otw-section-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.otw-section-label {
+  font-family: 'Manrope', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #C5A059;
+}
+.otw-tracking-number-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.otw-tracking-number-text {
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  color: #ADADAD;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.otw-copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: #ADADAD;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  outline: none;
+  transition: color 0.15s;
+}
+.otw-copy-btn:hover {
+  color: #C5A059;
+}
+.otw-copy-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ── Timeline Events ── */
+.otw-timeline {
+  position: relative;
+}
+.otw-timeline-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  position: relative;
+  padding-bottom: 20px;
+}
+.otw-timeline-event:last-child {
+  padding-bottom: 0;
+}
+.otw-timeline-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 16px;
+}
+.otw-timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #131314;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.otw-timeline-dot--recent {
+  width: 10px;
+  height: 10px;
+  background: #131314;
+}
+.otw-timeline-dot--older {
+  width: 8px;
+  height: 8px;
+  background: #ADADAD;
+  margin-top: 4px;
+}
+.otw-timeline-connector {
+  width: 2px;
+  flex: 1;
+  min-height: 16px;
+  background: #E8E8EC;
+  margin-top: 4px;
+}
+.otw-timeline-right {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+.otw-timeline-desc {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2D3338;
+  line-height: 1.4;
+}
+.otw-timeline-desc--older {
+  font-weight: 400;
+  color: #8A9099;
+}
+.otw-timeline-meta {
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 300;
+  color: #ADADAD;
+  margin-top: 2px;
+}
+.otw-show-more-btn {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #C5A059;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  outline: none;
+  transition: opacity 0.15s;
+}
+.otw-show-more-btn:hover {
+  opacity: 0.7;
+}
+
+/* ── Order Details Section ── */
+.otw-order-section {
+  padding: 28px 24px;
+}
+.otw-product-list {
+  margin-top: 0;
+}
+.otw-product-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+}
+.otw-product-row + .otw-product-row {
+  border-top: 1px solid #E8E8EC;
+}
+.otw-product-img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: #E8E8EC;
+  display: block;
+}
+.otw-product-img-placeholder {
+  width: 64px;
+  height: 64px;
+  background: #E8E8EC;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+.otw-product-info {
+  flex: 1;
+  min-width: 0;
+}
+.otw-product-title {
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2D3338;
+  line-height: 1.4;
+}
+.otw-product-variant {
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: #ADADAD;
+  margin-top: 2px;
+}
+.otw-product-price-col {
+  text-align: right;
+  flex-shrink: 0;
+}
+.otw-product-price {
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2D3338;
+}
+.otw-product-qty {
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: #ADADAD;
+  margin-top: 2px;
+}
+
+/* ── Order Footer ── */
+.otw-order-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-top: 20px;
+  margin-top: 4px;
+  border-top: 1px solid #E8E8EC;
+}
+.otw-order-footer-left {
+  display: flex;
+  gap: 32px;
+}
+.otw-footer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.otw-footer-label {
+  font-family: 'Manrope', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #ADADAD;
+}
+.otw-footer-value {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #2D3338;
+}
+.otw-order-footer-right {
+  text-align: right;
+}
+.otw-total-label {
+  font-family: 'Manrope', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #ADADAD;
+  margin-bottom: 4px;
+}
+.otw-total-value {
+  font-family: 'Manrope', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #C5A059;
+}
+
+/* ── Responsive: Mobile ≤768px ── */
+@media (max-width: 768px) {
+  .otw-header {
+    padding: 32px 16px 24px;
+  }
+  .otw-header-title {
+    font-size: 34px;
+  }
+  .otw-tabs {
+    padding: 0 16px;
+  }
+  .otw-form-section {
+    padding: 24px 16px;
+  }
+  .otw-status {
+    padding: 28px 16px 24px;
+  }
+  .otw-status-heading {
+    font-size: 22px;
+  }
+  .otw-timeline-section {
+    padding: 20px 16px;
+  }
+  .otw-order-section {
+    padding: 20px 16px;
+  }
+  .otw-section-divider {
+    margin: 0 16px;
+  }
+  .otw-error {
+    margin: 0 16px 16px;
+  }
+  .otw-tracking-number-text {
+    max-width: 100px;
+  }
+  .otw-order-footer {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .otw-order-footer-left {
+    flex-direction: row;
+    gap: 24px;
+  }
+  .otw-order-footer-right {
+    text-align: left;
+  }
+}
