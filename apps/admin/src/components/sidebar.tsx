@@ -84,6 +84,16 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: 'Order Tracking',
+    collapsible: true,
+    defaultCollapsed: false,
+    items: [
+      { href: '/tracking/playground', label: 'Playground', icon: TestTube },
+      { href: '/tracking/design', label: 'Widget Design', icon: Palette },
+      { href: '/tracking/settings', label: 'Settings', icon: Settings },
+    ],
+  },
+  {
     label: 'Reviews',
     collapsible: true,
     defaultCollapsed: false,
