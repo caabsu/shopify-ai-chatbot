@@ -744,7 +744,7 @@
   animation: aicb-msg-in 0.3s ease-out;
 }
 
-.aicb-preset-card {
+#aicb-root .aicb-preset-card {
   display: flex !important;
   align-items: center;
   justify-content: space-between;
@@ -766,7 +766,7 @@
   box-shadow: none;
 }
 
-.aicb-preset-card:hover {
+#aicb-root .aicb-preset-card:hover {
   border-left-color: rgba(197, 160, 89, 0.7) !important;
   background: rgba(244, 240, 235, 0.5) !important;
   box-shadow: none;
