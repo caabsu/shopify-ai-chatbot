@@ -54,8 +54,10 @@ export interface OrderLookupResult {
     name: string;
     financialStatus: string;
     fulfillmentStatus: string;
-    tracking: Array<{ number: string; url: string | null }>;
+    tracking: Array<{ number: string; url: string | null; company: string | null }>;
     estimatedDelivery: string | null;
+    fulfillmentDisplayStatus: string | null;
+    fulfillmentEvents: Array<{ status: string; happenedAt: string; city: string | null; province: string | null; country: string | null; message: string | null }>;
     lineItems: Array<{
       id: string;
       title: string;
@@ -98,8 +100,22 @@ export async function lookupOrder(
               trackingInfo {
                 number
                 url
+                company
               }
               estimatedDeliveryAt
+              displayStatus
+              events(first: 30) {
+                edges {
+                  node {
+                    status
+                    happenedAt
+                    city
+                    province
+                    country
+                    message
+                  }
+                }
+              }
             }
             lineItems(first: 20) {
               edges {
@@ -140,8 +156,21 @@ export async function lookupOrder(
           displayFinancialStatus: string;
           displayFulfillmentStatus: string;
           fulfillments: Array<{
-            trackingInfo: Array<{ number: string; url: string | null }>;
+            trackingInfo: Array<{ number: string; url: string | null; company: string | null }>;
             estimatedDeliveryAt: string | null;
+            displayStatus: string | null;
+            events: {
+              edges: Array<{
+                node: {
+                  status: string;
+                  happenedAt: string;
+                  city: string | null;
+                  province: string | null;
+                  country: string | null;
+                  message: string | null;
+                };
+              }>;
+            };
           }>;
           lineItems: {
             edges: Array<{
@@ -184,15 +213,26 @@ export async function lookupOrder(
     };
   }
 
-  // Build tracking info
-  const tracking: Array<{ number: string; url: string | null }> = [];
+  // Build tracking info with events
+  const tracking: Array<{ number: string; url: string | null; company: string | null }> = [];
   let estimatedDelivery: string | null = null;
+  const fulfillmentEvents: Array<{ status: string; happenedAt: string; city: string | null; province: string | null; country: string | null; message: string | null }> = [];
+  let fulfillmentDisplayStatus: string | null = null;
+
   for (const fulfillment of order.fulfillments) {
     for (const t of fulfillment.trackingInfo) {
-      tracking.push({ number: t.number, url: t.url });
+      tracking.push({ number: t.number, url: t.url, company: t.company });
     }
     if (fulfillment.estimatedDeliveryAt) {
       estimatedDelivery = fulfillment.estimatedDeliveryAt;
+    }
+    if (fulfillment.displayStatus) {
+      fulfillmentDisplayStatus = fulfillment.displayStatus;
+    }
+    if (fulfillment.events?.edges) {
+      for (const e of fulfillment.events.edges) {
+        fulfillmentEvents.push(e.node);
+      }
     }
   }
 
@@ -207,6 +247,8 @@ export async function lookupOrder(
       fulfillmentStatus: order.displayFulfillmentStatus,
       tracking,
       estimatedDelivery,
+      fulfillmentDisplayStatus,
+      fulfillmentEvents,
       lineItems: order.lineItems.edges.map((e) => ({
         id: e.node.id,
         title: e.node.title,
