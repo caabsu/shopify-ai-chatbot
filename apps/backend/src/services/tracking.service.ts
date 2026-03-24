@@ -76,7 +76,7 @@ export async function fetchTracking(
     // Cache table may not exist — proceed to live lookup
   }
 
-  const apiKey = settings.seventeen_track_api_key;
+  const apiKey = settings.seventeen_track_api_key || process.env.SEVENTEEN_TRACK_API_KEY;
   if (!apiKey) {
     return {
       status: 'not_found',
