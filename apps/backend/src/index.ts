@@ -10,6 +10,7 @@ import { agentRouter } from './controllers/agent.controller.js';
 import { returnRouter } from './controllers/return.controller.js';
 import { tradeRouter } from './controllers/trade.controller.js';
 import { reviewRouter } from './controllers/review.controller.js';
+import { trackingRouter } from './controllers/tracking.controller.js';
 import { processScheduledEmails, processScheduledReminders, expireOldRequests } from './services/review-email.service.js';
 import { registerWebhooks as registerReviewWebhooks } from './services/product-sync.service.js';
 import { supabase } from './config/supabase.js';
@@ -444,6 +445,31 @@ app.get('/widget/preview-reviews', (req, res) => {
 <body>
   <div id="outlight-reviews" data-product-handle="${handle}"></div>
   <script src="/widget/review-widget.js"${dataBrandAttr}></script>
+</body>
+</html>`);
+});
+
+// Tracking widget preview (for admin playground)
+app.get('/widget/preview-tracking', (req, res) => {
+  const brandSlug = (req.query.brand as string || '').toLowerCase();
+  const dataBrandAttr = brandSlug && brandSlug !== 'outlight' ? ` data-brand="${brandSlug}"` : '';
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tracking Widget Preview</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
+    #outlight-tracking { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+  </style>
+</head>
+<body>
+  <div id="outlight-tracking"></div>
+  <script src="/widget/tracking-widget.js"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
@@ -1535,6 +1561,9 @@ app.use('/api/trade', tradeRouter);
 
 // Reviews routes
 app.use('/api/reviews', reviewRouter);
+
+// Tracking routes
+app.use('/api/tracking', trackingRouter);
 
 // Widget config endpoint
 app.get('/api/widget/config', async (req, res) => {

@@ -572,3 +572,73 @@ export interface ModerationResult {
   action: 'publish' | 'pending' | 'reject';
   reasons: string[];
 }
+
+// ── Tracking ──
+export interface TrackingEvent {
+  status: string;
+  description: string;
+  location: string;
+  timestamp: string;
+}
+
+export interface TrackingResult {
+  trackingNumber: string;
+  carrier: string;
+  carrierDisplay: string;
+  status: 'not_found' | 'info_received' | 'in_transit' | 'out_for_delivery' | 'delivered' | 'exception' | 'expired';
+  statusMessage: string;
+  statusDetail: string;
+  estimatedDelivery: string | null;
+  signedBy: string | null;
+  deliveredAt: string | null;
+  events: TrackingEvent[];
+  order: TrackingOrderInfo | null;
+}
+
+export interface TrackingOrderInfo {
+  orderNumber: string;
+  lineItems: Array<{
+    title: string;
+    variant: string | null;
+    quantity: number;
+    price: string;
+    imageUrl: string | null;
+  }>;
+  destination: string | null;
+  transitDays: number | null;
+  total: string | null;
+}
+
+export interface TrackingWidgetDesign {
+  accentColor: string;
+  backgroundColor: string;
+  textColor: string;
+  headingColor: string;
+  headingFontFamily: string;
+  bodyFontFamily: string;
+  statusFontFamily: string;
+  buttonColor: string;
+  buttonTextColor: string;
+  headerText: string;
+  headerSubtext: string;
+  buttonText: string;
+  tabOrderLabel: string;
+  tabTrackingLabel: string;
+  timelineSectionLabel: string;
+  orderDetailsSectionLabel: string;
+  deliveredIcon: string;
+  inTransitIcon: string;
+  exceptionIcon: string;
+}
+
+export interface TrackingSettings {
+  id: string;
+  brand_id: string;
+  widget_design: TrackingWidgetDesign;
+  custom_status_messages: Record<string, string>;
+  carrier_display_names: Record<string, string>;
+  cache_ttl_minutes: number;
+  seventeen_track_api_key: string | null;
+  created_at: string;
+  updated_at: string;
+}
