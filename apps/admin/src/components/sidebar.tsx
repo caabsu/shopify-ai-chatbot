@@ -88,6 +88,7 @@ const navGroups: NavGroup[] = [
     collapsible: true,
     defaultCollapsed: false,
     items: [
+      { href: '/tracking/insights', label: 'Insights', icon: BarChart3 },
       { href: '/tracking/playground', label: 'Playground', icon: TestTube },
       { href: '/tracking/design', label: 'Widget Design', icon: Palette },
       { href: '/tracking/settings', label: 'Settings', icon: Settings },

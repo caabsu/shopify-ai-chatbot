@@ -69,7 +69,7 @@ export async function lookupByOrder(
   const lookupResult = await shopifyAdmin.lookupOrder(orderNumber, email, undefined, brandId);
 
   if (!lookupResult.found || !lookupResult.order) {
-    return {
+    const notFoundResult: TrackingResult = {
       trackingNumber: '',
       carrier: 'unknown',
       carrierDisplay: 'Unknown',
@@ -86,6 +86,17 @@ export async function lookupByOrder(
       events: [],
       order: null,
     };
+    // Fire-and-forget lookup log
+    supabase.from('tracking_lookups').insert({
+      brand_id: brandId,
+      order_number: orderNumber,
+      email: email,
+      tracking_number: null,
+      lookup_type: 'order',
+      status: notFoundResult.status,
+      carrier: null,
+    }).then(() => {}).catch(() => {});
+    return notFoundResult;
   }
 
   const order = lookupResult.order;
@@ -116,7 +127,7 @@ export async function lookupByOrder(
 
   // If no tracking numbers, return info_received
   if (!order.tracking || order.tracking.length === 0) {
-    return {
+    const infoResult: TrackingResult = {
       trackingNumber: '',
       carrier: 'unknown',
       carrierDisplay: 'Unknown',
@@ -129,6 +140,17 @@ export async function lookupByOrder(
       events: [],
       order: orderInfo,
     };
+    // Fire-and-forget lookup log
+    supabase.from('tracking_lookups').insert({
+      brand_id: brandId,
+      order_number: orderNumber,
+      email: email,
+      tracking_number: null,
+      lookup_type: 'order',
+      status: infoResult.status,
+      carrier: null,
+    }).then(() => {}).catch(() => {});
+    return infoResult;
   }
 
   // Use Shopify fulfillment events (free, native)
@@ -173,7 +195,7 @@ export async function lookupByOrder(
     if (days > 0) orderInfo.transitDays = days;
   }
 
-  return {
+  const result: TrackingResult = {
     trackingNumber,
     carrier,
     carrierDisplay,
@@ -186,6 +208,17 @@ export async function lookupByOrder(
     events,
     order: orderInfo,
   };
+  // Fire-and-forget lookup log
+  supabase.from('tracking_lookups').insert({
+    brand_id: brandId,
+    order_number: orderNumber,
+    email: email,
+    tracking_number: trackingNumber || null,
+    lookup_type: 'order',
+    status: result.status,
+    carrier: carrier !== 'unknown' ? carrier : null,
+  }).then(() => {}).catch(() => {});
+  return result;
 }
 
 // ── lookupByTracking — FALLBACK: uses 17track API (paid) ─────────────────────
@@ -201,7 +234,7 @@ export async function lookupByTracking(
   const trackData = await fetchFromSeventeenTrack(trackingNumber, brandId);
   const carrierDisplay = resolveCarrierDisplay(trackData.carrier, carrierNames);
 
-  return {
+  const trackResult: TrackingResult = {
     trackingNumber,
     carrier: trackData.carrier,
     carrierDisplay,
@@ -214,6 +247,17 @@ export async function lookupByTracking(
     events: trackData.events,
     order: null,
   };
+  // Fire-and-forget lookup log
+  supabase.from('tracking_lookups').insert({
+    brand_id: brandId,
+    order_number: null,
+    email: null,
+    tracking_number: trackingNumber,
+    lookup_type: 'tracking',
+    status: trackResult.status,
+    carrier: trackData.carrier !== 'unknown' ? trackData.carrier : null,
+  }).then(() => {}).catch(() => {});
+  return trackResult;
 }
 
 // ── 17track API (only used for tracking-number-only lookups) ─────────────────
