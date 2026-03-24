@@ -752,10 +752,10 @@
   padding: 16px 0 !important;
   padding-left: 16px !important;
   background: transparent !important;
-  border-top: 1px solid rgba(19, 19, 20, 0.1) !important;
+  border-top: 1px solid rgba(19, 19, 20, 0.12) !important;
   border-right: none !important;
   border-bottom: none !important;
-  border-left: 2px solid rgba(197, 160, 89, 0.45) !important;
+  border-left: 3px solid #C5A059 !important;
   border-radius: 0 !important;
   font-family: var(--aicb-font-family);
   font-size: 14px;
@@ -767,7 +767,7 @@
 }
 
 #aicb-root .aicb-preset-card:hover {
-  border-left-color: rgba(197, 160, 89, 0.7) !important;
+  border-left-color: #b8903f !important;
   background: rgba(244, 240, 235, 0.5) !important;
   box-shadow: none;
   transform: none;
