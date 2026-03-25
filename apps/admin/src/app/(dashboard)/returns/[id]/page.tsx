@@ -710,33 +710,35 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
             <div className="flex items-center gap-2 flex-wrap">
               {(data.status === 'pending_review') && (
                 <>
-                  <button
-                    onClick={() => {
-                      setApproveAmount(totalItemValue.toFixed(2));
-                      setShowApproveModal(true);
-                    }}
-                    disabled={actionLoading}
-                    className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: '#22c55e' }}
-                  >
-                    <Check size={12} /> Approve
-                  </button>
-                  <button
-                    onClick={() => setShowApproveNoReturnModal(true)}
-                    disabled={actionLoading}
-                    className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: '#3b82f6' }}
-                  >
-                    <Gift size={12} /> Approve -- Refund Only
-                  </button>
-                  <button
-                    onClick={() => setShowDenyModal(true)}
-                    disabled={actionLoading}
-                    className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: '#ef4444' }}
-                  >
-                    <X size={12} /> Deny
-                  </button>
+                  <div className="flex gap-3 flex-wrap">
+                    <button
+                      onClick={() => {
+                        setApproveAmount(totalItemValue.toFixed(2));
+                        setShowApproveModal(true);
+                      }}
+                      disabled={actionLoading}
+                      className="flex items-center gap-2 text-xs px-5 py-2.5 font-semibold uppercase tracking-wide transition-all disabled:opacity-50"
+                      style={{ backgroundColor: '#131314', color: '#F9F9FB', letterSpacing: '0.08em' }}
+                    >
+                      <Check size={13} /> Approve Return
+                    </button>
+                    <button
+                      onClick={() => setShowApproveNoReturnModal(true)}
+                      disabled={actionLoading}
+                      className="flex items-center gap-2 text-xs px-5 py-2.5 font-semibold uppercase tracking-wide transition-all disabled:opacity-50"
+                      style={{ backgroundColor: '#C5A059', color: '#131314', letterSpacing: '0.08em' }}
+                    >
+                      <Gift size={13} /> Green Return
+                    </button>
+                    <button
+                      onClick={() => setShowDenyModal(true)}
+                      disabled={actionLoading}
+                      className="flex items-center gap-2 text-xs px-5 py-2.5 font-semibold uppercase tracking-wide transition-all disabled:opacity-50"
+                      style={{ border: '1px solid rgba(239,68,68,0.3)', backgroundColor: 'transparent', color: '#ef4444', letterSpacing: '0.08em' }}
+                    >
+                      <X size={13} /> Deny
+                    </button>
+                  </div>
                 </>
               )}
               {(data.status === 'approved' || data.status === 'partially_approved') && (
@@ -1211,7 +1213,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
             }}
           >
             <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-              Approve -- Refund Only (No Return)
+              Green Return — Refund Without Shipping
             </h3>
             <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
               The customer will NOT need to return the items. A refund will be processed immediately through Shopify.

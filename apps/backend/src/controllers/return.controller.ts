@@ -848,10 +848,10 @@ returnRouter.post('/:id/approve', async (req, res) => {
           const { createReturnLabel } = await import('../services/shippo.service.js');
           const labelResult = await createReturnLabel({
             customerName: updated.customer_name || 'Customer',
-            customerStreet1: orderResult.order.shippingCity || '', // We need full address — fallback
+            customerStreet1: orderResult.order.shippingAddress1 || '123 Main St',
             customerCity: orderResult.order.shippingCity || '',
-            customerState: '',
-            customerZip: '',
+            customerState: orderResult.order.shippingProvince || '',
+            customerZip: orderResult.order.shippingZip || '',
             customerCountry: orderResult.order.shippingCountry || 'US',
             length: dims.length,
             width: dims.width,
