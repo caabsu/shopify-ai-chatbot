@@ -182,9 +182,12 @@ export async function createReturnLabel(
       return { success: false, error: 'No shipping rates available for this address/package combination' };
     }
 
-    // 3. Pick the cheapest rate across both warehouses
-    allRates.sort((a, b) => a.amount - b.amount);
-    const best = allRates[0];
+    // 3. Pick the cheapest rate — prefer FedEx/UPS (skip USPS if it causes billing issues)
+    // First try non-USPS carriers
+    const nonUspsRates = allRates.filter(r => !r.provider.toLowerCase().includes('usps'));
+    const ratePool = nonUspsRates.length > 0 ? nonUspsRates : allRates;
+    ratePool.sort((a, b) => a.amount - b.amount);
+    const best = ratePool[0];
 
     console.log(`[shippo.service] Best rate: $${best.amount.toFixed(2)} via ${best.provider} to ${best.warehouse} (${allRates.length} rates compared across ${RETURN_ADDRESSES.length} warehouses)`);
 
