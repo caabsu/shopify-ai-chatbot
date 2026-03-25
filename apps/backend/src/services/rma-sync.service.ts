@@ -232,11 +232,6 @@ export async function syncRMAs(brandId: string): Promise<SyncSummary> {
                 .map((li) => `${li.title} (x${li.quantity})`)
                 .join(', ');
 
-              // Set refund amount from order total if not already set
-              if (!baseFields.refund_amount && baseFields.order_total) {
-                baseFields.refund_amount = baseFields.order_total;
-              }
-
               // Check if Shopify already shows this order as refunded
               const financialStatus = order.financialStatus?.toUpperCase() || '';
               if (financialStatus.includes('REFUND') || financialStatus.includes('PARTIALLY_REFUNDED')) {
