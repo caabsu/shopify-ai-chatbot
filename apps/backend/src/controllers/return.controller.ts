@@ -100,12 +100,13 @@ returnRouter.post('/submit', async (req, res) => {
       (async () => {
         try {
           const orderResult = await lookupOrder(order_number, customer_email, undefined, brandId);
-          if (orderResult.found && orderResult.order && orderResult.order.shippingCity) {
+          if (orderResult.found && orderResult.order && orderResult.order.shippingZip) {
             const { getShippingEstimate } = await import('../services/shippo.service.js');
             const estimate = await getShippingEstimate({
-              customerCity: orderResult.order.shippingCity,
-              customerState: '',
-              customerZip: '',
+              customerStreet1: orderResult.order.shippingAddress1 || undefined,
+              customerCity: orderResult.order.shippingCity || '',
+              customerState: orderResult.order.shippingProvince || '',
+              customerZip: orderResult.order.shippingZip || '',
               customerCountry: orderResult.order.shippingCountry || 'US',
               length: package_dimensions.length,
               width: package_dimensions.width,

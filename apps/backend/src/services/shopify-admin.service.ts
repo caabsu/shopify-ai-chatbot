@@ -65,7 +65,10 @@ export interface OrderLookupResult {
       price: string;
       imageUrl: string | null;
     }>;
+    shippingAddress1: string | null;
     shippingCity: string | null;
+    shippingProvince: string | null;
+    shippingZip: string | null;
     shippingCountry: string | null;
     createdAt: string;
     totalPrice: string | null;
@@ -138,7 +141,10 @@ export async function lookupOrder(
               }
             }
             shippingAddress {
+              address1
               city
+              province
+              zip
               country
             }
             totalPriceSet {
@@ -198,7 +204,7 @@ export async function lookupOrder(
               };
             }>;
           };
-          shippingAddress: { city: string; country: string } | null;
+          shippingAddress: { address1: string | null; city: string; province: string | null; zip: string | null; country: string } | null;
           totalPriceSet: { shopMoney: { amount: string } } | null;
           refunds: Array<{ totalRefundedSet: { shopMoney: { amount: string } } }>;
         };
@@ -275,7 +281,10 @@ export async function lookupOrder(
         price: e.node.originalUnitPriceSet.shopMoney.amount,
         imageUrl: e.node.image?.url ?? null,
       })),
+      shippingAddress1: order.shippingAddress?.address1 ?? null,
       shippingCity: order.shippingAddress?.city ?? null,
+      shippingProvince: order.shippingAddress?.province ?? null,
+      shippingZip: order.shippingAddress?.zip ?? null,
       shippingCountry: order.shippingAddress?.country ?? null,
       createdAt: order.createdAt,
       totalPrice: order.totalPriceSet?.shopMoney?.amount ?? null,

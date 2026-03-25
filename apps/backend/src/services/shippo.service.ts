@@ -317,6 +317,7 @@ export async function validateAddress(address: {
 // ── getShippingEstimate — rate check without purchasing a label ───────────
 
 export async function getShippingEstimate(params: {
+  customerStreet1?: string;
   customerCity: string;
   customerState: string;
   customerZip: string;
@@ -329,7 +330,7 @@ export async function getShippingEstimate(params: {
   try {
     const customerAddress = {
       name: 'Customer',
-      street1: '123 Main St', // Placeholder — Shippo needs a street for rates
+      street1: params.customerStreet1 || '123 Main St',
       city: params.customerCity,
       state: params.customerState,
       zip: params.customerZip,
