@@ -968,6 +968,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         line_item_id: si.lineItemId,
         product_title: si.title,
         variant_title: si.variantTitle || null,
+        product_image_url: origItem?.image || null,
         quantity: si.quantity,
         price: parseFloat(priceStr) || 0,
         reason: si.reason,

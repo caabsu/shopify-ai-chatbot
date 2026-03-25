@@ -95,6 +95,16 @@ returnRouter.post('/submit', async (req, res) => {
       package_dimensions: package_dimensions || null,
     });
 
+    // 1a. Fetch customer name from Shopify if not provided
+    if (!customer_name) {
+      try {
+        const orderRes = await lookupOrder(order_number, customer_email, undefined, brandId);
+        if (orderRes.found && orderRes.customerName) {
+          await supabase.from('return_requests').update({ customer_name: orderRes.customerName }).eq('id', returnRequest.id);
+        }
+      } catch { /* non-fatal */ }
+    }
+
     // 1b. Estimate shipping cost if dimensions provided (fire-and-forget)
     if (package_dimensions && package_dimensions.length > 0 && package_dimensions.weight > 0) {
       (async () => {
@@ -367,7 +377,13 @@ returnRouter.get('/lookup', async (req, res) => {
     const eligibleItems = orderResult.order.lineItems.map((li) => {
       const eligibilityInfo = eligibility.items.find((e) => e.lineItemId === li.id);
       return {
-        ...li,
+        id: li.id,
+        title: li.title,
+        variantTitle: li.variantTitle ?? null,
+        sku: li.sku ?? null,
+        quantity: li.quantity,
+        price: `$${parseFloat(li.price).toFixed(2)}`,
+        image: li.imageUrl ?? null,
         eligible: eligibilityInfo?.eligible ?? false,
         eligibility_reason: eligibilityInfo?.reason ?? 'Unknown',
       };
@@ -380,6 +396,17 @@ returnRouter.get('/lookup', async (req, res) => {
         createdAt: orderResult.order.createdAt,
         financialStatus: orderResult.order.financialStatus,
         fulfillmentStatus: orderResult.order.fulfillmentStatus,
+      },
+      customer: {
+        name: orderResult.customerName ?? null,
+        email: orderResult.customerEmail ?? null,
+      },
+      shippingAddress: {
+        address1: orderResult.order.shippingAddress1 ?? null,
+        city: orderResult.order.shippingCity ?? null,
+        province: orderResult.order.shippingProvince ?? null,
+        zip: orderResult.order.shippingZip ?? null,
+        country: orderResult.order.shippingCountry ?? null,
       },
       items: eligibleItems,
     });

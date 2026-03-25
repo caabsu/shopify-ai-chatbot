@@ -49,6 +49,7 @@ export interface OrderLookupResult {
   message?: string;
   customerEmail?: string;
   customerPhone?: string;
+  customerName?: string;
   order?: {
     id: string;
     name: string;
@@ -64,6 +65,8 @@ export interface OrderLookupResult {
       quantity: number;
       price: string;
       imageUrl: string | null;
+      sku: string | null;
+      variantTitle: string | null;
     }>;
     shippingAddress1: string | null;
     shippingCity: string | null;
@@ -102,6 +105,9 @@ export async function lookupOrder(
             createdAt
             displayFinancialStatus
             displayFulfillmentStatus
+            customer {
+              displayName
+            }
             fulfillments {
               trackingInfo {
                 number
@@ -129,6 +135,10 @@ export async function lookupOrder(
                   id
                   title
                   quantity
+                  sku
+                  variant {
+                    title
+                  }
                   originalUnitPriceSet {
                     shopMoney {
                       amount
@@ -199,11 +209,14 @@ export async function lookupOrder(
                 id: string;
                 title: string;
                 quantity: number;
+                sku: string | null;
+                variant: { title: string } | null;
                 originalUnitPriceSet: { shopMoney: { amount: string } };
                 image: { url: string } | null;
               };
             }>;
           };
+          customer: { displayName: string } | null;
           shippingAddress: { address1: string | null; city: string; province: string | null; zip: string | null; country: string } | null;
           totalPriceSet: { shopMoney: { amount: string } } | null;
           refunds: Array<{ totalRefundedSet: { shopMoney: { amount: string } } }>;
@@ -265,6 +278,7 @@ export async function lookupOrder(
     found: true,
     customerEmail: order.email ?? undefined,
     customerPhone: order.phone ?? undefined,
+    customerName: order.customer?.displayName ?? undefined,
     order: {
       id: order.id,
       name: order.name,
@@ -280,6 +294,8 @@ export async function lookupOrder(
         quantity: e.node.quantity,
         price: e.node.originalUnitPriceSet.shopMoney.amount,
         imageUrl: e.node.image?.url ?? null,
+        sku: e.node.sku ?? null,
+        variantTitle: e.node.variant?.title ?? null,
       })),
       shippingAddress1: order.shippingAddress?.address1 ?? null,
       shippingCity: order.shippingAddress?.city ?? null,
