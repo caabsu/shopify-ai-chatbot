@@ -128,10 +128,11 @@ returnRouter.post('/submit', async (req, res) => {
                 .from('return_requests')
                 .update({
                   estimated_shipping_cost: estimate.cheapestRate,
-                  estimated_return_warehouse: estimate.warehouse,
+                  estimated_return_warehouse: `${estimate.carrier} → ${estimate.warehouse}`,
+                  shipping_rates: estimate.allRates.slice(0, 10),
                 })
                 .eq('id', returnRequest.id);
-              console.log(`[return.controller] Estimated shipping for ${order_number}: $${estimate.cheapestRate.toFixed(2)} to ${estimate.warehouse}`);
+              console.log(`[return.controller] Estimated shipping for ${order_number}: $${estimate.cheapestRate.toFixed(2)} via ${estimate.carrier} to ${estimate.warehouse} (${estimate.allRates.length} rates)`);
             }
           }
         } catch (err) {

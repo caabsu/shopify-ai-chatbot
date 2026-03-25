@@ -329,7 +329,7 @@ export async function getShippingEstimate(params: {
   width: number;
   height: number;
   weight: number;
-}): Promise<{ cheapestRate: number | null; warehouse: string | null; carrier: string | null }> {
+}): Promise<{ cheapestRate: number | null; warehouse: string | null; carrier: string | null; allRates: Array<{ carrier: string; service: string; amount: number; warehouse: string; estimatedDays: number | null }> }> {
   try {
     const customerAddress = {
       name: 'Customer',
@@ -363,26 +363,42 @@ export async function getShippingEstimate(params: {
               async: false,
             }),
           });
-          if (!res.ok) return { warehouse: warehouse.label, cheapest: null };
-          const shipment = await res.json() as { rates: Array<{ amount: string; provider: string }> };
+          if (!res.ok) return { warehouse: warehouse.label, cheapest: null, rates: [] };
+          const shipment = await res.json() as { rates: Array<{ amount: string; provider: string; servicelevel: { name: string }; estimated_days: number | null }> };
           const rates = shipment.rates ?? [];
-          if (rates.length === 0) return { warehouse: warehouse.label, cheapest: null };
-          const cheapest = rates.reduce((best, r) => parseFloat(r.amount) < parseFloat(best.amount) ? r : best);
-          return { warehouse: warehouse.label, cheapest: parseFloat(cheapest.amount), carrier: cheapest.provider };
+          if (rates.length === 0) return { warehouse: warehouse.label, cheapest: null, rates: [] };
+          const parsedRates = rates.map(r => ({ provider: r.provider, servicelevel: r.servicelevel?.name || '', amount: parseFloat(r.amount), estimatedDays: r.estimated_days }));
+          const cheapest = parsedRates.reduce((best, r) => r.amount < best.amount ? r : best);
+          return { warehouse: warehouse.label, cheapest: cheapest.amount, carrier: cheapest.provider, rates: parsedRates };
         } catch {
-          return { warehouse: warehouse.label, cheapest: null };
+          return { warehouse: warehouse.label, cheapest: null, rates: [] };
         }
       })
     );
 
+    // Collect ALL rates across both warehouses
+    const allEstimateRates: Array<{ carrier: string; service: string; amount: number; warehouse: string; estimatedDays: number | null }> = [];
+    for (const result of results) {
+      if (!result.cheapest && result.cheapest !== 0) continue;
+      const r = result as { warehouse: string; cheapest: number; carrier: string; rates?: Array<{ provider: string; servicelevel: string; amount: number; estimatedDays: number | null }> };
+      if (r.rates) {
+        for (const rate of r.rates) {
+          allEstimateRates.push({ carrier: rate.provider, service: rate.servicelevel, amount: rate.amount, warehouse: r.warehouse, estimatedDays: rate.estimatedDays });
+        }
+      } else {
+        allEstimateRates.push({ carrier: r.carrier, service: '', amount: r.cheapest, warehouse: r.warehouse, estimatedDays: null });
+      }
+    }
+    allEstimateRates.sort((a, b) => a.amount - b.amount);
+
     // Pick cheapest across both
     const valid = results.filter(r => r.cheapest !== null) as Array<{ warehouse: string; cheapest: number; carrier: string }>;
-    if (valid.length === 0) return { cheapestRate: null, warehouse: null, carrier: null };
+    if (valid.length === 0) return { cheapestRate: null, warehouse: null, carrier: null, allRates: [] };
 
     valid.sort((a, b) => a.cheapest - b.cheapest);
-    return { cheapestRate: valid[0].cheapest, warehouse: valid[0].warehouse, carrier: valid[0].carrier };
+    return { cheapestRate: valid[0].cheapest, warehouse: valid[0].warehouse, carrier: valid[0].carrier, allRates: allEstimateRates };
   } catch (err) {
     console.error('[shippo.service] getShippingEstimate error:', err instanceof Error ? err.message : err);
-    return { cheapestRate: null, warehouse: null, carrier: null };
+    return { cheapestRate: null, warehouse: null, carrier: null, allRates: [] };
   }
 }
