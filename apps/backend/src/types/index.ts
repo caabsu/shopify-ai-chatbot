@@ -83,6 +83,7 @@ export interface ReturnRequest {
   return_tracking_number: string | null;
   return_carrier: string | null;
   return_shipping_cost: number | null;
+  package_dimensions: { length: number; width: number; height: number; weight: number } | null;
   created_at: string;
   updated_at: string;
   metadata: Record<string, unknown> | null;

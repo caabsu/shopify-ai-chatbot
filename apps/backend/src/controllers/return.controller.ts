@@ -777,6 +777,7 @@ returnRouter.post('/:id/approve', async (req, res) => {
     }
 
     const brandId = await resolveBrandId(req);
+    const settings = await returnSettingsService.getReturnSettings(brandId);
     const { resolution_type, refund_amount, admin_notes } = req.body;
 
     const updated = await returnService.updateReturnRequest(req.params.id, {
@@ -792,16 +793,71 @@ returnRouter.post('/:id/approve', async (req, res) => {
       .map((i) => `${i.product_title} (x${i.quantity})`)
       .join(', ');
 
+    // Auto-create prepaid return label if eligible
+    let labelUrl: string | null = null;
+    let labelTrackingNumber: string | null = null;
+
+    const returnReason = updated.items?.[0]?.reason;
+    const prepaidReasons = settings.provide_prepaid_label_for_reasons ?? ['defective', 'wrong_item', 'not_as_described'];
+    const hasDimensions = updated.package_dimensions &&
+      (updated.package_dimensions as Record<string, number>).length > 0 &&
+      (updated.package_dimensions as Record<string, number>).weight > 0;
+    const qualifiesForPrepaid = returnReason && prepaidReasons.includes(returnReason);
+
+    if (qualifiesForPrepaid && hasDimensions) {
+      try {
+        // Get customer shipping address from Shopify
+        const orderResult = await lookupOrder(updated.order_number, undefined, undefined, brandId, true);
+        if (orderResult.found && orderResult.order) {
+          const dims = updated.package_dimensions as Record<string, number>;
+          const { createReturnLabel } = await import('../services/shippo.service.js');
+          const labelResult = await createReturnLabel({
+            customerName: updated.customer_name || 'Customer',
+            customerStreet1: orderResult.order.shippingCity || '', // We need full address — fallback
+            customerCity: orderResult.order.shippingCity || '',
+            customerState: '',
+            customerZip: '',
+            customerCountry: orderResult.order.shippingCountry || 'US',
+            length: dims.length,
+            width: dims.width,
+            height: dims.height,
+            weight: dims.weight,
+          });
+
+          if (labelResult.success) {
+            labelUrl = labelResult.labelUrl ?? null;
+            labelTrackingNumber = labelResult.trackingNumber ?? null;
+
+            await returnService.updateReturnRequest(req.params.id, {
+              return_label_url: labelUrl,
+              return_tracking_number: labelTrackingNumber,
+              return_carrier: labelResult.carrier ?? null,
+              return_shipping_cost: labelResult.rate ?? null,
+            });
+
+            console.log(`[return.controller] Auto-created prepaid label for return ${req.params.id}: ${labelTrackingNumber}`);
+          } else {
+            console.warn(`[return.controller] Auto-label failed for return ${req.params.id}: ${labelResult.error}`);
+          }
+        }
+      } catch (labelErr) {
+        console.error('[return.controller] Auto-label creation error:', labelErr instanceof Error ? labelErr.message : labelErr);
+        // Non-fatal — still send approval email without label
+      }
+    }
+
     sendReturnApproved({
       to: updated.customer_email,
       customerName: updated.customer_name ?? undefined,
       returnRequestId: updated.id,
       orderNumber: updated.order_number,
       items: itemsSummary,
+      labelUrl: labelUrl ?? undefined,
+      trackingNumber: labelTrackingNumber ?? undefined,
       brandId,
     }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
-    res.json({ returnRequest: updated });
+    res.json({ returnRequest: updated, label: labelUrl ? { url: labelUrl, trackingNumber: labelTrackingNumber } : null });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[return.controller] POST /:id/approve error:', message);

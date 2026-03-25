@@ -183,7 +183,7 @@ export async function updateReturnRequest(
   id: string,
   updates: Partial<Pick<
     ReturnRequest,
-    'status' | 'resolution_type' | 'refund_amount' | 'admin_notes' | 'denial_reason' | 'approved_no_return' | 'decided_by' | 'decided_at' | 'shopify_return_id' | 'ai_recommendation'
+    'status' | 'resolution_type' | 'refund_amount' | 'admin_notes' | 'denial_reason' | 'approved_no_return' | 'decided_by' | 'decided_at' | 'shopify_return_id' | 'ai_recommendation' | 'return_label_url' | 'return_tracking_number' | 'return_carrier' | 'return_shipping_cost' | 'package_dimensions'
   >>
 ): Promise<ReturnRequest> {
   const updatePayload: Record<string, unknown> = {
