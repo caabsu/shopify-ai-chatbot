@@ -313,3 +313,72 @@ export async function validateAddress(address: {
     return { valid: false, messages: [message] };
   }
 }
+
+// ── getShippingEstimate — rate check without purchasing a label ───────────
+
+export async function getShippingEstimate(params: {
+  customerCity: string;
+  customerState: string;
+  customerZip: string;
+  customerCountry: string;
+  length: number;
+  width: number;
+  height: number;
+  weight: number;
+}): Promise<{ cheapestRate: number | null; warehouse: string | null; carrier: string | null }> {
+  try {
+    const customerAddress = {
+      name: 'Customer',
+      street1: '123 Main St', // Placeholder — Shippo needs a street for rates
+      city: params.customerCity,
+      state: params.customerState,
+      zip: params.customerZip,
+      country: params.customerCountry,
+    };
+
+    const parcel = {
+      length: String(params.length),
+      width: String(params.width),
+      height: String(params.height),
+      distance_unit: 'in',
+      weight: String(params.weight),
+      mass_unit: 'lb',
+    };
+
+    // Get rates for both warehouses
+    const results = await Promise.all(
+      RETURN_ADDRESSES.map(async (warehouse) => {
+        try {
+          const res = await fetch(`${SHIPPO_API}/shipments`, {
+            method: 'POST',
+            headers: shippoHeaders(),
+            body: JSON.stringify({
+              address_from: customerAddress,
+              address_to: warehouse,
+              parcels: [parcel],
+              async: false,
+            }),
+          });
+          if (!res.ok) return { warehouse: warehouse.label, cheapest: null };
+          const shipment = await res.json() as { rates: Array<{ amount: string; provider: string }> };
+          const rates = shipment.rates ?? [];
+          if (rates.length === 0) return { warehouse: warehouse.label, cheapest: null };
+          const cheapest = rates.reduce((best, r) => parseFloat(r.amount) < parseFloat(best.amount) ? r : best);
+          return { warehouse: warehouse.label, cheapest: parseFloat(cheapest.amount), carrier: cheapest.provider };
+        } catch {
+          return { warehouse: warehouse.label, cheapest: null };
+        }
+      })
+    );
+
+    // Pick cheapest across both
+    const valid = results.filter(r => r.cheapest !== null) as Array<{ warehouse: string; cheapest: number; carrier: string }>;
+    if (valid.length === 0) return { cheapestRate: null, warehouse: null, carrier: null };
+
+    valid.sort((a, b) => a.cheapest - b.cheapest);
+    return { cheapestRate: valid[0].cheapest, warehouse: valid[0].warehouse, carrier: valid[0].carrier };
+  } catch (err) {
+    console.error('[shippo.service] getShippingEstimate error:', err instanceof Error ? err.message : err);
+    return { cheapestRate: null, warehouse: null, carrier: null };
+  }
+}

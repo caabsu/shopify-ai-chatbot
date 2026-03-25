@@ -84,6 +84,8 @@ export interface ReturnRequest {
   return_carrier: string | null;
   return_shipping_cost: number | null;
   package_dimensions: { length: number; width: number; height: number; weight: number } | null;
+  estimated_shipping_cost: number | null;
+  estimated_return_warehouse: string | null;
   created_at: string;
   updated_at: string;
   metadata: Record<string, unknown> | null;

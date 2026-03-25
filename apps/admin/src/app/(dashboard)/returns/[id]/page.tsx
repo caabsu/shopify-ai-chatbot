@@ -865,6 +865,46 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
+          {/* Package Dimensions */}
+          {data.package_dimensions && (
+            <div
+              className="rounded-xl p-4"
+              style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+            >
+              <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: 'var(--text-tertiary)' }}>
+                <Package size={12} />
+                Package Dimensions
+              </h3>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: 'Length', value: `${(data.package_dimensions as Record<string, number>).length}"` },
+                  { label: 'Width', value: `${(data.package_dimensions as Record<string, number>).width}"` },
+                  { label: 'Height', value: `${(data.package_dimensions as Record<string, number>).height}"` },
+                  { label: 'Weight', value: `${(data.package_dimensions as Record<string, number>).weight} lbs` },
+                ].map((d) => (
+                  <div key={d.label} className="text-center p-2 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>{d.label}</div>
+                    <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>{d.value}</div>
+                  </div>
+                ))}
+              </div>
+              {data.estimated_shipping_cost != null && (
+                <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-secondary)' }}>
+                  <div className="flex justify-between text-xs">
+                    <span style={{ color: 'var(--text-tertiary)' }}>Est. shipping cost</span>
+                    <span className="font-medium" style={{ color: 'var(--color-accent)' }}>${Number(data.estimated_shipping_cost).toFixed(2)}</span>
+                  </div>
+                  {data.estimated_return_warehouse && (
+                    <div className="flex justify-between text-xs mt-1">
+                      <span style={{ color: 'var(--text-tertiary)' }}>Nearest warehouse</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>{data.estimated_return_warehouse}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Return Label Info */}
           {labelResult && (
             <div

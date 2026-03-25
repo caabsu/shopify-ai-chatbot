@@ -95,6 +95,40 @@ returnRouter.post('/submit', async (req, res) => {
       package_dimensions: package_dimensions || null,
     });
 
+    // 1b. Estimate shipping cost if dimensions provided (fire-and-forget)
+    if (package_dimensions && package_dimensions.length > 0 && package_dimensions.weight > 0) {
+      (async () => {
+        try {
+          const orderResult = await lookupOrder(order_number, customer_email, undefined, brandId);
+          if (orderResult.found && orderResult.order && orderResult.order.shippingCity) {
+            const { getShippingEstimate } = await import('../services/shippo.service.js');
+            const estimate = await getShippingEstimate({
+              customerCity: orderResult.order.shippingCity,
+              customerState: '',
+              customerZip: '',
+              customerCountry: orderResult.order.shippingCountry || 'US',
+              length: package_dimensions.length,
+              width: package_dimensions.width,
+              height: package_dimensions.height,
+              weight: package_dimensions.weight,
+            });
+            if (estimate.cheapestRate) {
+              await supabase
+                .from('return_requests')
+                .update({
+                  estimated_shipping_cost: estimate.cheapestRate,
+                  estimated_return_warehouse: estimate.warehouse,
+                })
+                .eq('id', returnRequest.id);
+              console.log(`[return.controller] Estimated shipping for ${order_number}: $${estimate.cheapestRate.toFixed(2)} to ${estimate.warehouse}`);
+            }
+          }
+        } catch (err) {
+          console.warn('[return.controller] Shipping estimate failed:', err instanceof Error ? err.message : err);
+        }
+      })();
+    }
+
     // 2. Evaluate rules
     // We need order data for rule evaluation — fetch minimal order info
     let orderData = { created_at: new Date().toISOString(), total_price: 0 };
