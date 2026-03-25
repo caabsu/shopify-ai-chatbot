@@ -828,31 +828,41 @@ returnRouter.post('/:id/approve', async (req, res) => {
       .map((i) => `${i.product_title} (x${i.quantity})`)
       .join(', ');
 
-    // Auto-create prepaid return label if eligible
+    // Auto-create prepaid return label
     let labelUrl: string | null = null;
     let labelTrackingNumber: string | null = null;
 
     const returnReason = updated.items?.[0]?.reason;
     const prepaidReasons = settings.provide_prepaid_label_for_reasons ?? ['defective', 'wrong_item', 'not_as_described'];
-    const hasDimensions = updated.package_dimensions &&
-      (updated.package_dimensions as Record<string, number>).length > 0 &&
-      (updated.package_dimensions as Record<string, number>).weight > 0;
     const qualifiesForPrepaid = returnReason && prepaidReasons.includes(returnReason);
 
-    if (qualifiesForPrepaid && hasDimensions) {
+    // Get dimensions from return request, or use defaults
+    let dims = updated.package_dimensions as Record<string, number> | null;
+    if (!dims || !dims.length || !dims.weight) {
+      // Default package dimensions if customer didn't provide
+      dims = { length: 24, width: 18, height: 12, weight: 10 };
+      console.log(`[return.controller] No customer dimensions, using defaults: 24x18x12, 10lbs`);
+    }
+
+    console.log(`[return.controller] Label check: reason=${returnReason}, qualifies=${qualifiesForPrepaid}, dims=${JSON.stringify(dims)}`);
+
+    if (qualifiesForPrepaid) {
       try {
-        // Get customer shipping address from Shopify
+        // Get customer's FULL shipping address from Shopify
         const orderResult = await lookupOrder(updated.order_number, undefined, undefined, brandId, true);
+
         if (orderResult.found && orderResult.order) {
-          const dims = updated.package_dimensions as Record<string, number>;
+          const order = orderResult.order;
+          console.log(`[return.controller] Shopify address: ${order.shippingAddress1}, ${order.shippingCity}, ${order.shippingProvince} ${order.shippingZip}, ${order.shippingCountry}`);
+
           const { createReturnLabel } = await import('../services/shippo.service.js');
           const labelResult = await createReturnLabel({
-            customerName: updated.customer_name || 'Customer',
-            customerStreet1: orderResult.order.shippingAddress1 || '123 Main St',
-            customerCity: orderResult.order.shippingCity || '',
-            customerState: orderResult.order.shippingProvince || '',
-            customerZip: orderResult.order.shippingZip || '',
-            customerCountry: orderResult.order.shippingCountry || 'US',
+            customerName: updated.customer_name || orderResult.customerEmail || 'Customer',
+            customerStreet1: order.shippingAddress1 || '',
+            customerCity: order.shippingCity || '',
+            customerState: order.shippingProvince || '',
+            customerZip: order.shippingZip || '',
+            customerCountry: order.shippingCountry || 'US',
             length: dims.length,
             width: dims.width,
             height: dims.height,
@@ -870,14 +880,15 @@ returnRouter.post('/:id/approve', async (req, res) => {
               return_shipping_cost: labelResult.rate ?? null,
             });
 
-            console.log(`[return.controller] Auto-created prepaid label for return ${req.params.id}: ${labelTrackingNumber}`);
+            console.log(`[return.controller] Auto-label created: ${labelTrackingNumber}, carrier: ${labelResult.carrier}, cost: $${labelResult.rate}`);
           } else {
-            console.warn(`[return.controller] Auto-label failed for return ${req.params.id}: ${labelResult.error}`);
+            console.error(`[return.controller] Auto-label FAILED: ${labelResult.error}`);
           }
+        } else {
+          console.error(`[return.controller] Shopify order lookup failed for ${updated.order_number}`);
         }
       } catch (labelErr) {
         console.error('[return.controller] Auto-label creation error:', labelErr instanceof Error ? labelErr.message : labelErr);
-        // Non-fatal — still send approval email without label
       }
     }
 
