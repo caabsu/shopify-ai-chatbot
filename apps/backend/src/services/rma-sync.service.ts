@@ -30,6 +30,9 @@ export interface RmaSyncLogEntry {
   tracking_numbers: string[] | null;
   carrier_name: string | null;
   shopify_refund_status: string | null;
+  rma_created_at: string | null;
+  rma_delivered_at: string | null;
+  rma_completed_at: string | null;
   error: string | null;
   brand_id: string;
   created_at: string;
@@ -198,12 +201,15 @@ export async function syncRMAs(brandId: string): Promise<SyncSummary> {
         order_number: orderNumber,
         customer_name: (rma.sender_name as string) ?? rma.customer_name ?? null,
         status: rma.status,
-        processed_at: rma.updated_at ?? new Date().toISOString(),
+        processed_at: (rma.processed_at as string) ?? rma.updated_at ?? new Date().toISOString(),
         refund_processed: false,
         error: null,
         sku_details: skuDetails,
         tracking_numbers: trackingNumbers,
         carrier_name: carrierName,
+        rma_created_at: (rma.created_at as string) ?? null,
+        rma_delivered_at: (rma.delivered_at as string) ?? null,
+        rma_completed_at: (rma.completed_at as string) ?? null,
       };
 
       // Enrich with Shopify order data if we have an order number
@@ -225,6 +231,11 @@ export async function syncRMAs(brandId: string): Promise<SyncSummary> {
               baseFields.line_items_summary = order.lineItems
                 .map((li) => `${li.title} (x${li.quantity})`)
                 .join(', ');
+
+              // Set refund amount from order total if not already set
+              if (!baseFields.refund_amount && baseFields.order_total) {
+                baseFields.refund_amount = baseFields.order_total;
+              }
 
               // Check if Shopify already shows this order as refunded
               const financialStatus = order.financialStatus?.toUpperCase() || '';

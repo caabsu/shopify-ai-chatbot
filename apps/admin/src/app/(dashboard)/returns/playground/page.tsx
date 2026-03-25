@@ -21,6 +21,7 @@ export default function ReturnsPlaygroundPage() {
   const [aiDecision, setAiDecision] = useState<Record<string, unknown> | null>(null);
   const [emailTriggers, setEmailTriggers] = useState<string[]>([]);
   const [settingsApplied, setSettingsApplied] = useState<Record<string, unknown> | null>(null);
+  const [debugMode, setDebugMode] = useState(false);
 
   const { brandSlug } = useBrand();
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
@@ -91,6 +92,17 @@ export default function ReturnsPlaygroundPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setDebugMode(!debugMode); setIframeKey(k => k + 1); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors"
+            style={{
+              border: '1px solid var(--border-primary)',
+              color: debugMode ? '#f59e0b' : 'var(--text-tertiary)',
+              backgroundColor: debugMode ? 'rgba(245,158,11,0.08)' : 'transparent',
+            }}
+          >
+            {debugMode ? 'Debug ON' : 'Debug OFF'}
+          </button>
           <a
             href={`${backendUrl}/widget/playground-returns${brandQs ? `?${brandQs}` : ''}`}
             target="_blank"
@@ -119,7 +131,7 @@ export default function ReturnsPlaygroundPage() {
         >
           <iframe
             key={iframeKey}
-            src={`${backendUrl}/widget/preview-returns?${[brandQs, 'debug=1'].filter(Boolean).join('&')}`}
+            src={`${backendUrl}/widget/preview-returns?${[brandQs, debugMode ? 'debug=1' : ''].filter(Boolean).join('&')}`}
             className="absolute inset-0 w-full h-full border-0"
             style={{ background: 'var(--bg-primary)' }}
             title="Returns Portal Preview"

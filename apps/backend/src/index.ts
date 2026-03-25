@@ -423,6 +423,12 @@ app.get('/widget/preview-returns', async (req, res) => {
       portalConfig: ${JSON.stringify(portalConfig)}
     };
     window.__SRP_DEBUG = ${req.query.debug === '1' ? 'true' : 'false'};
+    // Listen for parent frame toggling debug mode
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'srp:set_debug') {
+        window.__SRP_DEBUG = !!e.data.enabled;
+      }
+    });
   </script>
   <script src="/widget/returns-portal.js"${dataBrandAttr}></script>
 </body>
