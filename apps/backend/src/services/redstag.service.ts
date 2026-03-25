@@ -162,6 +162,7 @@ export async function getProcessedRMAs(since?: Date): Promise<RMARecord[]> {
     'delivery_id', 'status', 'sender_ref_alt', 'sender_name',
     'processed_at', 'completed_at', 'created_at', 'updated_at',
     'merchant_ref', 'merchant_status', 'items',
+    'tracking_numbers', 'carrier_name',
   ], 200);
 }
 

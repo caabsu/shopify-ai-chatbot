@@ -373,6 +373,11 @@ async function getInlinePortalConfig(brandId: string): Promise<Record<string, un
         available_resolutions: settings.available_resolutions,
         portal_title: settings.portal_title,
         portal_description: settings.portal_description,
+        restocking_fee_percent: settings.restocking_fee_percent ?? 20,
+        restocking_fee_exempt_reasons: settings.restocking_fee_exempt_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
+        collect_dimensions_for_reasons: settings.collect_dimensions_for_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
+        provide_prepaid_label_for_reasons: settings.provide_prepaid_label_for_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
+        dimension_collection_enabled: settings.dimension_collection_enabled ?? true,
       },
       design,
     };

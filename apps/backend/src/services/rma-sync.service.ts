@@ -27,6 +27,9 @@ export interface RmaSyncLogEntry {
   return_request_id: string | null;
   shopify_refund_id: string | null;
   sku_details: Array<{ sku: string; qty: number; qty_received?: number; qty_processed?: number }> | null;
+  tracking_numbers: string[] | null;
+  carrier_name: string | null;
+  shopify_refund_status: string | null;
   error: string | null;
   brand_id: string;
   created_at: string;
@@ -185,14 +188,22 @@ export async function syncRMAs(brandId: string): Promise<SyncSummary> {
         }));
       }
 
+      // Extract tracking numbers and carrier from RMA
+      const trackingNumbers = rma.tracking_numbers && Array.isArray(rma.tracking_numbers)
+        ? rma.tracking_numbers as string[]
+        : typeof rma.tracking_numbers === 'string' ? [rma.tracking_numbers] : null;
+      const carrierName = typeof rma.carrier_name === 'string' ? rma.carrier_name : null;
+
       const baseFields: Partial<Omit<RmaSyncLogEntry, 'id' | 'created_at'>> = {
         order_number: orderNumber,
-        customer_name: rma.customer_name ?? null,
+        customer_name: (rma.sender_name as string) ?? rma.customer_name ?? null,
         status: rma.status,
         processed_at: rma.updated_at ?? new Date().toISOString(),
         refund_processed: false,
         error: null,
         sku_details: skuDetails,
+        tracking_numbers: trackingNumbers,
+        carrier_name: carrierName,
       };
 
       // Enrich with Shopify order data if we have an order number
@@ -204,15 +215,25 @@ export async function syncRMAs(brandId: string): Promise<SyncSummary> {
           if (email) {
             const orderResult = await lookupOrder(orderNumber, email, undefined, brandId);
             if (orderResult.found && orderResult.order) {
+              const order = orderResult.order;
               baseFields.customer_email = orderResult.customerEmail ?? email;
-              baseFields.shopify_order_id = orderResult.order.id;
-              baseFields.fulfillment_status = orderResult.order.fulfillmentStatus ?? null;
-              baseFields.order_total = orderResult.order.lineItems.reduce(
+              baseFields.customer_name = baseFields.customer_name || orderResult.order.lineItems?.[0]?.title ? (rma.sender_name as string) : null;
+              baseFields.shopify_order_id = order.id;
+              baseFields.fulfillment_status = order.fulfillmentStatus ?? null;
+              baseFields.order_total = order.lineItems.reduce(
                 (sum, li) => sum + parseFloat(li.price) * li.quantity, 0
               );
-              baseFields.line_items_summary = orderResult.order.lineItems
+              baseFields.line_items_summary = order.lineItems
                 .map((li) => `${li.title} (x${li.quantity})`)
                 .join(', ');
+
+              // Check if Shopify already shows this order as refunded
+              const financialStatus = order.financialStatus?.toUpperCase() || '';
+              if (financialStatus.includes('REFUND') || financialStatus.includes('PARTIALLY_REFUNDED')) {
+                baseFields.shopify_refund_status = financialStatus;
+                baseFields.refund_processed = true;
+                baseFields.refund_processed_at = new Date().toISOString();
+              }
             }
           }
         } catch (err) {
