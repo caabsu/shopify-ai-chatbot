@@ -75,6 +75,8 @@ export interface ReturnRequest {
   resolution_type: 'refund' | 'exchange' | 'store_credit' | null;
   refund_amount: number | null;
   admin_notes: string | null;
+  denial_reason: string | null;
+  approved_no_return: boolean;
   decided_by: string | null;
   decided_at: string | null;
   created_at: string;
@@ -284,7 +286,7 @@ export interface ReturnSettings {
 export interface ReturnEmailTemplate {
   id: string;
   brand_id: string;
-  template_type: 'confirmation' | 'approved' | 'denied' | 'refunded';
+  template_type: 'confirmation' | 'approved' | 'approved_no_return' | 'denied' | 'refunded';
   enabled: boolean;
   subject: string;
   body_html: string;

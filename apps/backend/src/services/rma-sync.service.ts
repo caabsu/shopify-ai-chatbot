@@ -5,6 +5,7 @@ import { processRefund } from './refund.service.js';
 import { getReturnSettings } from './return-settings.service.js';
 import { sendReturnRefunded } from './email.service.js';
 import { getBrandName } from '../config/brand.js';
+import { lookupOrder } from './shopify-admin.service.js';
 
 const DRY_RUN = process.env.RMA_SYNC_DRY_RUN === 'true';
 
@@ -13,6 +14,11 @@ export interface RmaSyncLogEntry {
   delivery_id: string;
   order_number: string | null;
   customer_name: string | null;
+  customer_email: string | null;
+  order_total: number | null;
+  line_items_summary: string | null;
+  fulfillment_status: string | null;
+  shopify_order_id: string | null;
   status: string;
   processed_at: string | null;
   refund_amount: number | null;
@@ -167,14 +173,41 @@ export async function syncRMAs(brandId: string): Promise<SyncSummary> {
       const orderNumber = parseOrderNumber(rma.sender_ref_alt);
 
       // Upsert log entry (without refund yet)
-      await upsertSyncLog(deliveryId, brandId, {
+      const baseFields: Partial<Omit<RmaSyncLogEntry, 'id' | 'created_at'>> = {
         order_number: orderNumber,
         customer_name: rma.customer_name ?? null,
         status: rma.status,
         processed_at: rma.updated_at ?? new Date().toISOString(),
         refund_processed: false,
         error: null,
-      });
+      };
+
+      // Enrich with Shopify order data if we have an order number
+      if (orderNumber) {
+        try {
+          // lookupOrder requires email for verification — try with return request email first
+          const returnReq = await findReturnRequest(orderNumber, brandId);
+          const email = returnReq?.customer_email;
+          if (email) {
+            const orderResult = await lookupOrder(orderNumber, email, undefined, brandId);
+            if (orderResult.found && orderResult.order) {
+              baseFields.customer_email = orderResult.customerEmail ?? email;
+              baseFields.shopify_order_id = orderResult.order.id;
+              baseFields.fulfillment_status = orderResult.order.fulfillmentStatus ?? null;
+              baseFields.order_total = orderResult.order.lineItems.reduce(
+                (sum, li) => sum + parseFloat(li.price) * li.quantity, 0
+              );
+              baseFields.line_items_summary = orderResult.order.lineItems
+                .map((li) => `${li.title} (x${li.quantity})`)
+                .join(', ');
+            }
+          }
+        } catch (err) {
+          console.warn(`[rma-sync] Failed to enrich order data for ${orderNumber}:`, err instanceof Error ? err.message : err);
+        }
+      }
+
+      await upsertSyncLog(deliveryId, brandId, baseFields);
 
       if (!orderNumber) {
         await upsertSyncLog(deliveryId, brandId, {

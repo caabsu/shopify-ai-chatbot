@@ -3,65 +3,141 @@ import type { ReturnEmailTemplate } from '../types/index.js';
 
 type TemplateType = ReturnEmailTemplate['template_type'];
 
+const ALL_TEMPLATE_TYPES: TemplateType[] = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
+
+// ── Outlight Brand Email Wrapper ─────────────────────────────────────────
+function emailWrapper(content: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#F9F9FB;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F9F9FB;">
+    <tr><td align="center" style="padding:40px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;">
+        <!-- Header -->
+        <tr><td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid #f0ece6;">
+          <span style="font-size:22px;font-weight:700;letter-spacing:2px;color:#131314;">OUTLIGHT</span>
+        </td></tr>
+        <!-- Body -->
+        <tr><td style="padding:32px 40px;color:#131314;font-size:15px;line-height:1.7;">
+          ${content}
+        </td></tr>
+        <!-- Footer -->
+        <tr><td style="padding:24px 40px 32px;background-color:#f4f0eb;text-align:center;">
+          <p style="margin:0 0 4px;font-size:13px;color:#131314;font-weight:600;">Outlight Team</p>
+          <p style="margin:0;font-size:12px;color:#888;">Questions? Reply to this email or contact support.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ── Default Templates ────────────────────────────────────────────────────
 const DEFAULT_TEMPLATES: Record<TemplateType, { subject: string; body_html: string; body_text: string }> = {
   confirmation: {
-    subject: "We've received your return request — #{{ref_id}}",
-    body_html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-  <p>{{greeting}}</p>
-  <p>We've received your return request <strong>#{{ref_id}}</strong> for order <strong>{{order_number}}</strong>.</p>
-  <p><strong>Items:</strong> {{items}}</p>
-  <p>Our team will review your request and get back to you shortly.</p>
-  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
-  <p style="color: #aaa; font-size: 13px;">{{brand_name}} Team</p>
-</div>`,
-    body_text: `{{greeting}}\n\nWe've received your return request #{{ref_id}} for order {{order_number}}.\n\nItems: {{items}}\n\nOur team will review your request and get back to you shortly.\n\n---\n{{brand_name}} Team`,
+    subject: "We've received your return request \u2014 #{{ref_id}}",
+    body_html: emailWrapper(`
+          <p style="margin:0 0 16px;">{{greeting}}</p>
+          <p style="margin:0 0 16px;">We've received your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong>.</p>
+          <div style="background-color:#f4f0eb;border-radius:6px;padding:16px 20px;margin:0 0 20px;">
+            <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Items</p>
+            <p style="margin:0;font-size:14px;color:#131314;">{{items}}</p>
+          </div>
+          <p style="margin:0 0 16px;">Our team is reviewing your request. We'll get back to you shortly with an update.</p>
+          <p style="margin:0 0 8px;font-size:13px;color:#888;"><strong>What happens next?</strong></p>
+          <p style="margin:0;font-size:13px;color:#888;">You'll receive an email once your return has been reviewed with instructions on next steps.</p>
+    `),
+    body_text: `{{greeting}}\n\nWe've received your return request #{{ref_id}} for order {{order_number}}.\n\nItems: {{items}}\n\nOur team is reviewing your request. We'll get back to you shortly with an update.\n\nWhat happens next?\nYou'll receive an email once your return has been reviewed with instructions on next steps.\n\n---\nOutlight Team`,
   },
+
   approved: {
-    subject: 'Your return has been approved — #{{ref_id}}',
-    body_html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-  <p>{{greeting}}</p>
-  <p>Great news! Your return request <strong>#{{ref_id}}</strong> for order <strong>{{order_number}}</strong> has been approved.</p>
-  <p><strong>Items:</strong> {{items}}</p>
-  <p><strong>Here's what to do next:</strong></p>
-  <ol>
-    <li>Pack the item(s) securely in their original packaging if possible.</li>
-    <li>Include your return reference number <strong>#{{ref_id}}</strong> inside the package.</li>
-    <li>Ship the package to the return address provided in your account.</li>
-  </ol>
-  <p>Once we receive your return, we'll process your refund within 5-10 business days.</p>
-  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
-  <p style="color: #aaa; font-size: 13px;">{{brand_name}} Team</p>
-</div>`,
-    body_text: `{{greeting}}\n\nGreat news! Your return request #{{ref_id}} for order {{order_number}} has been approved.\n\nItems: {{items}}\n\nHere's what to do next:\n1. Pack the item(s) securely in their original packaging if possible.\n2. Include your return reference number #{{ref_id}} inside the package.\n3. Ship the package to the return address provided in your account.\n\nOnce we receive your return, we'll process your refund within 5-10 business days.\n\n---\n{{brand_name}} Team`,
+    subject: 'Your return has been approved \u2014 #{{ref_id}}',
+    body_html: emailWrapper(`
+          <p style="margin:0 0 16px;">{{greeting}}</p>
+          <p style="margin:0 0 16px;">Your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong> has been approved.</p>
+          <div style="background-color:#f4f0eb;border-radius:6px;padding:16px 20px;margin:0 0 20px;">
+            <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Items approved for return</p>
+            <p style="margin:0;font-size:14px;color:#131314;">{{items}}</p>
+            {{refund_amount_section}}
+          </div>
+          <p style="margin:0 0 12px;font-weight:600;color:#131314;">Next steps:</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+            <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">1.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Pack item(s) securely in their original packaging if possible.</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">2.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Include your reference number <strong>#{{ref_id}}</strong> inside the package.</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">3.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Ship to our fulfillment center:</td></tr>
+          </table>
+          <div style="background-color:#f4f0eb;border-radius:6px;padding:16px 20px;margin:0 0 20px;">
+            <p style="margin:0;font-size:14px;color:#131314;font-weight:600;">Return Address</p>
+            <p style="margin:4px 0 0;font-size:13px;color:#555;">Red Stag Fulfillment<br>6503 W Belvil Hwy<br>Sweetwater, TN 37874</p>
+          </div>
+          <p style="margin:0;font-size:13px;color:#888;">Your refund will be processed within 5-7 business days of receiving your return.</p>
+    `),
+    body_text: `{{greeting}}\n\nYour return request #{{ref_id}} for order {{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Include your reference number #{{ref_id}} inside the package.\n3. Ship to our fulfillment center:\n\nReturn Address:\nRed Stag Fulfillment\n6503 W Belvil Hwy\nSweetwater, TN 37874\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\nOutlight Team`,
   },
+
+  approved_no_return: {
+    subject: 'Your refund is being processed \u2014 #{{ref_id}}',
+    body_html: emailWrapper(`
+          <p style="margin:0 0 16px;">{{greeting}}</p>
+          <p style="margin:0 0 16px;">We've reviewed your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong> and are processing your refund.</p>
+          <div style="background-color:#f4f0eb;border-radius:6px;padding:16px 20px;margin:0 0 20px;">
+            <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Items being refunded</p>
+            <p style="margin:0 0 12px;font-size:14px;color:#131314;">{{items}}</p>
+            <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Refund amount</p>
+            <p style="margin:0;font-size:18px;font-weight:700;color:#131314;">{{refund_amount}}</p>
+          </div>
+          <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:14px 20px;margin:0 0 20px;">
+            <p style="margin:0;font-size:14px;color:#166534;font-weight:600;">No need to return the items.</p>
+            <p style="margin:6px 0 0;font-size:13px;color:#166534;">Based on the nature of your request, we're processing a refund without requiring a return.</p>
+          </div>
+          <p style="margin:0;font-size:13px;color:#888;">Your refund will appear in your original payment method within 5-10 business days, depending on your bank or payment provider.</p>
+    `),
+    body_text: `{{greeting}}\n\nWe've reviewed your return request #{{ref_id}} for order {{order_number}} and are processing your refund.\n\nItems being refunded: {{items}}\nRefund amount: {{refund_amount}}\n\nNo need to return the items.\nBased on the nature of your request, we're processing a refund without requiring a return.\n\nYour refund will appear in your original payment method within 5-10 business days, depending on your bank or payment provider.\n\n---\nOutlight Team`,
+  },
+
   denied: {
-    subject: 'Update on your return request — #{{ref_id}}',
-    body_html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-  <p>{{greeting}}</p>
-  <p>Thank you for your return request <strong>#{{ref_id}}</strong> for order <strong>{{order_number}}</strong>.</p>
-  <p><strong>Items:</strong> {{items}}</p>
-  <p>Unfortunately, your return request was not approved.</p>
-  <p><strong>Reason:</strong> {{denial_reason}}</p>
-  <p>If you have any questions or believe this was made in error, please don't hesitate to contact our support team.</p>
-  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
-  <p style="color: #aaa; font-size: 13px;">{{brand_name}} Team</p>
-</div>`,
-    body_text: `{{greeting}}\n\nThank you for your return request #{{ref_id}} for order {{order_number}}.\n\nItems: {{items}}\n\nUnfortunately, your return request was not approved. Reason: {{denial_reason}}\n\nIf you have any questions or believe this was made in error, please don't hesitate to contact our support team.\n\n---\n{{brand_name}} Team`,
+    subject: 'Update on your return request \u2014 #{{ref_id}}',
+    body_html: emailWrapper(`
+          <p style="margin:0 0 16px;">{{greeting}}</p>
+          <p style="margin:0 0 16px;">Thank you for reaching out about your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong>.</p>
+          <div style="background-color:#f4f0eb;border-radius:6px;padding:16px 20px;margin:0 0 20px;">
+            <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Items</p>
+            <p style="margin:0;font-size:14px;color:#131314;">{{items}}</p>
+          </div>
+          <p style="margin:0 0 12px;">After reviewing your request, we're unable to process this return at this time.</p>
+          <div style="border-left:3px solid #C5A059;padding:12px 16px;margin:0 0 20px;background-color:#fefce8;">
+            <p style="margin:0;font-size:14px;color:#131314;">{{denial_reason}}</p>
+          </div>
+          <p style="margin:0 0 8px;">We understand this may not be the outcome you were hoping for.</p>
+          <p style="margin:0;font-size:13px;color:#888;">If you have questions or believe this was made in error, please reply to this email and we'll be happy to take another look.</p>
+    `),
+    body_text: `{{greeting}}\n\nThank you for reaching out about your return request #{{ref_id}} for order {{order_number}}.\n\nItems: {{items}}\n\nAfter reviewing your request, we're unable to process this return at this time.\n\n{{denial_reason}}\n\nWe understand this may not be the outcome you were hoping for. If you have questions or believe this was made in error, please reply to this email and we'll be happy to take another look.\n\n---\nOutlight Team`,
   },
+
   refunded: {
-    subject: 'Your refund has been processed — #{{ref_id}}',
-    body_html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-  <p>{{greeting}}</p>
-  <p>Your refund of <strong>{{refund_amount}}</strong> for return request <strong>#{{ref_id}}</strong> (order <strong>{{order_number}}</strong>) has been processed.</p>
-  <p><strong>Items:</strong> {{items}}</p>
-  <p>The refund should appear in your original payment method within 5-10 business days, depending on your bank or payment provider.</p>
-  <p>Thank you for your patience!</p>
-  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
-  <p style="color: #aaa; font-size: 13px;">{{brand_name}} Team</p>
-</div>`,
-    body_text: `{{greeting}}\n\nYour refund of {{refund_amount}} for return request #{{ref_id}} (order {{order_number}}) has been processed.\n\nItems: {{items}}\n\nThe refund should appear in your original payment method within 5-10 business days, depending on your bank or payment provider.\n\nThank you for your patience!\n\n---\n{{brand_name}} Team`,
+    subject: 'Your refund has been processed \u2014 #{{ref_id}}',
+    body_html: emailWrapper(`
+          <p style="margin:0 0 16px;">{{greeting}}</p>
+          <p style="margin:0 0 16px;">Your refund for return request <strong style="color:#C5A059;">#{{ref_id}}</strong> (order <strong>{{order_number}}</strong>) has been processed.</p>
+          <div style="background-color:#f4f0eb;border-radius:6px;padding:16px 20px;margin:0 0 20px;">
+            <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Items refunded</p>
+            <p style="margin:0 0 12px;font-size:14px;color:#131314;">{{items}}</p>
+            <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Refund amount</p>
+            <p style="margin:0;font-size:18px;font-weight:700;color:#131314;">{{refund_amount}}</p>
+          </div>
+          <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:14px 20px;margin:0 0 20px;">
+            <p style="margin:0;font-size:14px;color:#166534;font-weight:600;">Refund issued to your original payment method.</p>
+          </div>
+          <p style="margin:0 0 8px;font-size:13px;color:#888;">Please allow 5-10 business days for the refund to appear on your statement, depending on your bank or payment provider.</p>
+          <p style="margin:0;font-size:14px;color:#131314;">Thank you for your patience!</p>
+    `),
+    body_text: `{{greeting}}\n\nYour refund for return request #{{ref_id}} (order {{order_number}}) has been processed.\n\nItems refunded: {{items}}\nRefund amount: {{refund_amount}}\n\nRefund issued to your original payment method.\nPlease allow 5-10 business days for the refund to appear on your statement, depending on your bank or payment provider.\n\nThank you for your patience!\n\n---\nOutlight Team`,
   },
 };
+
+// ── CRUD ─────────────────────────────────────────────────────────────────
 
 export async function getTemplates(brandId: string): Promise<ReturnEmailTemplate[]> {
   const { data, error } = await supabase
@@ -74,9 +150,7 @@ export async function getTemplates(brandId: string): Promise<ReturnEmailTemplate
 
   // Seed any missing templates
   const existing = new Set((data ?? []).map((t: ReturnEmailTemplate) => t.template_type));
-  const missingTypes = (['confirmation', 'approved', 'denied', 'refunded'] as TemplateType[]).filter(
-    (t) => !existing.has(t),
-  );
+  const missingTypes = ALL_TEMPLATE_TYPES.filter((t) => !existing.has(t));
 
   if (missingTypes.length > 0) {
     const toInsert = missingTypes.map((type) => ({

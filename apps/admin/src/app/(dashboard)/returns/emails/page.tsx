@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Mail, Check, X, FileText, ThumbsUp, ThumbsDown, DollarSign } from 'lucide-react';
+import { Mail, Check, X, FileText, ThumbsUp, ThumbsDown, DollarSign, Gift } from 'lucide-react';
 
 interface EmailTemplate {
   id: string;
@@ -23,11 +23,18 @@ const TEMPLATE_INFO: Record<string, { label: string; icon: typeof Mail; descript
     bg: 'rgba(59,130,246,0.10)',
   },
   approved: {
-    label: 'Approved',
+    label: 'Approved (with shipping)',
     icon: ThumbsUp,
-    description: 'Sent when a return request is approved',
+    description: 'Sent when a return is approved and customer needs to ship items back',
     color: '#22c55e',
     bg: 'rgba(34,197,94,0.10)',
+  },
+  approved_no_return: {
+    label: 'Approved (refund only)',
+    icon: Gift,
+    description: 'Sent when a return is approved without requiring items to be shipped back',
+    color: '#3b82f6',
+    bg: 'rgba(59,130,246,0.10)',
   },
   denied: {
     label: 'Denied',

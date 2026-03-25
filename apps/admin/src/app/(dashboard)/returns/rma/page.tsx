@@ -1,13 +1,19 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Wifi, WifiOff, CheckCircle, XCircle, Clock, Package } from 'lucide-react';
+import Link from 'next/link';
+import { RefreshCw, Wifi, WifiOff, CheckCircle, XCircle, Clock, Package, Mail, ExternalLink } from 'lucide-react';
 
 interface RmaSyncLogEntry {
   id: string;
   delivery_id: string;
   order_number: string | null;
   customer_name: string | null;
+  customer_email: string | null;
+  order_total: number | null;
+  line_items_summary: string | null;
+  fulfillment_status: string | null;
+  shopify_order_id: string | null;
   status: string;
   processed_at: string | null;
   refund_amount: number | null;
@@ -38,6 +44,12 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   complete: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e' },
 };
 
+const FULFILLMENT_COLORS: Record<string, { bg: string; text: string }> = {
+  FULFILLED: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e' },
+  PARTIALLY_FULFILLED: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
+  UNFULFILLED: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' },
+};
+
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
   if (seconds < 60) return 'just now';
@@ -49,8 +61,12 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
+function daysSince(dateStr: string): number {
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
+}
+
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
+  if (!dateStr) return '\u2014';
   return new Date(dateStr).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -66,6 +82,7 @@ export default function RmaPage() {
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [connection, setConnection] = useState<ConnectionStatus>({ connected: null, loading: true });
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<{
     summary?: { synced: number; refunded: number; skipped: number; errors: number; dryRun: boolean };
     error?: string;
@@ -162,7 +179,7 @@ export default function RmaPage() {
       </div>
 
       {/* Connection Status + Stats Row */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         {/* Connection Status */}
         <div
           className="rounded-xl p-4"
@@ -210,6 +227,7 @@ export default function RmaPage() {
           { label: 'Total RMAs', value: entries.length, color: 'var(--text-primary)' },
           { label: 'Refunded', value: totalRefunded, color: '#22c55e' },
           { label: 'Pending', value: totalPending, color: '#f59e0b' },
+          { label: 'Errors', value: totalErrors, color: '#ef4444' },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -291,7 +309,7 @@ export default function RmaPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-secondary)' }}>
-                  {['Order #', 'Customer', 'Delivery ID', 'RMA Status', 'Refund Amount', 'Refunded', 'Last Updated'].map((h) => (
+                  {['Order #', 'Customer', 'Email', 'Order Total', 'Fulfillment', 'RMA Status', 'Age', 'Refund', 'Status', 'Updated'].map((h) => (
                     <th
                       key={h}
                       className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider"
@@ -305,91 +323,180 @@ export default function RmaPage() {
               <tbody>
                 {entries.map((entry) => {
                   const statusColor = STATUS_COLORS[entry.status] ?? { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' };
+                  const fulfillmentColor = entry.fulfillment_status
+                    ? FULFILLMENT_COLORS[entry.fulfillment_status] ?? { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' }
+                    : null;
+                  const age = daysSince(entry.created_at);
+                  const isExpanded = expandedRow === entry.id;
+
                   return (
-                    <tr
-                      key={entry.id}
-                      className="transition-colors"
-                      style={{ borderBottom: '1px solid var(--border-secondary)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                    >
-                      {/* Order # */}
-                      <td className="px-4 py-3">
-                        {entry.order_number ? (
-                          <span className="font-mono text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                            #{entry.order_number}
-                          </span>
-                        ) : (
-                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>—</span>
-                        )}
-                      </td>
-
-                      {/* Customer */}
-                      <td className="px-4 py-3">
-                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                          {entry.customer_name || '—'}
-                        </span>
-                      </td>
-
-                      {/* Delivery ID */}
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                          {entry.delivery_id}
-                        </span>
-                      </td>
-
-                      {/* RMA Status */}
-                      <td className="px-4 py-3">
-                        <span
-                          className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: statusColor.bg, color: statusColor.text }}
-                        >
-                          {entry.status}
-                        </span>
-                      </td>
-
-                      {/* Refund Amount */}
-                      <td className="px-4 py-3">
-                        {entry.refund_amount != null ? (
-                          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                            ${entry.refund_amount.toFixed(2)}
-                          </span>
-                        ) : (
-                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>—</span>
-                        )}
-                      </td>
-
-                      {/* Refunded */}
-                      <td className="px-4 py-3">
-                        {entry.error ? (
-                          <div className="flex items-center gap-1.5" title={entry.error}>
-                            <XCircle size={14} style={{ color: '#ef4444' }} />
-                            <span className="text-xs max-w-[140px] truncate" style={{ color: '#ef4444' }}>
-                              {entry.error}
+                    <>
+                      <tr
+                        key={entry.id}
+                        className="transition-colors cursor-pointer"
+                        style={{ borderBottom: '1px solid var(--border-secondary)' }}
+                        onClick={() => setExpandedRow(isExpanded ? null : entry.id)}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                      >
+                        {/* Order # */}
+                        <td className="px-4 py-3">
+                          {entry.order_number ? (
+                            <span className="font-mono text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                              #{entry.order_number}
                             </span>
-                          </div>
-                        ) : entry.refund_processed ? (
-                          <div className="flex items-center gap-1.5">
-                            <CheckCircle size={14} style={{ color: '#22c55e' }} />
-                            <span className="text-xs" style={{ color: '#22c55e' }}>
-                              {formatDate(entry.refund_processed_at)}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <Clock size={14} style={{ color: 'var(--text-tertiary)' }} />
-                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Pending</span>
-                          </div>
-                        )}
-                      </td>
+                          ) : (
+                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{'\u2014'}</span>
+                          )}
+                        </td>
 
-                      {/* Last Updated */}
-                      <td className="px-4 py-3">
-                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                          {timeAgo(entry.updated_at)}
-                        </span>
-                      </td>
-                    </tr>
+                        {/* Customer */}
+                        <td className="px-4 py-3">
+                          <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                            {entry.customer_name || '\u2014'}
+                          </span>
+                        </td>
+
+                        {/* Email */}
+                        <td className="px-4 py-3">
+                          {entry.customer_email ? (
+                            <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                              <Mail size={10} />
+                              {entry.customer_email}
+                            </span>
+                          ) : (
+                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{'\u2014'}</span>
+                          )}
+                        </td>
+
+                        {/* Order Total */}
+                        <td className="px-4 py-3">
+                          {entry.order_total != null ? (
+                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                              ${entry.order_total.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{'\u2014'}</span>
+                          )}
+                        </td>
+
+                        {/* Fulfillment Status */}
+                        <td className="px-4 py-3">
+                          {fulfillmentColor ? (
+                            <span
+                              className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: fulfillmentColor.bg, color: fulfillmentColor.text }}
+                            >
+                              {entry.fulfillment_status!.replace(/_/g, ' ')}
+                            </span>
+                          ) : (
+                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{'\u2014'}</span>
+                          )}
+                        </td>
+
+                        {/* RMA Status */}
+                        <td className="px-4 py-3">
+                          <span
+                            className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: statusColor.bg, color: statusColor.text }}
+                          >
+                            {entry.status}
+                          </span>
+                        </td>
+
+                        {/* Age */}
+                        <td className="px-4 py-3">
+                          <span
+                            className="text-xs font-medium"
+                            style={{ color: age > 7 ? '#ef4444' : age > 3 ? '#f59e0b' : 'var(--text-secondary)' }}
+                          >
+                            {age}d
+                          </span>
+                        </td>
+
+                        {/* Refund Amount */}
+                        <td className="px-4 py-3">
+                          {entry.refund_amount != null ? (
+                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                              ${entry.refund_amount.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{'\u2014'}</span>
+                          )}
+                        </td>
+
+                        {/* Refunded */}
+                        <td className="px-4 py-3">
+                          {entry.error ? (
+                            <div className="flex items-center gap-1.5" title={entry.error}>
+                              <XCircle size={14} style={{ color: '#ef4444' }} />
+                              <span className="text-xs max-w-[100px] truncate" style={{ color: '#ef4444' }}>
+                                Error
+                              </span>
+                            </div>
+                          ) : entry.refund_processed ? (
+                            <div className="flex items-center gap-1.5">
+                              <CheckCircle size={14} style={{ color: '#22c55e' }} />
+                              <span className="text-xs" style={{ color: '#22c55e' }}>Done</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <Clock size={14} style={{ color: 'var(--text-tertiary)' }} />
+                              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Pending</span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Last Updated */}
+                        <td className="px-4 py-3">
+                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                            {timeAgo(entry.updated_at)}
+                          </span>
+                        </td>
+                      </tr>
+
+                      {/* Expanded row */}
+                      {isExpanded && (
+                        <tr key={`${entry.id}-expanded`} style={{ borderBottom: '1px solid var(--border-secondary)' }}>
+                          <td colSpan={10} className="px-4 py-3" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                            <div className="grid grid-cols-3 gap-4 text-xs">
+                              <div>
+                                <p className="font-semibold mb-1" style={{ color: 'var(--text-tertiary)' }}>Delivery ID</p>
+                                <p className="font-mono" style={{ color: 'var(--text-primary)' }}>{entry.delivery_id}</p>
+                              </div>
+                              <div>
+                                <p className="font-semibold mb-1" style={{ color: 'var(--text-tertiary)' }}>Line Items</p>
+                                <p style={{ color: 'var(--text-secondary)' }}>{entry.line_items_summary || '\u2014'}</p>
+                              </div>
+                              <div>
+                                <p className="font-semibold mb-1" style={{ color: 'var(--text-tertiary)' }}>Refund Details</p>
+                                <p style={{ color: 'var(--text-secondary)' }}>
+                                  {entry.refund_processed_at ? `Processed: ${formatDate(entry.refund_processed_at)}` : 'Not yet processed'}
+                                  {entry.shopify_refund_id && ` (ID: ${entry.shopify_refund_id})`}
+                                </p>
+                              </div>
+                              {entry.error && (
+                                <div className="col-span-3">
+                                  <p className="font-semibold mb-1" style={{ color: '#ef4444' }}>Error</p>
+                                  <p style={{ color: '#ef4444' }}>{entry.error}</p>
+                                </div>
+                              )}
+                              <div className="col-span-3 flex gap-3">
+                                {entry.return_request_id && (
+                                  <Link
+                                    href={`/returns/${entry.return_request_id}`}
+                                    className="inline-flex items-center gap-1 text-xs font-medium"
+                                    style={{ color: 'var(--color-accent)' }}
+                                  >
+                                    <ExternalLink size={10} /> View Return Request
+                                  </Link>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   );
                 })}
               </tbody>
@@ -402,7 +509,7 @@ export default function RmaPage() {
       <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
         Sync runs automatically every 15 minutes. RMAs with status &quot;processed&quot; or &quot;complete&quot; trigger a Shopify refund.
         {process.env.NEXT_PUBLIC_RMA_DRY_RUN === 'true' && (
-          <span style={{ color: '#f59e0b' }}> DRY RUN mode active — no refunds are actually processed.</span>
+          <span style={{ color: '#f59e0b' }}> DRY RUN mode active -- no refunds are actually processed.</span>
         )}
       </p>
     </div>

@@ -378,6 +378,92 @@ ${brand} Team`;
   }
 }
 
+export async function sendReturnApprovedNoReturn(opts: ReturnEmailOpts & { refundAmount?: number; noReturnReason?: string }): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
+  const config = await getBrandEmailConfig(opts.brandId);
+  if (!config) return { error: 'Email not configured' };
+
+  const { to, customerName, returnRequestId, orderNumber, items, refundAmount, brandId } = opts;
+  const brand = opts.brandName || (brandId ? await getBrandName(brandId) : null) || 'Support';
+  const firstName = customerName ? customerName.split(' ')[0] : '';
+  const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
+  const refId = returnRequestId.slice(0, 8).toUpperCase();
+  const amountStr = refundAmount !== undefined ? `$${refundAmount.toFixed(2)}` : 'your refund';
+
+  let emailSubject = `Your refund is being processed — #${refId}`;
+
+  let textBody = `${greeting}
+
+We've reviewed your return request #${refId} for order ${orderNumber} and are processing your refund.
+
+Items being refunded: ${items}
+Refund amount: ${amountStr}
+
+No need to return the items.
+Based on the nature of your request, we're processing a refund without requiring a return.
+
+Your refund will appear in your original payment method within 5-10 business days, depending on your bank or payment provider.
+
+---
+${brand} Team`;
+
+  let htmlBody = `
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
+  <p>${greeting}</p>
+  <p>We've reviewed your return request <strong>#${escapeHtml(refId)}</strong> for order <strong>${escapeHtml(orderNumber)}</strong> and are processing your refund.</p>
+  <p><strong>Items:</strong> ${escapeHtml(items)}</p>
+  <p><strong>Refund amount:</strong> ${escapeHtml(amountStr)}</p>
+  <p><strong>No need to return the items.</strong> Based on the nature of your request, we're processing a refund without requiring a return.</p>
+  <p>Your refund will appear in your original payment method within 5-10 business days, depending on your bank or payment provider.</p>
+  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
+  <p style="color: #aaa; font-size: 13px;">${escapeHtml(brand)} Team</p>
+</div>`;
+
+  // Try DB template
+  if (brandId) {
+    try {
+      const tpl = await getTemplate(brandId, 'approved_no_return');
+      if (tpl) {
+        if (!tpl.enabled) return { skipped: true };
+        const vars: Record<string, string> = {
+          greeting: firstName ? `Hi ${firstName},` : 'Hi,',
+          ref_id: refId,
+          order_number: orderNumber,
+          items,
+          brand_name: brand,
+          refund_amount: amountStr,
+        };
+        emailSubject = renderTemplate(tpl.subject, vars);
+        htmlBody = renderTemplate(tpl.body_html, vars);
+        textBody = renderTemplate(tpl.body_text, vars);
+      }
+    } catch (err) {
+      console.error('[email] Failed to load template, using defaults:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  try {
+    const { data, error } = await config.resend.emails.send({
+      from: config.fromAddress,
+      to: [to],
+      subject: emailSubject,
+      text: textBody,
+      html: htmlBody,
+    });
+
+    if (error) {
+      console.error('[email] Resend error:', error);
+      return { error: error.message };
+    }
+
+    console.log(`[email] Sent return approved (no return) #${refId} to ${to} (from: ${config.fromAddress})`);
+    return { messageId: data?.id };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[email] Failed to send return approved (no return):', msg);
+    return { error: msg };
+  }
+}
+
 export async function sendReturnRefunded(opts: ReturnEmailOpts & { refundAmount?: number }): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
   const config = await getBrandEmailConfig(opts.brandId);
   if (!config) return { error: 'Email not configured' };

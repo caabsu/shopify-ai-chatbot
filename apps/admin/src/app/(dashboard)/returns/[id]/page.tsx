@@ -5,10 +5,11 @@ import Link from 'next/link';
 import {
   ArrowLeft, Package, Mail, ShoppingBag, Sparkles,
   Check, X, Truck, DollarSign, Save, Image as ImageIcon,
-  Clock, CheckCircle2, XCircle,
+  Clock, CheckCircle2, XCircle, Gift, AlertTriangle,
+  MessageSquare, ExternalLink,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import type { ReturnRequest, ReturnItem } from '@/lib/types';
+import type { ReturnRequest, ReturnItem, Ticket } from '@/lib/types';
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   pending_review: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', label: 'Pending Review' },
@@ -47,9 +48,19 @@ const TIMELINE_STATUSES = [
   { key: 'refunded', label: 'Refunded', icon: DollarSign },
 ];
 
+interface RelatedTicket {
+  id: string;
+  ticket_number: number;
+  subject: string;
+  status: string;
+  priority: string;
+  created_at: string;
+}
+
 export default function ReturnDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [data, setData] = useState<ReturnRequest | null>(null);
+  const [relatedTickets, setRelatedTickets] = useState<RelatedTicket[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Notes
@@ -59,6 +70,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
   // Modals
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showApproveNoReturnModal, setShowApproveNoReturnModal] = useState(false);
   const [showDenyModal, setShowDenyModal] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
 
@@ -74,6 +86,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
   // Action loading
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/returns/${id}`)
@@ -81,12 +94,14 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
       .then((d) => {
         setData(d.returnRequest ?? null);
         setNotes(d.returnRequest?.admin_notes ?? '');
+        setRelatedTickets(d.relatedTickets ?? []);
       })
       .finally(() => setLoading(false));
   }, [id]);
 
   async function updateReturn(updates: Record<string, unknown>) {
     setActionLoading(true);
+    setActionError(null);
     try {
       const res = await fetch(`/api/returns/${id}`, {
         method: 'PATCH',
@@ -112,23 +127,82 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
   }
 
   async function handleApprove() {
-    await updateReturn({
-      status: 'approved',
-      resolution_type: approveResolution,
-      refund_amount: approveAmount ? parseFloat(approveAmount) : null,
-      decided_at: new Date().toISOString(),
-      decided_by: 'admin',
-    });
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/returns/${id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resolution_type: approveResolution,
+          refund_amount: approveAmount ? parseFloat(approveAmount) : null,
+          decided_by: 'admin',
+        }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setData(result.returnRequest);
+      } else {
+        setActionError(result.error || 'Approval failed');
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Approval failed');
+    }
+    setActionLoading(false);
     setShowApproveModal(false);
   }
 
+  async function handleApproveNoReturn() {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/returns/${id}/approve-no-return`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decided_by: 'admin' }),
+      });
+      const result = await res.json();
+      if (res.ok || res.status === 207) {
+        setData(result.returnRequest);
+        if (result.refund && !result.refund.success) {
+          setActionError(`Approved but Shopify refund failed: ${result.refund.error}`);
+        }
+      } else {
+        setActionError(result.error || 'Approve-no-return failed');
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Approve-no-return failed');
+    }
+    setActionLoading(false);
+    setShowApproveNoReturnModal(false);
+  }
+
   async function handleDeny() {
-    await updateReturn({
-      status: 'denied',
-      admin_notes: denyReason ? `${notes ? notes + '\n' : ''}Denial reason: ${denyReason}` : notes,
-      decided_at: new Date().toISOString(),
-      decided_by: 'admin',
-    });
+    if (!denyReason.trim()) {
+      setActionError('Denial reason is required');
+      return;
+    }
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/returns/${id}/deny`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          denial_reason: denyReason,
+          decided_by: 'admin',
+        }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setData(result.returnRequest);
+      } else {
+        setActionError(result.error || 'Denial failed');
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Denial failed');
+    }
+    setActionLoading(false);
     setShowDenyModal(false);
   }
 
@@ -188,6 +262,27 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
         <ArrowLeft size={14} /> Back to returns
       </Link>
 
+      {/* Action Error Banner */}
+      {actionError && (
+        <div
+          className="rounded-xl p-3 flex items-center gap-2"
+          style={{
+            backgroundColor: 'rgba(239,68,68,0.08)',
+            border: '1px solid rgba(239,68,68,0.2)',
+          }}
+        >
+          <AlertTriangle size={14} style={{ color: '#ef4444' }} />
+          <span className="text-sm" style={{ color: '#ef4444' }}>{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="ml-auto text-xs px-2 py-1 rounded"
+            style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div
         className="rounded-xl p-4"
@@ -204,6 +299,14 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
             <h1 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
               Return Request
             </h1>
+            {data.approved_no_return && (
+              <span
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22c55e' }}
+              >
+                Refund Only
+              </span>
+            )}
           </div>
           <span
             className="text-xs font-medium px-3 py-1.5 rounded-lg"
@@ -217,11 +320,16 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="flex items-center gap-3 mt-2">
           <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            {data.items?.length ?? 0} {(data.items?.length ?? 0) === 1 ? 'item' : 'items'} — ${totalItemValue.toFixed(2)}
+            {data.items?.length ?? 0} {(data.items?.length ?? 0) === 1 ? 'item' : 'items'} -- ${totalItemValue.toFixed(2)}
           </span>
           <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
             Submitted {formatDate(data.created_at)}
           </span>
+          {data.denial_reason && (
+            <span className="text-xs" style={{ color: '#ef4444' }}>
+              Denial reason: {data.denial_reason}
+            </span>
+          )}
         </div>
       </div>
 
@@ -386,7 +494,6 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
               </div>
               <div className="p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  {/* Decision badge */}
                   <span
                     className="text-xs font-semibold px-3 py-1 rounded-full"
                     style={{
@@ -406,7 +513,6 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                      data.ai_recommendation.decision === 'deny' ? 'Deny' : 'Needs Review'}
                   </span>
 
-                  {/* Confidence bar */}
                   <div className="flex items-center gap-2 flex-1">
                     <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                       Confidence:
@@ -513,7 +619,15 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                     className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
                     style={{ backgroundColor: '#22c55e' }}
                   >
-                    <Check size={12} /> Approve Return
+                    <Check size={12} /> Approve
+                  </button>
+                  <button
+                    onClick={() => setShowApproveNoReturnModal(true)}
+                    disabled={actionLoading}
+                    className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: '#3b82f6' }}
+                  >
+                    <Gift size={12} /> Approve -- Refund Only
                   </button>
                   <button
                     onClick={() => setShowDenyModal(true)}
@@ -521,7 +635,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                     className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
                     style={{ backgroundColor: '#ef4444' }}
                   >
-                    <X size={12} /> Deny Return
+                    <X size={12} /> Deny
                   </button>
                 </>
               )}
@@ -659,7 +773,6 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
                 return (
                   <div key={step.key} className="flex gap-3">
-                    {/* Line + dot */}
                     <div className="flex flex-col items-center">
                       <div
                         className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
@@ -718,6 +831,55 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
+          {/* Related Tickets */}
+          {relatedTickets.length > 0 && (
+            <div
+              className="rounded-xl p-4"
+              style={{
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border-primary)',
+              }}
+            >
+              <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: 'var(--text-tertiary)' }}>
+                <MessageSquare size={12} />
+                Related Tickets ({relatedTickets.length})
+              </h3>
+              <div className="space-y-2">
+                {relatedTickets.map((ticket) => (
+                  <Link
+                    key={ticket.id}
+                    href={`/tickets/${ticket.id}`}
+                    className="block rounded-lg p-2 transition-colors"
+                    style={{
+                      border: '1px solid var(--border-secondary)',
+                      backgroundColor: 'var(--bg-secondary)',
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono font-medium" style={{ color: 'var(--text-primary)' }}>
+                        #{ticket.ticket_number}
+                      </span>
+                      <span
+                        className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                        style={{
+                          backgroundColor: ticket.status === 'open' ? 'rgba(245,158,11,0.12)' :
+                            ticket.status === 'resolved' ? 'rgba(34,197,94,0.12)' : 'rgba(156,163,175,0.12)',
+                          color: ticket.status === 'open' ? '#f59e0b' :
+                            ticket.status === 'resolved' ? '#22c55e' : '#9ca3af',
+                        }}
+                      >
+                        {ticket.status}
+                      </span>
+                    </div>
+                    <p className="text-xs mt-1 truncate" style={{ color: 'var(--text-secondary)' }}>
+                      {ticket.subject}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Linked ticket */}
           {data.ticket_id && (
             <div
@@ -732,10 +894,10 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
               </h3>
               <Link
                 href={`/tickets/${data.ticket_id}`}
-                className="text-xs font-medium transition-colors"
+                className="text-xs font-medium transition-colors flex items-center gap-1"
                 style={{ color: 'var(--color-accent)' }}
               >
-                View ticket
+                <ExternalLink size={10} /> View ticket
               </Link>
             </div>
           )}
@@ -753,9 +915,12 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
               boxShadow: 'var(--shadow-md)',
             }}
           >
-            <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
               Approve Return
             </h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
+              Customer will be asked to ship items to the fulfillment center.
+            </p>
 
             <div className="space-y-3">
               <div>
@@ -823,6 +988,64 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
+      {/* Approve No Return Modal */}
+      {showApproveNoReturnModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div
+            className="rounded-xl p-6 w-full max-w-md"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-primary)',
+              boxShadow: 'var(--shadow-md)',
+            }}
+          >
+            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+              Approve -- Refund Only (No Return)
+            </h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
+              The customer will NOT need to return the items. A refund will be processed immediately through Shopify.
+            </p>
+
+            <div
+              className="rounded-lg p-3 mb-4"
+              style={{
+                backgroundColor: 'rgba(59,130,246,0.08)',
+                border: '1px solid rgba(59,130,246,0.2)',
+              }}
+            >
+              <p className="text-xs" style={{ color: '#3b82f6' }}>
+                <strong>Items:</strong> {data.items?.map((i) => `${i.product_title} (x${i.quantity})`).join(', ')}
+              </p>
+              <p className="text-xs mt-1" style={{ color: '#3b82f6' }}>
+                <strong>Value:</strong> ${totalItemValue.toFixed(2)} (restocking fee may be applied based on settings)
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowApproveNoReturnModal(false)}
+                className="text-xs px-4 py-2 rounded-lg font-medium transition-colors"
+                style={{
+                  backgroundColor: 'var(--bg-tertiary)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-primary)',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApproveNoReturn}
+                disabled={actionLoading}
+                className="text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
+                style={{ backgroundColor: '#3b82f6' }}
+              >
+                {actionLoading ? 'Processing...' : 'Approve & Refund'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Deny Modal */}
       {showDenyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -834,19 +1057,22 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
               boxShadow: 'var(--shadow-md)',
             }}
           >
-            <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
               Deny Return
             </h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
+              The customer will be notified with the reason you provide below.
+            </p>
 
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>
-                Denial Reason
+                Denial Reason <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <textarea
                 value={denyReason}
                 onChange={(e) => setDenyReason(e.target.value)}
                 rows={3}
-                placeholder="Enter the reason for denying this return..."
+                placeholder="Explain why this return is being denied..."
                 className="w-full text-sm rounded-lg px-3 py-2 resize-y focus:outline-none focus:ring-2"
                 style={{
                   backgroundColor: 'var(--bg-secondary)',
@@ -855,6 +1081,11 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                   '--tw-ring-color': 'var(--color-accent)',
                 } as React.CSSProperties}
               />
+              {!denyReason.trim() && (
+                <p className="text-[10px] mt-1" style={{ color: '#ef4444' }}>
+                  A reason is required and will be included in the customer email.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 mt-6">
@@ -871,7 +1102,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
               </button>
               <button
                 onClick={handleDeny}
-                disabled={actionLoading}
+                disabled={actionLoading || !denyReason.trim()}
                 className="text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
                 style={{ backgroundColor: '#ef4444' }}
               >

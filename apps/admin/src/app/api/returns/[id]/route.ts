@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -29,11 +31,21 @@ export async function GET(
     .eq('return_request_id', id)
     .order('created_at', { ascending: true });
 
+  // Get related tickets for this customer
+  const { data: tickets } = await supabase
+    .from('tickets')
+    .select('id, ticket_number, subject, status, priority, created_at')
+    .eq('brand_id', session.brandId)
+    .eq('customer_email', returnRequest.customer_email)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
   return NextResponse.json({
     returnRequest: {
       ...returnRequest,
       items: items ?? [],
     },
+    relatedTickets: tickets ?? [],
   });
 }
 
@@ -53,6 +65,8 @@ export async function PATCH(
   if (body.resolution_type !== undefined) updates.resolution_type = body.resolution_type;
   if (body.refund_amount !== undefined) updates.refund_amount = body.refund_amount;
   if (body.admin_notes !== undefined) updates.admin_notes = body.admin_notes;
+  if (body.denial_reason !== undefined) updates.denial_reason = body.denial_reason;
+  if (body.approved_no_return !== undefined) updates.approved_no_return = body.approved_no_return;
   if (body.decided_by !== undefined) updates.decided_by = body.decided_by;
   if (body.decided_at !== undefined) updates.decided_at = body.decided_at;
 

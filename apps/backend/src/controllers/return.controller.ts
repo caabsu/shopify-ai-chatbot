@@ -6,10 +6,12 @@ import * as returnAIService from '../services/return-ai.service.js';
 import {
   sendReturnConfirmation,
   sendReturnApproved,
+  sendReturnApprovedNoReturn,
   sendReturnDenied,
   sendReturnRefunded,
 } from '../services/email.service.js';
 import { lookupOrder } from '../services/shopify-admin.service.js';
+import { processRefund } from '../services/refund.service.js';
 import * as returnSettingsService from '../services/return-settings.service.js';
 import * as returnEmailTemplateService from '../services/return-email-template.service.js';
 import { supabase } from '../config/supabase.js';
@@ -496,14 +498,14 @@ returnRouter.get('/emails', async (req, res) => {
 returnRouter.get('/emails/:type', async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
-    const validTypes = ['confirmation', 'approved', 'denied', 'refunded'];
+    const validTypes = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
     if (!validTypes.includes(req.params.type)) {
       res.status(400).json({ error: 'Invalid template type' });
       return;
     }
     const template = await returnEmailTemplateService.getTemplate(
       brandId,
-      req.params.type as 'confirmation' | 'approved' | 'denied' | 'refunded',
+      req.params.type as 'confirmation' | 'approved' | 'approved_no_return' | 'denied' | 'refunded',
     );
     if (!template) {
       res.status(404).json({ error: 'Template not found' });
@@ -521,14 +523,14 @@ returnRouter.get('/emails/:type', async (req, res) => {
 returnRouter.put('/emails/:type', async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
-    const validTypes = ['confirmation', 'approved', 'denied', 'refunded'];
+    const validTypes = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
     if (!validTypes.includes(req.params.type)) {
       res.status(400).json({ error: 'Invalid template type' });
       return;
     }
     const updated = await returnEmailTemplateService.updateTemplate(
       brandId,
-      req.params.type as 'confirmation' | 'approved' | 'denied' | 'refunded',
+      req.params.type as 'confirmation' | 'approved' | 'approved_no_return' | 'denied' | 'refunded',
       req.body,
     );
     res.json(updated);
@@ -640,6 +642,183 @@ returnRouter.get('/portal-config', async (req, res) => {
   }
 });
 
+// ── POST /:id/approve — Approve Return (with shipping expected) ──────────
+returnRouter.post('/:id/approve', async (req, res) => {
+  try {
+    const current = await returnService.getReturnRequest(req.params.id);
+    if (!current) {
+      res.status(404).json({ error: 'Return request not found' });
+      return;
+    }
+
+    const brandId = await resolveBrandId(req);
+    const { resolution_type, refund_amount, admin_notes } = req.body;
+
+    const updated = await returnService.updateReturnRequest(req.params.id, {
+      status: 'approved',
+      resolution_type: resolution_type ?? 'refund',
+      refund_amount: refund_amount ?? null,
+      admin_notes: admin_notes ?? current.admin_notes ?? null,
+      decided_at: new Date().toISOString(),
+      decided_by: req.body.decided_by ?? 'admin',
+    });
+
+    const itemsSummary = (updated.items ?? [])
+      .map((i) => `${i.product_title} (x${i.quantity})`)
+      .join(', ');
+
+    sendReturnApproved({
+      to: updated.customer_email,
+      customerName: updated.customer_name ?? undefined,
+      returnRequestId: updated.id,
+      orderNumber: updated.order_number,
+      items: itemsSummary,
+      brandId,
+    }).catch((err) => console.error('[return.controller] Approval email failed:', err));
+
+    res.json({ returnRequest: updated });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] POST /:id/approve error:', message);
+    res.status(500).json({ error: 'Failed to approve return request' });
+  }
+});
+
+// ── POST /:id/approve-no-return — Approve & Refund Only (no shipping) ───
+returnRouter.post('/:id/approve-no-return', async (req, res) => {
+  try {
+    const current = await returnService.getReturnRequest(req.params.id);
+    if (!current) {
+      res.status(404).json({ error: 'Return request not found' });
+      return;
+    }
+
+    const brandId = await resolveBrandId(req);
+    const settings = await returnSettingsService.getReturnSettings(brandId);
+
+    // Determine return reason from items for restocking fee exemption
+    const returnReason = current.items?.[0]?.reason ?? undefined;
+
+    // Process refund through Shopify immediately
+    let refundResult: { success: boolean; refundId?: string; amount?: number; error?: string } = {
+      success: false,
+      error: 'Refund not attempted',
+    };
+
+    try {
+      refundResult = await processRefund({
+        orderNumber: current.order_number,
+        brandId,
+        restockingFeePercent: settings.restocking_fee_percent ?? 20,
+        exemptReasons: settings.restocking_fee_exempt_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
+        returnReason,
+        dryRun: false,
+      });
+    } catch (err) {
+      console.error('[return.controller] Shopify refund failed:', err instanceof Error ? err.message : err);
+      refundResult = { success: false, error: err instanceof Error ? err.message : 'Refund processing failed' };
+    }
+
+    if (!refundResult.success) {
+      // Still approve the request but don't mark as refunded
+      const updated = await returnService.updateReturnRequest(req.params.id, {
+        status: 'approved',
+        approved_no_return: true,
+        resolution_type: 'refund',
+        admin_notes: `${current.admin_notes ? current.admin_notes + '\n' : ''}Approve-no-return: Shopify refund failed — ${refundResult.error}`,
+        decided_at: new Date().toISOString(),
+        decided_by: req.body.decided_by ?? 'admin',
+      });
+      res.status(207).json({
+        returnRequest: updated,
+        refund: { success: false, error: refundResult.error },
+      });
+      return;
+    }
+
+    // Refund succeeded — mark as refunded
+    const updated = await returnService.updateReturnRequest(req.params.id, {
+      status: 'refunded',
+      approved_no_return: true,
+      resolution_type: 'refund',
+      refund_amount: refundResult.amount ?? null,
+      shopify_return_id: refundResult.refundId ?? null,
+      decided_at: new Date().toISOString(),
+      decided_by: req.body.decided_by ?? 'admin',
+    });
+
+    const itemsSummary = (updated.items ?? [])
+      .map((i) => `${i.product_title} (x${i.quantity})`)
+      .join(', ');
+
+    sendReturnApprovedNoReturn({
+      to: updated.customer_email,
+      customerName: updated.customer_name ?? undefined,
+      returnRequestId: updated.id,
+      orderNumber: updated.order_number,
+      items: itemsSummary,
+      refundAmount: refundResult.amount,
+      brandId,
+    }).catch((err) => console.error('[return.controller] Approved-no-return email failed:', err));
+
+    res.json({
+      returnRequest: updated,
+      refund: { success: true, refundId: refundResult.refundId, amount: refundResult.amount },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] POST /:id/approve-no-return error:', message);
+    res.status(500).json({ error: 'Failed to process approve-no-return' });
+  }
+});
+
+// ── POST /:id/deny — Deny Return with Reason ─────────────────────────────
+returnRouter.post('/:id/deny', async (req, res) => {
+  try {
+    const current = await returnService.getReturnRequest(req.params.id);
+    if (!current) {
+      res.status(404).json({ error: 'Return request not found' });
+      return;
+    }
+
+    const { denial_reason, admin_notes } = req.body;
+    if (!denial_reason) {
+      res.status(400).json({ error: 'denial_reason is required' });
+      return;
+    }
+
+    const brandId = await resolveBrandId(req);
+
+    const updated = await returnService.updateReturnRequest(req.params.id, {
+      status: 'denied',
+      denial_reason,
+      admin_notes: admin_notes ?? current.admin_notes ?? null,
+      decided_at: new Date().toISOString(),
+      decided_by: req.body.decided_by ?? 'admin',
+    });
+
+    const itemsSummary = (updated.items ?? [])
+      .map((i) => `${i.product_title} (x${i.quantity})`)
+      .join(', ');
+
+    sendReturnDenied({
+      to: updated.customer_email,
+      customerName: updated.customer_name ?? undefined,
+      returnRequestId: updated.id,
+      orderNumber: updated.order_number,
+      items: itemsSummary,
+      reason: denial_reason,
+      brandId,
+    }).catch((err) => console.error('[return.controller] Denial email failed:', err));
+
+    res.json({ returnRequest: updated });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] POST /:id/deny error:', message);
+    res.status(500).json({ error: 'Failed to deny return request' });
+  }
+});
+
 // ── GET / — List Return Requests ─────────────────────────────────────────
 returnRouter.get('/', async (req, res) => {
   try {
@@ -682,7 +861,7 @@ returnRouter.get('/:id', async (req, res) => {
 // ── PATCH /:id — Update Return Request ───────────────────────────────────
 returnRouter.patch('/:id', async (req, res) => {
   try {
-    const { status, resolution_type, refund_amount, admin_notes, decided_by, item_updates } = req.body;
+    const { status, resolution_type, refund_amount, admin_notes, denial_reason, decided_by, item_updates } = req.body;
 
     // Get the current return request to check for status changes
     const current = await returnService.getReturnRequest(req.params.id);
@@ -696,6 +875,7 @@ returnRouter.patch('/:id', async (req, res) => {
     if (resolution_type !== undefined) updates.resolution_type = resolution_type;
     if (refund_amount !== undefined) updates.refund_amount = refund_amount;
     if (admin_notes !== undefined) updates.admin_notes = admin_notes;
+    if (denial_reason !== undefined) updates.denial_reason = denial_reason;
     if (decided_by !== undefined) updates.decided_by = decided_by;
 
     // Set decided_at if status is a decision status
@@ -758,7 +938,7 @@ returnRouter.patch('/:id', async (req, res) => {
           returnRequestId: updated.id,
           orderNumber: updated.order_number,
           items: itemsSummary,
-          reason: admin_notes ?? 'Your return request was not approved.',
+          reason: denial_reason ?? admin_notes ?? 'Your return request was not approved.',
           brandId,
         }).catch((err) => console.error('[return.controller] Denial email failed:', err));
       }
