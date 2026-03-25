@@ -2,17 +2,33 @@ import { supabase } from '../config/supabase.js';
 
 const SHIPPO_API = 'https://api.goshippo.com';
 
-const RETURN_ADDRESS = {
-  name: 'Outlight Returns',
-  company: 'Red Stag Fulfillment',
-  street1: '6503 W Belvil Hwy',
-  city: 'Sweetwater',
-  state: 'TN',
-  zip: '37874',
-  country: 'US',
-  phone: '',
-  email: 'returns@outlight.us',
-};
+// Two return warehouses — label goes to whichever is cheaper
+const RETURN_ADDRESSES = [
+  {
+    label: 'Outlight - SWT1 (Tennessee)',
+    name: 'Outlight - SWT1',
+    company: 'Red Stag Fulfillment',
+    street1: '500 Red Stag Way',
+    city: 'Sweetwater',
+    state: 'TN',
+    zip: '37874',
+    country: 'US',
+    phone: '865-326-8763',
+    email: 'returns@outlight.us',
+  },
+  {
+    label: 'Outlight - UT (Utah)',
+    name: 'Outlight - UT',
+    street1: '5656 John Cannon Dr',
+    street2: 'Suite 100',
+    city: 'Salt Lake City',
+    state: 'UT',
+    zip: '84116',
+    country: 'US',
+    phone: '800-815-7824',
+    email: 'returns@outlight.us',
+  },
+];
 
 function shippoHeaders(): Record<string, string> {
   const apiKey = process.env.SHIPPO_API_KEY;
@@ -89,74 +105,90 @@ export async function createReturnLabel(
   } = params;
 
   try {
-    // 1. Create shipment — address_from is the customer (sender for a return)
-    const shipmentPayload = {
-      address_from: {
-        name: customerName,
-        street1: customerStreet1,
-        street2: customerStreet2 ?? '',
-        city: customerCity,
-        state: customerState,
-        zip: customerZip,
-        country: customerCountry,
-        email: customerEmail ?? '',
-      },
-      address_to: RETURN_ADDRESS,
-      parcels: [
-        {
-          length: String(length),
-          width: String(width),
-          height: String(height),
-          distance_unit: dimensionUnit,
-          weight: String(weight),
-          mass_unit: weightUnit,
-        },
-      ],
-      async: false,
+    const customerAddress = {
+      name: customerName,
+      street1: customerStreet1,
+      street2: customerStreet2 ?? '',
+      city: customerCity,
+      state: customerState,
+      zip: customerZip,
+      country: customerCountry,
+      email: customerEmail ?? '',
     };
 
-    const shipmentRes = await fetch(`${SHIPPO_API}/shipments`, {
-      method: 'POST',
-      headers: shippoHeaders(),
-      body: JSON.stringify(shipmentPayload),
+    const parcel = {
+      length: String(length),
+      width: String(width),
+      height: String(height),
+      distance_unit: dimensionUnit,
+      weight: String(weight),
+      mass_unit: weightUnit,
+    };
+
+    // 1. Create shipments to BOTH warehouses in parallel — pick cheapest
+    const shipmentPromises = RETURN_ADDRESSES.map(async (warehouse) => {
+      const res = await fetch(`${SHIPPO_API}/shipments`, {
+        method: 'POST',
+        headers: shippoHeaders(),
+        body: JSON.stringify({
+          address_from: customerAddress,
+          address_to: warehouse,
+          parcels: [parcel],
+          async: false,
+        }),
+      });
+
+      if (!res.ok) {
+        console.error(`[shippo.service] Shipment to ${warehouse.label} failed: ${res.status}`);
+        return { warehouse, rates: [] as Array<{ object_id: string; provider: string; servicelevel: { name: string; token: string }; amount: string; currency: string; estimated_days: number | null }> };
+      }
+
+      const shipment = await res.json() as {
+        object_id: string;
+        rates: Array<{ object_id: string; provider: string; servicelevel: { name: string; token: string }; amount: string; currency: string; estimated_days: number | null }>;
+      };
+
+      return { warehouse, rates: shipment.rates ?? [] };
     });
 
-    if (!shipmentRes.ok) {
-      const text = await shipmentRes.text();
-      console.error('[shippo.service] Shipment creation failed:', text);
-      return { success: false, error: `Shipment creation failed: ${shipmentRes.status}` };
+    const shipmentResults = await Promise.all(shipmentPromises);
+
+    // 2. Collect all rates across both warehouses
+    const allRates: Array<{
+      rateId: string;
+      provider: string;
+      servicelevel: string;
+      amount: number;
+      currency: string;
+      warehouse: string;
+      estimatedDays: number | null;
+    }> = [];
+
+    for (const result of shipmentResults) {
+      for (const rate of result.rates) {
+        allRates.push({
+          rateId: rate.object_id,
+          provider: rate.provider,
+          servicelevel: rate.servicelevel.name,
+          amount: parseFloat(rate.amount),
+          currency: rate.currency,
+          warehouse: result.warehouse.label,
+          estimatedDays: rate.estimated_days,
+        });
+      }
     }
 
-    const shipment = await shipmentRes.json() as {
-      object_id: string;
-      rates: Array<{
-        object_id: string;
-        provider: string;
-        servicelevel: { name: string; token: string };
-        amount: string;
-        currency: string;
-        estimated_days: number | null;
-      }>;
-    };
-
-    const rates = shipment.rates ?? [];
-
-    if (rates.length === 0) {
+    if (allRates.length === 0) {
       return { success: false, error: 'No shipping rates available for this address/package combination' };
     }
 
-    // 2. Pick rate: prefer FedEx Ground, otherwise pick cheapest
-    const fedexGround = rates.find(
-      (r) =>
-        r.provider.toLowerCase().includes('fedex') &&
-        r.servicelevel.token.toLowerCase().includes('ground')
-    );
+    // 3. Pick the cheapest rate across both warehouses
+    allRates.sort((a, b) => a.amount - b.amount);
+    const best = allRates[0];
 
-    const cheapest = rates.reduce((best, r) =>
-      parseFloat(r.amount) < parseFloat(best.amount) ? r : best
-    );
+    console.log(`[shippo.service] Best rate: $${best.amount.toFixed(2)} via ${best.provider} to ${best.warehouse} (${allRates.length} rates compared across ${RETURN_ADDRESSES.length} warehouses)`);
 
-    const selectedRate = fedexGround ?? cheapest;
+    const selectedRate = { object_id: best.rateId, provider: best.provider, amount: String(best.amount) };
 
     // 3. Purchase label (create transaction)
     const txRes = await fetch(`${SHIPPO_API}/transactions`, {
@@ -196,7 +228,7 @@ export async function createReturnLabel(
       labelUrl: tx.label_url,
       trackingNumber: tx.tracking_number,
       trackingUrl: tx.tracking_url_provider,
-      carrier: `${selectedRate.provider} ${selectedRate.servicelevel.name}`,
+      carrier: `${selectedRate.provider}`,
       rate: parseFloat(selectedRate.amount),
     };
   } catch (err) {
