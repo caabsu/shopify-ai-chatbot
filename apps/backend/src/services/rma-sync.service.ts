@@ -26,6 +26,7 @@ export interface RmaSyncLogEntry {
   refund_processed_at: string | null;
   return_request_id: string | null;
   shopify_refund_id: string | null;
+  sku_details: Array<{ sku: string; qty: number; qty_received?: number; qty_processed?: number }> | null;
   error: string | null;
   brand_id: string;
   created_at: string;
@@ -173,6 +174,17 @@ export async function syncRMAs(brandId: string): Promise<SyncSummary> {
       const orderNumber = parseOrderNumber(rma.sender_ref_alt);
 
       // Upsert log entry (without refund yet)
+      // Extract SKU details from RMA items array
+      let skuDetails: Array<{ sku: string; qty: number; qty_received?: number; qty_processed?: number }> | null = null;
+      if (rma.items && Array.isArray(rma.items)) {
+        skuDetails = (rma.items as Array<Record<string, unknown>>).map((item) => ({
+          sku: String(item.sku ?? ''),
+          qty: Number(item.qty ?? item.quantity ?? 0),
+          qty_received: item.qty_received != null ? Number(item.qty_received) : undefined,
+          qty_processed: item.qty_processed != null ? Number(item.qty_processed) : undefined,
+        }));
+      }
+
       const baseFields: Partial<Omit<RmaSyncLogEntry, 'id' | 'created_at'>> = {
         order_number: orderNumber,
         customer_name: rma.customer_name ?? null,
@@ -180,6 +192,7 @@ export async function syncRMAs(brandId: string): Promise<SyncSummary> {
         processed_at: rma.updated_at ?? new Date().toISOString(),
         refund_processed: false,
         error: null,
+        sku_details: skuDetails,
       };
 
       // Enrich with Shopify order data if we have an order number

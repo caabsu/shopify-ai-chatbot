@@ -8,6 +8,7 @@ export async function createReturnRequest(data: {
   order_number: string;
   customer_email: string;
   customer_name?: string;
+  package_dimensions?: { length: number; width: number; height: number; weight: number } | null;
   items: Array<{
     line_item_id: string;
     fulfillment_line_item_id: string;
@@ -31,6 +32,7 @@ export async function createReturnRequest(data: {
       customer_email: data.customer_email,
       customer_name: data.customer_name ?? null,
       status: 'pending_review',
+      package_dimensions: data.package_dimensions ?? null,
     })
     .select()
     .single();

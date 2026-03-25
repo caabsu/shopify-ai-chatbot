@@ -51,6 +51,9 @@ export async function PUT(req: NextRequest) {
     'return_window_days', 'require_photos', 'require_photos_for_reasons',
     'ai_confidence_threshold', 'available_reasons', 'reason_labels',
     'available_resolutions', 'auto_close_days', 'portal_title', 'portal_description',
+    'restocking_fee_percent', 'restocking_fee_exempt_reasons',
+    'dimension_collection_enabled', 'collect_dimensions_for_reasons',
+    'provide_prepaid_label_for_reasons',
   ];
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };

@@ -14,6 +14,11 @@ interface ReturnSettings {
   auto_close_days: number;
   portal_title: string;
   portal_description: string;
+  restocking_fee_percent: number;
+  restocking_fee_exempt_reasons: string[];
+  dimension_collection_enabled: boolean;
+  collect_dimensions_for_reasons: string[];
+  provide_prepaid_label_for_reasons: string[];
 }
 
 const DEFAULTS: ReturnSettings = {
@@ -36,6 +41,11 @@ const DEFAULTS: ReturnSettings = {
   auto_close_days: 30,
   portal_title: 'Returns & Exchanges',
   portal_description: 'Start a return or exchange in just a few steps.',
+  restocking_fee_percent: 20,
+  restocking_fee_exempt_reasons: ['defective', 'wrong_item', 'not_as_described'],
+  dimension_collection_enabled: true,
+  collect_dimensions_for_reasons: ['defective', 'wrong_item', 'not_as_described'],
+  provide_prepaid_label_for_reasons: ['defective', 'wrong_item', 'not_as_described'],
 };
 
 export default function ReturnSettingsPage() {
@@ -400,6 +410,146 @@ export default function ReturnSettingsPage() {
                 style={inputStyle}
               />
             </div>
+          </div>
+        </div>
+        {/* Label & Shipping Settings */}
+        <div
+          className="rounded-xl p-5"
+          style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+        >
+          <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Label & Shipping Settings</h3>
+          <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
+            Control package dimension collection and prepaid label generation
+          </p>
+
+          {/* Master toggle */}
+          <div className="flex items-center justify-between py-2 mb-3" style={{ borderBottom: '1px solid var(--border-secondary)' }}>
+            <div>
+              <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>Collect package dimensions from customer</span>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>When enabled, customers will be asked to enter package dimensions for selected reasons</p>
+            </div>
+            <button
+              onClick={() => setSettings({ ...settings, dimension_collection_enabled: !settings.dimension_collection_enabled })}
+              className="w-9 h-5 rounded-full transition-colors relative flex-shrink-0"
+              style={{ backgroundColor: settings.dimension_collection_enabled ? 'var(--color-accent)' : 'var(--border-primary)' }}
+            >
+              <div className="w-3.5 h-3.5 bg-white rounded-full absolute transition-transform" style={{ top: '3px', left: settings.dimension_collection_enabled ? '17px' : '3px' }} />
+            </button>
+          </div>
+
+          {settings.dimension_collection_enabled && (
+            <>
+              {/* Collect dimensions for reasons */}
+              <div className="mb-4">
+                <label className="text-xs font-medium mb-2 block" style={{ color: 'var(--text-secondary)' }}>Collect dimensions for these reasons</label>
+                <div className="space-y-1.5">
+                  {settings.available_reasons.map((slug) => {
+                    const isChecked = settings.collect_dimensions_for_reasons.includes(slug);
+                    return (
+                      <div key={slug} className="flex items-center justify-between py-1">
+                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{settings.reason_labels[slug] || slug}</span>
+                        <button
+                          onClick={() => {
+                            const updated = isChecked
+                              ? settings.collect_dimensions_for_reasons.filter((r) => r !== slug)
+                              : [...settings.collect_dimensions_for_reasons, slug];
+                            setSettings({ ...settings, collect_dimensions_for_reasons: updated });
+                          }}
+                          className="w-9 h-5 rounded-full transition-colors relative flex-shrink-0"
+                          style={{ backgroundColor: isChecked ? 'var(--color-accent)' : 'var(--border-primary)' }}
+                        >
+                          <div className="w-3.5 h-3.5 bg-white rounded-full absolute transition-transform" style={{ top: '3px', left: isChecked ? '17px' : '3px' }} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Provide prepaid label for reasons */}
+              <div>
+                <label className="text-xs font-medium mb-2 block" style={{ color: 'var(--text-secondary)' }}>Provide prepaid label for these reasons</label>
+                <div className="space-y-1.5">
+                  {settings.available_reasons.map((slug) => {
+                    const isChecked = settings.provide_prepaid_label_for_reasons.includes(slug);
+                    return (
+                      <div key={slug} className="flex items-center justify-between py-1">
+                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{settings.reason_labels[slug] || slug}</span>
+                        <button
+                          onClick={() => {
+                            const updated = isChecked
+                              ? settings.provide_prepaid_label_for_reasons.filter((r) => r !== slug)
+                              : [...settings.provide_prepaid_label_for_reasons, slug];
+                            setSettings({ ...settings, provide_prepaid_label_for_reasons: updated });
+                          }}
+                          className="w-9 h-5 rounded-full transition-colors relative flex-shrink-0"
+                          style={{ backgroundColor: isChecked ? 'var(--color-accent)' : 'var(--border-primary)' }}
+                        >
+                          <div className="w-3.5 h-3.5 bg-white rounded-full absolute transition-transform" style={{ top: '3px', left: isChecked ? '17px' : '3px' }} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Return Address */}
+          <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--border-secondary)' }}>
+            <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Return Address</label>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Red Stag Fulfillment, 6503 W Belvil Hwy, Sweetwater, TN 37874
+            </p>
+            <p className="text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+              This address is managed by your fulfillment provider and cannot be changed here.
+            </p>
+          </div>
+        </div>
+
+        {/* Restocking Fee */}
+        <div
+          className="rounded-xl p-5"
+          style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+        >
+          <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Restocking Fee</h3>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
+            Applied to returns unless the reason is exempt. Customers see this fee at checkout.
+          </p>
+          <div className="flex items-center gap-2 mb-4">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={settings.restocking_fee_percent}
+              onChange={(e) => setSettings({ ...settings, restocking_fee_percent: parseInt(e.target.value) || 0 })}
+              className="w-24 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+              style={inputStyle}
+            />
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>%</span>
+          </div>
+          <label className="text-xs font-medium mb-2 block" style={{ color: 'var(--text-secondary)' }}>Exempt reasons (no restocking fee)</label>
+          <div className="space-y-1.5">
+            {settings.available_reasons.map((slug) => {
+              const isExempt = settings.restocking_fee_exempt_reasons.includes(slug);
+              return (
+                <div key={slug} className="flex items-center justify-between py-1">
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{settings.reason_labels[slug] || slug}</span>
+                  <button
+                    onClick={() => {
+                      const updated = isExempt
+                        ? settings.restocking_fee_exempt_reasons.filter((r) => r !== slug)
+                        : [...settings.restocking_fee_exempt_reasons, slug];
+                      setSettings({ ...settings, restocking_fee_exempt_reasons: updated });
+                    }}
+                    className="w-9 h-5 rounded-full transition-colors relative flex-shrink-0"
+                    style={{ backgroundColor: isExempt ? 'var(--color-accent)' : 'var(--border-primary)' }}
+                  >
+                    <div className="w-3.5 h-3.5 bg-white rounded-full absolute transition-transform" style={{ top: '3px', left: isExempt ? '17px' : '3px' }} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

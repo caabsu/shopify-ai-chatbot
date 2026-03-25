@@ -21,6 +21,7 @@ interface RmaSyncLogEntry {
   refund_processed_at: string | null;
   return_request_id: string | null;
   shopify_refund_id: string | null;
+  sku_details: Array<{ sku: string; qty: number; qty_received?: number; qty_processed?: number }> | null;
   error: string | null;
   brand_id: string;
   created_at: string;
@@ -458,30 +459,120 @@ export default function RmaPage() {
                       {/* Expanded row */}
                       {isExpanded && (
                         <tr key={`${entry.id}-expanded`} style={{ borderBottom: '1px solid var(--border-secondary)' }}>
-                          <td colSpan={10} className="px-4 py-3" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                            <div className="grid grid-cols-3 gap-4 text-xs">
+                          <td colSpan={10} className="px-4 py-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                            <div className="grid grid-cols-4 gap-4 text-xs">
+                              {/* Order Info */}
                               <div>
-                                <p className="font-semibold mb-1" style={{ color: 'var(--text-tertiary)' }}>Delivery ID</p>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Order Number</p>
+                                <p className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>
+                                  {entry.order_number ? `#${entry.order_number}` : '\u2014'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Customer</p>
+                                <p style={{ color: 'var(--text-primary)' }}>{entry.customer_name || '\u2014'}</p>
+                                {entry.customer_email && (
+                                  <p className="mt-0.5" style={{ color: 'var(--text-secondary)' }}>{entry.customer_email}</p>
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Order Total</p>
+                                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                                  {entry.order_total != null ? `$${entry.order_total.toFixed(2)}` : '\u2014'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Fulfillment Status</p>
+                                <p style={{ color: 'var(--text-primary)' }}>
+                                  {entry.fulfillment_status?.replace(/_/g, ' ') || '\u2014'}
+                                </p>
+                              </div>
+
+                              {/* Delivery & Processing */}
+                              <div>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Delivery ID</p>
                                 <p className="font-mono" style={{ color: 'var(--text-primary)' }}>{entry.delivery_id}</p>
                               </div>
                               <div>
-                                <p className="font-semibold mb-1" style={{ color: 'var(--text-tertiary)' }}>Line Items</p>
-                                <p style={{ color: 'var(--text-secondary)' }}>{entry.line_items_summary || '\u2014'}</p>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>RMA Processed</p>
+                                <p style={{ color: 'var(--text-secondary)' }}>{formatDate(entry.processed_at)}</p>
                               </div>
                               <div>
-                                <p className="font-semibold mb-1" style={{ color: 'var(--text-tertiary)' }}>Refund Details</p>
-                                <p style={{ color: 'var(--text-secondary)' }}>
-                                  {entry.refund_processed_at ? `Processed: ${formatDate(entry.refund_processed_at)}` : 'Not yet processed'}
-                                  {entry.shopify_refund_id && ` (ID: ${entry.shopify_refund_id})`}
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Days Since Created</p>
+                                <p style={{ color: age > 7 ? '#ef4444' : age > 3 ? '#f59e0b' : 'var(--text-primary)' }}>
+                                  {age} day{age !== 1 ? 's' : ''}
                                 </p>
                               </div>
+                              <div>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>RMA Status</p>
+                                <span
+                                  className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full"
+                                  style={{ backgroundColor: statusColor.bg, color: statusColor.text }}
+                                >
+                                  {entry.status}
+                                </span>
+                              </div>
+
+                              {/* Line Items */}
+                              <div className="col-span-4">
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Line Items</p>
+                                <p style={{ color: 'var(--text-secondary)' }}>{entry.line_items_summary || '\u2014'}</p>
+                              </div>
+
+                              {/* SKU Details */}
+                              {entry.sku_details && entry.sku_details.length > 0 && (
+                                <div className="col-span-4">
+                                  <p className="font-semibold mb-2 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Product SKUs (from Red Stag)</p>
+                                  <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-primary)' }}>
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr style={{ backgroundColor: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-primary)' }}>
+                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>SKU</th>
+                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Qty Expected</th>
+                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Qty Received</th>
+                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Qty Processed</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {entry.sku_details.map((sku, idx) => (
+                                          <tr key={idx} style={{ borderBottom: idx < entry.sku_details!.length - 1 ? '1px solid var(--border-secondary)' : 'none' }}>
+                                            <td className="px-3 py-1.5 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{sku.sku || '\u2014'}</td>
+                                            <td className="px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>{sku.qty}</td>
+                                            <td className="px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>{sku.qty_received ?? '\u2014'}</td>
+                                            <td className="px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>{sku.qty_processed ?? '\u2014'}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Refund Details */}
+                              <div className="col-span-2">
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Refund Amount</p>
+                                <p className="font-medium" style={{ color: entry.refund_amount != null ? '#22c55e' : 'var(--text-tertiary)' }}>
+                                  {entry.refund_amount != null ? `$${entry.refund_amount.toFixed(2)}` : '\u2014'}
+                                </p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Refund Status</p>
+                                <p style={{ color: 'var(--text-secondary)' }}>
+                                  {entry.refund_processed_at ? `Processed: ${formatDate(entry.refund_processed_at)}` : 'Not yet processed'}
+                                  {entry.shopify_refund_id && ` (Shopify ID: ${entry.shopify_refund_id})`}
+                                </p>
+                              </div>
+
+                              {/* Error */}
                               {entry.error && (
-                                <div className="col-span-3">
-                                  <p className="font-semibold mb-1" style={{ color: '#ef4444' }}>Error</p>
+                                <div className="col-span-4 rounded-lg p-3" style={{ backgroundColor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                                  <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: '#ef4444' }}>Error</p>
                                   <p style={{ color: '#ef4444' }}>{entry.error}</p>
                                 </div>
                               )}
-                              <div className="col-span-3 flex gap-3">
+
+                              {/* Actions */}
+                              <div className="col-span-4 flex gap-3 pt-1">
                                 {entry.return_request_id && (
                                   <Link
                                     href={`/returns/${entry.return_request_id}`}

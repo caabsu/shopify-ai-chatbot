@@ -84,6 +84,8 @@ const navGroups: NavGroup[] = [
       { href: '/returns/rules', label: 'Return Rules', icon: SlidersHorizontal },
       { href: '/returns/label-presets', label: 'Label Presets', icon: Ruler },
       { href: '/returns/rma', label: 'RMA Sync', icon: Truck },
+      { href: '/returns/label-stats', label: 'Label Stats', icon: BarChart3 },
+      { href: '/returns/analytics', label: 'Analytics', icon: BarChart3 },
       { href: '/returns/settings', label: 'Settings', icon: Settings },
     ],
   },

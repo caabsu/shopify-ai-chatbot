@@ -74,7 +74,7 @@ returnRouter.post('/upload', async (req, res) => {
 // ── POST /submit — Customer Submits a Return Request ─────────────────────
 returnRouter.post('/submit', async (req, res) => {
   try {
-    const { order_id, order_number, customer_email, customer_name, items } = req.body;
+    const { order_id, order_number, customer_email, customer_name, items, package_dimensions } = req.body;
 
     if (!order_id || !order_number || !customer_email || !items || !Array.isArray(items) || items.length === 0) {
       res.status(400).json({ error: 'order_id, order_number, customer_email, and items are required' });
@@ -84,7 +84,7 @@ returnRouter.post('/submit', async (req, res) => {
     const brandId = await resolveBrandId(req);
     const settings = await returnSettingsService.getReturnSettings(brandId);
 
-    // 1. Create return request
+    // 1. Create return request (include package_dimensions if provided)
     const returnRequest = await returnService.createReturnRequest({
       brand_id: brandId,
       order_id,
@@ -92,6 +92,7 @@ returnRouter.post('/submit', async (req, res) => {
       customer_email,
       customer_name,
       items,
+      package_dimensions: package_dimensions || null,
     });
 
     // 2. Evaluate rules
@@ -633,6 +634,9 @@ returnRouter.get('/portal-config', async (req, res) => {
         portal_description: settings.portal_description,
         restocking_fee_percent: settings.restocking_fee_percent ?? 20,
         restocking_fee_exempt_reasons: settings.restocking_fee_exempt_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
+        collect_dimensions_for_reasons: settings.collect_dimensions_for_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
+        provide_prepaid_label_for_reasons: settings.provide_prepaid_label_for_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
+        dimension_collection_enabled: settings.dimension_collection_enabled ?? true,
       },
       design,
     });

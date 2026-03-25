@@ -45,6 +45,9 @@ interface PortalConfig {
     portal_description: string;
     restocking_fee_percent: number;
     restocking_fee_exempt_reasons: string[];
+    collect_dimensions_for_reasons: string[];
+    provide_prepaid_label_for_reasons: string[];
+    dimension_collection_enabled: boolean;
   } | null;
   design: BrandDesign | null;
 }
@@ -84,6 +87,7 @@ interface SelectedItem {
   photoUrls: string[];
   resolutionType: 'return' | 'exchange';
   exchangeVariant?: string;
+  packageDimensions?: { length: string; width: string; height: string; weight: string };
 }
 
 type Step = 'lookup' | 'select_items' | 'confirm' | 'success';
@@ -187,6 +191,8 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
   const availableResolutions = portalConfig?.settings?.available_resolutions || ['refund', 'store_credit', 'exchange'];
   const hasExchangeOption = availableResolutions.includes('exchange');
   const requirePhotosForReasons = portalConfig?.settings?.require_photos_for_reasons || [];
+  const dimensionCollectionEnabled = portalConfig?.settings?.dimension_collection_enabled ?? false;
+  const collectDimensionsForReasons = portalConfig?.settings?.collect_dimensions_for_reasons || [];
 
   debugPost('config_loaded', { settings: portalConfig?.settings || null });
   const state: PortalState = {
@@ -356,6 +362,32 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
             </button>
           </div>`;
 
+        // Package dimensions section
+        const showDimensions = dimensionCollectionEnabled && selected.reason && collectDimensionsForReasons.includes(selected.reason);
+        const dims = selected.packageDimensions || { length: '', width: '', height: '', weight: '' };
+        const dimensionSection = showDimensions ? `
+          <div class="srp-dimensions" style="margin-top:8px;padding:10px 12px;border-radius:6px;border:1px solid rgba(197,160,89,0.2);background:rgba(197,160,89,0.04);">
+            <span class="srp-upload-label" style="display:block;margin-bottom:6px;">Package Dimensions</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
+              <div>
+                <label style="display:block;font-size:10px;color:var(--srp-text-secondary,#666);margin-bottom:2px;">Length (in)</label>
+                <input class="srp-input" type="number" step="0.1" min="0" data-dim-field="${item.id}" data-dim-key="length" value="${escapeHtml(dims.length)}" placeholder="0" style="padding:6px 8px;font-size:13px;" />
+              </div>
+              <div>
+                <label style="display:block;font-size:10px;color:var(--srp-text-secondary,#666);margin-bottom:2px;">Width (in)</label>
+                <input class="srp-input" type="number" step="0.1" min="0" data-dim-field="${item.id}" data-dim-key="width" value="${escapeHtml(dims.width)}" placeholder="0" style="padding:6px 8px;font-size:13px;" />
+              </div>
+              <div>
+                <label style="display:block;font-size:10px;color:var(--srp-text-secondary,#666);margin-bottom:2px;">Height (in)</label>
+                <input class="srp-input" type="number" step="0.1" min="0" data-dim-field="${item.id}" data-dim-key="height" value="${escapeHtml(dims.height)}" placeholder="0" style="padding:6px 8px;font-size:13px;" />
+              </div>
+              <div>
+                <label style="display:block;font-size:10px;color:var(--srp-text-secondary,#666);margin-bottom:2px;">Weight (lbs)</label>
+                <input class="srp-input" type="number" step="0.1" min="0" data-dim-field="${item.id}" data-dim-key="weight" value="${escapeHtml(dims.weight)}" placeholder="0" style="padding:6px 8px;font-size:13px;" />
+              </div>
+            </div>
+          </div>` : '';
+
         reasonSection = `
           <div class="srp-item-reason">
             ${resolutionToggle}
@@ -366,6 +398,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
             </select>
             <textarea class="srp-textarea" data-item-notes="${item.id}" placeholder="Additional details (optional)" rows="2">${escapeHtml(selected.notes || '')}</textarea>
             ${uploadSection}
+            ${dimensionSection}
           </div>`;
       }
 
@@ -752,6 +785,23 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       });
     });
 
+    // Dimension inputs
+    container.querySelectorAll('[data-dim-field]').forEach(el => {
+      el.addEventListener('click', (e) => e.stopPropagation());
+      el.addEventListener('input', (e) => {
+        const input = e.target as HTMLInputElement;
+        const itemId = input.dataset.dimField!;
+        const key = input.dataset.dimKey as 'length' | 'width' | 'height' | 'weight';
+        const selected = state.selectedItems.get(itemId);
+        if (selected) {
+          if (!selected.packageDimensions) {
+            selected.packageDimensions = { length: '', width: '', height: '', weight: '' };
+          }
+          selected.packageDimensions[key] = input.value;
+        }
+      });
+    });
+
     // Continue button
     container.querySelector('#srp-continue')?.addEventListener('click', () => {
       const allValid = Array.from(state.selectedItems.values()).every(si => {
@@ -926,6 +976,16 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     const hasExchange = items.some(i => i.resolution_type === 'exchange');
     const allExchange = items.every(i => i.resolution_type === 'exchange');
 
+    // Collect package dimensions from items that have them
+    const allSelectedItems = Array.from(state.selectedItems.values());
+    const firstDims = allSelectedItems.find(si => si.packageDimensions && (si.packageDimensions.length || si.packageDimensions.width || si.packageDimensions.height || si.packageDimensions.weight));
+    const packageDimensions = firstDims?.packageDimensions ? {
+      length: parseFloat(firstDims.packageDimensions.length) || 0,
+      width: parseFloat(firstDims.packageDimensions.width) || 0,
+      height: parseFloat(firstDims.packageDimensions.height) || 0,
+      weight: parseFloat(firstDims.packageDimensions.weight) || 0,
+    } : null;
+
     try {
       const res = await fetch(`${backendUrl}/api/returns/submit${brandParam}`, {
         method: 'POST',
@@ -937,6 +997,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
           customer_name: null,
           resolution_type: allExchange ? 'exchange' : hasExchange ? 'exchange' : null,
           items,
+          package_dimensions: packageDimensions,
         }),
       });
 

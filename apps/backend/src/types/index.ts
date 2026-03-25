@@ -283,6 +283,9 @@ export interface ReturnSettings {
   portal_description: string;
   restocking_fee_percent: number;
   restocking_fee_exempt_reasons: string[];
+  collect_dimensions_for_reasons: string[];
+  provide_prepaid_label_for_reasons: string[];
+  dimension_collection_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

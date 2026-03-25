@@ -26,6 +26,9 @@ const DEFAULT_SETTINGS: Omit<ReturnSettings, 'id' | 'brand_id' | 'created_at' | 
   portal_description: 'Start a return or exchange in just a few steps.',
   restocking_fee_percent: 20,
   restocking_fee_exempt_reasons: ['defective', 'wrong_item', 'not_as_described'],
+  collect_dimensions_for_reasons: ['defective', 'wrong_item', 'not_as_described'],
+  provide_prepaid_label_for_reasons: ['defective', 'wrong_item', 'not_as_described'],
+  dimension_collection_enabled: true,
 };
 
 export async function getReturnSettings(brandId: string): Promise<ReturnSettings> {
