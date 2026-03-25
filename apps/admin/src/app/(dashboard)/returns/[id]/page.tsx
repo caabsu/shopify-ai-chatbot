@@ -6,7 +6,7 @@ import {
   ArrowLeft, Package, Mail, ShoppingBag, Sparkles,
   Check, X, Truck, DollarSign, Save, Image as ImageIcon,
   Clock, CheckCircle2, XCircle, Gift, AlertTriangle,
-  MessageSquare, ExternalLink,
+  MessageSquare, ExternalLink, Tag, Download,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import type { ReturnRequest, ReturnItem, Ticket } from '@/lib/types';
@@ -84,6 +84,35 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
   // Refund modal state
   const [refundAmount, setRefundAmount] = useState('');
 
+  // Label modal state
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [labelLoading, setLabelLoading] = useState(false);
+  const [labelError, setLabelError] = useState<string | null>(null);
+  const [labelResult, setLabelResult] = useState<{
+    labelUrl: string;
+    trackingNumber: string;
+    trackingUrl?: string;
+    carrier?: string;
+    rate?: number;
+  } | null>(null);
+  const [labelAddress, setLabelAddress] = useState({
+    name: '',
+    street1: '',
+    street2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US',
+  });
+  const [labelDims, setLabelDims] = useState({
+    length: '',
+    width: '',
+    height: '',
+    weight: '',
+    weight_unit: 'lb',
+    dimension_unit: 'in',
+  });
+
   // Action loading
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -95,6 +124,19 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
         setData(d.returnRequest ?? null);
         setNotes(d.returnRequest?.admin_notes ?? '');
         setRelatedTickets(d.relatedTickets ?? []);
+        // Pre-fill label address with customer name
+        if (d.returnRequest?.customer_name) {
+          setLabelAddress((prev) => ({ ...prev, name: d.returnRequest.customer_name ?? '' }));
+        }
+        // Pre-fill label result if label already exists
+        if (d.returnRequest?.return_label_url) {
+          setLabelResult({
+            labelUrl: d.returnRequest.return_label_url,
+            trackingNumber: d.returnRequest.return_tracking_number ?? '',
+            carrier: d.returnRequest.return_carrier ?? undefined,
+            rate: d.returnRequest.return_shipping_cost ?? undefined,
+          });
+        }
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -222,6 +264,64 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
     await updateReturn({
       item_updates: [{ id: itemId, item_status: newStatus }],
     });
+  }
+
+  async function handleCreateLabel() {
+    if (!labelAddress.name || !labelAddress.street1 || !labelAddress.city || !labelAddress.state || !labelAddress.zip) {
+      setLabelError('Please fill in all required address fields');
+      return;
+    }
+
+    setLabelLoading(true);
+    setLabelError(null);
+
+    const body: Record<string, unknown> = {
+      customer_address: {
+        name: labelAddress.name,
+        street1: labelAddress.street1,
+        street2: labelAddress.street2 || undefined,
+        city: labelAddress.city,
+        state: labelAddress.state,
+        zip: labelAddress.zip,
+        country: labelAddress.country,
+      },
+    };
+
+    // Include dimensions if all filled
+    if (labelDims.length && labelDims.width && labelDims.height && labelDims.weight) {
+      body.package_dimensions = {
+        length: parseFloat(labelDims.length),
+        width: parseFloat(labelDims.width),
+        height: parseFloat(labelDims.height),
+        weight: parseFloat(labelDims.weight),
+        weight_unit: labelDims.weight_unit,
+        dimension_unit: labelDims.dimension_unit,
+      };
+    }
+
+    try {
+      const res = await fetch(`/api/returns/${id}/create-label`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        setLabelResult(result);
+        setShowLabelModal(false);
+        // Refresh data to show label info on the return
+        const refreshed = await fetch(`/api/returns/${id}`).then((r) => r.json());
+        if (refreshed.returnRequest) setData(refreshed.returnRequest);
+      } else {
+        setLabelError(result.error ?? 'Failed to create label');
+      }
+    } catch (err) {
+      setLabelError(err instanceof Error ? err.message : 'Failed to create label');
+    } finally {
+      setLabelLoading(false);
+    }
   }
 
   if (loading) {
@@ -640,14 +740,27 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                 </>
               )}
               {(data.status === 'approved' || data.status === 'partially_approved') && (
-                <button
-                  onClick={() => updateReturn({ status: 'shipped' })}
-                  disabled={actionLoading}
-                  className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                  style={{ backgroundColor: '#6366f1' }}
-                >
-                  <Truck size={12} /> Mark as Shipped
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      setLabelError(null);
+                      setShowLabelModal(true);
+                    }}
+                    disabled={actionLoading}
+                    className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: '#0ea5e9' }}
+                  >
+                    <Tag size={12} /> Create Return Label
+                  </button>
+                  <button
+                    onClick={() => updateReturn({ status: 'shipped' })}
+                    disabled={actionLoading}
+                    className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: '#6366f1' }}
+                  >
+                    <Truck size={12} /> Mark as Shipped
+                  </button>
+                </>
               )}
               {data.status === 'shipped' && (
                 <button
@@ -751,6 +864,64 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
               )}
             </div>
           </div>
+
+          {/* Return Label Info */}
+          {labelResult && (
+            <div
+              className="rounded-xl p-4"
+              style={{
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border-primary)',
+              }}
+            >
+              <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: 'var(--text-tertiary)' }}>
+                <Tag size={12} />
+                Return Label
+              </h3>
+              <div className="space-y-2">
+                {labelResult.carrier && (
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    <span style={{ color: 'var(--text-tertiary)' }}>Carrier:</span> {labelResult.carrier}
+                  </p>
+                )}
+                {labelResult.trackingNumber && (
+                  <p className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>
+                    {labelResult.trackingNumber}
+                  </p>
+                )}
+                {labelResult.rate != null && (
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    Shipping cost: ${labelResult.rate.toFixed(2)}
+                  </p>
+                )}
+                <a
+                  href={labelResult.labelUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium text-white w-full justify-center mt-2"
+                  style={{ backgroundColor: '#0ea5e9', textDecoration: 'none' }}
+                >
+                  <Download size={12} /> Download Label
+                </a>
+                {labelResult.trackingUrl && (
+                  <a
+                    href={labelResult.trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg font-medium w-full justify-center"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-secondary)',
+                      color: 'var(--text-secondary)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <ExternalLink size={12} /> Track Package
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Timeline */}
           <div
@@ -1107,6 +1278,205 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                 style={{ backgroundColor: '#ef4444' }}
               >
                 {actionLoading ? 'Denying...' : 'Deny Return'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Label Modal */}
+      {showLabelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div
+            className="rounded-xl p-6 w-full max-w-lg overflow-y-auto"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-primary)',
+              boxShadow: 'var(--shadow-md)',
+              maxHeight: '90vh',
+            }}
+          >
+            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+              Create Return Shipping Label
+            </h3>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
+              A prepaid return label will be generated via Shippo and sent to {data.customer_email}.
+            </p>
+
+            {labelError && (
+              <div
+                className="rounded-lg p-3 mb-4 flex items-center gap-2"
+                style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
+              >
+                <AlertTriangle size={13} style={{ color: '#ef4444' }} />
+                <span className="text-xs" style={{ color: '#ef4444' }}>{labelError}</span>
+              </div>
+            )}
+
+            {/* Customer Address */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Customer Address (Ship From)</p>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>Full Name <span style={{ color: '#ef4444' }}>*</span></label>
+                  <input
+                    type="text"
+                    value={labelAddress.name}
+                    onChange={(e) => setLabelAddress((a) => ({ ...a, name: e.target.value }))}
+                    placeholder="Jane Doe"
+                    className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>Street Address <span style={{ color: '#ef4444' }}>*</span></label>
+                  <input
+                    type="text"
+                    value={labelAddress.street1}
+                    onChange={(e) => setLabelAddress((a) => ({ ...a, street1: e.target.value }))}
+                    placeholder="123 Main St"
+                    className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>Apt / Suite</label>
+                  <input
+                    type="text"
+                    value={labelAddress.street2}
+                    onChange={(e) => setLabelAddress((a) => ({ ...a, street2: e.target.value }))}
+                    placeholder="Apt 4B (optional)"
+                    className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>City <span style={{ color: '#ef4444' }}>*</span></label>
+                  <input
+                    type="text"
+                    value={labelAddress.city}
+                    onChange={(e) => setLabelAddress((a) => ({ ...a, city: e.target.value }))}
+                    placeholder="Nashville"
+                    className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>State <span style={{ color: '#ef4444' }}>*</span></label>
+                  <input
+                    type="text"
+                    value={labelAddress.state}
+                    onChange={(e) => setLabelAddress((a) => ({ ...a, state: e.target.value }))}
+                    placeholder="TN"
+                    className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>ZIP <span style={{ color: '#ef4444' }}>*</span></label>
+                  <input
+                    type="text"
+                    value={labelAddress.zip}
+                    onChange={(e) => setLabelAddress((a) => ({ ...a, zip: e.target.value }))}
+                    placeholder="37201"
+                    className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>Country</label>
+                  <input
+                    type="text"
+                    value={labelAddress.country}
+                    onChange={(e) => setLabelAddress((a) => ({ ...a, country: e.target.value }))}
+                    placeholder="US"
+                    className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              </div>
+
+              {/* Package Dimensions */}
+              <p className="text-xs font-semibold uppercase tracking-wider mt-2" style={{ color: 'var(--text-tertiary)' }}>
+                Package Dimensions
+                <span className="ml-1 normal-case font-normal" style={{ color: 'var(--text-tertiary)' }}>
+                  (leave blank to use SKU preset)
+                </span>
+              </p>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" step="0.1" min="0" placeholder="Length"
+                  value={labelDims.length}
+                  onChange={(e) => setLabelDims((d) => ({ ...d, length: e.target.value }))}
+                  className="flex-1 text-sm rounded-lg px-3 py-2 focus:outline-none"
+                  style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                />
+                <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>x</span>
+                <input
+                  type="number" step="0.1" min="0" placeholder="Width"
+                  value={labelDims.width}
+                  onChange={(e) => setLabelDims((d) => ({ ...d, width: e.target.value }))}
+                  className="flex-1 text-sm rounded-lg px-3 py-2 focus:outline-none"
+                  style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                />
+                <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>x</span>
+                <input
+                  type="number" step="0.1" min="0" placeholder="Height"
+                  value={labelDims.height}
+                  onChange={(e) => setLabelDims((d) => ({ ...d, height: e.target.value }))}
+                  className="flex-1 text-sm rounded-lg px-3 py-2 focus:outline-none"
+                  style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                />
+                <select
+                  value={labelDims.dimension_unit}
+                  onChange={(e) => setLabelDims((d) => ({ ...d, dimension_unit: e.target.value }))}
+                  className="text-sm rounded-lg px-2 py-2 focus:outline-none"
+                  style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                >
+                  <option value="in">in</option>
+                  <option value="cm">cm</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" step="0.01" min="0" placeholder="Weight"
+                  value={labelDims.weight}
+                  onChange={(e) => setLabelDims((d) => ({ ...d, weight: e.target.value }))}
+                  className="flex-1 text-sm rounded-lg px-3 py-2 focus:outline-none"
+                  style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                />
+                <select
+                  value={labelDims.weight_unit}
+                  onChange={(e) => setLabelDims((d) => ({ ...d, weight_unit: e.target.value }))}
+                  className="text-sm rounded-lg px-2 py-2 focus:outline-none"
+                  style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                >
+                  <option value="lb">lb</option>
+                  <option value="oz">oz</option>
+                  <option value="g">g</option>
+                  <option value="kg">kg</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 mt-6">
+              <button
+                onClick={() => { setShowLabelModal(false); setLabelError(null); }}
+                className="text-xs px-4 py-2 rounded-lg font-medium"
+                style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateLabel}
+                disabled={labelLoading}
+                className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
+                style={{ backgroundColor: '#0ea5e9' }}
+              >
+                {labelLoading ? 'Creating...' : <><Tag size={12} /> Generate Label</>}
               </button>
             </div>
           </div>

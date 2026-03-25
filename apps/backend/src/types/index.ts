@@ -79,6 +79,10 @@ export interface ReturnRequest {
   approved_no_return: boolean;
   decided_by: string | null;
   decided_at: string | null;
+  return_label_url: string | null;
+  return_tracking_number: string | null;
+  return_carrier: string | null;
+  return_shipping_cost: number | null;
   created_at: string;
   updated_at: string;
   metadata: Record<string, unknown> | null;

@@ -15,6 +15,7 @@ import { processRefund } from '../services/refund.service.js';
 import * as returnSettingsService from '../services/return-settings.service.js';
 import * as returnEmailTemplateService from '../services/return-email-template.service.js';
 import { supabase } from '../config/supabase.js';
+import * as shippoService from '../services/shippo.service.js';
 
 export const returnRouter = Router();
 
@@ -642,6 +643,126 @@ returnRouter.get('/portal-config', async (req, res) => {
   }
 });
 
+// ── POST /:id/create-label — Create a return shipping label ──────────────
+returnRouter.post('/:id/create-label', async (req, res) => {
+  try {
+    const returnRequest = await returnService.getReturnRequest(req.params.id);
+    if (!returnRequest) {
+      res.status(404).json({ error: 'Return request not found' });
+      return;
+    }
+
+    if (returnRequest.status !== 'approved' && returnRequest.status !== 'partially_approved') {
+      res.status(400).json({ error: 'Return must be approved before creating a label' });
+      return;
+    }
+
+    const brandId = await resolveBrandId(req);
+
+    const { customer_address, package_dimensions } = req.body as {
+      customer_address: {
+        name: string;
+        street1: string;
+        street2?: string;
+        city: string;
+        state: string;
+        zip: string;
+        country: string;
+      };
+      package_dimensions?: {
+        length: number;
+        width: number;
+        height: number;
+        weight: number;
+        weight_unit?: string;
+        dimension_unit?: string;
+      };
+    };
+
+    if (!customer_address?.name || !customer_address?.street1 || !customer_address?.city ||
+        !customer_address?.state || !customer_address?.zip || !customer_address?.country) {
+      res.status(400).json({ error: 'customer_address with name, street1, city, state, zip, country is required' });
+      return;
+    }
+
+    // Resolve package dimensions: use provided, else look up preset by first item's SKU
+    let dims = package_dimensions ?? null;
+
+    if (!dims) {
+      const items = returnRequest.items ?? [];
+      for (const item of items) {
+        // Try to find a preset by matching product_title or sku stored in line item
+        // The line_item_id or variant_title may contain the SKU — try product_title as fallback key
+        const skuCandidate = item.variant_title ?? item.product_title;
+        if (skuCandidate) {
+          const preset = await shippoService.getPresetDimensions(skuCandidate, brandId);
+          if (preset) {
+            dims = preset;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!dims) {
+      res.status(400).json({
+        error: 'No package dimensions provided and no preset found for this SKU. Please provide package_dimensions.',
+      });
+      return;
+    }
+
+    const result = await shippoService.createReturnLabel({
+      customerName: customer_address.name,
+      customerStreet1: customer_address.street1,
+      customerStreet2: customer_address.street2,
+      customerCity: customer_address.city,
+      customerState: customer_address.state,
+      customerZip: customer_address.zip,
+      customerCountry: customer_address.country,
+      customerEmail: returnRequest.customer_email,
+      length: dims.length,
+      width: dims.width,
+      height: dims.height,
+      weight: dims.weight,
+      weightUnit: dims.weight_unit ?? 'lb',
+      dimensionUnit: dims.dimension_unit ?? 'in',
+    });
+
+    if (!result.success) {
+      res.status(502).json({ error: result.error ?? 'Failed to create shipping label' });
+      return;
+    }
+
+    // Store label info on the return request
+    const { error: updateError } = await supabase
+      .from('return_requests')
+      .update({
+        return_label_url: result.labelUrl,
+        return_tracking_number: result.trackingNumber,
+        return_carrier: result.carrier,
+        return_shipping_cost: result.rate ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', req.params.id);
+
+    if (updateError) {
+      console.error('[return.controller] Failed to store label info:', updateError.message);
+    }
+
+    res.json({
+      labelUrl: result.labelUrl,
+      trackingNumber: result.trackingNumber,
+      trackingUrl: result.trackingUrl,
+      carrier: result.carrier,
+      rate: result.rate,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] POST /:id/create-label error:', message);
+    res.status(500).json({ error: 'Failed to create return label' });
+  }
+});
+
 // ── POST /:id/approve — Approve Return (with shipping expected) ──────────
 returnRouter.post('/:id/approve', async (req, res) => {
   try {
@@ -855,6 +976,96 @@ returnRouter.get('/:id', async (req, res) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[return.controller] GET /:id error:', message);
     res.status(500).json({ error: 'Failed to get return request' });
+  }
+});
+
+// ── GET /label-presets — List all label presets for the brand ────────────
+returnRouter.get('/label-presets', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { data, error } = await supabase
+      .from('label_presets')
+      .select('*')
+      .eq('brand_id', brandId)
+      .order('sku', { ascending: true });
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json({ presets: data ?? [] });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] GET /label-presets error:', message);
+    res.status(500).json({ error: 'Failed to list label presets' });
+  }
+});
+
+// ── POST /label-presets — Create or update a label preset ────────────────
+returnRouter.post('/label-presets', async (req, res) => {
+  try {
+    const { sku, product_title, length, width, height, weight, weight_unit, dimension_unit } = req.body;
+
+    if (!sku || length == null || width == null || height == null || weight == null) {
+      res.status(400).json({ error: 'sku, length, width, height, and weight are required' });
+      return;
+    }
+
+    const brandId = await resolveBrandId(req);
+
+    const { data, error } = await supabase
+      .from('label_presets')
+      .upsert(
+        {
+          brand_id: brandId,
+          sku,
+          product_title: product_title ?? null,
+          length,
+          width,
+          height,
+          weight,
+          weight_unit: weight_unit ?? 'lb',
+          dimension_unit: dimension_unit ?? 'in',
+        },
+        { onConflict: 'brand_id,sku' }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.status(201).json({ preset: data });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] POST /label-presets error:', message);
+    res.status(500).json({ error: 'Failed to create label preset' });
+  }
+});
+
+// ── DELETE /label-presets/:sku — Delete a preset ─────────────────────────
+returnRouter.delete('/label-presets/:sku', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { error } = await supabase
+      .from('label_presets')
+      .delete()
+      .eq('brand_id', brandId)
+      .eq('sku', req.params.sku);
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] DELETE /label-presets/:sku error:', message);
+    res.status(500).json({ error: 'Failed to delete label preset' });
   }
 });
 

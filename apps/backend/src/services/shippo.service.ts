@@ -1,0 +1,283 @@
+import { supabase } from '../config/supabase.js';
+
+const SHIPPO_API = 'https://api.goshippo.com';
+
+const RETURN_ADDRESS = {
+  name: 'Outlight Returns',
+  company: 'Red Stag Fulfillment',
+  street1: '6503 W Belvil Hwy',
+  city: 'Sweetwater',
+  state: 'TN',
+  zip: '37874',
+  country: 'US',
+  phone: '',
+  email: 'returns@outlight.us',
+};
+
+function shippoHeaders(): Record<string, string> {
+  const apiKey = process.env.SHIPPO_API_KEY;
+  if (!apiKey) throw new Error('Missing SHIPPO_API_KEY environment variable');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `ShippoToken ${apiKey}`,
+  };
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────
+
+export interface CreateReturnLabelParams {
+  customerName: string;
+  customerStreet1: string;
+  customerStreet2?: string;
+  customerCity: string;
+  customerState: string;
+  customerZip: string;
+  customerCountry: string;
+  customerEmail?: string;
+  length: number;
+  width: number;
+  height: number;
+  weight: number;
+  weightUnit?: string;
+  dimensionUnit?: string;
+}
+
+export interface CreateReturnLabelResult {
+  success: boolean;
+  labelUrl?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  carrier?: string;
+  rate?: number;
+  error?: string;
+}
+
+export interface PackageDimensions {
+  length: number;
+  width: number;
+  height: number;
+  weight: number;
+  weight_unit?: string;
+  dimension_unit?: string;
+}
+
+export interface AddressValidationResult {
+  valid: boolean;
+  messages: string[];
+}
+
+// ── createReturnLabel ─────────────────────────────────────────────────────
+
+export async function createReturnLabel(
+  params: CreateReturnLabelParams
+): Promise<CreateReturnLabelResult> {
+  const {
+    customerName,
+    customerStreet1,
+    customerStreet2,
+    customerCity,
+    customerState,
+    customerZip,
+    customerCountry,
+    customerEmail,
+    length,
+    width,
+    height,
+    weight,
+    weightUnit = 'lb',
+    dimensionUnit = 'in',
+  } = params;
+
+  try {
+    // 1. Create shipment — address_from is the customer (sender for a return)
+    const shipmentPayload = {
+      address_from: {
+        name: customerName,
+        street1: customerStreet1,
+        street2: customerStreet2 ?? '',
+        city: customerCity,
+        state: customerState,
+        zip: customerZip,
+        country: customerCountry,
+        email: customerEmail ?? '',
+      },
+      address_to: RETURN_ADDRESS,
+      parcels: [
+        {
+          length: String(length),
+          width: String(width),
+          height: String(height),
+          distance_unit: dimensionUnit,
+          weight: String(weight),
+          mass_unit: weightUnit,
+        },
+      ],
+      async: false,
+    };
+
+    const shipmentRes = await fetch(`${SHIPPO_API}/shipments`, {
+      method: 'POST',
+      headers: shippoHeaders(),
+      body: JSON.stringify(shipmentPayload),
+    });
+
+    if (!shipmentRes.ok) {
+      const text = await shipmentRes.text();
+      console.error('[shippo.service] Shipment creation failed:', text);
+      return { success: false, error: `Shipment creation failed: ${shipmentRes.status}` };
+    }
+
+    const shipment = await shipmentRes.json() as {
+      object_id: string;
+      rates: Array<{
+        object_id: string;
+        provider: string;
+        servicelevel: { name: string; token: string };
+        amount: string;
+        currency: string;
+        estimated_days: number | null;
+      }>;
+    };
+
+    const rates = shipment.rates ?? [];
+
+    if (rates.length === 0) {
+      return { success: false, error: 'No shipping rates available for this address/package combination' };
+    }
+
+    // 2. Pick rate: prefer FedEx Ground, otherwise pick cheapest
+    const fedexGround = rates.find(
+      (r) =>
+        r.provider.toLowerCase().includes('fedex') &&
+        r.servicelevel.token.toLowerCase().includes('ground')
+    );
+
+    const cheapest = rates.reduce((best, r) =>
+      parseFloat(r.amount) < parseFloat(best.amount) ? r : best
+    );
+
+    const selectedRate = fedexGround ?? cheapest;
+
+    // 3. Purchase label (create transaction)
+    const txRes = await fetch(`${SHIPPO_API}/transactions`, {
+      method: 'POST',
+      headers: shippoHeaders(),
+      body: JSON.stringify({
+        rate: selectedRate.object_id,
+        label_file_type: 'PDF',
+        async: false,
+      }),
+    });
+
+    if (!txRes.ok) {
+      const text = await txRes.text();
+      console.error('[shippo.service] Transaction creation failed:', text);
+      return { success: false, error: `Label purchase failed: ${txRes.status}` };
+    }
+
+    const tx = await txRes.json() as {
+      status: string;
+      label_url: string;
+      tracking_number: string;
+      tracking_url_provider: string;
+      messages?: Array<{ text: string }>;
+    };
+
+    if (tx.status !== 'SUCCESS') {
+      const msgs = (tx.messages ?? []).map((m) => m.text).join('; ');
+      console.error('[shippo.service] Transaction not successful:', tx.status, msgs);
+      return { success: false, error: `Label creation failed: ${msgs || tx.status}` };
+    }
+
+    console.log(`[shippo.service] Label created — tracking: ${tx.tracking_number}, carrier: ${selectedRate.provider}`);
+
+    return {
+      success: true,
+      labelUrl: tx.label_url,
+      trackingNumber: tx.tracking_number,
+      trackingUrl: tx.tracking_url_provider,
+      carrier: `${selectedRate.provider} ${selectedRate.servicelevel.name}`,
+      rate: parseFloat(selectedRate.amount),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[shippo.service] createReturnLabel error:', message);
+    return { success: false, error: message };
+  }
+}
+
+// ── getPresetDimensions ───────────────────────────────────────────────────
+
+export async function getPresetDimensions(
+  sku: string,
+  brandId: string
+): Promise<PackageDimensions | null> {
+  try {
+    const { data, error } = await supabase
+      .from('label_presets')
+      .select('length, width, height, weight, weight_unit, dimension_unit')
+      .eq('brand_id', brandId)
+      .eq('sku', sku)
+      .single();
+
+    if (error || !data) return null;
+
+    return {
+      length: Number(data.length),
+      width: Number(data.width),
+      height: Number(data.height),
+      weight: Number(data.weight),
+      weight_unit: data.weight_unit ?? 'lb',
+      dimension_unit: data.dimension_unit ?? 'in',
+    };
+  } catch (err) {
+    console.error('[shippo.service] getPresetDimensions error:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ── validateAddress ───────────────────────────────────────────────────────
+
+export async function validateAddress(address: {
+  name: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+}): Promise<AddressValidationResult> {
+  try {
+    const res = await fetch(`${SHIPPO_API}/addresses`, {
+      method: 'POST',
+      headers: shippoHeaders(),
+      body: JSON.stringify({
+        ...address,
+        validate: true,
+      }),
+    });
+
+    if (!res.ok) {
+      return { valid: false, messages: [`Address API error: ${res.status}`] };
+    }
+
+    const data = await res.json() as {
+      validation_results?: {
+        is_valid: boolean;
+        messages?: Array<{ code: string; source: string; text: string; type: string }>;
+      };
+    };
+
+    const vr = data.validation_results;
+    if (!vr) return { valid: true, messages: [] };
+
+    return {
+      valid: vr.is_valid,
+      messages: (vr.messages ?? []).map((m) => m.text),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[shippo.service] validateAddress error:', message);
+    return { valid: false, messages: [message] };
+  }
+}
