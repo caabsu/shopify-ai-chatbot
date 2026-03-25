@@ -499,6 +499,34 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         <div class="srp-summary-card__label">Return Summary</div>
         ${itemsHtml}
       </div>
+      ${(() => {
+        const dimsItem = items.find(i => i.packageDimensions && (i.packageDimensions.length || i.packageDimensions.weight));
+        if (!dimsItem || !dimsItem.packageDimensions) return '';
+        const d = dimsItem.packageDimensions;
+        return `
+        <div style="border:1px solid rgba(19,19,20,0.06);padding:14px 18px;margin-bottom:16px;">
+          <div style="font-size:0.65rem;font-weight:600;text-transform:uppercase;letter-spacing:0.2em;color:var(--srp-gold,#C5A059);margin-bottom:10px;">Package Dimensions</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center;">
+            <div style="background:var(--srp-surface,#F9F9FB);padding:8px 4px;">
+              <div style="font-size:0.55rem;text-transform:uppercase;letter-spacing:0.08em;color:rgba(45,51,56,0.4);">Length</div>
+              <div style="font-size:0.9rem;font-weight:500;color:var(--srp-ink,#131314);margin-top:2px;">${d.length}"</div>
+            </div>
+            <div style="background:var(--srp-surface,#F9F9FB);padding:8px 4px;">
+              <div style="font-size:0.55rem;text-transform:uppercase;letter-spacing:0.08em;color:rgba(45,51,56,0.4);">Width</div>
+              <div style="font-size:0.9rem;font-weight:500;color:var(--srp-ink,#131314);margin-top:2px;">${d.width}"</div>
+            </div>
+            <div style="background:var(--srp-surface,#F9F9FB);padding:8px 4px;">
+              <div style="font-size:0.55rem;text-transform:uppercase;letter-spacing:0.08em;color:rgba(45,51,56,0.4);">Height</div>
+              <div style="font-size:0.9rem;font-weight:500;color:var(--srp-ink,#131314);margin-top:2px;">${d.height}"</div>
+            </div>
+            <div style="background:var(--srp-surface,#F9F9FB);padding:8px 4px;">
+              <div style="font-size:0.55rem;text-transform:uppercase;letter-spacing:0.08em;color:rgba(45,51,56,0.4);">Weight</div>
+              <div style="font-size:0.9rem;font-weight:500;color:var(--srp-ink,#131314);margin-top:2px;">${d.weight} lbs</div>
+            </div>
+          </div>
+          <div style="font-size:0.62rem;color:rgba(45,51,56,0.45);margin-top:8px;">These dimensions will be used to generate your prepaid return label upon approval.</div>
+        </div>`;
+      })()}
       <div class="srp-refund-card">
         <div class="srp-refund-row">
           <span class="srp-refund-row__label">Item Total</span>
