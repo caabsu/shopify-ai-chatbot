@@ -574,7 +574,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
           </div>
           <div class="srp-success__title">${escapeHtml(successTitle)}</div>
           <div class="srp-success__subtitle">
-            ${escapeHtml(successMessage)} A prepaid shipping label has been sent to <strong>${escapeHtml(state.email)}</strong>.
+            ${escapeHtml(successMessage)} We'll review your request and send next steps to <strong>${escapeHtml(state.email)}</strong>. If approved, a prepaid return label will be included.
           </div>
           <div class="srp-success__details">
             <div class="srp-success__detail-row">
