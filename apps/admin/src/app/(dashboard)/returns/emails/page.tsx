@@ -89,7 +89,7 @@ export default function EmailTemplatesPage() {
   }
 
   // Ensure all 4 types are shown, even if not in DB yet
-  const types = ['confirmation', 'approved', 'denied', 'refunded'];
+  const types = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
 
   return (
     <div className="space-y-6">
