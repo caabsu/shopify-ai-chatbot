@@ -209,15 +209,14 @@ export async function syncRMAs(brandId: string): Promise<SyncSummary> {
       // Enrich with Shopify order data if we have an order number
       if (orderNumber) {
         try {
-          // lookupOrder requires email for verification — try with return request email first
+          // Use skipVerification=true for internal admin lookups — no email needed
           const returnReq = await findReturnRequest(orderNumber, brandId);
-          const email = returnReq?.customer_email;
-          if (email) {
-            const orderResult = await lookupOrder(orderNumber, email, undefined, brandId);
+          {
+            const orderResult = await lookupOrder(orderNumber, undefined, undefined, brandId, true);
             if (orderResult.found && orderResult.order) {
               const order = orderResult.order;
-              baseFields.customer_email = orderResult.customerEmail ?? email;
-              baseFields.customer_name = baseFields.customer_name || orderResult.order.lineItems?.[0]?.title ? (rma.sender_name as string) : null;
+              baseFields.customer_email = orderResult.customerEmail ?? returnReq?.customer_email ?? null;
+              if (!baseFields.customer_name) baseFields.customer_name = (rma.sender_name as string) ?? null;
               baseFields.shopify_order_id = order.id;
               baseFields.fulfillment_status = order.fulfillmentStatus ?? null;
               baseFields.order_total = order.lineItems.reduce(

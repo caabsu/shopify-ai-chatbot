@@ -367,7 +367,8 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         const dims = selected.packageDimensions || { length: '', width: '', height: '', weight: '' };
         const dimensionSection = showDimensions ? `
           <div class="srp-dimensions" style="margin-top:8px;padding:10px 12px;border-radius:6px;border:1px solid rgba(197,160,89,0.2);background:rgba(197,160,89,0.04);">
-            <span class="srp-upload-label" style="display:block;margin-bottom:6px;">Package Dimensions</span>
+            <span class="srp-upload-label" style="display:block;margin-bottom:2px;">Package Dimensions <span class="srp-required">*</span></span>
+            <span style="display:block;font-size:0.62rem;font-weight:300;color:rgba(45,51,56,0.5);margin-bottom:8px;">Used to generate a prepaid return label upon approval</span>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
               <div>
                 <label style="display:block;font-size:10px;color:var(--srp-text-secondary,#666);margin-bottom:2px;">Length (in)</label>

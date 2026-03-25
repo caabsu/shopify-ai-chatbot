@@ -75,9 +75,10 @@ export async function lookupOrder(
   orderNumber: string,
   email?: string,
   phone?: string,
-  brandId?: string
+  brandId?: string,
+  skipVerification?: boolean,
 ): Promise<OrderLookupResult> {
-  if (!email && !phone) {
+  if (!email && !phone && !skipVerification) {
     return { found: false, message: 'Please provide your email address or phone number to verify your identity.' };
   }
 
@@ -197,20 +198,22 @@ export async function lookupOrder(
 
   const order = orderEdge.node;
 
-  // Verify identity
-  let verified = false;
-  if (email && order.email && email.toLowerCase() === order.email.toLowerCase()) {
-    verified = true;
-  }
-  if (phone && order.phone && normalizePhone(phone) === normalizePhone(order.phone)) {
-    verified = true;
-  }
+  // Verify identity (skip for internal/admin lookups)
+  if (!skipVerification) {
+    let verified = false;
+    if (email && order.email && email.toLowerCase() === order.email.toLowerCase()) {
+      verified = true;
+    }
+    if (phone && order.phone && normalizePhone(phone) === normalizePhone(order.phone)) {
+      verified = true;
+    }
 
-  if (!verified) {
-    return {
-      found: false,
-      message: 'ORDER_EXISTS_BUT_VERIFICATION_FAILED: The order was found but the provided email or phone does not match. Ask the customer to double-check the email address they used when placing this order.',
-    };
+    if (!verified) {
+      return {
+        found: false,
+        message: 'ORDER_EXISTS_BUT_VERIFICATION_FAILED: The order was found but the provided email or phone does not match. Ask the customer to double-check the email address they used when placing this order.',
+      };
+    }
   }
 
   // Build tracking info with events
