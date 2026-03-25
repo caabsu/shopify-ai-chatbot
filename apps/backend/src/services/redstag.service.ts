@@ -122,16 +122,19 @@ export async function searchRMAs(
   fields?: string[],
   limit = 100
 ): Promise<RMARecord[]> {
-  const mergedFilters = { delivery_type: 'rma', ...filters };
+  const mergedFilters = { delivery_type: { eq: 'rma' }, ...filters };
 
   const params: unknown[] = [mergedFilters];
   if (fields) params.push(fields);
   else params.push(null);
-  params.push({ limit, page: 1 });
+  params.push(limit);
 
-  const result = await rpc('delivery.search', params);
-  if (!Array.isArray(result)) return [];
-  return result as RMARecord[];
+  const result = await rpc('delivery.search', params) as { results?: RMARecord[] } | RMARecord[];
+  if (Array.isArray(result)) return result;
+  if (result && typeof result === 'object' && 'results' in result && Array.isArray(result.results)) {
+    return result.results;
+  }
+  return [];
 }
 
 /**
@@ -155,7 +158,11 @@ export async function getProcessedRMAs(since?: Date): Promise<RMARecord[]> {
     filters.updated_at = { from: since.toISOString().slice(0, 19).replace('T', ' ') };
   }
 
-  return searchRMAs(filters, undefined, 200);
+  return searchRMAs(filters, [
+    'delivery_id', 'status', 'sender_ref_alt', 'sender_name',
+    'processed_at', 'completed_at', 'created_at', 'updated_at',
+    'merchant_ref', 'merchant_status', 'items',
+  ], 200);
 }
 
 /**
