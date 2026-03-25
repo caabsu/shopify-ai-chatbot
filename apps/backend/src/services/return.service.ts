@@ -11,15 +11,16 @@ export async function createReturnRequest(data: {
   package_dimensions?: { length: number; width: number; height: number; weight: number } | null;
   items: Array<{
     line_item_id: string;
-    fulfillment_line_item_id: string;
+    fulfillment_line_item_id?: string | null;
     product_title: string;
     variant_title?: string;
     product_image_url?: string;
     quantity: number;
-    price: number;
+    price?: number | string;
     reason: ReturnItem['reason'];
     reason_details?: string;
-    photo_urls?: string[];
+    customer_note?: string;
+    photo_urls?: string[] | null;
   }>;
 }): Promise<ReturnRequest> {
   // Insert the return request
@@ -48,14 +49,14 @@ export async function createReturnRequest(data: {
   const itemInserts = data.items.map((item) => ({
     return_request_id: returnRequest.id,
     line_item_id: item.line_item_id,
-    fulfillment_line_item_id: item.fulfillment_line_item_id,
+    fulfillment_line_item_id: item.fulfillment_line_item_id ?? null,
     product_title: item.product_title,
     variant_title: item.variant_title ?? null,
     product_image_url: item.product_image_url ?? null,
     quantity: item.quantity,
-    price: item.price,
+    price: typeof item.price === 'string' ? parseFloat(item.price) || 0 : (item.price ?? 0),
     reason: item.reason,
-    reason_details: item.reason_details ?? null,
+    reason_details: item.reason_details ?? item.customer_note ?? null,
     photo_urls: item.photo_urls ?? null,
     item_status: 'pending',
   }));

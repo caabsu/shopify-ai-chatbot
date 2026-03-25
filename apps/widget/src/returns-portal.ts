@@ -961,17 +961,22 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       return;
     }
 
-    const items = Array.from(state.selectedItems.values()).map(si => ({
-      line_item_id: si.lineItemId,
-      product_title: si.title,
-      variant_title: si.variantTitle || null,
-      quantity: si.quantity,
-      reason: si.reason,
-      customer_note: si.notes || null,
-      photo_urls: si.photoUrls.length > 0 ? si.photoUrls : null,
-      resolution_type: si.resolutionType === 'exchange' ? 'exchange' : null,
-      exchange_variant: si.resolutionType === 'exchange' ? si.exchangeVariant || null : null,
-    }));
+    const items = Array.from(state.selectedItems.values()).map(si => {
+      const origItem = state.items.find(i => i.id === si.lineItemId);
+      const priceStr = origItem?.price?.replace(/[^0-9.]/g, '') || '0';
+      return {
+        line_item_id: si.lineItemId,
+        product_title: si.title,
+        variant_title: si.variantTitle || null,
+        quantity: si.quantity,
+        price: parseFloat(priceStr) || 0,
+        reason: si.reason,
+        reason_details: si.notes || null,
+        photo_urls: si.photoUrls.length > 0 ? si.photoUrls : null,
+        resolution_type: si.resolutionType === 'exchange' ? 'exchange' : null,
+        exchange_variant: si.resolutionType === 'exchange' ? si.exchangeVariant || null : null,
+      };
+    });
 
     // Determine overall resolution type
     const hasExchange = items.some(i => i.resolution_type === 'exchange');
