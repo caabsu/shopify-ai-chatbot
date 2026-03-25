@@ -68,6 +68,8 @@ export interface OrderLookupResult {
     shippingCity: string | null;
     shippingCountry: string | null;
     createdAt: string;
+    totalPrice: string | null;
+    totalRefunded: number;
   };
 }
 
@@ -139,6 +141,18 @@ export async function lookupOrder(
               city
               country
             }
+            totalPriceSet {
+              shopMoney {
+                amount
+              }
+            }
+            refunds(first: 10) {
+              totalRefundedSet {
+                shopMoney {
+                  amount
+                }
+              }
+            }
           }
         }
       }
@@ -185,6 +199,8 @@ export async function lookupOrder(
             }>;
           };
           shippingAddress: { city: string; country: string } | null;
+          totalPriceSet: { shopMoney: { amount: string } } | null;
+          refunds: Array<{ totalRefundedSet: { shopMoney: { amount: string } } }>;
         };
       }>;
     };
@@ -262,6 +278,8 @@ export async function lookupOrder(
       shippingCity: order.shippingAddress?.city ?? null,
       shippingCountry: order.shippingAddress?.country ?? null,
       createdAt: order.createdAt,
+      totalPrice: order.totalPriceSet?.shopMoney?.amount ?? null,
+      totalRefunded: order.refunds?.reduce((sum, r) => sum + parseFloat(r.totalRefundedSet?.shopMoney?.amount || '0'), 0) ?? 0,
     },
   };
 }

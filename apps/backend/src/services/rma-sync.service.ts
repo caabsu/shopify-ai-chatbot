@@ -232,12 +232,17 @@ export async function syncRMAs(brandId: string): Promise<SyncSummary> {
                 .map((li) => `${li.title} (x${li.quantity})`)
                 .join(', ');
 
-              // Check if Shopify already shows this order as refunded
+              // Check Shopify financial status and actual refund amounts
               const financialStatus = order.financialStatus?.toUpperCase() || '';
-              if (financialStatus.includes('REFUND') || financialStatus.includes('PARTIALLY_REFUNDED')) {
-                baseFields.shopify_refund_status = financialStatus;
+              baseFields.shopify_refund_status = financialStatus;
+
+              if (order.totalRefunded > 0) {
+                baseFields.refund_amount = order.totalRefunded;
                 baseFields.refund_processed = true;
-                baseFields.refund_processed_at = new Date().toISOString();
+                baseFields.refund_processed_at = baseFields.rma_completed_at || new Date().toISOString();
+              } else if (financialStatus === 'REFUNDED' || financialStatus === 'PARTIALLY_REFUNDED') {
+                baseFields.refund_processed = true;
+                baseFields.refund_processed_at = baseFields.rma_completed_at || new Date().toISOString();
               }
             }
           }
