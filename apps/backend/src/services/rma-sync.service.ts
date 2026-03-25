@@ -56,7 +56,7 @@ async function upsertSyncLog(
         updated_at: new Date().toISOString(),
         ...fields,
       },
-      { onConflict: 'delivery_id,brand_id' }
+      { onConflict: 'delivery_id' }
     )
     .select()
     .single();
