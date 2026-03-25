@@ -904,11 +904,11 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                   )}
                 </div>
               )}
-              {(data as Record<string, unknown>).shipping_rates && Array.isArray((data as Record<string, unknown>).shipping_rates) && ((data as Record<string, unknown>).shipping_rates as Array<Record<string, unknown>>).length > 1 && (
+              {data.shipping_rates && data.shipping_rates.length > 1 && (
                 <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-secondary)' }}>
                   <div className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>All Rates</div>
                   <div className="space-y-1.5">
-                    {((data as Record<string, unknown>).shipping_rates as Array<{ carrier: string; service: string; amount: number; warehouse: string; estimatedDays: number | null }>).slice(0, 8).map((rate, i) => (
+                    {data.shipping_rates.slice(0, 8).map((rate: { carrier: string; service: string; amount: number; warehouse: string; estimatedDays: number | null }, i: number) => (
                       <div key={i} className="flex justify-between text-[11px]" style={{ color: i === 0 ? 'var(--color-accent)' : 'var(--text-secondary)' }}>
                         <span>{rate.carrier}{rate.service ? ` ${rate.service}` : ''}</span>
                         <span className="font-medium">${rate.amount.toFixed(2)}{rate.estimatedDays ? ` · ${rate.estimatedDays}d` : ''}</span>
