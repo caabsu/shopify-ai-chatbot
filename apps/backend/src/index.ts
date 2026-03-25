@@ -11,6 +11,7 @@ import { returnRouter } from './controllers/return.controller.js';
 import { tradeRouter } from './controllers/trade.controller.js';
 import { reviewRouter } from './controllers/review.controller.js';
 import { trackingRouter } from './controllers/tracking.controller.js';
+import { rmaRouter } from './controllers/rma.controller.js';
 import { processScheduledEmails, processScheduledReminders, expireOldRequests } from './services/review-email.service.js';
 import { registerWebhooks as registerReviewWebhooks } from './services/product-sync.service.js';
 import { supabase } from './config/supabase.js';
@@ -1565,6 +1566,9 @@ app.use('/api/reviews', reviewRouter);
 // Tracking routes
 app.use('/api/tracking', trackingRouter);
 
+// RMA sync routes
+app.use('/api/rma', rmaRouter);
+
 // Widget config endpoint
 app.get('/api/widget/config', async (req, res) => {
   // Allow short browser caching to avoid repeated fetches on page loads
@@ -1718,6 +1722,31 @@ app.listen(config.server.port, async () => {
     }
   }, 5 * 60 * 1000);
   console.log('[server] Review email job runner started (5m interval)');
+
+  // RMA sync — poll Red Stag every 15 minutes
+  const RMA_BRAND_ID = '883e4a28-9f2e-4850-a527-29f297d8b6f8';
+  if (process.env.REDSTAG_API_ENDPOINT && process.env.REDSTAG_API_USER && process.env.REDSTAG_API_KEY) {
+    // Run once on startup after 30 seconds (let the server settle)
+    setTimeout(() => {
+      import('./services/rma-sync.service.js').then(({ syncRMAs }) => {
+        syncRMAs(RMA_BRAND_ID)
+          .catch((err: unknown) => console.error('[rma-sync] Initial sync failed:', err instanceof Error ? err.message : String(err)));
+      }).catch(() => {});
+    }, 30 * 1000);
+
+    // Then every 15 minutes
+    setInterval(() => {
+      import('./services/rma-sync.service.js').then(({ syncRMAs }) => {
+        syncRMAs(RMA_BRAND_ID)
+          .catch((err: unknown) => console.error('[rma-sync] Sync failed:', err instanceof Error ? err.message : String(err)));
+      }).catch(() => {});
+    }, 15 * 60 * 1000);
+
+    const dryRunNote = process.env.RMA_SYNC_DRY_RUN === 'true' ? ' (DRY RUN mode)' : '';
+    console.log(`[server] RMA sync started — 15m interval${dryRunNote}`);
+  } else {
+    console.log('[server] RMA sync disabled — REDSTAG_API_* env vars not set');
+  }
 });
 
 export { app };

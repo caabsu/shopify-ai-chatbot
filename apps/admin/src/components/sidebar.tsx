@@ -28,6 +28,7 @@ import {
   Users,
   Star,
   Upload,
+  Truck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -80,6 +81,7 @@ const navGroups: NavGroup[] = [
       { href: '/returns/emails', label: 'Email Templates', icon: Mail },
       { href: '/returns/design', label: 'Portal Design', icon: Palette },
       { href: '/returns/rules', label: 'Return Rules', icon: SlidersHorizontal },
+      { href: '/returns/rma', label: 'RMA Sync', icon: Truck },
       { href: '/returns/settings', label: 'Settings', icon: Settings },
     ],
   },
