@@ -272,12 +272,19 @@ ${brand} Team`;
       const tpl = await getTemplate(brandId, 'approved');
       if (tpl) {
         if (!tpl.enabled) return { skipped: true };
+        const labelHtml = hasLabel
+          ? `<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;"><p style="margin:0 0 8px;font-weight:500;color:#131314;">Prepaid Return Label</p><p style="margin:0 0 8px;font-size:14px;color:#2d3338;">A prepaid shipping label has been created for your return.</p><a href="${escapeHtml(labelUrl || '')}" style="display:inline-block;padding:10px 24px;background:#C5A059;color:#131314;text-decoration:none;font-size:13px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Download Label</a>${trackingNumber ? `<p style="margin:12px 0 0;font-size:12px;color:#71757a;">Tracking: ${escapeHtml(trackingNumber)}</p>` : ''}</div>`
+          : '<p style="color:#71757a;font-size:13px;">A prepaid return label will be provided separately if applicable.</p>';
         const vars: Record<string, string> = {
           greeting: firstName ? `Hi ${firstName},` : 'Hi,',
           ref_id: refId,
           order_number: orderNumber,
           items,
           brand_name: brand,
+          label_section: labelHtml,
+          label_url: labelUrl || '',
+          tracking_number: trackingNumber || '',
+          refund_amount_section: '',
         };
         emailSubject = renderTemplate(tpl.subject, vars);
         htmlBody = renderTemplate(tpl.body_html, vars);

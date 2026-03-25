@@ -56,25 +56,21 @@ const DEFAULT_TEMPLATES: Record<TemplateType, { subject: string; body_html: stri
     subject: 'Your return has been approved \u2014 #{{ref_id}}',
     body_html: emailWrapper(`
           <p style="margin:0 0 16px;">{{greeting}}</p>
-          <p style="margin:0 0 16px;">Your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong> has been approved.</p>
-          <div style="background-color:#f4f0eb;border-radius:6px;padding:16px 20px;margin:0 0 20px;">
+          <p style="margin:0 0 16px;">Great news! Your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong> has been approved.</p>
+          <div style="background-color:#f4f0eb;padding:16px 20px;margin:0 0 20px;">
             <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Items approved for return</p>
             <p style="margin:0;font-size:14px;color:#131314;">{{items}}</p>
-            {{refund_amount_section}}
           </div>
+          {{label_section}}
           <p style="margin:0 0 12px;font-weight:600;color:#131314;">Next steps:</p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
             <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">1.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Pack item(s) securely in their original packaging if possible.</td></tr>
             <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">2.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Include your reference number <strong>#{{ref_id}}</strong> inside the package.</td></tr>
-            <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">3.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Ship to our fulfillment center:</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">3.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Attach the prepaid label and drop off at any carrier location.</td></tr>
           </table>
-          <div style="background-color:#f4f0eb;border-radius:6px;padding:16px 20px;margin:0 0 20px;">
-            <p style="margin:0;font-size:14px;color:#131314;font-weight:600;">Return Address</p>
-            <p style="margin:4px 0 0;font-size:13px;color:#555;">Red Stag Fulfillment<br>6503 W Belvil Hwy<br>Sweetwater, TN 37874</p>
-          </div>
           <p style="margin:0;font-size:13px;color:#888;">Your refund will be processed within 5-7 business days of receiving your return.</p>
     `),
-    body_text: `{{greeting}}\n\nYour return request #{{ref_id}} for order {{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Include your reference number #{{ref_id}} inside the package.\n3. Ship to our fulfillment center:\n\nReturn Address:\nRed Stag Fulfillment\n6503 W Belvil Hwy\nSweetwater, TN 37874\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\nOutlight Team`,
+    body_text: `{{greeting}}\n\nGreat news! Your return request #{{ref_id}} for order {{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\nA prepaid return label is included with this email. Download it here: {{label_url}}\nTracking: {{tracking_number}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Include your reference number #{{ref_id}} inside the package.\n3. Attach the prepaid label and drop off at any carrier location.\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\nOutlight Team`,
   },
 
   approved_no_return: {
