@@ -532,7 +532,7 @@ export async function checkReturnEligibility(orderId: string, brandId?: string):
     const item = e.node;
 
     if (order.displayFulfillmentStatus === 'UNFULFILLED') {
-      return { lineItemId: item.id, title: item.title, eligible: false, reason: 'Item has not been shipped yet' };
+      return { lineItemId: item.id, title: item.title, eligible: false, reason: 'Order has not been shipped yet — use the chat for cancellations' };
     }
 
     if (item.refundableQuantity <= 0) {

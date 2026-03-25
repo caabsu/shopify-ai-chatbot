@@ -925,7 +925,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
         state.error = 'No items found in this order.';
         state.step = 'lookup';
       } else if (!state.items.some(i => i.eligible)) {
-        state.error = 'None of the items in this order are eligible for return.';
+        state.error = 'This order is not yet eligible for return. If your order hasn\u0027t shipped yet, you can reach out to our support team via the chat for assistance with changes or cancellations.';
         state.step = 'lookup';
       }
 
