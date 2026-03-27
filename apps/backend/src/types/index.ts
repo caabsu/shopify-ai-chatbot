@@ -69,6 +69,7 @@ export interface ReturnRequest {
   order_number: string;
   customer_email: string;
   customer_name: string | null;
+  customer_phone: string | null;
   status: 'pending_review' | 'approved' | 'partially_approved' | 'denied' | 'shipped' | 'received' | 'refunded' | 'closed' | 'cancelled';
   shopify_return_id: string | null;
   ai_recommendation: { decision: string; confidence: number; reasoning: string; suggested_resolution?: string } | null;

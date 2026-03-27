@@ -74,7 +74,7 @@ returnRouter.post('/upload', async (req, res) => {
 // ── POST /submit — Customer Submits a Return Request ─────────────────────
 returnRouter.post('/submit', async (req, res) => {
   try {
-    const { order_id, order_number, customer_email, customer_name, items, package_dimensions } = req.body;
+    const { order_id, order_number, customer_email, customer_name, customer_phone, items, package_dimensions } = req.body;
 
     if (!order_id || !order_number || !customer_email || !items || !Array.isArray(items) || items.length === 0) {
       res.status(400).json({ error: 'order_id, order_number, customer_email, and items are required' });
@@ -91,6 +91,7 @@ returnRouter.post('/submit', async (req, res) => {
       order_number,
       customer_email,
       customer_name,
+      customer_phone,
       items,
       package_dimensions: package_dimensions || null,
     });
@@ -408,6 +409,7 @@ returnRouter.get('/lookup', async (req, res) => {
         province: orderResult.order.shippingProvince ?? null,
         zip: orderResult.order.shippingZip ?? null,
         country: orderResult.order.shippingCountry ?? null,
+        phone: orderResult.order.shippingPhone ?? null,
       },
       items: eligibleItems,
     });
@@ -735,6 +737,7 @@ returnRouter.post('/:id/create-label', async (req, res) => {
         state: string;
         zip: string;
         country: string;
+        phone?: string;
       };
       package_dimensions?: {
         length: number;
@@ -787,6 +790,7 @@ returnRouter.post('/:id/create-label', async (req, res) => {
       customerZip: customer_address.zip,
       customerCountry: customer_address.country,
       customerEmail: returnRequest.customer_email,
+      customerPhone: returnRequest.customer_phone || customer_address.phone || '',
       length: dims.length,
       width: dims.width,
       height: dims.height,
@@ -891,6 +895,8 @@ returnRouter.post('/:id/approve', async (req, res) => {
             customerState: order.shippingProvince || '',
             customerZip: order.shippingZip || '',
             customerCountry: order.shippingCountry || 'US',
+            customerEmail: updated.customer_email || orderResult.customerEmail || '',
+            customerPhone: updated.customer_phone || order.shippingPhone || '',
             length: dims.length,
             width: dims.width,
             height: dims.height,

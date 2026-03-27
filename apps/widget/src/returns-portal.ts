@@ -667,6 +667,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       });
     });
 
+
     // Select items step
     container.querySelector('#srp-back-lookup')?.addEventListener('click', () => {
       state.step = 'lookup';
@@ -939,6 +940,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       state.order = data.order;
       state.items = data.items || [];
       state.selectedItems = new Map();
+
       state.step = 'select_items';
       state.loading = false;
 

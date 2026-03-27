@@ -73,6 +73,7 @@ export interface OrderLookupResult {
     shippingProvince: string | null;
     shippingZip: string | null;
     shippingCountry: string | null;
+    shippingPhone: string | null;
     createdAt: string;
     totalPrice: string | null;
     totalRefunded: number;
@@ -156,6 +157,7 @@ export async function lookupOrder(
               province
               zip
               country
+              phone
             }
             totalPriceSet {
               shopMoney {
@@ -217,7 +219,7 @@ export async function lookupOrder(
             }>;
           };
           customer: { displayName: string } | null;
-          shippingAddress: { address1: string | null; city: string; province: string | null; zip: string | null; country: string } | null;
+          shippingAddress: { address1: string | null; city: string; province: string | null; zip: string | null; country: string; phone: string | null } | null;
           totalPriceSet: { shopMoney: { amount: string } } | null;
           refunds: Array<{ totalRefundedSet: { shopMoney: { amount: string } } }>;
         };
@@ -302,6 +304,7 @@ export async function lookupOrder(
       shippingProvince: order.shippingAddress?.province ?? null,
       shippingZip: order.shippingAddress?.zip ?? null,
       shippingCountry: order.shippingAddress?.country ?? null,
+      shippingPhone: order.shippingAddress?.phone ?? null,
       createdAt: order.createdAt,
       totalPrice: order.totalPriceSet?.shopMoney?.amount ?? null,
       totalRefunded: order.refunds?.reduce((sum, r) => sum + parseFloat(r.totalRefundedSet?.shopMoney?.amount || '0'), 0) ?? 0,

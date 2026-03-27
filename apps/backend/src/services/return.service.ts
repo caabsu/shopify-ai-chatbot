@@ -8,6 +8,7 @@ export async function createReturnRequest(data: {
   order_number: string;
   customer_email: string;
   customer_name?: string;
+  customer_phone?: string;
   package_dimensions?: { length: number; width: number; height: number; weight: number } | null;
   items: Array<{
     line_item_id: string;
@@ -32,6 +33,7 @@ export async function createReturnRequest(data: {
       order_number: data.order_number,
       customer_email: data.customer_email,
       customer_name: data.customer_name ?? null,
+      customer_phone: data.customer_phone ?? null,
       status: 'pending_review',
       package_dimensions: data.package_dimensions ?? null,
     })

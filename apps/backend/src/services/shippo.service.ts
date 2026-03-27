@@ -50,6 +50,7 @@ export interface CreateReturnLabelParams {
   customerZip: string;
   customerCountry: string;
   customerEmail?: string;
+  customerPhone?: string;
   length: number;
   width: number;
   height: number;
@@ -96,6 +97,7 @@ export async function createReturnLabel(
     customerZip,
     customerCountry,
     customerEmail,
+    customerPhone,
     length,
     width,
     height,
@@ -113,7 +115,8 @@ export async function createReturnLabel(
       state: customerState,
       zip: customerZip,
       country: customerCountry,
-      email: customerEmail ?? '',
+      email: customerEmail || 'returns@outlight.us',
+      phone: customerPhone || '8653268763',
     };
 
     const parcel = {
