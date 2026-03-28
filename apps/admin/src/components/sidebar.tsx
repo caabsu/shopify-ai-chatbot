@@ -14,7 +14,6 @@ import {
   ToggleLeft,
   BookOpen,
   Settings,
-  Headphones,
   Paintbrush,
   Palette,
   RotateCcw,
@@ -30,6 +29,7 @@ import {
   Upload,
   Truck,
   Ruler,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -56,20 +56,13 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'Support',
-    items: [
-      { href: '/tickets', label: 'Ticket Inbox', icon: Inbox },
-      { href: '/insights', label: 'Insights', icon: BarChart3 },
-    ],
-  },
-  {
-    label: 'Trade Program',
     collapsible: true,
     defaultCollapsed: false,
     items: [
-      { href: '/trade', label: 'Overview', icon: Briefcase },
-      { href: '/trade/applications', label: 'Applications', icon: FileText },
-      { href: '/trade/members', label: 'Members', icon: Users },
-      { href: '/trade/settings', label: 'Settings', icon: Settings },
+      { href: '/tickets', label: 'Ticket Inbox', icon: Inbox },
+      { href: '/chatbot/conversations', label: 'AI Conversations', icon: MessageSquare },
+      { href: '/knowledge', label: 'Knowledge Base', icon: BookOpen },
+      { href: '/insights', label: 'Insights', icon: BarChart3 },
     ],
   },
   {
@@ -77,27 +70,12 @@ const navGroups: NavGroup[] = [
     collapsible: true,
     defaultCollapsed: false,
     items: [
-      { href: '/returns', label: 'Return Requests', icon: Package },
-      { href: '/returns/playground', label: 'Playground', icon: TestTube },
-      { href: '/returns/emails', label: 'Email Templates', icon: Mail },
-      { href: '/returns/design', label: 'Portal Design', icon: Palette },
-      { href: '/returns/rules', label: 'Return Rules', icon: SlidersHorizontal },
-      { href: '/returns/label-presets', label: 'Label Presets', icon: Ruler },
+      { href: '/returns', label: 'Requests', icon: Package },
       { href: '/returns/rma', label: 'RMA Sync', icon: Truck },
-      { href: '/returns/label-stats', label: 'Label Stats', icon: BarChart3 },
+      { href: '/returns/rules', label: 'Rules', icon: SlidersHorizontal },
+      { href: '/returns/label-presets', label: 'Label Presets', icon: Ruler },
       { href: '/returns/analytics', label: 'Analytics', icon: BarChart3 },
       { href: '/returns/settings', label: 'Settings', icon: Settings },
-    ],
-  },
-  {
-    label: 'Order Tracking',
-    collapsible: true,
-    defaultCollapsed: false,
-    items: [
-      { href: '/tracking/insights', label: 'Insights', icon: BarChart3 },
-      { href: '/tracking/playground', label: 'Playground', icon: TestTube },
-      { href: '/tracking/design', label: 'Widget Design', icon: Palette },
-      { href: '/tracking/settings', label: 'Settings', icon: Settings },
     ],
   },
   {
@@ -107,32 +85,56 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/reviews', label: 'All Reviews', icon: Star },
       { href: '/reviews/products', label: 'Products', icon: Package },
-      { href: '/reviews/playground', label: 'Playground', icon: TestTube },
-      { href: '/reviews/emails', label: 'Email Templates', icon: Mail },
-      { href: '/reviews/design', label: 'Widget Design', icon: Palette },
       { href: '/reviews/analytics', label: 'Analytics', icon: BarChart3 },
       { href: '/reviews/import', label: 'Import', icon: Upload },
       { href: '/reviews/settings', label: 'Settings', icon: Settings },
     ],
   },
   {
-    label: 'AI Chatbot',
+    label: 'Order Tracking',
     collapsible: true,
     defaultCollapsed: true,
     items: [
-      { href: '/chatbot/conversations', label: 'Conversations', icon: MessageSquare },
-      { href: '/chatbot/playground', label: 'Playground', icon: TestTube },
-      { href: '/chatbot/ai-config', label: 'AI Config', icon: Brain },
-      { href: '/chatbot/capabilities', label: 'Capabilities', icon: Zap },
-      { href: '/chatbot/features', label: 'Features', icon: ToggleLeft },
-      { href: '/chatbot/design', label: 'Widget Design', icon: Palette },
-      { href: '/chatbot/design-agent', label: 'Design Agent', icon: Paintbrush },
+      { href: '/tracking/insights', label: 'Insights', icon: Search },
+      { href: '/tracking/settings', label: 'Settings', icon: Settings },
     ],
   },
   {
-    label: 'Manage',
+    label: 'Trade Program',
+    collapsible: true,
+    defaultCollapsed: true,
     items: [
-      { href: '/knowledge', label: 'Knowledge Base', icon: BookOpen },
+      { href: '/trade', label: 'Overview', icon: Briefcase },
+      { href: '/trade/applications', label: 'Applications', icon: FileText },
+      { href: '/trade/members', label: 'Members', icon: Users },
+      { href: '/trade/settings', label: 'Settings', icon: Settings },
+    ],
+  },
+  {
+    label: 'Customize',
+    collapsible: true,
+    defaultCollapsed: true,
+    items: [
+      { href: '/chatbot/playground', label: 'Chat Playground', icon: TestTube },
+      { href: '/chatbot/design', label: 'Chat Widget', icon: Palette },
+      { href: '/chatbot/ai-config', label: 'AI Config', icon: Brain },
+      { href: '/chatbot/capabilities', label: 'AI Capabilities', icon: Zap },
+      { href: '/chatbot/features', label: 'AI Features', icon: ToggleLeft },
+      { href: '/chatbot/design-agent', label: 'Design Agent', icon: Paintbrush },
+      { href: '/returns/playground', label: 'Returns Portal', icon: TestTube },
+      { href: '/returns/design', label: 'Returns Design', icon: Palette },
+      { href: '/returns/emails', label: 'Return Emails', icon: Mail },
+      { href: '/returns/label-stats', label: 'Label Stats', icon: BarChart3 },
+      { href: '/reviews/playground', label: 'Review Widget', icon: TestTube },
+      { href: '/reviews/design', label: 'Review Design', icon: Palette },
+      { href: '/reviews/emails', label: 'Review Emails', icon: Mail },
+      { href: '/tracking/playground', label: 'Tracking Widget', icon: TestTube },
+      { href: '/tracking/design', label: 'Tracking Design', icon: Palette },
+    ],
+  },
+  {
+    label: 'Settings',
+    items: [
       { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -192,23 +194,23 @@ export function Sidebar() {
         style={{ borderBottom: '1px solid var(--border-primary)' }}
       >
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white"
           style={{ backgroundColor: 'var(--color-accent)' }}
         >
-          <Headphones size={16} className="text-white" />
+          O
         </div>
         <div>
           <h1 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Support Hub
+            Outlight
           </h1>
-          <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-            Admin Dashboard
+          <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+            Support Hub
           </p>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-3 px-2 overflow-y-auto space-y-5">
+      <nav className="flex-1 py-3 px-2 overflow-y-auto space-y-4">
         {navGroups.map((group) => {
           const isCollapsed = group.collapsible && collapsed[group.label];
           const hasActiveChild = group.items.some(
@@ -220,7 +222,7 @@ export function Sidebar() {
               {group.collapsible ? (
                 <button
                   onClick={() => toggleGroup(group.label)}
-                  className="w-full flex items-center justify-between px-3 mb-1.5 group"
+                  className="w-full flex items-center justify-between px-3 mb-1 group"
                   style={{ background: 'none', border: 'none', padding: '0 12px' }}
                 >
                   <p
@@ -245,7 +247,7 @@ export function Sidebar() {
                 </button>
               ) : (
                 <p
-                  className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider"
+                  className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider"
                   style={{
                     color: hasActiveChild ? 'var(--color-accent)' : 'var(--text-tertiary)',
                   }}
@@ -272,7 +274,7 @@ export function Sidebar() {
                         key={item.href}
                         href={item.href}
                         className={cn(
-                          'flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors'
+                          'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] transition-colors'
                         )}
                         style={{
                           backgroundColor: active ? 'color-mix(in srgb, var(--color-accent) 12%, transparent)' : 'transparent',
@@ -292,7 +294,7 @@ export function Sidebar() {
                           }
                         }}
                       >
-                        <item.icon size={16} strokeWidth={active ? 2 : 1.5} />
+                        <item.icon size={15} strokeWidth={active ? 2 : 1.5} />
                         <span className="flex-1">{item.label}</span>
                         {showBadge && (
                           <span
@@ -320,7 +322,7 @@ export function Sidebar() {
           color: 'var(--text-tertiary)',
         }}
       >
-        Support Hub v1.0
+        Outlight Support Hub v2.0
       </div>
     </aside>
   );
