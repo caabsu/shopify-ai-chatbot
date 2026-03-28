@@ -168,7 +168,17 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     fetch(`/api/tickets/${id}/customer`)
       .then((r) => r.json())
       .then((res) => {
-        if (res.profile) setCustomerProfile(res.profile);
+        if (res.profile) {
+          setCustomerProfile(res.profile);
+          // Auto-update ticket customer_name in local state from Shopify
+          const shopifyName = `${res.profile.firstName || ''} ${res.profile.lastName || ''}`.trim();
+          if (shopifyName && (!data.ticket.customer_name || data.ticket.customer_name === 'Unknown')) {
+            setData((prev) => prev ? {
+              ...prev,
+              ticket: { ...prev.ticket, customer_name: shopifyName },
+            } : prev);
+          }
+        }
         if (res.orders) setCustomerOrders(res.orders);
       })
       .catch(() => {})
@@ -897,13 +907,13 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                     color: 'var(--color-accent)',
                   }}
                 >
-                  {(ticket.customer_name || ticket.customer_email || '?').charAt(0).toUpperCase()}
+                  {(customerProfile?.firstName || ticket.customer_name || ticket.customer_email || '?').charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                     {customerProfile
-                      ? `${customerProfile.firstName || ''} ${customerProfile.lastName || ''}`.trim() || ticket.customer_name || 'Unknown'
-                      : ticket.customer_name || 'Unknown'
+                      ? `${customerProfile.firstName || ''} ${customerProfile.lastName || ''}`.trim() || ticket.customer_name || ticket.customer_email || 'Unknown'
+                      : ticket.customer_name || ticket.customer_email || 'Unknown'
                     }
                   </p>
                   <div className="flex items-center gap-1.5">
