@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+import { getCustomerByEmail, getCustomerOrders } from '@/lib/shopify';
 
 export async function GET(
   req: NextRequest,
@@ -13,7 +12,6 @@ export async function GET(
 
   const { id } = await params;
 
-  // Verify ticket belongs to brand
   const { data: ticket } = await supabase
     .from('tickets')
     .select('id, customer_email')
@@ -30,20 +28,13 @@ export async function GET(
   }
 
   try {
-    const res = await fetch(`${BACKEND_URL}/api/tickets/${id}/customer`, {
-      headers: {
-        'Authorization': `Bearer ${req.cookies.get('admin_token')?.value || ''}`,
-      },
-    });
+    const [profile, orders] = await Promise.all([
+      getCustomerByEmail(ticket.customer_email).catch(() => null),
+      getCustomerOrders(ticket.customer_email, 5).catch(() => []),
+    ]);
 
-    if (res.ok) {
-      const data = await res.json();
-      return NextResponse.json(data);
-    }
+    return NextResponse.json({ profile, orders });
   } catch {
-    // Backend proxy failed
+    return NextResponse.json({ profile: null, orders: [] });
   }
-
-  // Fallback: return minimal data from ticket
-  return NextResponse.json({ profile: null, orders: [] });
 }
