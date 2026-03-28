@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Mail, Check, X, FileText, ThumbsUp, ThumbsDown, DollarSign, Gift } from 'lucide-react';
+import {
+  Mail, Check, X, FileText, ThumbsUp, ThumbsDown, DollarSign, Gift,
+  Send, BarChart3, ArrowRight,
+} from 'lucide-react';
 
 interface EmailTemplate {
   id: string;
@@ -12,6 +15,12 @@ interface EmailTemplate {
   body_html: string;
   body_text: string;
   updated_at: string;
+}
+
+interface ReturnEmailStats {
+  totalRequests: number;
+  emailsEstimate: number;
+  byType: { confirmation: number; approved: number; denied: number; refunded: number };
 }
 
 const TEMPLATE_INFO: Record<string, { label: string; icon: typeof Mail; description: string; color: string; bg: string }> = {
@@ -54,13 +63,18 @@ const TEMPLATE_INFO: Record<string, { label: string; icon: typeof Mail; descript
 
 export default function EmailTemplatesPage() {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [stats, setStats] = useState<ReturnEmailStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/returns/emails')
-      .then((r) => r.json())
-      .then((data) => setTemplates(data.templates ?? []))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch('/api/returns/emails').then((r) => r.json()).catch(() => ({ templates: [] })),
+      fetch('/api/emails/stats').then((r) => r.json()).catch(() => null),
+    ]).then(([emailData, statsData]) => {
+      setTemplates(emailData.templates ?? []);
+      if (statsData?.returns) setStats(statsData.returns);
+      setLoading(false);
+    });
   }, []);
 
   async function toggleEnabled(template: EmailTemplate) {
@@ -79,6 +93,11 @@ export default function EmailTemplatesPage() {
     return (
       <div className="animate-pulse space-y-4">
         <div className="h-8 w-48 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+        <div className="grid grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-20 rounded-xl" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+          ))}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-44 rounded-xl" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
@@ -88,19 +107,65 @@ export default function EmailTemplatesPage() {
     );
   }
 
-  // Ensure all 4 types are shown, even if not in DB yet
   const types = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Email Templates</h2>
+        <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Return Email Templates</h2>
         <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
           Customize the emails sent during the return process
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Email Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div
+            className="rounded-xl p-4"
+            style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Send size={14} style={{ color: '#6366f1' }} />
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Total Emails (est.)</span>
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{stats.emailsEstimate}</p>
+          </div>
+          <div
+            className="rounded-xl p-4"
+            style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <ThumbsUp size={14} style={{ color: '#22c55e' }} />
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Approved</span>
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{stats.byType.approved}</p>
+          </div>
+          <div
+            className="rounded-xl p-4"
+            style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <ThumbsDown size={14} style={{ color: '#ef4444' }} />
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Denied</span>
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{stats.byType.denied}</p>
+          </div>
+          <div
+            className="rounded-xl p-4"
+            style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <DollarSign size={14} style={{ color: '#a855f7' }} />
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Refunded</span>
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{stats.byType.refunded}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Template Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {types.map((type) => {
           const info = TEMPLATE_INFO[type];
           const template = templates.find((t) => t.template_type === type);
@@ -169,14 +234,10 @@ export default function EmailTemplatesPage() {
                     </span>
                     <Link
                       href={`/returns/emails/${type}`}
-                      className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                      style={{
-                        backgroundColor: 'var(--bg-tertiary)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--border-primary)',
-                      }}
+                      className="text-xs font-medium flex items-center gap-1 transition-colors"
+                      style={{ color: 'var(--color-accent)' }}
                     >
-                      Edit Template
+                      Edit <ArrowRight size={12} />
                     </Link>
                   </div>
                 </>

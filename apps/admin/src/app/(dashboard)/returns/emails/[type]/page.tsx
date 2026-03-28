@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Check, Eye, Code } from 'lucide-react';
+import { ArrowLeft, Save, Check, Eye, Code, Send, X } from 'lucide-react';
 import Link from 'next/link';
 
 interface EmailTemplate {
@@ -17,13 +17,15 @@ interface EmailTemplate {
 const TYPE_LABELS: Record<string, string> = {
   confirmation: 'Confirmation',
   approved: 'Approved',
+  approved_no_return: 'Approved (No Return)',
   denied: 'Denied',
   refunded: 'Refunded',
 };
 
 const AVAILABLE_VARIABLES: Record<string, string[]> = {
   confirmation: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name'],
-  approved: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name'],
+  approved: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name', 'label_section'],
+  approved_no_return: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name', 'refund_amount'],
   denied: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name', 'denial_reason'],
   refunded: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name', 'refund_amount'],
 };
@@ -33,7 +35,8 @@ const SAMPLE_VARS: Record<string, string> = {
   ref_id: 'A1B2C3D4',
   order_number: '#1042',
   items: 'Classic Tee (x1), Slim Joggers (x1)',
-  brand_name: 'Misu',
+  brand_name: 'Outlight',
+  label_section: '<a href="#">Download Shipping Label</a> — Tracking: TEST123',
   denial_reason: 'The item is outside the 30-day return window.',
   refund_amount: '$79.99',
 };
@@ -48,6 +51,12 @@ export default function EmailTemplateEditorPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<'html' | 'text'>('html');
+
+  // Test email state
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Editable fields
   const [enabled, setEnabled] = useState(true);
@@ -72,9 +81,7 @@ export default function EmailTemplateEditorPage() {
         setBodyHtml(data.body_html);
         setBodyText(data.body_text);
       })
-      .catch(() => {
-        // Template not found — allow creating from scratch
-      })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [type, router]);
 
@@ -89,6 +96,28 @@ export default function EmailTemplateEditorPage() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }, [type, enabled, subject, bodyHtml, bodyText]);
+
+  async function handleSendTest() {
+    if (!testEmail.includes('@')) return;
+    setTestSending(true);
+    setTestResult(null);
+    try {
+      const res = await fetch(`/api/returns/emails/${type}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: testEmail }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({ success: true, message: `Test email sent to ${testEmail}` });
+      } else {
+        setTestResult({ success: false, message: data.error || 'Failed to send' });
+      }
+    } catch {
+      setTestResult({ success: false, message: 'Network error' });
+    }
+    setTestSending(false);
+  }
 
   function renderPreview(html: string): string {
     let rendered = html;
@@ -126,9 +155,9 @@ export default function EmailTemplateEditorPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Enable toggle */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mr-2">
             <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
               {enabled ? 'Enabled' : 'Disabled'}
             </span>
@@ -145,6 +174,19 @@ export default function EmailTemplateEditorPage() {
               />
             </button>
           </div>
+          {/* Send Test */}
+          <button
+            onClick={() => setShowTestModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+            style={{
+              backgroundColor: 'var(--bg-tertiary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-primary)',
+            }}
+          >
+            <Send size={14} /> Send Test
+          </button>
+          {/* Save */}
           <button
             onClick={handleSave}
             disabled={saving}
@@ -155,6 +197,57 @@ export default function EmailTemplateEditorPage() {
           </button>
         </div>
       </div>
+
+      {/* Test Email Modal */}
+      {showTestModal && (
+        <div
+          className="rounded-xl p-4 flex items-center gap-3"
+          style={{
+            backgroundColor: 'var(--bg-primary)',
+            border: '1px solid var(--border-primary)',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <Send size={16} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
+          <input
+            type="email"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder="Enter email address..."
+            className="flex-1 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid var(--border-primary)',
+              color: 'var(--text-primary)',
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSendTest(); }}
+            autoFocus
+          />
+          <button
+            onClick={handleSendTest}
+            disabled={testSending || !testEmail.includes('@')}
+            className="px-4 py-1.5 text-sm font-medium text-white rounded-lg disabled:opacity-50"
+            style={{ backgroundColor: 'var(--color-accent)' }}
+          >
+            {testSending ? 'Sending...' : 'Send'}
+          </button>
+          <button
+            onClick={() => { setShowTestModal(false); setTestResult(null); }}
+            className="p-1"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            <X size={16} />
+          </button>
+          {testResult && (
+            <span
+              className="text-xs font-medium"
+              style={{ color: testResult.success ? '#22c55e' : '#ef4444' }}
+            >
+              {testResult.message}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Editor */}
@@ -277,7 +370,7 @@ export default function EmailTemplateEditorPage() {
             Preview
           </h3>
           <div
-            className="rounded-xl overflow-hidden sticky top-20"
+            className="rounded-xl overflow-hidden sticky top-28"
             style={{
               backgroundColor: 'var(--bg-primary)',
               border: '1px solid var(--border-primary)',

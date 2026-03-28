@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Mail, Check, X, Send, Clock, ThumbsUp } from 'lucide-react';
+import {
+  Mail, Check, X, Send, Clock, ThumbsUp, ArrowRight,
+  AlertCircle, BarChart3,
+} from 'lucide-react';
+import { formatNumber } from '@/lib/utils';
 
 interface EmailTemplate {
   id: string;
@@ -11,6 +15,17 @@ interface EmailTemplate {
   subject: string;
   body_html: string;
   updated_at: string;
+}
+
+interface ReviewEmailStats {
+  totalRequests: number;
+  emailsSent: number;
+  queued: number;
+  sent: number;
+  reminded: number;
+  bounced: number;
+  expired: number;
+  queuedEmails: Array<{ scheduled_for: string; status: string }>;
 }
 
 const TEMPLATE_INFO: Record<
@@ -40,15 +55,29 @@ const TEMPLATE_INFO: Record<
   },
 };
 
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 export default function ReviewEmailTemplatesPage() {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [stats, setStats] = useState<ReviewEmailStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/reviews/emails')
-      .then((r) => r.json())
-      .then((data) => setTemplates(data.templates ?? []))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch('/api/reviews/emails').then((r) => r.json()).catch(() => ({ templates: [] })),
+      fetch('/api/emails/stats').then((r) => r.json()).catch(() => null),
+    ]).then(([emailData, statsData]) => {
+      setTemplates(emailData.templates ?? []);
+      if (statsData?.reviews) setStats(statsData.reviews);
+      setLoading(false);
+    });
   }, []);
 
   async function toggleEnabled(template: EmailTemplate) {
@@ -67,9 +96,9 @@ export default function ReviewEmailTemplatesPage() {
     return (
       <div className="animate-pulse space-y-4">
         <div className="h-8 w-48 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-44 rounded-xl" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+        <div className="grid grid-cols-5 gap-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-20 rounded-xl" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
           ))}
         </div>
       </div>
@@ -82,13 +111,105 @@ export default function ReviewEmailTemplatesPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Email Templates
+          Review Email Templates
         </h2>
         <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
           Customize the emails sent during the review collection process
         </p>
       </div>
 
+      {/* Email Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div
+            className="rounded-xl p-4"
+            style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Send size={14} style={{ color: '#6366f1' }} />
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Total Sent</span>
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              {formatNumber(stats.emailsSent)}
+            </p>
+          </div>
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: stats.queued > 0 ? 'color-mix(in srgb, #f59e0b 6%, var(--bg-primary))' : 'var(--bg-primary)',
+              border: stats.queued > 0 ? '1px solid color-mix(in srgb, #f59e0b 25%, var(--border-primary))' : '1px solid var(--border-primary)',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Clock size={14} style={{ color: '#f59e0b' }} />
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Queued</span>
+            </div>
+            <p className="text-xl font-bold" style={{ color: stats.queued > 0 ? '#f59e0b' : 'var(--text-primary)' }}>
+              {stats.queued}
+            </p>
+          </div>
+          <div
+            className="rounded-xl p-4"
+            style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Mail size={14} style={{ color: '#22c55e' }} />
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Requests Sent</span>
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{stats.sent}</p>
+          </div>
+          <div
+            className="rounded-xl p-4"
+            style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Clock size={14} style={{ color: '#3b82f6' }} />
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Reminders Sent</span>
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{stats.reminded}</p>
+          </div>
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: stats.bounced > 0 ? 'color-mix(in srgb, #ef4444 6%, var(--bg-primary))' : 'var(--bg-primary)',
+              border: stats.bounced > 0 ? '1px solid color-mix(in srgb, #ef4444 25%, var(--border-primary))' : '1px solid var(--border-primary)',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <AlertCircle size={14} style={{ color: stats.bounced > 0 ? '#ef4444' : 'var(--text-tertiary)' }} />
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Bounced</span>
+            </div>
+            <p className="text-xl font-bold" style={{ color: stats.bounced > 0 ? '#ef4444' : 'var(--text-primary)' }}>
+              {stats.bounced}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Queued Emails */}
+      {stats && stats.queuedEmails.length > 0 && (
+        <div
+          className="rounded-xl p-4"
+          style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+        >
+          <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+            Upcoming Scheduled Emails
+          </h3>
+          <div className="space-y-2">
+            {stats.queuedEmails.map((email, i) => (
+              <div key={i} className="flex items-center gap-3 text-sm">
+                <Clock size={13} style={{ color: '#f59e0b' }} />
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Scheduled for{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>{formatDate(email.scheduled_for)}</strong>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Template Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {types.map((type) => {
           const info = TEMPLATE_INFO[type];
@@ -161,14 +282,10 @@ export default function ReviewEmailTemplatesPage() {
                     </span>
                     <Link
                       href={`/reviews/emails/${type}`}
-                      className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                      style={{
-                        backgroundColor: 'var(--bg-tertiary)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--border-primary)',
-                      }}
+                      className="text-xs font-medium flex items-center gap-1 transition-colors"
+                      style={{ color: 'var(--color-accent)' }}
                     >
-                      Edit Template
+                      Edit <ArrowRight size={12} />
                     </Link>
                   </div>
                 </>

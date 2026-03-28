@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Check, Eye, Code } from 'lucide-react';
+import { ArrowLeft, Save, Check, Eye, Code, Send, X } from 'lucide-react';
 import Link from 'next/link';
 
 interface EmailTemplate {
@@ -23,7 +23,7 @@ const AVAILABLE_VARIABLES = ['customer_name', 'product_title', 'review_link', 'b
 
 const SAMPLE_VARS: Record<string, string> = {
   customer_name: 'Jane',
-  product_title: 'Classic Tee',
+  product_title: 'Classic Outdoor Tee',
   review_link: 'https://example.com/review/abc123',
   brand_name: 'Outlight',
 };
@@ -45,6 +45,12 @@ export default function ReviewEmailTemplateEditorPage() {
   const [originalBody, setOriginalBody] = useState('');
   const [originalEnabled, setOriginalEnabled] = useState(true);
 
+  // Test email state
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
   useEffect(() => {
     if (!TYPE_LABELS[type]) {
       router.replace('/reviews/emails');
@@ -63,9 +69,7 @@ export default function ReviewEmailTemplateEditorPage() {
         setOriginalSubject(data.subject ?? '');
         setOriginalBody(data.body_html ?? '');
       })
-      .catch(() => {
-        // Template not found -- allow creating from scratch
-      })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [type, router]);
 
@@ -85,11 +89,31 @@ export default function ReviewEmailTemplateEditorPage() {
       setOriginalEnabled(enabled);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
-      // ignore
-    }
+    } catch {}
     setSaving(false);
   }, [type, enabled, subject, bodyHtml]);
+
+  async function handleSendTest() {
+    if (!testEmail.includes('@')) return;
+    setTestSending(true);
+    setTestResult(null);
+    try {
+      const res = await fetch(`/api/reviews/emails/${type}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: testEmail }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({ success: true, message: `Test email sent to ${testEmail}` });
+      } else {
+        setTestResult({ success: false, message: data.error || 'Failed to send' });
+      }
+    } catch {
+      setTestResult({ success: false, message: 'Network error' });
+    }
+    setTestSending(false);
+  }
 
   function renderPreview(html: string): string {
     let rendered = html;
@@ -125,9 +149,9 @@ export default function ReviewEmailTemplateEditorPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Enable toggle */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mr-2">
             <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
               {enabled ? 'Enabled' : 'Disabled'}
             </span>
@@ -144,26 +168,80 @@ export default function ReviewEmailTemplateEditorPage() {
               />
             </button>
           </div>
+          {/* Send Test */}
+          <button
+            onClick={() => setShowTestModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+            style={{
+              backgroundColor: 'var(--bg-tertiary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-primary)',
+            }}
+          >
+            <Send size={14} /> Send Test
+          </button>
+          {/* Save */}
           <button
             onClick={handleSave}
             disabled={saving || !hasChanges}
             className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50"
             style={{ backgroundColor: 'var(--color-accent)' }}
           >
-            {saved ? (
-              <>
-                <Check size={14} /> Saved
-              </>
-            ) : saving ? (
-              'Saving...'
-            ) : (
-              <>
-                <Save size={14} /> Save
-              </>
-            )}
+            {saved ? <><Check size={14} /> Saved</> : saving ? 'Saving...' : <><Save size={14} /> Save</>}
           </button>
         </div>
       </div>
+
+      {/* Test Email Bar */}
+      {showTestModal && (
+        <div
+          className="rounded-xl p-4 flex items-center gap-3"
+          style={{
+            backgroundColor: 'var(--bg-primary)',
+            border: '1px solid var(--border-primary)',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <Send size={16} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
+          <input
+            type="email"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder="Enter email address..."
+            className="flex-1 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid var(--border-primary)',
+              color: 'var(--text-primary)',
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSendTest(); }}
+            autoFocus
+          />
+          <button
+            onClick={handleSendTest}
+            disabled={testSending || !testEmail.includes('@')}
+            className="px-4 py-1.5 text-sm font-medium text-white rounded-lg disabled:opacity-50"
+            style={{ backgroundColor: 'var(--color-accent)' }}
+          >
+            {testSending ? 'Sending...' : 'Send'}
+          </button>
+          <button
+            onClick={() => { setShowTestModal(false); setTestResult(null); }}
+            className="p-1"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            <X size={16} />
+          </button>
+          {testResult && (
+            <span
+              className="text-xs font-medium"
+              style={{ color: testResult.success ? '#22c55e' : '#ef4444' }}
+            >
+              {testResult.message}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Editor */}
@@ -206,10 +284,7 @@ export default function ReviewEmailTemplateEditorPage() {
                 className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
                 style={{
                   color: activeTab === 'html' ? 'var(--color-accent)' : 'var(--text-tertiary)',
-                  borderBottom:
-                    activeTab === 'html'
-                      ? '2px solid var(--color-accent)'
-                      : '2px solid transparent',
+                  borderBottom: activeTab === 'html' ? '2px solid var(--color-accent)' : '2px solid transparent',
                 }}
               >
                 <Code size={12} /> HTML
@@ -219,10 +294,7 @@ export default function ReviewEmailTemplateEditorPage() {
                 className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
                 style={{
                   color: activeTab === 'preview' ? 'var(--color-accent)' : 'var(--text-tertiary)',
-                  borderBottom:
-                    activeTab === 'preview'
-                      ? '2px solid var(--color-accent)'
-                      : '2px solid transparent',
+                  borderBottom: activeTab === 'preview' ? '2px solid var(--color-accent)' : '2px solid transparent',
                 }}
               >
                 <Eye size={12} /> Preview
@@ -289,22 +361,18 @@ export default function ReviewEmailTemplateEditorPage() {
             Preview
           </h3>
           <div
-            className="rounded-xl overflow-hidden sticky top-20"
+            className="rounded-xl overflow-hidden sticky top-28"
             style={{
               backgroundColor: 'var(--bg-primary)',
               border: '1px solid var(--border-primary)',
             }}
           >
-            {/* Subject preview */}
             <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-primary)' }}>
-              <p className="text-[10px] mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                Subject
-              </p>
+              <p className="text-[10px] mb-1" style={{ color: 'var(--text-tertiary)' }}>Subject</p>
               <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                 {renderPreview(subject)}
               </p>
             </div>
-            {/* Body preview */}
             <div className="p-4">
               <div
                 className="rounded-lg p-4 text-sm"
