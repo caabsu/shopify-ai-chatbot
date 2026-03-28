@@ -455,57 +455,60 @@ export function Navigation() {
             borderBottom: '1px solid var(--border-primary)',
           }}
         >
-          <div className="h-10 px-5 flex items-center gap-0.5 overflow-x-auto">
-            {activeModule?.items?.map((item) => {
-              const active = isItemActive(pathname, item, allSubItems);
-              const ItemIcon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] transition-all whitespace-nowrap"
-                  style={{
-                    color: active ? moduleColor : 'var(--text-secondary)',
-                    backgroundColor: active
-                      ? `color-mix(in srgb, ${moduleColor} 10%, transparent)`
-                      : 'transparent',
-                    fontWeight: active ? 500 : 400,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!active) {
-                      e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-                      e.currentTarget.style.color = 'var(--text-primary)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!active) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                    }
-                  }}
-                >
-                  <ItemIcon size={14} />
-                  {item.label}
-                  {item.badge && ticketCount > 0 && (
-                    <span
-                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white leading-none"
-                      style={{ backgroundColor: moduleColor }}
-                    >
-                      {ticketCount}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+          <div className="h-10 px-5 flex items-center gap-0.5">
+            {/* Scrollable sub-nav items */}
+            <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
+              {activeModule?.items?.map((item) => {
+                const active = isItemActive(pathname, item, allSubItems);
+                const ItemIcon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] transition-all whitespace-nowrap"
+                    style={{
+                      color: active ? moduleColor : 'var(--text-secondary)',
+                      backgroundColor: active
+                        ? `color-mix(in srgb, ${moduleColor} 10%, transparent)`
+                        : 'transparent',
+                      fontWeight: active ? 500 : 400,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!active) {
+                        e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                        e.currentTarget.style.color = 'var(--text-primary)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!active) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                      }
+                    }}
+                  >
+                    <ItemIcon size={14} />
+                    {item.label}
+                    {item.badge && ticketCount > 0 && (
+                      <span
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white leading-none"
+                        style={{ backgroundColor: moduleColor }}
+                      >
+                        {ticketCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
 
-            {/* Configure dropdown */}
+            {/* Configure dropdown — OUTSIDE overflow container so it doesn't get clipped */}
             {activeModule?.configItems && activeModule.configItems.length > 0 && (
               <>
                 <div
-                  className="w-px h-5 mx-1"
+                  className="w-px h-5 mx-1 flex-shrink-0"
                   style={{ backgroundColor: 'var(--border-secondary)' }}
                 />
-                <div className="relative" ref={configRef}>
+                <div className="relative flex-shrink-0" ref={configRef}>
                   <button
                     onClick={() => setConfigOpen(!configOpen)}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[13px] transition-colors whitespace-nowrap"
@@ -534,7 +537,7 @@ export function Navigation() {
 
                   {configOpen && (
                     <div
-                      className="absolute left-0 top-full mt-1 w-52 rounded-xl py-1.5 z-50"
+                      className="absolute right-0 top-full mt-1 w-52 rounded-xl py-1.5 z-50"
                       style={{
                         backgroundColor: 'var(--bg-primary)',
                         border: '1px solid var(--border-primary)',
