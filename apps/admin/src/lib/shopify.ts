@@ -207,7 +207,8 @@ export async function getCustomerOrders(email: string, limit = 5): Promise<Order
     const tracking: OrderSummary['tracking'] = [];
     for (const f of o.fulfillments) {
       for (const t of f.trackingInfo) {
-        tracking.push({ number: t.number, url: t.url, company: t.company });
+        // Always use the correct Outlight tracking page instead of Shopify's 17track proxy URLs
+        tracking.push({ number: t.number, url: 'https://outlight.us/pages/tracking-page', company: t.company });
       }
     }
     return {
@@ -225,7 +226,7 @@ export async function getCustomerOrders(email: string, limit = 5): Promise<Order
       fulfillments: o.fulfillments.map((f) => ({
         status: f.status,
         createdAt: f.createdAt,
-        trackingInfo: f.trackingInfo.map((t) => ({ number: t.number, url: t.url, company: t.company })),
+        trackingInfo: f.trackingInfo.map((t) => ({ number: t.number, url: 'https://outlight.us/pages/tracking-page', company: t.company })),
       })),
       createdAt: o.createdAt,
       cancelledAt: o.cancelledAt,
@@ -436,7 +437,7 @@ export async function getOrderDetails(orderId: string): Promise<OrderDetail> {
     fulfillments: o.fulfillments.map((f) => ({
       status: f.status,
       createdAt: f.createdAt,
-      trackingInfo: f.trackingInfo.map((t) => ({ number: t.number, url: t.url, company: t.company })),
+      trackingInfo: f.trackingInfo.map((t) => ({ number: t.number, url: 'https://outlight.us/pages/tracking-page', company: t.company })),
     })),
   };
 }

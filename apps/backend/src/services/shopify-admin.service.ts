@@ -261,7 +261,8 @@ export async function lookupOrder(
 
   for (const fulfillment of order.fulfillments) {
     for (const t of fulfillment.trackingInfo) {
-      tracking.push({ number: t.number, url: t.url, company: t.company });
+      // Always use the correct Outlight tracking page instead of Shopify's 17track proxy URLs
+      tracking.push({ number: t.number, url: 'https://outlight.us/pages/tracking-page', company: t.company });
     }
     if (fulfillment.estimatedDeliveryAt) {
       estimatedDelivery = fulfillment.estimatedDeliveryAt;

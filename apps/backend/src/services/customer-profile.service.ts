@@ -207,7 +207,8 @@ export async function getCustomerOrders(email: string, limit = 10, brandId?: str
       const tracking: Array<{ number: string; url: string | null }> = [];
       for (const f of o.fulfillments) {
         for (const t of f.trackingInfo) {
-          tracking.push({ number: t.number, url: t.url });
+          // Always use the correct Outlight tracking page instead of Shopify's 17track proxy URLs
+          tracking.push({ number: t.number, url: 'https://outlight.us/pages/tracking-page' });
         }
       }
 

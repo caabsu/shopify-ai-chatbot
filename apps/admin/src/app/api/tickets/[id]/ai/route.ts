@@ -17,7 +17,7 @@ function buildOrderContext(orders: OrderSummary[]): string {
     ).join(', ');
 
     const tracking = o.tracking.length > 0
-      ? o.tracking.map((t) => `${t.company || 'Carrier'}: ${t.number}${t.url ? ` (tracking URL: ${t.url})` : ''}`).join('; ')
+      ? o.tracking.map((t) => `${t.company || 'Carrier'}: ${t.number} (tracking page: https://outlight.us/pages/tracking-page)`).join('; ')
       : 'No tracking available';
 
     const fulfillmentDetails = o.fulfillments.length > 0
@@ -199,6 +199,7 @@ CRITICAL RULES:
 - If the customer has an issue you cannot fully resolve (like missing instructions), sincerely apologize and offer realistic next steps — e.g., ask them to send photos of what arrived so you can help them figure it out.
 - Only suggest actions that Outlight support can actually take. We do NOT have: a product team to escalate to, scheduled phone/video assembly calls, downloadable instruction PDFs online, or a manufacturer contact line for customers.
 - If the ticket was escalated from an AI chatbot, read the prior AI conversation carefully — do not repeat information the AI already gave (especially if it was wrong).
+- TRACKING LINKS: Always use https://outlight.us/pages/tracking-page as the tracking URL. NEVER use 17track links, shopify.17track.net URLs, or any other tracking URLs from the order data. If sharing a tracking link, direct the customer to https://outlight.us/pages/tracking-page where they can enter their tracking number.
 
 FORMAT:
 - Start with "Hi ${customerFirstName},"
