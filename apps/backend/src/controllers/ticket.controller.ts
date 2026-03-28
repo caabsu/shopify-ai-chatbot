@@ -205,6 +205,33 @@ ticketRouter.get('/:id/events', async (req, res) => {
   }
 });
 
+// ── GET /:id/customer — Shopify Customer Profile + Orders ────────────────
+ticketRouter.get('/:id/customer', async (req, res) => {
+  try {
+    const ticket = await ticketService.getTicket(req.params.id);
+    if (!ticket || (req.agent?.brandId && ticket.brand_id !== req.agent.brandId)) {
+      res.status(404).json({ error: 'Ticket not found' });
+      return;
+    }
+
+    if (!ticket.customer_email) {
+      res.json({ profile: null, orders: [] });
+      return;
+    }
+
+    const [profile, orders] = await Promise.all([
+      customerProfileService.getCustomerByEmail(ticket.customer_email, ticket.brand_id).catch(() => null),
+      customerProfileService.getCustomerOrders(ticket.customer_email, 5, ticket.brand_id).catch(() => []),
+    ]);
+
+    res.json({ profile, orders });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[ticket.controller] GET /:id/customer error:', message);
+    res.status(500).json({ error: 'Failed to fetch customer data' });
+  }
+});
+
 // ── POST /:id/ai/draft — AI Draft Reply ────────────────────────────────────
 ticketRouter.post('/:id/ai/draft', async (req, res) => {
   try {

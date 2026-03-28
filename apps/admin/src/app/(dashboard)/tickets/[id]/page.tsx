@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, use, useRef } from 'react';
+import { useState, useEffect, use, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Tag, User, Bot, Cpu, MessageSquare, Plus, X,
   ChevronDown, ChevronUp, Send, StickyNote, Sparkles, ListChecks, FileText,
-  ShoppingCart, RefreshCcw, ReceiptText,
-  Mail, FormInput, Clock, AlertCircle,
+  ShoppingCart, RefreshCcw, ReceiptText, ExternalLink, Copy, CheckCircle2,
+  Mail, FormInput, Clock, AlertCircle, Search, BookOpen, Package,
+  DollarSign, Truck, CreditCard, Hash, Calendar, Star,
 } from 'lucide-react';
 import { formatDate, cn } from '@/lib/utils';
 import type { Ticket, TicketMessage, TicketEvent, CannedResponse, Message } from '@/lib/types';
@@ -40,7 +41,56 @@ const TAG_COLORS = [
   { bg: 'rgba(20,184,166,0.1)', text: '#14b8a6' },
 ];
 
+const FINANCIAL_STATUS_COLORS: Record<string, string> = {
+  PAID: '#22c55e',
+  PARTIALLY_PAID: '#f59e0b',
+  PENDING: '#f59e0b',
+  REFUNDED: '#a855f7',
+  PARTIALLY_REFUNDED: '#a855f7',
+  VOIDED: '#9ca3af',
+  AUTHORIZED: '#3b82f6',
+};
+
+const FULFILLMENT_STATUS_COLORS: Record<string, string> = {
+  FULFILLED: '#22c55e',
+  UNFULFILLED: '#f59e0b',
+  PARTIALLY_FULFILLED: '#3b82f6',
+  IN_PROGRESS: '#3b82f6',
+};
+
 function getTagColor(i: number) { return TAG_COLORS[i % TAG_COLORS.length]; }
+
+interface ShopifyCustomerProfile {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  ordersCount: number;
+  totalSpent: string;
+  createdAt: string;
+  tags: string[];
+  note: string | null;
+  state: string;
+}
+
+interface ShopifyOrder {
+  id: string;
+  name: string;
+  totalPrice: string;
+  financialStatus: string;
+  fulfillmentStatus: string;
+  lineItems: Array<{ title: string; quantity: number; variantTitle: string | null }>;
+  tracking: Array<{ number: string; url: string | null }>;
+  createdAt: string;
+}
+
+interface KBDocument {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+}
 
 interface TicketDetail {
   ticket: Ticket;
@@ -54,6 +104,11 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   const { id } = use(params);
   const [data, setData] = useState<TicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Customer Shopify data
+  const [customerProfile, setCustomerProfile] = useState<ShopifyCustomerProfile | null>(null);
+  const [customerOrders, setCustomerOrders] = useState<ShopifyOrder[]>([]);
+  const [customerLoading, setCustomerLoading] = useState(false);
 
   // Composer state
   const [replyMode, setReplyMode] = useState<'reply' | 'note'>('reply');
@@ -74,7 +129,21 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   const [aiContextOpen, setAiContextOpen] = useState(false);
 
   // AI tools
-  const [aiLoading, setAiLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiSteps, setAiSteps] = useState<string[] | null>(null);
+
+  // KB search
+  const [kbQuery, setKbQuery] = useState('');
+  const [kbResults, setKbResults] = useState<KBDocument[]>([]);
+  const [kbSearching, setKbSearching] = useState(false);
+  const [kbExpanded, setKbExpanded] = useState<string | null>(null);
+
+  // Orders panel
+  const [ordersExpanded, setOrdersExpanded] = useState(true);
+
+  // Copy feedback
+  const [copied, setCopied] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -84,6 +153,20 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
       .then(setData)
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Fetch Shopify customer data after ticket loads
+  useEffect(() => {
+    if (!data?.ticket?.customer_email) return;
+    setCustomerLoading(true);
+    fetch(`/api/tickets/${id}/customer`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.profile) setCustomerProfile(res.profile);
+        if (res.orders) setCustomerOrders(res.orders);
+      })
+      .catch(() => {})
+      .finally(() => setCustomerLoading(false));
+  }, [id, data?.ticket?.customer_email]);
 
   useEffect(() => {
     fetch('/api/settings/canned-responses')
@@ -142,7 +225,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   }
 
   async function handleAiTool(action: 'draft' | 'summarize' | 'suggest') {
-    setAiLoading(true);
+    setAiLoading(action);
     try {
       const res = await fetch(`/api/tickets/${id}/ai`, {
         method: 'POST',
@@ -150,15 +233,19 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
         body: JSON.stringify({ action }),
       });
       const result = await res.json();
+      const text = result.content || result.text || '';
       if (action === 'draft') {
-        setReplyContent(result.content || result.text || '');
-      } else {
-        alert(result.content || result.text || 'AI result received');
+        setReplyContent(text);
+      } else if (action === 'summarize') {
+        setAiSummary(text);
+      } else if (action === 'suggest') {
+        const steps = text.split('\n').filter((l: string) => l.trim());
+        setAiSteps(steps);
       }
     } catch {
-      alert('AI operation failed');
+      // silently handle
     }
-    setAiLoading(false);
+    setAiLoading(null);
   }
 
   async function addTag() {
@@ -173,6 +260,50 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   async function removeTag(tag: string) {
     const currentTags = data?.ticket.tags ?? [];
     await updateTicket({ tags: currentTags.filter((t) => t !== tag) } as Partial<Ticket>);
+  }
+
+  const searchKB = useCallback(async () => {
+    if (!kbQuery.trim()) { setKbResults([]); return; }
+    setKbSearching(true);
+    try {
+      const res = await fetch(`/api/knowledge/search?q=${encodeURIComponent(kbQuery)}`);
+      const data = await res.json();
+      setKbResults(data.documents ?? []);
+    } catch { setKbResults([]); }
+    setKbSearching(false);
+  }, [kbQuery]);
+
+  function interpolateCanned(content: string): string {
+    const ticket = data?.ticket;
+    if (!ticket) return content;
+    const firstName = ticket.customer_name?.split(' ')[0] || '';
+    const vars: Record<string, string> = {
+      name: firstName,
+      customer_name: ticket.customer_name || '',
+      first_name: firstName,
+      email: ticket.customer_email || '',
+      ticket_number: `#${ticket.ticket_number}`,
+      order_number: ticket.order_id || '',
+      subject: ticket.subject,
+    };
+    let result = content;
+    for (const [key, value] of Object.entries(vars)) {
+      result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'gi'), value);
+    }
+    return result;
+  }
+
+  function copyEmail() {
+    if (!data?.ticket.customer_email) return;
+    navigator.clipboard.writeText(data.ticket.customer_email);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function getShopifyAdminUrl(resourceType: string, gid: string): string {
+    // Convert GID to numeric ID: gid://shopify/Customer/123 → 123
+    const numericId = gid.split('/').pop() || '';
+    return `https://put1rp-iq.myshopify.com/admin/${resourceType}/${numericId}`;
   }
 
   if (loading) {
@@ -397,7 +528,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Main content: thread + sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
         {/* Left: Conversation thread + Composer */}
         <div className="space-y-4">
           {/* AI Context (collapsible) */}
@@ -417,7 +548,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
                 <span className="flex items-center gap-2">
-                  <Bot size={14} style={{ color: 'var(--color-source-ai)' }} />
+                  <Bot size={14} style={{ color: '#a855f7' }} />
                   AI Conversation Context
                   {aiConversationMessages && (
                     <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -479,7 +610,6 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               </h3>
             </div>
             <div className="max-h-[50vh] overflow-y-auto p-4 space-y-4" style={{ overflowX: 'hidden' }}>
-              {/* Events & messages interleaved by date */}
               {messages.length === 0 ? (
                 <p className="text-sm text-center py-4" style={{ color: 'var(--text-tertiary)' }}>
                   No messages yet
@@ -509,7 +639,6 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                       }}
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        {/* Avatar */}
                         <div
                           className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
                           style={{
@@ -609,7 +738,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 </button>
                 {showCannedDropdown && (
                   <div
-                    className="absolute right-0 top-full mt-1 w-60 max-h-48 overflow-y-auto rounded-lg shadow-lg z-20 py-1"
+                    className="absolute right-0 top-full mt-1 w-72 max-h-56 overflow-y-auto rounded-lg shadow-lg z-20 py-1"
                     style={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
@@ -622,11 +751,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                         <button
                           key={cr.id}
                           onClick={() => {
-                            const firstName = ticket.customer_name?.split(' ')[0];
-                            const personalized = firstName
-                              ? cr.content.replace(/\{\{name\}\}/gi, firstName).replace(/^/, `Hi ${firstName},\n\n`)
-                              : cr.content;
-                            setReplyContent(personalized);
+                            setReplyContent(interpolateCanned(cr.content));
                             setShowCannedDropdown(false);
                           }}
                           className="w-full text-left px-3 py-2 text-xs transition-colors"
@@ -635,8 +760,13 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                         >
                           <span className="font-medium">{cr.name}</span>
+                          {cr.category && (
+                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' }}>
+                              {cr.category}
+                            </span>
+                          )}
                           <span className="block truncate mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                            {cr.content.slice(0, 60)}...
+                            {interpolateCanned(cr.content).slice(0, 80)}...
                           </span>
                         </button>
                       ))
@@ -664,36 +794,68 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-2 px-4 pb-4">
-              {replyMode === 'reply' && (
+            <div className="flex items-center justify-between px-4 pb-4">
+              <div className="flex items-center gap-2">
+                {/* AI Draft button inline in composer */}
                 <button
-                  onClick={() => sendMessage('pending')}
-                  disabled={!replyContent.trim() || sending}
-                  className="text-xs px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-40"
+                  onClick={() => handleAiTool('draft')}
+                  disabled={aiLoading === 'draft'}
+                  className="text-xs px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
                   style={{
-                    backgroundColor: 'var(--bg-tertiary)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-primary)',
+                    backgroundColor: 'rgba(168,85,247,0.08)',
+                    color: '#a855f7',
+                    border: '1px solid rgba(168,85,247,0.2)',
                   }}
                 >
-                  Send & Set Pending
+                  <Sparkles size={11} />
+                  {aiLoading === 'draft' ? 'Drafting...' : 'AI Draft'}
                 </button>
-              )}
-              <button
-                onClick={() => sendMessage()}
-                disabled={!replyContent.trim() || sending}
-                className="text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-40"
-                style={{ backgroundColor: 'var(--color-accent)' }}
-              >
-                {sending ? 'Sending...' : replyMode === 'note' ? 'Add Note' : 'Send Reply'}
-              </button>
+              </div>
+              <div className="flex items-center gap-2">
+                {replyMode === 'reply' && (
+                  <>
+                    <button
+                      onClick={() => sendMessage('pending')}
+                      disabled={!replyContent.trim() || sending}
+                      className="text-xs px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-40"
+                      style={{
+                        backgroundColor: 'var(--bg-tertiary)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border-primary)',
+                      }}
+                    >
+                      Send & Set Pending
+                    </button>
+                    <button
+                      onClick={() => sendMessage('resolved')}
+                      disabled={!replyContent.trim() || sending}
+                      className="text-xs px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-40"
+                      style={{
+                        backgroundColor: 'rgba(34,197,94,0.1)',
+                        color: '#22c55e',
+                        border: '1px solid rgba(34,197,94,0.2)',
+                      }}
+                    >
+                      Send & Resolve
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={!replyContent.trim() || sending}
+                  className="text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-40"
+                  style={{ backgroundColor: 'var(--color-accent)' }}
+                >
+                  {sending ? 'Sending...' : replyMode === 'note' ? 'Add Note' : 'Send Reply'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right: Customer sidebar */}
+        {/* Right: Sidebar */}
         <div className="space-y-4">
-          {/* Customer info */}
+          {/* Customer Profile Card */}
           <div
             className="rounded-xl p-4"
             style={{
@@ -701,10 +863,23 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               border: '1px solid var(--border-primary)',
             }}
           >
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>
-              Customer
-            </h3>
-            <div className="space-y-2">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                Customer
+              </h3>
+              {customerProfile && (
+                <a
+                  href={getShopifyAdminUrl('customers', customerProfile.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] font-medium flex items-center gap-1 transition-colors"
+                  style={{ color: 'var(--color-accent)' }}
+                >
+                  View in Shopify <ExternalLink size={10} />
+                </a>
+              )}
+            </div>
+            <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium"
@@ -715,13 +890,21 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 >
                   {(ticket.customer_name || ticket.customer_email || '?').charAt(0).toUpperCase()}
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {ticket.customer_name || 'Unknown'}
+                    {customerProfile
+                      ? `${customerProfile.firstName || ''} ${customerProfile.lastName || ''}`.trim() || ticket.customer_name || 'Unknown'
+                      : ticket.customer_name || 'Unknown'
+                    }
                   </p>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    {ticket.customer_email}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                      {ticket.customer_email}
+                    </p>
+                    <button onClick={copyEmail} className="flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+                      {copied ? <CheckCircle2 size={11} style={{ color: '#22c55e' }} /> : <Copy size={11} />}
+                    </button>
+                  </div>
                   {ticket.tags?.includes('trade-member') && (
                     <div className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded mt-1"
                       style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: 'var(--color-accent)' }}>
@@ -730,18 +913,200 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                   )}
                 </div>
               </div>
-              {ticket.customer_phone && (
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  Phone: {ticket.customer_phone}
-                </p>
+
+              {/* Shopify customer stats */}
+              {customerLoading ? (
+                <div className="animate-pulse space-y-2">
+                  <div className="h-4 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+                  <div className="h-4 w-2/3 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+                </div>
+              ) : customerProfile ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg p-2" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <ShoppingCart size={10} style={{ color: 'var(--text-tertiary)' }} />
+                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Orders</span>
+                    </div>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {customerProfile.ordersCount}
+                    </p>
+                  </div>
+                  <div className="rounded-lg p-2" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <DollarSign size={10} style={{ color: 'var(--text-tertiary)' }} />
+                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Lifetime Value</span>
+                    </div>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      ${parseFloat(customerProfile.totalSpent).toFixed(0)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg p-2" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Calendar size={10} style={{ color: 'var(--text-tertiary)' }} />
+                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Since</span>
+                    </div>
+                    <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {new Date(customerProfile.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <div className="rounded-lg p-2" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Star size={10} style={{ color: 'var(--text-tertiary)' }} />
+                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Status</span>
+                    </div>
+                    <p className="text-xs font-medium capitalize" style={{ color: 'var(--text-primary)' }}>
+                      {customerProfile.state?.toLowerCase() || 'active'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {ticket.customer_phone && (
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      Phone: {ticket.customer_phone}
+                    </p>
+                  )}
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    No Shopify profile found
+                  </p>
+                </div>
               )}
-              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                First contact: {formatDate(ticket.created_at)}
-              </p>
+
+              {/* Shopify customer tags */}
+              {customerProfile?.tags && customerProfile.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {customerProfile.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-[10px] px-1.5 py-0.5 rounded"
+                      style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Customer note from Shopify */}
+              {customerProfile?.note && (
+                <div className="text-xs rounded-lg px-2.5 py-2" style={{ backgroundColor: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', color: 'var(--text-secondary)' }}>
+                  <span className="text-[10px] font-medium block mb-0.5" style={{ color: '#d97706' }}>Shopify Note</span>
+                  {customerProfile.note}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Orders - Placeholder */}
+          {/* Recent Orders from Shopify */}
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-primary)',
+            }}
+          >
+            <button
+              onClick={() => setOrdersExpanded(!ordersExpanded)}
+              className="w-full flex items-center justify-between px-4 py-3 text-xs font-semibold uppercase tracking-wider"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              <span className="flex items-center gap-2">
+                <Package size={12} />
+                Recent Orders ({customerOrders.length})
+              </span>
+              {ordersExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+            {ordersExpanded && (
+              <div className="px-4 pb-4">
+                {customerLoading ? (
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-16 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+                    <div className="h-16 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+                  </div>
+                ) : customerOrders.length > 0 ? (
+                  <div className="space-y-2">
+                    {customerOrders.map((order) => {
+                      const finColor = FINANCIAL_STATUS_COLORS[order.financialStatus] || 'var(--text-tertiary)';
+                      const fulColor = FULFILLMENT_STATUS_COLORS[order.fulfillmentStatus] || 'var(--text-tertiary)';
+                      return (
+                        <div
+                          key={order.id}
+                          className="rounded-lg p-3"
+                          style={{ backgroundColor: 'var(--bg-secondary)' }}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                {order.name}
+                              </span>
+                              <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                                ${parseFloat(order.totalPrice).toFixed(2)}
+                              </span>
+                            </div>
+                            <a
+                              href={getShopifyAdminUrl('orders', order.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: 'var(--text-tertiary)' }}
+                            >
+                              <ExternalLink size={11} />
+                            </a>
+                          </div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span
+                              className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                              style={{ backgroundColor: `color-mix(in srgb, ${finColor} 12%, transparent)`, color: finColor }}
+                            >
+                              {order.financialStatus?.replace(/_/g, ' ')}
+                            </span>
+                            <span
+                              className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                              style={{ backgroundColor: `color-mix(in srgb, ${fulColor} 12%, transparent)`, color: fulColor }}
+                            >
+                              {order.fulfillmentStatus?.replace(/_/g, ' ') || 'UNFULFILLED'}
+                            </span>
+                          </div>
+                          <div className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                            {order.lineItems.slice(0, 3).map((item, i) => (
+                              <span key={i}>
+                                {item.title}{item.quantity > 1 ? ` x${item.quantity}` : ''}
+                                {item.variantTitle ? ` (${item.variantTitle})` : ''}
+                                {i < Math.min(order.lineItems.length, 3) - 1 ? ', ' : ''}
+                              </span>
+                            ))}
+                            {order.lineItems.length > 3 && ` +${order.lineItems.length - 3} more`}
+                          </div>
+                          {order.tracking.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              <Truck size={10} style={{ color: 'var(--text-tertiary)' }} />
+                              {order.tracking.map((t, i) => (
+                                t.url ? (
+                                  <a key={i} href={t.url} target="_blank" rel="noopener noreferrer" className="text-[10px] underline" style={{ color: 'var(--color-accent)' }}>
+                                    {t.number}
+                                  </a>
+                                ) : (
+                                  <span key={i} className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{t.number}</span>
+                                )
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                            {new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs py-2" style={{ color: 'var(--text-tertiary)' }}>
+                    {ticket.customer_email ? 'No orders found' : 'No customer email'}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* AI Tools */}
           <div
             className="rounded-xl p-4"
             style={{
@@ -750,16 +1115,226 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             }}
           >
             <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>
-              Orders
+              AI Tools
             </h3>
-            {ticket.order_id ? (
-              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>Order #{ticket.order_id}</p>
-                <p className="mt-1">Order details will be loaded from Shopify in Phase 4.</p>
+            <div className="space-y-2">
+              <button
+                onClick={() => handleAiTool('summarize')}
+                disabled={aiLoading === 'summarize'}
+                className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: 'rgba(168,85,247,0.06)',
+                  color: '#a855f7',
+                  border: '1px solid rgba(168,85,247,0.15)',
+                }}
+              >
+                <ReceiptText size={12} />
+                {aiLoading === 'summarize' ? 'Summarizing...' : 'Summarize Thread'}
+              </button>
+              <button
+                onClick={() => handleAiTool('suggest')}
+                disabled={aiLoading === 'suggest'}
+                className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: 'rgba(168,85,247,0.06)',
+                  color: '#a855f7',
+                  border: '1px solid rgba(168,85,247,0.15)',
+                }}
+              >
+                <ListChecks size={12} />
+                {aiLoading === 'suggest' ? 'Thinking...' : 'Suggest Next Steps'}
+              </button>
+            </div>
+
+            {/* AI Summary Result */}
+            {aiSummary && (
+              <div className="mt-3 rounded-lg p-3" style={{ backgroundColor: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.12)' }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-semibold uppercase" style={{ color: '#a855f7' }}>Summary</span>
+                  <button onClick={() => setAiSummary(null)} style={{ color: 'var(--text-tertiary)' }}><X size={12} /></button>
+                </div>
+                <p className="text-xs whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{aiSummary}</p>
               </div>
-            ) : (
-              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>No linked orders</p>
             )}
+
+            {/* AI Next Steps Result */}
+            {aiSteps && (
+              <div className="mt-3 rounded-lg p-3" style={{ backgroundColor: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.12)' }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-semibold uppercase" style={{ color: '#a855f7' }}>Next Steps</span>
+                  <button onClick={() => setAiSteps(null)} style={{ color: 'var(--text-tertiary)' }}><X size={12} /></button>
+                </div>
+                <ul className="space-y-1">
+                  {aiSteps.map((step, i) => (
+                    <li key={i} className="text-xs flex items-start gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                      <span className="text-[10px] font-bold mt-0.5" style={{ color: '#a855f7' }}>{i + 1}.</span>
+                      {step.replace(/^\d+\.\s*/, '')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Knowledge Base Search */}
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-primary)',
+            }}
+          >
+            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="flex items-center gap-2">
+                <BookOpen size={12} /> Knowledge Base
+              </span>
+            </h3>
+            <div className="flex gap-1.5 mb-2">
+              <div className="relative flex-1">
+                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
+                <input
+                  value={kbQuery}
+                  onChange={(e) => setKbQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') searchKB(); }}
+                  placeholder="Search articles..."
+                  className="w-full text-xs rounded-lg pl-7 pr-2 py-1.5 focus:outline-none focus:ring-1"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-primary)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+              <button
+                onClick={searchKB}
+                disabled={kbSearching}
+                className="text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--bg-tertiary)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-primary)',
+                }}
+              >
+                {kbSearching ? '...' : 'Go'}
+              </button>
+            </div>
+            {kbResults.length > 0 && (
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {kbResults.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="rounded-lg transition-colors cursor-pointer"
+                    style={{ backgroundColor: 'var(--bg-secondary)' }}
+                  >
+                    <button
+                      onClick={() => setKbExpanded(kbExpanded === doc.id ? null : doc.id)}
+                      className="w-full text-left px-3 py-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {doc.title}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)' }}>
+                          {doc.category}
+                        </span>
+                      </div>
+                    </button>
+                    {kbExpanded === doc.id && (
+                      <div className="px-3 pb-2">
+                        <p className="text-xs whitespace-pre-wrap mb-2" style={{ color: 'var(--text-secondary)' }}>
+                          {doc.content.slice(0, 500)}{doc.content.length > 500 ? '...' : ''}
+                        </p>
+                        <button
+                          onClick={() => {
+                            setReplyContent((prev) => prev ? `${prev}\n\n${doc.content}` : doc.content);
+                            setKbExpanded(null);
+                          }}
+                          className="text-[10px] font-medium px-2 py-1 rounded transition-colors"
+                          style={{ backgroundColor: 'color-mix(in srgb, var(--color-accent) 12%, transparent)', color: 'var(--color-accent)' }}
+                        >
+                          Insert into reply
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Actions */}
+          <div
+            className="rounded-xl p-4"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--border-primary)',
+            }}
+          >
+            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>
+              Quick Actions
+            </h3>
+            <div className="space-y-1.5">
+              {customerProfile && (
+                <a
+                  href={getShopifyAdminUrl('customers', customerProfile.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors block"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
+                >
+                  <User size={12} /> View Customer in Shopify <ExternalLink size={10} className="ml-auto" style={{ color: 'var(--text-tertiary)' }} />
+                </a>
+              )}
+              {customerOrders.length > 0 && (
+                <a
+                  href={getShopifyAdminUrl('orders', customerOrders[0].id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors block"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
+                >
+                  <Package size={12} /> View Latest Order in Shopify <ExternalLink size={10} className="ml-auto" style={{ color: 'var(--text-tertiary)' }} />
+                </a>
+              )}
+              <button
+                onClick={copyEmail}
+                className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
+              >
+                <Copy size={12} /> {copied ? 'Copied!' : 'Copy Customer Email'}
+              </button>
+              <button
+                onClick={() => {
+                  setReplyContent('');
+                  sendMessage('resolved');
+                }}
+                className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                style={{
+                  backgroundColor: 'rgba(34,197,94,0.06)',
+                  color: '#22c55e',
+                  border: '1px solid rgba(34,197,94,0.15)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(34,197,94,0.12)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(34,197,94,0.06)'; }}
+              >
+                <CheckCircle2 size={12} /> Mark as Resolved
+              </button>
+            </div>
           </div>
 
           {/* Past Tickets */}
@@ -798,101 +1373,6 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               </div>
             ) : (
               <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>No past tickets</p>
-            )}
-          </div>
-
-          {/* Quick Actions */}
-          <div
-            className="rounded-xl p-4"
-            style={{
-              backgroundColor: 'var(--bg-primary)',
-              border: '1px solid var(--border-primary)',
-            }}
-          >
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>
-              Quick Actions
-            </h3>
-            <div className="space-y-2">
-              <button
-                className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors"
-                style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
-                onClick={() => alert('Cancel Order: Coming in Phase 4')}
-              >
-                <ShoppingCart size={12} /> Cancel Order
-              </button>
-              <button
-                className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors"
-                style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
-                onClick={() => alert('Issue Refund: Coming in Phase 4')}
-              >
-                <RefreshCcw size={12} /> Issue Refund
-              </button>
-            </div>
-          </div>
-
-          {/* AI Tools */}
-          <div
-            className="rounded-xl p-4"
-            style={{
-              backgroundColor: 'var(--bg-primary)',
-              border: '1px solid var(--border-primary)',
-            }}
-          >
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>
-              AI Tools
-            </h3>
-            <div className="space-y-2">
-              <button
-                onClick={() => handleAiTool('draft')}
-                disabled={aiLoading}
-                className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
-                style={{
-                  backgroundColor: 'rgba(168,85,247,0.06)',
-                  color: '#a855f7',
-                  border: '1px solid rgba(168,85,247,0.15)',
-                }}
-              >
-                <Sparkles size={12} /> Draft Reply
-              </button>
-              <button
-                onClick={() => handleAiTool('summarize')}
-                disabled={aiLoading}
-                className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
-                style={{
-                  backgroundColor: 'rgba(168,85,247,0.06)',
-                  color: '#a855f7',
-                  border: '1px solid rgba(168,85,247,0.15)',
-                }}
-              >
-                <ReceiptText size={12} /> Summarize Thread
-              </button>
-              <button
-                onClick={() => handleAiTool('suggest')}
-                disabled={aiLoading}
-                className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
-                style={{
-                  backgroundColor: 'rgba(168,85,247,0.06)',
-                  color: '#a855f7',
-                  border: '1px solid rgba(168,85,247,0.15)',
-                }}
-              >
-                <ListChecks size={12} /> Suggest Next Steps
-              </button>
-            </div>
-            {aiLoading && (
-              <p className="text-[10px] mt-2 animate-pulse" style={{ color: 'var(--text-tertiary)' }}>
-                AI is thinking...
-              </p>
             )}
           </div>
         </div>
