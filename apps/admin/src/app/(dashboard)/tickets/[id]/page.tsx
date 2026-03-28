@@ -7,7 +7,8 @@ import {
   ChevronDown, ChevronUp, Send, StickyNote, Sparkles, ListChecks, FileText,
   ShoppingCart, RefreshCcw, ReceiptText, Copy, CheckCircle2,
   Mail, FormInput, Clock, AlertCircle, Search, BookOpen, Package,
-  DollarSign, Truck, Calendar, Star, Loader2,
+  DollarSign, Truck, Calendar, Star, Loader2, Ban, Undo2, MapPin,
+  CreditCard, XCircle, ChevronRight,
 } from 'lucide-react';
 import { formatDate, cn } from '@/lib/utils';
 import type { Ticket, TicketMessage, TicketEvent, CannedResponse, Message } from '@/lib/types';
@@ -92,6 +93,55 @@ interface ShopifyOrder {
   closedAt: string | null;
 }
 
+interface OrderDetailData {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  note: string | null;
+  createdAt: string;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  closedAt: string | null;
+  financialStatus: string;
+  fulfillmentStatus: string;
+  subtotal: string;
+  tax: string;
+  shipping: string;
+  totalPrice: string;
+  currentTotalPrice: string;
+  totalRefunded: string;
+  currency: string;
+  lineItems: Array<{
+    id: string; title: string; quantity: number; sku: string | null;
+    variantTitle: string | null; unitPrice: string; refundableQuantity: number;
+  }>;
+  shippingAddress: {
+    name: string; address1: string; address2: string | null;
+    city: string; province: string | null; zip: string | null;
+    country: string; phone: string | null;
+  } | null;
+  transactions: Array<{
+    id: string; kind: string; status: string; amount: string; gateway: string; processedAt: string;
+  }>;
+  refunds: Array<{
+    id: string; createdAt: string; note: string | null; amount: string;
+    lineItems: Array<{ title: string; quantity: number; subtotal: string }>;
+  }>;
+  fulfillments: Array<{
+    status: string; createdAt: string;
+    trackingInfo: Array<{ number: string; url: string | null; company: string | null }>;
+  }>;
+}
+
+const CANCEL_REASONS = [
+  { value: 'CUSTOMER', label: 'Customer request' },
+  { value: 'INVENTORY', label: 'Out of stock' },
+  { value: 'FRAUD', label: 'Fraudulent order' },
+  { value: 'DECLINED', label: 'Payment declined' },
+  { value: 'OTHER', label: 'Other' },
+];
+
 interface KBDocument {
   id: string;
   title: string;
@@ -148,6 +198,26 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
 
   // Orders panel
   const [ordersExpanded, setOrdersExpanded] = useState(true);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [orderDetail, setOrderDetail] = useState<OrderDetailData | null>(null);
+  const [orderDetailLoading, setOrderDetailLoading] = useState(false);
+
+  // Cancel modal
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('CUSTOMER');
+  const [cancelRefund, setCancelRefund] = useState(true);
+  const [cancelRestock, setCancelRestock] = useState(true);
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  // Refund modal
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [refundNotify, setRefundNotify] = useState(true);
+  const [refundLoading, setRefundLoading] = useState(false);
+
+  // Action result toast
+  const [actionResult, setActionResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Copy feedback
   const [copied, setCopied] = useState(false);
@@ -307,6 +377,93 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     } catch { setKbResults([]); }
     setKbSearching(false);
   }, [kbQuery]);
+
+  function extractOrderNumericId(gid: string) {
+    return gid.split('/').pop() || gid;
+  }
+
+  async function fetchOrderDetail(orderId: string) {
+    setOrderDetailLoading(true);
+    try {
+      const numId = extractOrderNumericId(orderId);
+      const res = await fetch(`/api/orders/${numId}`);
+      const data = await res.json();
+      if (res.ok && data.order) setOrderDetail(data.order);
+      else console.error('Order detail error:', data.error);
+    } catch (err) {
+      console.error('Failed to fetch order detail:', err);
+    }
+    setOrderDetailLoading(false);
+  }
+
+  function handleExpandOrder(orderId: string) {
+    if (expandedOrderId === orderId) {
+      setExpandedOrderId(null);
+      setOrderDetail(null);
+    } else {
+      setExpandedOrderId(orderId);
+      fetchOrderDetail(orderId);
+    }
+  }
+
+  async function handleCancelOrder() {
+    if (!expandedOrderId) return;
+    setCancelLoading(true);
+    try {
+      const numId = extractOrderNumericId(expandedOrderId);
+      const res = await fetch(`/api/orders/${numId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', reason: cancelReason, refund: cancelRefund, restock: cancelRestock }),
+      });
+      const data = await res.json();
+      setActionResult({ type: data.success ? 'success' : 'error', message: data.message });
+      if (data.success) {
+        setShowCancelModal(false);
+        fetchOrderDetail(expandedOrderId);
+        // Re-fetch orders list
+        if (ticket.customer_email) {
+          fetch(`/api/tickets/${id}/customer`).then(r => r.json()).then(res => {
+            if (res.orders) setCustomerOrders(res.orders);
+          }).catch(() => {});
+        }
+      }
+    } catch {
+      setActionResult({ type: 'error', message: 'Failed to cancel order' });
+    }
+    setCancelLoading(false);
+    setTimeout(() => setActionResult(null), 5000);
+  }
+
+  async function handleRefundOrder() {
+    if (!expandedOrderId || !refundAmount) return;
+    setRefundLoading(true);
+    try {
+      const numId = extractOrderNumericId(expandedOrderId);
+      const res = await fetch(`/api/orders/${numId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'refund', amount: parseFloat(refundAmount), reason: refundReason || 'Customer requested refund', notify: refundNotify }),
+      });
+      const data = await res.json();
+      setActionResult({ type: data.success ? 'success' : 'error', message: data.message });
+      if (data.success) {
+        setShowRefundModal(false);
+        setRefundAmount('');
+        setRefundReason('');
+        fetchOrderDetail(expandedOrderId);
+        if (ticket.customer_email) {
+          fetch(`/api/tickets/${id}/customer`).then(r => r.json()).then(res => {
+            if (res.orders) setCustomerOrders(res.orders);
+          }).catch(() => {});
+        }
+      }
+    } catch {
+      setActionResult({ type: 'error', message: 'Failed to process refund' });
+    }
+    setRefundLoading(false);
+    setTimeout(() => setActionResult(null), 5000);
+  }
 
   function interpolateCanned(content: string): string {
     const ticket = data?.ticket;
@@ -1014,6 +1171,22 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
+          {/* Action Result Toast */}
+          {actionResult && (
+            <div
+              className="rounded-xl p-3 flex items-center gap-2 text-xs font-medium"
+              style={{
+                backgroundColor: actionResult.type === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                border: `1px solid ${actionResult.type === 'success' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                color: actionResult.type === 'success' ? '#22c55e' : '#ef4444',
+              }}
+            >
+              {actionResult.type === 'success' ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+              {actionResult.message}
+              <button onClick={() => setActionResult(null)} className="ml-auto"><X size={12} /></button>
+            </div>
+          )}
+
           {/* Recent Orders from Shopify */}
           <div
             className="rounded-xl overflow-hidden"
@@ -1045,82 +1218,243 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                     {customerOrders.map((order) => {
                       const finColor = FINANCIAL_STATUS_COLORS[order.financialStatus] || 'var(--text-tertiary)';
                       const fulColor = FULFILLMENT_STATUS_COLORS[order.fulfillmentStatus] || 'var(--text-tertiary)';
+                      const isExpanded = expandedOrderId === order.id;
                       return (
                         <div
                           key={order.id}
-                          className="rounded-lg p-3"
-                          style={{ backgroundColor: 'var(--bg-secondary)' }}
+                          className="rounded-lg overflow-hidden"
+                          style={{ backgroundColor: 'var(--bg-secondary)', border: isExpanded ? '1px solid var(--border-primary)' : '1px solid transparent' }}
                         >
-                          <div className="flex items-center justify-between mb-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                {order.name}
-                              </span>
-                              <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                                ${parseFloat(order.totalPrice).toFixed(2)}
+                          {/* Order summary row — clickable */}
+                          <button
+                            onClick={() => handleExpandOrder(order.id)}
+                            className="w-full text-left p-3 transition-colors"
+                            onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                          >
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-2">
+                                <ChevronRight size={10} style={{ color: 'var(--text-tertiary)', transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+                                <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                  {order.name}
+                                </span>
+                                <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                                  ${parseFloat(order.totalPrice).toFixed(2)}
+                                </span>
+                              </div>
+                              <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                                {new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                               </span>
                             </div>
-                            <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                              {new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <span
-                              className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                              style={{ backgroundColor: `color-mix(in srgb, ${finColor} 12%, transparent)`, color: finColor }}
-                            >
-                              {order.financialStatus?.replace(/_/g, ' ')}
-                            </span>
-                            <span
-                              className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                              style={{ backgroundColor: `color-mix(in srgb, ${fulColor} 12%, transparent)`, color: fulColor }}
-                            >
-                              {order.fulfillmentStatus?.replace(/_/g, ' ') || 'UNFULFILLED'}
-                            </span>
-                          </div>
-                          <div className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                            {order.lineItems.slice(0, 3).map((item, i) => (
-                              <span key={i}>
-                                {item.title}{item.quantity > 1 ? ` x${item.quantity}` : ''}
-                                {item.variantTitle ? ` (${item.variantTitle})` : ''}
-                                {i < Math.min(order.lineItems.length, 3) - 1 ? ', ' : ''}
+                            <div className="flex items-center gap-2 mb-1.5 ml-[18px]">
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${finColor} 12%, transparent)`, color: finColor }}>
+                                {order.financialStatus?.replace(/_/g, ' ')}
                               </span>
-                            ))}
-                            {order.lineItems.length > 3 && ` +${order.lineItems.length - 3} more`}
-                          </div>
-                          {/* Fulfillment details */}
-                          {order.fulfillments && order.fulfillments.length > 0 && (
-                            <div className="mt-1.5 space-y-1">
-                              {order.fulfillments.map((f, fi) => (
-                                <div key={fi} className="flex items-center gap-1.5">
-                                  <Truck size={10} style={{ color: '#22c55e' }} />
-                                  <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                                    {f.status} — {new Date(f.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                  </span>
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${fulColor} 12%, transparent)`, color: fulColor }}>
+                                {order.fulfillmentStatus?.replace(/_/g, ' ') || 'UNFULFILLED'}
+                              </span>
+                            </div>
+                            <div className="text-[10px] ml-[18px]" style={{ color: 'var(--text-tertiary)' }}>
+                              {order.lineItems.slice(0, 3).map((item, i) => (
+                                <span key={i}>
+                                  {item.title}{item.quantity > 1 ? ` x${item.quantity}` : ''}
+                                  {item.variantTitle ? ` (${item.variantTitle})` : ''}
+                                  {i < Math.min(order.lineItems.length, 3) - 1 ? ', ' : ''}
+                                </span>
+                              ))}
+                              {order.lineItems.length > 3 && ` +${order.lineItems.length - 3} more`}
+                            </div>
+                            {order.cancelledAt && (
+                              <p className="text-[10px] mt-1 ml-[18px] font-medium" style={{ color: '#ef4444' }}>
+                                Cancelled {new Date(order.cancelledAt).toLocaleDateString()}
+                              </p>
+                            )}
+                          </button>
+
+                          {/* Expanded order detail */}
+                          {isExpanded && (
+                            <div className="px-3 pb-3" style={{ borderTop: '1px solid var(--border-secondary)' }}>
+                              {orderDetailLoading ? (
+                                <div className="flex items-center gap-2 py-4 justify-center">
+                                  <Loader2 size={14} className="animate-spin" style={{ color: 'var(--text-tertiary)' }} />
+                                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Loading details...</span>
                                 </div>
-                              ))}
+                              ) : orderDetail ? (
+                                <div className="space-y-3 pt-3">
+                                  {/* Line items */}
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase mb-1.5" style={{ color: 'var(--text-tertiary)' }}>Items</p>
+                                    <div className="space-y-1.5">
+                                      {orderDetail.lineItems.map((li) => (
+                                        <div key={li.id} className="flex items-center justify-between text-xs">
+                                          <div className="flex-1 min-w-0">
+                                            <span style={{ color: 'var(--text-primary)' }}>{li.title}</span>
+                                            {li.variantTitle && <span style={{ color: 'var(--text-tertiary)' }}> ({li.variantTitle})</span>}
+                                            {li.sku && <span className="text-[10px] ml-1" style={{ color: 'var(--text-tertiary)' }}>SKU: {li.sku}</span>}
+                                          </div>
+                                          <span className="ml-2 flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>
+                                            ${parseFloat(li.unitPrice).toFixed(2)} x{li.quantity}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Price breakdown */}
+                                  <div className="rounded-lg p-2.5" style={{ backgroundColor: 'var(--bg-primary)' }}>
+                                    <div className="space-y-1 text-xs">
+                                      <div className="flex justify-between"><span style={{ color: 'var(--text-tertiary)' }}>Subtotal</span><span style={{ color: 'var(--text-primary)' }}>${parseFloat(orderDetail.subtotal).toFixed(2)}</span></div>
+                                      <div className="flex justify-between"><span style={{ color: 'var(--text-tertiary)' }}>Shipping</span><span style={{ color: 'var(--text-primary)' }}>${parseFloat(orderDetail.shipping).toFixed(2)}</span></div>
+                                      <div className="flex justify-between"><span style={{ color: 'var(--text-tertiary)' }}>Tax</span><span style={{ color: 'var(--text-primary)' }}>${parseFloat(orderDetail.tax).toFixed(2)}</span></div>
+                                      <div className="flex justify-between font-semibold pt-1" style={{ borderTop: '1px solid var(--border-secondary)' }}>
+                                        <span style={{ color: 'var(--text-primary)' }}>Total</span>
+                                        <span style={{ color: 'var(--text-primary)' }}>${parseFloat(orderDetail.totalPrice).toFixed(2)}</span>
+                                      </div>
+                                      {parseFloat(orderDetail.totalRefunded) > 0 && (
+                                        <div className="flex justify-between"><span style={{ color: '#a855f7' }}>Refunded</span><span style={{ color: '#a855f7' }}>-${parseFloat(orderDetail.totalRefunded).toFixed(2)}</span></div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Shipping address */}
+                                  {orderDetail.shippingAddress && (
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase mb-1 flex items-center gap-1" style={{ color: 'var(--text-tertiary)' }}>
+                                        <MapPin size={10} /> Shipping Address
+                                      </p>
+                                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                        {orderDetail.shippingAddress.name}<br />
+                                        {orderDetail.shippingAddress.address1}
+                                        {orderDetail.shippingAddress.address2 && <>, {orderDetail.shippingAddress.address2}</>}<br />
+                                        {orderDetail.shippingAddress.city}{orderDetail.shippingAddress.province ? `, ${orderDetail.shippingAddress.province}` : ''} {orderDetail.shippingAddress.zip}<br />
+                                        {orderDetail.shippingAddress.country}
+                                        {orderDetail.shippingAddress.phone && <><br />{orderDetail.shippingAddress.phone}</>}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {/* Fulfillments & tracking */}
+                                  {orderDetail.fulfillments.length > 0 && (
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase mb-1 flex items-center gap-1" style={{ color: 'var(--text-tertiary)' }}>
+                                        <Truck size={10} /> Fulfillments
+                                      </p>
+                                      <div className="space-y-1.5">
+                                        {orderDetail.fulfillments.map((f, fi) => (
+                                          <div key={fi} className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                            <span className="font-medium" style={{ color: '#22c55e' }}>{f.status}</span>
+                                            <span> — {new Date(f.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                            {f.trackingInfo.map((t, ti) => (
+                                              <div key={ti} className="flex items-center gap-1.5 mt-0.5 ml-2">
+                                                <Package size={9} style={{ color: 'var(--text-tertiary)' }} />
+                                                {t.url ? (
+                                                  <a href={t.url} target="_blank" rel="noopener noreferrer" className="text-[10px] underline" style={{ color: 'var(--color-accent)' }}>
+                                                    {t.company ? `${t.company}: ` : ''}{t.number}
+                                                  </a>
+                                                ) : (
+                                                  <span className="text-[10px]">{t.company ? `${t.company}: ` : ''}{t.number}</span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Transactions */}
+                                  {orderDetail.transactions.length > 0 && (
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase mb-1 flex items-center gap-1" style={{ color: 'var(--text-tertiary)' }}>
+                                        <CreditCard size={10} /> Transactions
+                                      </p>
+                                      <div className="space-y-1">
+                                        {orderDetail.transactions.map((txn) => (
+                                          <div key={txn.id} className="flex items-center justify-between text-[11px]">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="font-medium" style={{ color: txn.kind === 'REFUND' ? '#a855f7' : txn.kind === 'SALE' ? '#22c55e' : 'var(--text-secondary)' }}>
+                                                {txn.kind}
+                                              </span>
+                                              <span style={{ color: 'var(--text-tertiary)' }}>{txn.status}</span>
+                                              <span style={{ color: 'var(--text-tertiary)' }}>via {txn.gateway?.replace(/_/g, ' ')}</span>
+                                            </div>
+                                            <span style={{ color: txn.kind === 'REFUND' ? '#a855f7' : 'var(--text-primary)' }}>
+                                              {txn.kind === 'REFUND' ? '-' : ''}${parseFloat(txn.amount).toFixed(2)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Refund history */}
+                                  {orderDetail.refunds.length > 0 && (
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase mb-1 flex items-center gap-1" style={{ color: '#a855f7' }}>
+                                        <Undo2 size={10} /> Refunds
+                                      </p>
+                                      <div className="space-y-1.5">
+                                        {orderDetail.refunds.map((r) => (
+                                          <div key={r.id} className="text-xs rounded-lg p-2" style={{ backgroundColor: 'rgba(168,85,247,0.06)' }}>
+                                            <div className="flex justify-between mb-0.5">
+                                              <span style={{ color: '#a855f7' }}>${parseFloat(r.amount).toFixed(2)}</span>
+                                              <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{new Date(r.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            {r.note && <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{r.note}</p>}
+                                            {r.lineItems.length > 0 && (
+                                              <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                                                {r.lineItems.map((li, i) => <span key={i}>{li.title} x{li.quantity}{i < r.lineItems.length - 1 ? ', ' : ''}</span>)}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Order note */}
+                                  {orderDetail.note && (
+                                    <div className="text-xs rounded-lg px-2.5 py-2" style={{ backgroundColor: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                                      <span className="text-[10px] font-medium block mb-0.5" style={{ color: '#d97706' }}>Order Note</span>
+                                      <span style={{ color: 'var(--text-secondary)' }}>{orderDetail.note}</span>
+                                    </div>
+                                  )}
+
+                                  {/* Action buttons */}
+                                  <div className="flex gap-2 pt-1">
+                                    {!orderDetail.cancelledAt && orderDetail.fulfillmentStatus === 'UNFULFILLED' && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setShowCancelModal(true); }}
+                                        className="flex-1 text-[11px] font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                                        style={{ backgroundColor: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.15)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.08)'; }}
+                                      >
+                                        <Ban size={11} /> Cancel Order
+                                      </button>
+                                    )}
+                                    {!orderDetail.cancelledAt && ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'].includes(orderDetail.financialStatus) && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const refundable = parseFloat(orderDetail.totalPrice) - parseFloat(orderDetail.totalRefunded);
+                                          setRefundAmount(refundable.toFixed(2));
+                                          setShowRefundModal(true);
+                                        }}
+                                        className="flex-1 text-[11px] font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                                        style={{ backgroundColor: 'rgba(168,85,247,0.08)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.2)' }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(168,85,247,0.15)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(168,85,247,0.08)'; }}
+                                      >
+                                        <Undo2 size={11} /> Issue Refund
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-xs py-3 text-center" style={{ color: 'var(--text-tertiary)' }}>Failed to load order details</p>
+                              )}
                             </div>
-                          )}
-                          {order.tracking.length > 0 && (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <Package size={10} style={{ color: 'var(--text-tertiary)' }} />
-                              {order.tracking.map((t, i) => (
-                                t.url ? (
-                                  <a key={i} href={t.url} target="_blank" rel="noopener noreferrer" className="text-[10px] underline" style={{ color: 'var(--color-accent)' }}>
-                                    {t.company ? `${t.company}: ` : ''}{t.number}
-                                  </a>
-                                ) : (
-                                  <span key={i} className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                                    {t.company ? `${t.company}: ` : ''}{t.number}
-                                  </span>
-                                )
-                              ))}
-                            </div>
-                          )}
-                          {order.cancelledAt && (
-                            <p className="text-[10px] mt-1 font-medium" style={{ color: '#ef4444' }}>
-                              Cancelled {new Date(order.cancelledAt).toLocaleDateString()}
-                            </p>
                           )}
                         </div>
                       );
@@ -1134,6 +1468,135 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               </div>
             )}
           </div>
+
+          {/* Cancel Order Modal */}
+          {showCancelModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              <div className="rounded-xl p-5 w-[360px] shadow-xl" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                    <Ban size={14} style={{ color: '#ef4444' }} /> Cancel Order
+                  </h3>
+                  <button onClick={() => setShowCancelModal(false)} style={{ color: 'var(--text-tertiary)' }}><X size={16} /></button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>Reason</label>
+                    <select
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      className="w-full text-xs rounded-lg px-3 py-2 focus:outline-none"
+                      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                    >
+                      {CANCEL_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+                    <input type="checkbox" checked={cancelRefund} onChange={(e) => setCancelRefund(e.target.checked)} className="rounded" />
+                    Issue refund to customer
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+                    <input type="checkbox" checked={cancelRestock} onChange={(e) => setCancelRestock(e.target.checked)} className="rounded" />
+                    Restock items
+                  </label>
+                </div>
+
+                <div className="flex gap-2 mt-5">
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="flex-1 text-xs font-medium px-3 py-2 rounded-lg transition-colors"
+                    style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleCancelOrder}
+                    disabled={cancelLoading}
+                    className="flex-1 text-xs font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: '#ef4444', color: '#fff' }}
+                  >
+                    {cancelLoading ? <><Loader2 size={12} className="animate-spin" /> Cancelling...</> : 'Confirm Cancel'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Refund Modal */}
+          {showRefundModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              <div className="rounded-xl p-5 w-[360px] shadow-xl" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                    <Undo2 size={14} style={{ color: '#a855f7' }} /> Issue Refund
+                  </h3>
+                  <button onClick={() => setShowRefundModal(false)} style={{ color: 'var(--text-tertiary)' }}><X size={16} /></button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>
+                      Amount ($)
+                      {orderDetail && (
+                        <span className="ml-1 font-normal" style={{ color: 'var(--text-tertiary)' }}>
+                          max: ${(parseFloat(orderDetail.totalPrice) - parseFloat(orderDetail.totalRefunded)).toFixed(2)}
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max={orderDetail ? (parseFloat(orderDetail.totalPrice) - parseFloat(orderDetail.totalRefunded)) : undefined}
+                      value={refundAmount}
+                      onChange={(e) => setRefundAmount(e.target.value)}
+                      className="w-full text-xs rounded-lg px-3 py-2 focus:outline-none"
+                      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>Reason (optional)</label>
+                    <input
+                      type="text"
+                      value={refundReason}
+                      onChange={(e) => setRefundReason(e.target.value)}
+                      className="w-full text-xs rounded-lg px-3 py-2 focus:outline-none"
+                      style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
+                      placeholder="Customer requested refund"
+                    />
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+                    <input type="checkbox" checked={refundNotify} onChange={(e) => setRefundNotify(e.target.checked)} className="rounded" />
+                    Notify customer via email
+                  </label>
+                </div>
+
+                <div className="flex gap-2 mt-5">
+                  <button
+                    onClick={() => setShowRefundModal(false)}
+                    className="flex-1 text-xs font-medium px-3 py-2 rounded-lg transition-colors"
+                    style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleRefundOrder}
+                    disabled={refundLoading || !refundAmount || parseFloat(refundAmount) <= 0}
+                    className="flex-1 text-xs font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: '#a855f7', color: '#fff' }}
+                  >
+                    {refundLoading ? <><Loader2 size={12} className="animate-spin" /> Processing...</> : `Refund $${parseFloat(refundAmount || '0').toFixed(2)}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* AI Tools */}
           <div

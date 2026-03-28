@@ -63,7 +63,8 @@ export async function GET(
     }
 
     return NextResponse.json({ profile, orders });
-  } catch {
-    return NextResponse.json({ profile: null, orders: [] });
+  } catch (err) {
+    console.error(`[tickets/${id}/customer] Shopify fetch failed:`, err instanceof Error ? err.message : err);
+    return NextResponse.json({ profile: null, orders: [], error: err instanceof Error ? err.message : 'Unknown error' });
   }
 }
