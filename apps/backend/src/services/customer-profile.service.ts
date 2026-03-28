@@ -66,6 +66,7 @@ async function shopifyGraphql<T>(query: string, variables?: Record<string, unkno
 
 // ── Get Customer by Email ──────────────────────────────────────────────────
 export async function getCustomerByEmail(email: string, brandId?: string): Promise<ShopifyCustomerProfile | null> {
+  // Shopify 2025-01 API: ordersCount → numberOfOrders, totalSpentV2 → amountSpent
   const query = `
     query CustomerByEmail($queryStr: String!) {
       customers(first: 1, query: $queryStr) {
@@ -76,8 +77,8 @@ export async function getCustomerByEmail(email: string, brandId?: string): Promi
             lastName
             email
             phone
-            ordersCount
-            totalSpentV2 {
+            numberOfOrders
+            amountSpent {
               amount
               currencyCode
             }
@@ -101,8 +102,8 @@ export async function getCustomerByEmail(email: string, brandId?: string): Promi
             lastName: string | null;
             email: string | null;
             phone: string | null;
-            ordersCount: number;
-            totalSpentV2: { amount: string; currencyCode: string };
+            numberOfOrders: string;
+            amountSpent: { amount: string; currencyCode: string };
             createdAt: string;
             tags: string[];
             note: string | null;
@@ -125,8 +126,8 @@ export async function getCustomerByEmail(email: string, brandId?: string): Promi
       lastName: c.lastName,
       email: c.email,
       phone: c.phone,
-      ordersCount: c.ordersCount,
-      totalSpent: `${c.totalSpentV2.amount} ${c.totalSpentV2.currencyCode}`,
+      ordersCount: parseInt(c.numberOfOrders, 10) || 0,
+      totalSpent: `${c.amountSpent.amount} ${c.amountSpent.currencyCode}`,
       createdAt: c.createdAt,
       tags: c.tags,
       note: c.note,

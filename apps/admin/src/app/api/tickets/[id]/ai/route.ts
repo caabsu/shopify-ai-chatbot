@@ -17,7 +17,7 @@ function buildOrderContext(orders: OrderSummary[]): string {
     ).join(', ');
 
     const tracking = o.tracking.length > 0
-      ? o.tracking.map((t) => `${t.company || 'Carrier'}: ${t.number}${t.url ? ` (${t.url})` : ''}`).join('; ')
+      ? o.tracking.map((t) => `${t.company || 'Carrier'}: ${t.number}${t.url ? ` (tracking URL: ${t.url})` : ''}`).join('; ')
       : 'No tracking available';
 
     const fulfillmentDetails = o.fulfillments.length > 0
@@ -35,9 +35,10 @@ function buildOrderContext(orders: OrderSummary[]): string {
   }).join('\n\n');
 }
 
-function buildCustomerContext(profile: CustomerProfile | null): string {
-  if (!profile) return 'No Shopify customer profile found.';
+function buildCustomerContext(profile: CustomerProfile | null, email?: string): string {
+  if (!profile) return email ? `Customer email: ${email} (no Shopify profile found)` : 'No customer data available.';
   return `Customer: ${profile.firstName || ''} ${profile.lastName || ''} (${profile.email})
+  - Phone: ${profile.phone || 'N/A'}
   - Total Orders: ${profile.ordersCount}
   - Lifetime Value: $${parseFloat(profile.totalSpent).toFixed(2)}
   - Customer Since: ${new Date(profile.createdAt).toLocaleDateString()}
@@ -46,31 +47,36 @@ function buildCustomerContext(profile: CustomerProfile | null): string {
 }
 
 async function loadKnowledgeBase(brandId: string, query?: string): Promise<string> {
-  let q = supabase
+  // Always load all KB articles — they're the source of truth for what we can/cannot do
+  const { data } = await supabase
     .from('knowledge_documents')
     .select('title, content, category')
     .eq('brand_id', brandId)
     .eq('enabled', true)
     .order('priority', { ascending: false })
-    .limit(10);
+    .limit(20);
 
-  if (query) {
-    q = supabase
-      .from('knowledge_documents')
-      .select('title, content, category')
-      .eq('brand_id', brandId)
-      .eq('enabled', true)
-      .or(`title.ilike.%${query}%,content.ilike.%${query}%`)
-      .order('priority', { ascending: false })
-      .limit(10);
-  }
-
-  const { data } = await q;
   if (!data || data.length === 0) return '';
 
-  return '\n\nKnowledge Base Articles:\n' + data.map((d) =>
+  return '\n\nKNOWLEDGE BASE (this is what you know — do not assume capabilities beyond this):\n' + data.map((d) =>
     `[${d.category}] ${d.title}:\n${d.content}`
   ).join('\n\n---\n\n');
+}
+
+async function loadAiConversation(conversationId: string): Promise<string> {
+  const { data } = await supabase
+    .from('messages')
+    .select('role, content')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true });
+
+  if (!data || data.length === 0) return '';
+
+  return '\n\nPRIOR AI CHATBOT CONVERSATION (before escalation to human agent):\n' +
+    data.map((m) => {
+      const label = m.role === 'user' ? 'Customer' : m.role === 'assistant' ? 'AI Chatbot' : 'System';
+      return `[${label}]: ${m.content}`;
+    }).join('\n\n');
 }
 
 export async function POST(
@@ -100,7 +106,7 @@ export async function POST(
     return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
   }
 
-  // Load messages
+  // Load ticket messages
   const { data: messages } = await supabase
     .from('ticket_messages')
     .select('*')
@@ -115,6 +121,12 @@ export async function POST(
     })
     .join('\n\n');
 
+  // Load AI conversation context if this is an escalation
+  let aiConversationText = '';
+  if (ticket.conversation_id) {
+    aiConversationText = await loadAiConversation(ticket.conversation_id).catch(() => '');
+  }
+
   // Fetch Shopify customer data + orders
   let customerProfile: CustomerProfile | null = null;
   let customerOrders: OrderSummary[] = [];
@@ -122,40 +134,46 @@ export async function POST(
   if (ticket.customer_email) {
     try {
       [customerProfile, customerOrders] = await Promise.all([
-        getCustomerByEmail(ticket.customer_email).catch(() => null),
-        getCustomerOrders(ticket.customer_email, 5).catch(() => []),
+        getCustomerByEmail(ticket.customer_email).catch((e) => {
+          console.error('[tickets/ai] customer lookup failed:', e instanceof Error ? e.message : e);
+          return null;
+        }),
+        getCustomerOrders(ticket.customer_email, 5).catch((e) => {
+          console.error('[tickets/ai] orders lookup failed:', e instanceof Error ? e.message : e);
+          return [];
+        }),
       ]);
     } catch {
       // continue without Shopify data
     }
   }
 
-  const customerContext = buildCustomerContext(customerProfile);
+  const customerContext = buildCustomerContext(customerProfile, ticket.customer_email);
   const orderContext = buildOrderContext(customerOrders);
 
-  // Load knowledge base
-  const kbContent = await loadKnowledgeBase(
-    session.brandId,
-    ticket.subject
-  ).catch(() => '');
+  // Load knowledge base — always load all of it
+  const kbContent = await loadKnowledgeBase(session.brandId, ticket.subject).catch(() => '');
+
+  // Combine all conversation context
+  const fullConversation = [aiConversationText, threadText].filter(Boolean).join('\n\n---\n\n');
 
   try {
     if (action === 'draft') {
-      return await handleDraft(ticket, threadText, customerContext, orderContext, customerProfile, kbContent);
+      return await handleDraft(ticket, fullConversation, customerContext, orderContext, customerProfile, kbContent);
     } else if (action === 'summarize') {
-      return await handleSummarize(ticket, threadText, customerContext, orderContext);
+      return await handleSummarize(ticket, fullConversation, customerContext, orderContext);
     } else {
-      return await handleSuggest(ticket, threadText, customerContext, orderContext, kbContent);
+      return await handleSuggest(ticket, fullConversation, customerContext, orderContext, kbContent);
     }
   } catch (err) {
     console.error(`[tickets/ai] ${action} error:`, err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: `AI ${action} failed` }, { status: 500 });
+    return NextResponse.json({ error: `AI ${action} failed: ${err instanceof Error ? err.message : 'Unknown error'}` }, { status: 500 });
   }
 }
 
 async function handleDraft(
   ticket: Record<string, unknown>,
-  threadText: string,
+  conversationText: string,
   customerContext: string,
   orderContext: string,
   customerProfile: CustomerProfile | null,
@@ -165,24 +183,33 @@ async function handleDraft(
     || (ticket.customer_name as string)?.split(' ')[0]
     || 'there';
 
-  const systemPrompt = `You are a professional customer support agent for Outlight, an outdoor lighting company.
+  const systemPrompt = `You are a human customer support agent at Outlight, an outdoor lighting company. You are writing a real email reply to a customer.
 
-Your task: Write a reply to a support ticket. The reply will be sent directly to the customer — output ONLY the email body, no meta-commentary.
+VOICE & TONE:
+- Write like a real person, not an AI chatbot. Be genuine, sincere, and concise.
+- No exclamation marks unless absolutely natural. Keep the tone calm, professional, and warm.
+- Do not over-apologize or use filler phrases like "I completely understand" or "Not to worry."
+- Be direct and actionable. Say what you know, what you can do, and what the next step is.
+- Short paragraphs. No bullet-point lists in the email unless truly necessary.
+- This should read like an email from a real support team member, not a template.
 
-RULES:
-1. Start with "Hi ${customerFirstName}," as the greeting
-2. Be warm, professional, and empathetic
-3. Be concise but thorough — address the customer's concern directly
-4. If the customer asks "where is my order" or about shipping/tracking, use the order and tracking data provided to give specific, helpful information
-5. If the customer asks about assembly or product instructions, help to the best of your ability with the product knowledge available
-6. If you have knowledge base articles relevant to the inquiry, incorporate that information naturally
-7. ALWAYS end the email with exactly:
+CRITICAL RULES:
+- You already have the customer's order information, email, and name. NEVER ask for information you already have (order number, email, name, etc.).
+- If you do not have assembly instructions or product manuals available, be honest about it. Do NOT promise to send digital copies or links you do not have.
+- If the customer has an issue you cannot fully resolve (like missing instructions), sincerely apologize and offer realistic next steps — e.g., ask them to send photos of what arrived so you can help them figure it out.
+- Only suggest actions that Outlight support can actually take. We do NOT have: a product team to escalate to, scheduled phone/video assembly calls, downloadable instruction PDFs online, or a manufacturer contact line for customers.
+- If the ticket was escalated from an AI chatbot, read the prior AI conversation carefully — do not repeat information the AI already gave (especially if it was wrong).
+
+FORMAT:
+- Start with "Hi ${customerFirstName},"
+- End EXACTLY with:
 
 Best Regards,
 [YOUR NAME]
 Outlight Customer Support Team
 
-CONTEXT:
+Output ONLY the email body. No meta-commentary, no subject line, no explanations.
+
 ${customerContext}
 
 ORDERS:
@@ -192,12 +219,12 @@ ${kbContent}`;
   const response = await anthropic.messages.create({
     model: AI_MODEL,
     max_tokens: 1024,
-    temperature: 0.7,
+    temperature: 0.6,
     system: systemPrompt,
     messages: [
       {
         role: 'user',
-        content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\nConversation:\n${threadText}\n\nWrite a reply to the customer.`,
+        content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\nFull conversation history:\n${conversationText}\n\nWrite a reply to the customer.`,
       },
     ],
   });
@@ -212,23 +239,22 @@ ${kbContent}`;
 
 async function handleSummarize(
   ticket: Record<string, unknown>,
-  threadText: string,
+  conversationText: string,
   customerContext: string,
   orderContext: string
 ) {
-  if (!threadText.trim()) {
+  if (!conversationText.trim()) {
     return NextResponse.json({ content: 'No messages in this ticket yet.', text: 'No messages in this ticket yet.' });
   }
 
-  const systemPrompt = `You are a support team assistant. Summarize the support ticket conversation concisely in 2-4 sentences.
+  const systemPrompt = `You are a support team assistant. Summarize the entire support ticket conversation concisely in 2-4 sentences. This may include a prior AI chatbot conversation that was escalated to a human agent, plus any subsequent ticket messages.
 
 Focus on:
-- What the customer wants
-- What has been done so far
+- What the customer wants / their core issue
+- What has been communicated so far (by AI chatbot and/or human agents)
 - What remains unresolved
-- Any relevant order/account details
+- Relevant order/account details
 
-CONTEXT:
 ${customerContext}
 
 ORDERS:
@@ -242,7 +268,7 @@ ${orderContext}`;
     messages: [
       {
         role: 'user',
-        content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\n${threadText}`,
+        content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority, source: ${ticket.source})\n\n${conversationText}`,
       },
     ],
   });
@@ -257,18 +283,23 @@ ${orderContext}`;
 
 async function handleSuggest(
   ticket: Record<string, unknown>,
-  threadText: string,
+  conversationText: string,
   customerContext: string,
   orderContext: string,
   kbContent: string
 ) {
-  const systemPrompt = `You are a support team assistant. Based on the ticket conversation, customer data, and order information, suggest 3-5 specific, actionable next steps the agent should take to resolve this ticket.
+  const systemPrompt = `You are a support team assistant for Outlight, an outdoor lighting company. Based on the ticket conversation, customer data, and order information, suggest 3-5 actionable next steps the agent should take.
 
-Be practical and specific — reference actual order numbers, tracking info, or policies when relevant.
+IMPORTANT CONSTRAINTS — only suggest things we can actually do:
+- We are a small customer support team. We can reply to emails, look up orders, process returns/refunds, and provide product guidance.
+- We do NOT have: a product team, downloadable instruction manuals online, manufacturer hotlines, scheduled assembly calls/video calls, or a dedicated returns warehouse.
+- If we don't have specific documentation (like assembly instructions), we can ask the customer to send photos and help them figure it out based on what we see.
+- We can offer store credit, replacements, or refunds when appropriate.
+- Steps should be concrete actions the agent can take RIGHT NOW from the admin dashboard or via email reply.
 
-Respond with ONLY a JSON array of strings, e.g.: ["Step 1", "Step 2", "Step 3"]. No other text.
+Respond with ONLY a JSON array of strings. No other text.
+Example: ["Reply to customer apologizing for the issue and ask for photos of what arrived", "Check if order #1234 tracking shows delivered", "Offer 10% store credit for the inconvenience"]
 
-CONTEXT:
 ${customerContext}
 
 ORDERS:
@@ -283,7 +314,7 @@ ${kbContent}`;
     messages: [
       {
         role: 'user',
-        content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\n${threadText}`,
+        content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority, source: ${ticket.source})\n\n${conversationText}`,
       },
     ],
   });
@@ -293,7 +324,6 @@ ${kbContent}`;
     .map((b) => b.text)
     .join('');
 
-  // Try to parse as JSON array
   try {
     const steps = JSON.parse(text) as string[];
     if (Array.isArray(steps)) {

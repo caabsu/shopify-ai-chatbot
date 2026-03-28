@@ -88,6 +88,7 @@ export interface CustomerProfile {
 }
 
 export async function getCustomerByEmail(email: string): Promise<CustomerProfile | null> {
+  // Shopify 2025-01 API: ordersCount → numberOfOrders, totalSpentV2 → amountSpent
   const data = await shopifyGraphql<{
     customers: {
       edges: Array<{
@@ -97,8 +98,8 @@ export async function getCustomerByEmail(email: string): Promise<CustomerProfile
           lastName: string | null;
           email: string | null;
           phone: string | null;
-          ordersCount: number;
-          totalSpentV2: { amount: string; currencyCode: string };
+          numberOfOrders: string;
+          amountSpent: { amount: string; currencyCode: string };
           createdAt: string;
           tags: string[];
           note: string | null;
@@ -110,8 +111,8 @@ export async function getCustomerByEmail(email: string): Promise<CustomerProfile
     `query ($q: String!) {
       customers(first: 1, query: $q) {
         edges { node {
-          id firstName lastName email phone ordersCount
-          totalSpentV2 { amount currencyCode }
+          id firstName lastName email phone numberOfOrders
+          amountSpent { amount currencyCode }
           createdAt tags note state
         }}
       }
@@ -128,8 +129,8 @@ export async function getCustomerByEmail(email: string): Promise<CustomerProfile
     lastName: node.lastName,
     email: node.email,
     phone: node.phone,
-    ordersCount: node.ordersCount,
-    totalSpent: `${node.totalSpentV2.amount} ${node.totalSpentV2.currencyCode}`,
+    ordersCount: parseInt(node.numberOfOrders, 10) || 0,
+    totalSpent: `${node.amountSpent.amount} ${node.amountSpent.currencyCode}`,
     createdAt: node.createdAt,
     tags: node.tags,
     note: node.note,
