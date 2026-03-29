@@ -367,8 +367,8 @@ export default function FunnelAnalyticsPage() {
               />
               <Tooltip
                 contentStyle={tooltipStyle}
-                formatter={(value: number, _name: string, props: { payload: DurationRow }) => [
-                  `${value.toFixed(1)}s (n=${props.payload.sampleSize})`,
+                formatter={(value: number, _name: string, props: { payload?: DurationRow }) => [
+                  `${value.toFixed(1)}s${props.payload ? ` (n=${props.payload.sampleSize})` : ''}`,
                   'Avg Duration',
                 ]}
               />
