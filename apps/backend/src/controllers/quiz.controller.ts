@@ -313,6 +313,111 @@ quizRouter.get('/recommendations/:profileKey', async (req, res) => {
 
 // ── Image Processing ─────────────────────────────────────────────────────────
 
+// POST /api/quiz/render-debug — Full render with debug info (for playground)
+quizRouter.post('/render-debug', async (req, res) => {
+  try {
+    const { image_base64, mime_type, context } = req.body;
+
+    if (!context) {
+      res.status(400).json({ error: 'context is required' });
+      return;
+    }
+
+    const debug: {
+      styleKey: string;
+      atmosphere: unknown;
+      reviewPrompt: string;
+      renderPrompt: string;
+      generatePrompt: string;
+      review: unknown;
+      timings: { reviewMs?: number; renderMs?: number; totalMs: number };
+      model: { review: string; image: string };
+    } = {
+      styleKey: '',
+      atmosphere: null,
+      reviewPrompt: '',
+      renderPrompt: '',
+      generatePrompt: '',
+      review: null,
+      timings: { totalMs: 0 },
+      model: { review: '', image: '' },
+    };
+
+    const totalStart = Date.now();
+
+    // Get debug info
+    const debugInfo = quizImage.getDebugPrompts(context);
+    debug.styleKey = debugInfo.styleKey;
+    debug.reviewPrompt = debugInfo.reviewPrompt;
+    debug.generatePrompt = debugInfo.generatePrompt;
+    debug.atmosphere = quizImage.getAtmosphereProfile(context);
+
+    // Import config for model names
+    const { config } = await import('../config/env.js');
+    debug.model = {
+      review: config.gemini.reviewModel,
+      image: config.gemini.imageModel,
+    };
+
+    let result: { review: any; render: any };
+
+    if (!image_base64) {
+      // Sample room — generate from scratch
+      const genStart = Date.now();
+      const render = await quizImage.generateFromScratch(context);
+      debug.timings.renderMs = Date.now() - genStart;
+      debug.renderPrompt = debug.generatePrompt;
+
+      result = {
+        review: {
+          roomType: 'living',
+          dimensions: 'Sample room',
+          description: 'AI-generated sample room',
+          currentLighting: 'None — generated from scratch',
+          furniture: [],
+          colorPalette: [],
+          placements: [],
+          ambiance: (debug.atmosphere as any)?.emotionalTone || 'A beautifully lit space.',
+          tips: [],
+        },
+        render,
+      };
+      debug.review = result.review;
+    } else {
+      // Real photo — review then render
+      const reviewStart = Date.now();
+      const review = await quizImage.reviewRoomPhoto(image_base64, mime_type || 'image/jpeg', context);
+      debug.timings.reviewMs = Date.now() - reviewStart;
+      debug.review = review;
+
+      const renderStart = Date.now();
+      const render = await quizImage.renderVisualization(image_base64, mime_type || 'image/jpeg', review, context);
+      debug.timings.renderMs = Date.now() - renderStart;
+
+      // Build the actual render prompt that was used (we need to reconstruct it)
+      debug.renderPrompt = `[Render prompt built from review with ${review.placements?.length || 0} placements]`;
+
+      result = { review, render };
+    }
+
+    debug.timings.totalMs = Date.now() - totalStart;
+
+    res.json({
+      review: result.review,
+      render: {
+        imageBase64: result.render.imageBase64,
+        mimeType: result.render.mimeType,
+      },
+      suggestedProducts: quizImage.getProductSuggestions(context),
+      debug,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] POST /render-debug error:', message);
+    res.status(500).json({ error: 'Failed to process', details: message });
+  }
+});
+
 // POST /api/quiz/render — Upload photo and get AI visualization (or generate sample)
 quizRouter.post('/render', async (req, res) => {
   try {

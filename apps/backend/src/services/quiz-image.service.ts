@@ -546,3 +546,17 @@ export async function processRoomPhoto(
 export function getProductSuggestions(ctx: QuizContext): string[] {
   return getSuggestedProducts(ctx);
 }
+
+// ── Debug helpers (for playground) ────────────────────────────────────────
+export function getAtmosphereProfile(ctx: QuizContext): AtmosphereProfile | null {
+  const key = getStyleKey(ctx);
+  return MOOD_ATMOSPHERES[key] || null;
+}
+
+export function getDebugPrompts(ctx: QuizContext): { reviewPrompt: string; generatePrompt: string; styleKey: string } {
+  return {
+    reviewPrompt: buildReviewPrompt(ctx),
+    generatePrompt: buildGeneratePrompt(ctx),
+    styleKey: getStyleKey(ctx),
+  };
+}
