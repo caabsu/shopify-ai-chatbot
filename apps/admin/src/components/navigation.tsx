@@ -162,9 +162,9 @@ const modules: Module[] = [
       { href: '/funnel/sessions', label: 'Sessions', icon: ListFilter },
       { href: '/funnel/analytics', label: 'Analytics', icon: BarChart3 },
       { href: '/funnel/products', label: 'Products', icon: Database },
+      { href: '/funnel/playground', label: 'Playground', icon: TestTube },
     ],
     configItems: [
-      { href: '/funnel/playground', label: 'Playground', icon: TestTube },
       { href: '/funnel/settings', label: 'Settings', icon: Settings },
     ],
   },
