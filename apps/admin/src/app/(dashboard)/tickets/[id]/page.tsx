@@ -1347,7 +1347,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                                             {f.trackingInfo.map((t, ti) => (
                                               <div key={ti} className="flex items-center gap-1.5 mt-0.5 ml-2">
                                                 <Package size={9} style={{ color: 'var(--text-tertiary)' }} />
-                                                <a href="https://outlight.us/pages/tracking-page" target="_blank" rel="noopener noreferrer" className="text-[10px] underline" style={{ color: 'var(--color-accent)' }}>
+                                                <a href={`https://outlight.us/pages/tracking-page?tracking=${encodeURIComponent(t.number)}`} target="_blank" rel="noopener noreferrer" className="text-[10px] underline" style={{ color: 'var(--color-accent)' }}>
                                                   {t.company ? `${t.company}: ` : ''}{t.number}
                                                 </a>
                                               </div>

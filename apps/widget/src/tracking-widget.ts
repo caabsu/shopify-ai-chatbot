@@ -405,7 +405,27 @@ function createWidget(container: HTMLElement, backendUrl: string, brandSlug: str
     }
   }
 
-  render();
+  // ── Auto-fill from URL params ──
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlTracking = urlParams.get('tracking') || urlParams.get('t');
+  const urlOrder = urlParams.get('order') || urlParams.get('o');
+  const urlEmail = urlParams.get('email') || urlParams.get('e');
+
+  if (urlTracking) {
+    state.activeTab = 'tracking';
+    state.trackingNumber = urlTracking;
+    render();
+    handleSubmit();
+  } else if (urlOrder) {
+    state.activeTab = 'order';
+    state.orderNumber = urlOrder;
+    if (urlEmail) state.email = urlEmail;
+    render();
+    if (urlEmail) handleSubmit();
+  } else {
+    render();
+  }
+
   window.addEventListener('message', (e) => {
     if (e.data?.type === 'otw:design_update' && e.data.design) {
       Object.assign(design, e.data.design);
