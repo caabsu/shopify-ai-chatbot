@@ -94,7 +94,7 @@ export default function FunnelPlaygroundPage() {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState('');
   const startTimeRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   // Results
   const [resultImage, setResultImage] = useState('');
