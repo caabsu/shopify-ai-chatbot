@@ -38,6 +38,11 @@ import {
   Shield,
   User,
   Wrench,
+  Sparkles,
+  Activity,
+  ListFilter,
+  Image,
+  Database,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -144,6 +149,23 @@ const modules: Module[] = [
       { href: '/tracking/playground', label: 'Widget Preview', icon: TestTube },
       { href: '/tracking/design', label: 'Widget Design', icon: Palette },
       { href: '/tracking/settings', label: 'Settings', icon: Settings },
+    ],
+  },
+  {
+    id: 'funnel',
+    label: 'Funnel',
+    icon: Sparkles,
+    color: '#10b981',
+    basePaths: ['/funnel'],
+    items: [
+      { href: '/funnel', label: 'Overview', icon: Activity },
+      { href: '/funnel/sessions', label: 'Sessions', icon: ListFilter },
+      { href: '/funnel/analytics', label: 'Analytics', icon: BarChart3 },
+      { href: '/funnel/products', label: 'Products', icon: Database },
+    ],
+    configItems: [
+      { href: '/funnel/playground', label: 'Playground', icon: TestTube },
+      { href: '/funnel/settings', label: 'Settings', icon: Settings },
     ],
   },
   {

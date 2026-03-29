@@ -658,3 +658,67 @@ export interface TrackingSettings {
   created_at: string;
   updated_at: string;
 }
+
+// ── Quiz Funnel ──
+
+export interface QuizSession {
+  id: string;
+  brand_id: string;
+  session_id: string;
+  concept: 'reveal' | 'style-profile';
+  status: 'started' | 'in_progress' | 'completed' | 'abandoned';
+  current_step: string | null;
+  answers: Record<string, string>;
+  profile_key: string | null;
+  profile_name: string | null;
+  email: string | null;
+  photo_uploaded: boolean;
+  photo_url: string | null;
+  render_url: string | null;
+  render_status: 'pending' | 'processing' | 'completed' | 'failed' | null;
+  recommended_products: string[] | null;
+  cart_created: boolean;
+  converted: boolean;
+  device_type: string | null;
+  referrer: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuizEvent {
+  id: string;
+  brand_id: string;
+  session_id: string;
+  event_type: string;
+  step: string | null;
+  data: Record<string, unknown> | null;
+  duration_ms: number | null;
+  created_at: string;
+}
+
+export interface QuizProductPool {
+  id: string;
+  brand_id: string;
+  name: string;
+  description: string | null;
+  profile_keys: string[];
+  product_handles: string[];
+  priority: number;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuizConfig {
+  id: string;
+  brand_id: string;
+  key: string;
+  value: unknown;
+  created_at: string;
+  updated_at: string;
+}

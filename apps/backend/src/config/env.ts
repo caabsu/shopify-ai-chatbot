@@ -50,4 +50,9 @@ export const config = {
     resendApiKey: optionalEnv('RESEND_API_KEY', ''),
     fromAddress: optionalEnv('EMAIL_FROM_ADDRESS', 'Support <onboarding@resend.dev>'),
   },
+  gemini: {
+    apiKey: optionalEnv('GEMINI_API_KEY', ''),
+    reviewModel: optionalEnv('GEMINI_REVIEW_MODEL', 'gemini-3.1-flash-lite-preview'),
+    imageModel: optionalEnv('GEMINI_IMAGE_MODEL', 'nano-banana-pro-preview'),
+  },
 } as const;

@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Outlight — The Reveal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200;0,6..72,300;1,6..72,200;1,6..72,300&family=Manrope:wght@300;400;500&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Manrope',sans-serif;font-weight:300;color:#2d3338;background:#FAF8F5;min-height:100vh;-webkit-font-smoothing:antialiased;line-height:1.5;overflow-x:hidden}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input{font-family:inherit}
+.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24;vertical-align:middle}
+
+:root{
+--bg:#FAF8F5;--surface:#FFFFFF;
+--fg:#131314;--fg-body:#2d3338;--fg-muted:rgba(45,51,56,.55);--fg-subtle:rgba(45,51,56,.3);
+--gold:#C5A059;--gold-hover:#b8903f;
+--amber:#EF9F27;--amber-50:#FAEEDA;--amber-600:#854F0B;--amber-800:#5C3A0A;
+--border:rgba(19,19,20,.08);--border-hover:rgba(197,160,89,.4);
+}
+
+/* Screens */
+.screen{display:none;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px 60px;position:relative}
+.screen.active{display:flex;animation:fadeUp 420ms cubic-bezier(.22,1,.36,1) both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* Progress */
+.progress-bar{position:fixed;top:0;left:0;right:0;height:3px;background:var(--border);z-index:100;display:none}
+.progress-bar.visible{display:block}
+.progress-fill{height:100%;width:0;background:var(--gold);transition:width 600ms cubic-bezier(.22,1,.36,1)}
+
+/* Step label */
+.step-label{position:fixed;top:14px;right:24px;font-size:.55rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--fg-muted);z-index:100;display:none}
+.step-label.visible{display:block}
+
+/* Back btn */
+.back-btn{position:fixed;top:16px;left:20px;z-index:50;font-size:12px;font-weight:400;color:var(--fg-muted);display:none;align-items:center;gap:4px;padding:8px 12px;transition:color .2s}
+.back-btn.visible{display:flex}
+.back-btn:hover{color:var(--fg)}
+.back-btn .material-symbols-outlined{font-size:16px}
+
+/* Inner */
+.inner{max-width:640px;width:100%;text-align:center}
+.inner>*{animation:fadeUp 420ms cubic-bezier(.22,1,.36,1) both}
+.inner>*:nth-child(1){animation-delay:0ms}.inner>*:nth-child(2){animation-delay:60ms}.inner>*:nth-child(3){animation-delay:120ms}.inner>*:nth-child(4){animation-delay:180ms}.inner>*:nth-child(5){animation-delay:240ms}.inner>*:nth-child(6){animation-delay:300ms}.inner>*:nth-child(7){animation-delay:360ms}
+
+/* Typography */
+.headline{font-family:'Newsreader',serif;font-weight:200;font-size:clamp(1.8rem,5vw,3.2rem);line-height:1.1;color:var(--fg);margin-bottom:40px;font-variation-settings:'opsz' 72}
+.headline-sm{font-family:'Newsreader',serif;font-weight:200;font-size:clamp(1.5rem,4vw,2.2rem);line-height:1.2;color:var(--fg);margin-bottom:12px;font-variation-settings:'opsz' 72}
+.subhead{font-size:14px;color:var(--fg-muted);line-height:1.6;max-width:440px;margin:0 auto 32px}
+.eyebrow{font-size:.55rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:14px}
+
+/* Buttons */
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:16px 56px;background:var(--gold);color:var(--fg);font-family:'Manrope',sans-serif;font-size:.7rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;border:none;border-radius:0;transition:background .5s ease-in-out;-webkit-tap-highlight-color:transparent}
+.btn-primary:hover{background:var(--gold-hover)}
+.btn-atc{background:transparent;border:1px solid var(--border);color:var(--fg);font-size:.55rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;padding:8px 16px;border-radius:0;transition:background .2s,color .2s,border-color .2s;cursor:pointer}
+.btn-atc:hover{background:var(--fg);color:var(--surface);border-color:var(--fg)}
+.btn-atc.added{background:#3a8a5c;color:#fff;border-color:#3a8a5c}
+
+/* Landing */
+.landing-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 60%,rgba(197,160,89,.08) 0%,transparent 70%),radial-gradient(ellipse 40% 50% at 70% 40%,rgba(239,159,39,.05) 0%,transparent 60%),var(--bg);z-index:0}
+.landing-content{position:relative;z-index:1;text-align:center;max-width:640px}
+/* Trust line */
+.trust-line{margin-top:40px;font-size:.6rem;color:var(--fg-muted);letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:6px;justify-content:center}
+.trust-line .material-symbols-outlined{font-size:14px;color:var(--gold)}
+
+/* Loading testimonials */
+.loading-testimonials{height:70px;overflow:hidden;margin-top:40px;max-width:420px;width:100%;margin-left:auto;margin-right:auto;opacity:0;transition:opacity 1s ease .5s}
+.loading-testimonials.visible{opacity:1}
+.loading-testimonials-inner{transition:transform .6s cubic-bezier(.22,1,.36,1)}
+.lt-item{height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 16px}
+.lt-stars{color:var(--gold);font-size:10px;letter-spacing:3px;margin-bottom:4px}
+.lt-quote{font-family:'Newsreader',serif;font-style:italic;font-weight:300;font-size:13px;color:var(--fg-muted);line-height:1.4;margin-bottom:3px}
+.lt-author{font-size:10px;color:var(--fg-subtle);letter-spacing:.04em}
+
+/* Upload */
+.upload-screen{padding-top:80px}
+.upload-zone{width:100%;max-width:520px;min-height:200px;border:2px dashed var(--border-hover);border-radius:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:pointer;transition:border-color .2s,background .2s;background:var(--surface);position:relative;overflow:hidden;padding:48px 32px;margin:0 auto 16px}
+.upload-zone:hover{border-color:var(--gold);background:rgba(197,160,89,.03)}
+.upload-zone .material-symbols-outlined{font-size:48px;color:var(--gold);opacity:.7}
+.upload-text{font-size:15px;color:var(--fg)}
+.upload-hint{font-size:12px;color:var(--fg-muted)}
+.upload-zone.has-image{border-style:solid;border-color:var(--gold);cursor:default}
+.upload-zone .preview-img{position:absolute;inset:0;background:linear-gradient(135deg,#3d2b0f,#5a3d14 25%,#7a5520 50%,#4a3318 75%,#2d1f0e);opacity:0;transition:opacity .4s}
+.upload-zone.has-image .preview-img{opacity:1}
+.upload-zone.has-image .upload-icon-group{opacity:0;transition:opacity .3s}
+.camera-option{margin-top:16px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:var(--fg-muted);cursor:pointer;transition:color .2s}
+.camera-option:hover{color:var(--fg)}
+.camera-option .material-symbols-outlined{font-size:18px}
+.example-rooms{margin-top:36px}
+.example-rooms-grid{display:flex;justify-content:center;gap:12px;margin-bottom:10px}
+.example-room{width:80px;height:56px;border-radius:0;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:border-color .2s}
+.example-room:hover{border-color:var(--gold)}
+.example-room:nth-child(1){background:linear-gradient(145deg,#e8d4a8,#c9a870 40%,#a08048)}
+.example-room:nth-child(2){background:linear-gradient(145deg,#dbc09a,#a88858 40%,#8a6838)}
+.example-room:nth-child(3){background:linear-gradient(145deg,#f0dbb8,#b89a5a 40%,#9a8248)}
+.example-rooms .caption{font-size:11px;color:var(--fg-subtle);text-align:center}
+.privacy-note{margin-top:28px;font-size:11px;color:var(--fg-subtle);line-height:1.5;display:flex;align-items:center;justify-content:center;gap:5px}
+.privacy-note .material-symbols-outlined{font-size:14px}
+
+/* Mood */
+.mood-screen{padding-top:80px}
+.mood-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:560px;margin:0 auto}
+.mood-tile{position:relative;aspect-ratio:4/3;border-radius:0;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border-color .3s;user-select:none;-webkit-tap-highlight-color:transparent}
+.mood-tile:hover{border-color:var(--border-hover)}
+.mood-tile.selected{border-color:var(--amber)}
+.mood-tile-bg{position:absolute;inset:0}
+.mood-tile:nth-child(1) .mood-tile-bg{background:linear-gradient(145deg,#f5e6c8,#e8d4a8 35%,#d4b878 60%,#c5a059 85%)}
+.mood-tile:nth-child(2) .mood-tile-bg{background:linear-gradient(145deg,#faf0d8,#f0e0b8 35%,#e8d0a0 60%,#dcc090 85%)}
+.mood-tile:nth-child(3) .mood-tile-bg{background:linear-gradient(145deg,#4a3a28,#6a5030 35%,#5a3d1a 55%,#3a2510 80%)}
+.mood-tile:nth-child(4) .mood-tile-bg{background:linear-gradient(145deg,#d8ccb4,#c4b498 35%,#b0a080 60%,#9a8a6a 85%)}
+.mood-tile-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.05) 50%)}
+.mood-tile-label{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:.55rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:#fff;z-index:1}
+
+/* Loading */
+.loading-screen{background:var(--bg);padding:0;min-height:100vh;justify-content:center}
+.loading-bg{position:absolute;inset:0;background:radial-gradient(ellipse 90% 70% at 50% 55%,rgba(197,160,89,.12) 0%,transparent 65%),radial-gradient(ellipse 60% 50% at 60% 45%,rgba(239,159,39,.08) 0%,transparent 55%),var(--bg);opacity:0;filter:blur(14px);transition:opacity 2s;z-index:0}
+.loading-bg.visible{opacity:1}
+.loading-inner{position:relative;z-index:1;text-align:center;padding:24px}
+.loading-headline{font-family:'Newsreader',serif;font-weight:200;font-size:clamp(1.3rem,3.5vw,1.8rem);color:var(--fg);margin-bottom:24px;font-variation-settings:'opsz' 72}
+.loading-bar-wrap{width:100%;max-width:400px;height:3px;background:var(--border);margin:0 auto 32px}
+.loading-bar-fill{height:100%;width:0;background:var(--amber);transition:width 100ms linear}
+.loading-copy{font-size:14px;color:var(--fg-muted);height:24px;overflow:hidden}
+.loading-copy span{display:block;opacity:0;transition:opacity .5s}
+.loading-copy span.visible{opacity:1}
+
+/* Reveal */
+.reveal-screen{justify-content:flex-start;padding:48px 24px 80px}
+.reveal-inner{max-width:720px;width:100%;text-align:center}
+.reveal-inner>*{animation:fadeUp 420ms cubic-bezier(.22,1,.36,1) both}
+.reveal-inner>*:nth-child(1){animation-delay:0ms}.reveal-inner>*:nth-child(2){animation-delay:80ms}.reveal-inner>*:nth-child(3){animation-delay:160ms}.reveal-inner>*:nth-child(4){animation-delay:240ms}.reveal-inner>*:nth-child(5){animation-delay:320ms}.reveal-inner>*:nth-child(6){animation-delay:400ms}.reveal-inner>*:nth-child(7){animation-delay:480ms}.reveal-inner>*:nth-child(8){animation-delay:560ms}
+
+/* Slider */
+.slider-wrap{position:relative;width:100%;max-width:700px;margin:0 auto 40px;border-radius:0;overflow:hidden;aspect-ratio:16/10;cursor:ew-resize;user-select:none;-webkit-user-select:none;touch-action:none;border:1px solid var(--border)}
+.slider-before,.slider-after{position:absolute;inset:0}
+.slider-before{z-index:1}
+.slider-after{z-index:2;clip-path:inset(0 50% 0 0)}
+.slider-before-img{width:100%;height:100%;background:linear-gradient(135deg,#d8ccb4,#c8baa0 25%,#b8a88c 50%,#a89878 75%,#988868)}
+.slider-after-img{width:100%;height:100%;background:linear-gradient(135deg,#f5e6c8,#e8d4a8 20%,#dcc080 40%,#c8a858 60%,#d4b468 80%,#e0c480)}
+.slider-label{position:absolute;top:14px;font-size:.5rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;background:rgba(255,255,255,.92);color:var(--fg);padding:5px 14px;border-radius:0;z-index:5}
+.slider-label-before{left:14px}
+.slider-label-after{right:14px}
+.slider-handle{position:absolute;top:0;bottom:0;left:50%;width:3px;background:var(--gold);z-index:10;transform:translateX(-50%);pointer-events:none}
+.slider-handle-circle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#fff}
+.slider-handle-circle .material-symbols-outlined{font-size:18px}
+
+.matched-label{font-size:.55rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:16px}
+
+/* Product Cards */
+.product-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px;text-align:left}
+.product-card{background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;transition:border-color .3s}
+.product-card:hover{border-color:var(--border-hover)}
+.product-card-img{aspect-ratio:4/3;width:100%;position:relative}
+.product-card:nth-child(1) .product-card-img{background:linear-gradient(135deg,#f0dbb8,#d4b478 50%,#b89a58)}
+.product-card:nth-child(2) .product-card-img{background:linear-gradient(135deg,#e8d0a8,#c8a870 45%,#a88850)}
+.product-card:nth-child(3) .product-card-img{background:linear-gradient(135deg,#f5e4c0,#dcc090 40%,#c4a468)}
+.product-badge{position:absolute;bottom:8px;left:8px;background:var(--amber-50);color:var(--amber-800);font-size:.5rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:0;border:1px solid var(--amber-600)}
+.product-card-body{padding:14px 16px}
+.product-card-name{font-family:'Newsreader',serif;font-weight:300;font-size:16px;color:var(--fg);margin-bottom:2px;line-height:1.3}
+.product-card-desc{font-size:12px;color:var(--fg-muted);margin-bottom:10px}
+.product-card-footer{display:flex;align-items:center;justify-content:space-between}
+.product-card-price{font-size:15px;font-weight:500;color:var(--fg)}
+
+/* Testimonial grid (reveal) */
+.tg-section{margin-bottom:32px}
+.tg-label{font-size:.55rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:14px;text-align:center}
+.testimonial-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:620px;margin-left:auto;margin-right:auto;text-align:left}
+.tg-card{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:16px 18px}
+.tg-stars{color:var(--gold);font-size:10px;letter-spacing:2px;margin-bottom:6px}
+.tg-quote{font-family:'Newsreader',serif;font-style:italic;font-weight:300;font-size:13px;color:var(--fg);line-height:1.5;margin-bottom:8px}
+.tg-author{font-size:11px;color:var(--fg-muted);font-weight:400}
+.tg-thumb{width:100%;aspect-ratio:16/10;margin-bottom:10px}
+.tg-thumb-1{background:linear-gradient(135deg,#f5e6c8,#dcc080 40%,#c8a858 70%,#d4b468)}
+.tg-thumb-2{background:linear-gradient(135deg,#e8d0a8,#d4b878 35%,#c4a058 65%,#a88840)}
+.tg-thumb-3{background:linear-gradient(135deg,#f0dbb8,#dcc898 30%,#c8b070 60%,#b09850)}
+.tg-thumb-4{background:linear-gradient(135deg,#e4d4b8,#d0c098 35%,#bca878 65%,#a89060)}
+.tg-thumb-5{background:linear-gradient(135deg,#f8ecd0,#e4d0a0 30%,#d0b878 60%,#bca060)}
+.tg-thumb-6{background:linear-gradient(135deg,#e0d0b4,#ccb890 35%,#b8a070 65%,#a48850)}
+
+/* Try another */
+.try-another{margin-bottom:32px;text-align:center}
+.try-another-label{font-size:13px;color:var(--gold);border-bottom:1px solid rgba(197,160,89,.3);padding-bottom:1px;margin-bottom:12px;display:inline-block;cursor:pointer;transition:color .2s}
+.try-another-label:hover{color:var(--gold-hover)}
+.try-another-thumbs{display:flex;gap:10px;justify-content:center;margin-top:12px}
+.try-another-thumb{width:48px;height:48px;border-radius:0;border:1px solid var(--border);cursor:pointer;transition:border-color .2s;opacity:.7}
+.try-another-thumb:hover{opacity:1;border-color:var(--gold)}
+.try-another-thumb:nth-child(1){background:linear-gradient(135deg,#e8d4a8,#c9a870)}
+.try-another-thumb:nth-child(2){background:linear-gradient(135deg,#4a3a28,#6a5030)}
+.try-another-thumb:nth-child(3){background:linear-gradient(135deg,#d8ccb4,#a09080)}
+
+/* Email */
+.email-section{background:var(--surface);border:1px solid var(--border);border-radius:0;padding:32px 24px;text-align:center;margin-bottom:32px}
+.email-section h3{font-family:'Newsreader',serif;font-weight:200;font-size:1.25rem;color:var(--fg);margin-bottom:16px;font-variation-settings:'opsz' 72}
+.email-form{display:flex;gap:0;max-width:400px;margin:0 auto 14px}
+.email-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:0;padding:12px 16px;font-size:14px;color:var(--fg);outline:none;transition:border-color .2s}
+.email-input::placeholder{color:var(--fg-subtle)}
+.email-input:focus{border-color:var(--gold)}
+.email-submit{background:var(--gold);color:var(--fg);font-family:'Manrope',sans-serif;font-weight:500;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;padding:12px 20px;border:none;border-radius:0;cursor:pointer;transition:background .3s;white-space:nowrap}
+.email-submit:hover{background:var(--gold-hover)}
+.email-note{font-size:11px;color:var(--fg-muted);line-height:1.5;margin-bottom:12px}
+.skip-link{font-size:12px;color:var(--fg-muted);cursor:pointer;transition:color .2s;border-bottom:1px solid var(--border);padding-bottom:1px;display:inline-block}
+.skip-link:hover{color:var(--fg-body)}
+
+/* Toast */
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--gold);color:var(--fg);font-size:13px;font-weight:400;padding:12px 24px;border-radius:0;z-index:1000;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s}
+.toast.visible{opacity:1;transform:translateX(-50%) translateY(0)}
+
+#file-input{display:none}
+
+/* Responsive */
+@media(max-width:600px){
+  .product-grid{grid-template-columns:1fr;gap:12px}
+  .testimonial-grid{grid-template-columns:1fr}
+  .slider-wrap{aspect-ratio:4/3}
+  .btn-primary{width:100%;justify-content:center}
+  .email-form{flex-direction:column}
+}
+@media(max-width:480px){
+  .mood-tile{aspect-ratio:1/1}
+  .mood-grid{gap:10px}
+}
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+<button class="back-btn" id="back-btn" onclick="goBack()"><span class="material-symbols-outlined">arrow_back</span><span>Back</span></button>
+<div class="step-label" id="step-label"></div>
+<input type="file" id="file-input" accept="image/*">
+
+<!-- SCREEN 1: LANDING -->
+<div class="screen active" id="screen-landing">
+  <div class="landing-bg"></div>
+  <div class="landing-content inner">
+    <span class="eyebrow">Outlight</span>
+    <h1 class="headline">What would your room look like with the right light?</h1>
+    <button class="btn-primary" id="cta-start">Show me &rarr;</button>
+    <div class="trust-line"><span class="material-symbols-outlined">star</span> 4.9 &middot; 47,312 spaces transformed</div>
+  </div>
+</div>
+
+<!-- SCREEN 2: UPLOAD -->
+<div class="screen upload-screen" id="screen-upload">
+  <div class="inner">
+    <h2 class="headline-sm">Drop a photo of your space.</h2>
+    <p class="subhead">Any angle, any quality. The more we see, the better we match.</p>
+    <div class="upload-zone" id="upload-zone">
+      <div class="preview-img"></div>
+      <div class="upload-icon-group">
+        <span class="material-symbols-outlined">cloud_upload</span>
+        <div class="upload-text">Click or drag a photo here</div>
+        <div class="upload-hint">JPG, PNG &mdash; up to 10 MB</div>
+      </div>
+    </div>
+    <div class="camera-option" id="camera-option">
+      <span class="material-symbols-outlined">photo_camera</span>
+      <span>Take a photo</span>
+    </div>
+    <div class="example-rooms">
+      <div class="example-rooms-grid">
+        <div class="example-room" onclick="simulateUpload()"></div>
+        <div class="example-room" onclick="simulateUpload()"></div>
+        <div class="example-room" onclick="simulateUpload()"></div>
+      </div>
+      <div class="caption">Or try a sample room</div>
+    </div>
+    <div class="privacy-note">
+      <span class="material-symbols-outlined">lock</span>
+      Your photo is only used to generate your preview. Never stored or shared.
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 3: MOOD -->
+<div class="screen mood-screen" id="screen-mood">
+  <div class="inner">
+    <h2 class="headline-sm">What feeling are you going for?</h2>
+    <div class="mood-grid">
+      <div class="mood-tile" data-mood="cozy">
+        <div class="mood-tile-bg"></div>
+        <div class="mood-tile-overlay"></div>
+        <div class="mood-tile-label">Cozy &amp; Warm</div>
+      </div>
+      <div class="mood-tile" data-mood="bright">
+        <div class="mood-tile-bg"></div>
+        <div class="mood-tile-overlay"></div>
+        <div class="mood-tile-label">Bright &amp; Open</div>
+      </div>
+      <div class="mood-tile" data-mood="moody">
+        <div class="mood-tile-bg"></div>
+        <div class="mood-tile-overlay"></div>
+        <div class="mood-tile-label">Moody &amp; Dramatic</div>
+      </div>
+      <div class="mood-tile" data-mood="editorial">
+        <div class="mood-tile-bg"></div>
+        <div class="mood-tile-overlay"></div>
+        <div class="mood-tile-label">Soft &amp; Editorial</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 4: LOADING -->
+<div class="screen loading-screen" id="screen-loading">
+  <div class="loading-bg" id="loading-bg"></div>
+  <div class="loading-inner">
+    <h2 class="loading-headline">Lighting your space&hellip;</h2>
+    <div class="loading-bar-wrap"><div class="loading-bar-fill" id="loading-bar-fill"></div></div>
+    <div class="loading-copy" id="loading-copy">
+      <span id="lc-0">Analyzing your room's natural light&hellip;</span>
+      <span id="lc-1" style="display:none">Mapping shadow distribution&hellip;</span>
+      <span id="lc-2" style="display:none">Selecting fixtures for your space&hellip;</span>
+      <span id="lc-3" style="display:none">Placing light sources&hellip;</span>
+      <span id="lc-4" style="display:none">Rendering your preview&hellip;</span>
+    </div>
+    <div class="loading-testimonials" id="loading-testimonials">
+      <div class="loading-testimonials-inner" id="loading-ticker">
+        <div class="lt-item">
+          <div class="lt-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="lt-quote">"The preview was spot-on. Ordered the Aven that night."</div>
+          <div class="lt-author">Emma R. &mdash; San Francisco</div>
+        </div>
+        <div class="lt-item">
+          <div class="lt-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="lt-quote">"Completely transformed our living room evenings."</div>
+          <div class="lt-author">Marcus &amp; Sarah &mdash; Portland</div>
+        </div>
+        <div class="lt-item">
+          <div class="lt-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="lt-quote">"Subtle, warm, exactly what I wanted for my reading nook."</div>
+          <div class="lt-author">Priya K. &mdash; Austin</div>
+        </div>
+        <div class="lt-item">
+          <div class="lt-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="lt-quote">"Showed my wife the render. She said order it now."</div>
+          <div class="lt-author">David L. &mdash; Chicago</div>
+        </div>
+        <div class="lt-item">
+          <div class="lt-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="lt-quote">"Never thought I'd buy a lamp online. This changed that."</div>
+          <div class="lt-author">Anika S. &mdash; Denver</div>
+        </div>
+        <div class="lt-item">
+          <div class="lt-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="lt-quote">"The Mira made our dining room feel like a restaurant."</div>
+          <div class="lt-author">James &amp; Lin &mdash; Seattle</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 5: REVEAL -->
+<div class="screen reveal-screen" id="screen-reveal">
+  <div class="reveal-inner">
+    <h2 class="headline-sm">Here's your space, transformed.</h2>
+    <div class="slider-wrap" id="slider-wrap">
+      <div class="slider-before"><div class="slider-before-img"></div><span class="slider-label slider-label-before">Before</span></div>
+      <div class="slider-after" id="slider-after"><div class="slider-after-img"></div><span class="slider-label slider-label-after">After</span></div>
+      <div class="slider-handle" id="slider-handle"><div class="slider-handle-circle"><span class="material-symbols-outlined">drag_handle</span></div></div>
+    </div>
+    <div class="matched-label">Used in your render</div>
+    <div class="product-grid">
+      <div class="product-card">
+        <div class="product-card-img"><span class="product-badge">Used in your render</span></div>
+        <div class="product-card-body">
+          <div class="product-card-name">Aven Floor Lamp</div>
+          <div class="product-card-desc">Warm ambient arc lamp</div>
+          <div class="product-card-footer">
+            <div class="product-card-price">$289</div>
+            <button class="btn-atc" onclick="addToCart(this)">Add to cart</button>
+          </div>
+        </div>
+      </div>
+      <div class="product-card">
+        <div class="product-card-img"><span class="product-badge">Used in your render</span></div>
+        <div class="product-card-body">
+          <div class="product-card-name">Mira Pendant</div>
+          <div class="product-card-desc">Sculptural overhead glow</div>
+          <div class="product-card-footer">
+            <div class="product-card-price">$199</div>
+            <button class="btn-atc" onclick="addToCart(this)">Add to cart</button>
+          </div>
+        </div>
+      </div>
+      <div class="product-card">
+        <div class="product-card-img"><span class="product-badge">Used in your render</span></div>
+        <div class="product-card-body">
+          <div class="product-card-name">Luma Table Lamp</div>
+          <div class="product-card-desc">Directed warmth, anywhere</div>
+          <div class="product-card-footer">
+            <div class="product-card-price">$149</div>
+            <button class="btn-atc" onclick="addToCart(this)">Add to cart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tg-section">
+      <div class="tg-label">What others are saying</div>
+      <div class="testimonial-grid">
+        <div class="tg-card">
+          <div class="tg-thumb tg-thumb-1"></div>
+          <div class="tg-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="tg-quote">"The preview was spot-on. Ordered the Aven that night."</div>
+          <div class="tg-author">Emma R., San Francisco</div>
+        </div>
+        <div class="tg-card">
+          <div class="tg-thumb tg-thumb-2"></div>
+          <div class="tg-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="tg-quote">"Completely transformed our living room evenings."</div>
+          <div class="tg-author">Marcus &amp; Sarah, Portland</div>
+        </div>
+        <div class="tg-card">
+          <div class="tg-thumb tg-thumb-3"></div>
+          <div class="tg-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="tg-quote">"Subtle, warm, exactly what I wanted."</div>
+          <div class="tg-author">Priya K., Austin</div>
+        </div>
+        <div class="tg-card">
+          <div class="tg-thumb tg-thumb-4"></div>
+          <div class="tg-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="tg-quote">"Never thought I'd buy a lamp online."</div>
+          <div class="tg-author">Anika S., Denver</div>
+        </div>
+        <div class="tg-card">
+          <div class="tg-thumb tg-thumb-5"></div>
+          <div class="tg-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="tg-quote">"The Mira made our dining room feel like a restaurant."</div>
+          <div class="tg-author">James &amp; Lin, Seattle</div>
+        </div>
+        <div class="tg-card">
+          <div class="tg-thumb tg-thumb-6"></div>
+          <div class="tg-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="tg-quote">"My reading nook is finally complete."</div>
+          <div class="tg-author">David L., Chicago</div>
+        </div>
+      </div>
+    </div>
+    <div class="try-another">
+      <span class="try-another-label" onclick="goToScreen('screen-mood')">Not quite right? Try another mood &rarr;</span>
+      <div class="try-another-thumbs">
+        <div class="try-another-thumb" onclick="goToScreen('screen-mood')"></div>
+        <div class="try-another-thumb" onclick="goToScreen('screen-mood')"></div>
+        <div class="try-another-thumb" onclick="goToScreen('screen-mood')"></div>
+      </div>
+    </div>
+    <div class="email-section">
+      <h3>Save your looks</h3>
+      <form class="email-form" onsubmit="handleEmail(event)">
+        <input class="email-input" type="email" placeholder="your@email.com" required>
+        <button class="email-submit" type="submit">Save my looks &rarr;</button>
+      </form>
+      <div class="email-note">We'll send your 3 previews + a 10% first-order discount.</div>
+      <span class="skip-link" onclick="showToast('Explore the collection at outlight.co')">Or keep exploring &rarr;</span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+var currentScreen='screen-landing';
+var navHistory=['screen-landing'];
+
+function goToScreen(id){
+  var cur=document.getElementById(currentScreen);
+  var nxt=document.getElementById(id);
+  var pb=document.getElementById('progress-bar');
+  var pf=document.getElementById('progress-fill');
+  var sl=document.getElementById('step-label');
+  var bb=document.getElementById('back-btn');
+
+  cur.classList.remove('active');
+
+  if(id==='screen-upload'){
+    pb.classList.add('visible');sl.classList.add('visible');
+    sl.textContent='Step 1 of 3';pf.style.width='33%';
+  } else if(id==='screen-mood'){
+    pb.classList.add('visible');sl.classList.add('visible');
+    sl.textContent='Step 2 of 3';pf.style.width='66%';
+  } else {
+    pb.classList.remove('visible');sl.classList.remove('visible');
+  }
+
+  if(id==='screen-upload'||id==='screen-mood'){bb.classList.add('visible')}
+  else{bb.classList.remove('visible')}
+
+  setTimeout(function(){
+    nxt.classList.add('active');
+    currentScreen=id;
+    window.scrollTo(0,0);
+    if(navHistory[navHistory.length-1]!==id)navHistory.push(id);
+  },200);
+}
+window.goToScreen=goToScreen;
+
+function goBack(){
+  if(navHistory.length>1){
+    navHistory.pop();
+    goToScreen(navHistory[navHistory.length-1]);
+  }
+}
+window.goBack=goBack;
+
+document.getElementById('cta-start').addEventListener('click',function(){goToScreen('screen-upload')});
+
+var uploadZone=document.getElementById('upload-zone');
+uploadZone.addEventListener('click',function(){simulateUpload()});
+document.getElementById('camera-option').addEventListener('click',function(){simulateUpload()});
+uploadZone.addEventListener('dragover',function(e){e.preventDefault();uploadZone.style.borderColor='var(--gold)';uploadZone.style.background='rgba(197,160,89,.05)'});
+uploadZone.addEventListener('dragleave',function(){uploadZone.style.borderColor='';uploadZone.style.background=''});
+uploadZone.addEventListener('drop',function(e){e.preventDefault();simulateUpload()});
+
+function simulateUpload(){
+  uploadZone.classList.add('has-image');
+  setTimeout(function(){goToScreen('screen-mood')},800);
+}
+window.simulateUpload=simulateUpload;
+
+document.querySelectorAll('.mood-tile').forEach(function(tile){
+  tile.addEventListener('click',function(){
+    document.querySelectorAll('.mood-tile').forEach(function(t){t.classList.remove('selected')});
+    tile.classList.add('selected');
+    setTimeout(function(){goToScreen('screen-loading');startLoading()},500);
+  });
+});
+
+function startLoading(){
+  var bf=document.getElementById('loading-bar-fill');
+  var bg=document.getElementById('loading-bg');
+  bf.style.transition='none';bf.style.width='0%';
+  bg.classList.remove('visible');
+  // Loading testimonials ticker
+  var ltEl=document.getElementById('loading-ticker');
+  var ltBox=document.getElementById('loading-testimonials');
+  if(ltEl)ltEl.style.transform='translateY(0)';
+  if(ltBox){ltBox.classList.remove('visible');setTimeout(function(){ltBox.classList.add('visible')},1000)}
+  var ltIdx=0;
+  setInterval(function(){if(ltEl){ltIdx=(ltIdx+1)%ltEl.children.length;ltEl.style.transform='translateY(-'+(ltIdx*70)+'px)'}},3000);
+  for(var i=0;i<5;i++){var el=document.getElementById('lc-'+i);el.style.display='none';el.classList.remove('visible')}
+  var cc=0;
+  document.getElementById('lc-0').style.display='block';
+  requestAnimationFrame(function(){document.getElementById('lc-0').classList.add('visible')});
+  var ci=setInterval(function(){
+    if(cc<4){
+      var prev=document.getElementById('lc-'+cc);prev.classList.remove('visible');
+      setTimeout(function(){prev.style.display='none';cc++;var next=document.getElementById('lc-'+cc);next.style.display='block';requestAnimationFrame(function(){next.classList.add('visible')})},300);
+    }
+  },2500);
+  var start=performance.now(),dur=12000;
+  function ease(t){if(t<.7)return t;if(t<.92){var l=(t-.7)/.22;return .7+l*.18*(1-Math.pow(1-l,3))}var l2=(t-.92)/.08;return .88+l2*.12}
+  function animate(){
+    var t=Math.min((performance.now()-start)/dur,1);
+    bf.style.transition='none';bf.style.width=(ease(t)*100)+'%';
+    if(t>=.7&&!bg.classList.contains('visible'))bg.classList.add('visible');
+    if(t<1){requestAnimationFrame(animate)}
+    else{clearInterval(ci);setTimeout(function(){goToScreen('screen-reveal')},400)}
+  }
+  requestAnimationFrame(animate);
+}
+
+var slider=document.getElementById('slider-wrap');
+var afterLayer=document.getElementById('slider-after');
+var handle=document.getElementById('slider-handle');
+var dragging=false;
+function updateSlider(x){var r=slider.getBoundingClientRect();var p=Math.max(0,Math.min(x-r.left,r.width));var pct=(p/r.width)*100;afterLayer.style.clipPath='inset(0 '+(100-pct)+'% 0 0)';handle.style.left=pct+'%'}
+slider.addEventListener('mousedown',function(e){dragging=true;updateSlider(e.clientX);e.preventDefault()});
+document.addEventListener('mousemove',function(e){if(dragging)updateSlider(e.clientX)});
+document.addEventListener('mouseup',function(){dragging=false});
+slider.addEventListener('touchstart',function(e){dragging=true;updateSlider(e.touches[0].clientX);e.preventDefault()},{passive:false});
+document.addEventListener('touchmove',function(e){if(dragging)updateSlider(e.touches[0].clientX)},{passive:false});
+document.addEventListener('touchend',function(){dragging=false});
+
+window.addToCart=function(btn){btn.textContent='Added';btn.classList.add('added');showToast('Added to your room')};
+window.handleEmail=function(e){e.preventDefault();showToast('Saved! Check your inbox for 3 previews + 10% off.');e.target.reset()};
+
+var tt=null;
+window.showToast=function(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('visible');if(tt)clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('visible')},2800)};
+
+})();
+</script>
+<script src="quiz-tracker.js"></script>
+<script>
+QuizTracker.init({ concept: 'reveal' });
+// Hook into goToScreen for step tracking
+(function(){
+  var _orig = window.goToScreen;
+  var _prevScreen = 'screen-landing';
+  var _enterTime = Date.now();
+  window.goToScreen = function(id) {
+    QuizTracker.stepComplete(_prevScreen, null);
+    _orig(id);
+    QuizTracker.stepEnter(id);
+    _prevScreen = id;
+    _enterTime = Date.now();
+    if (id === 'screen-reveal') QuizTracker.complete();
+  };
+  // Hook upload
+  var _origUpload = window.simulateUpload;
+  window.simulateUpload = function() {
+    QuizTracker.photoUpload();
+    _origUpload();
+  };
+  // Hook mood selection
+  document.querySelectorAll('.mood-tile').forEach(function(tile) {
+    tile.addEventListener('click', function() {
+      QuizTracker.answer('mood', tile.textContent.trim());
+    });
+  });
+  // Hook email
+  var _origEmail = window.handleEmail;
+  window.handleEmail = function(e) {
+    var input = e.target.querySelector('input[type="email"]');
+    if (input && input.value) QuizTracker.emailCapture(input.value);
+    _origEmail(e);
+  };
+  // Hook add to cart
+  var _origCart = window.addToCart;
+  window.addToCart = function(btn) {
+    QuizTracker.cartAdd('product');
+    _origCart(btn);
+  };
+  QuizTracker.stepEnter('screen-landing');
+})();
+</script>
+</body>
+</html>

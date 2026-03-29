@@ -12,6 +12,7 @@ import { tradeRouter } from './controllers/trade.controller.js';
 import { reviewRouter } from './controllers/review.controller.js';
 import { trackingRouter } from './controllers/tracking.controller.js';
 import { rmaRouter } from './controllers/rma.controller.js';
+import { quizRouter } from './controllers/quiz.controller.js';
 import { processScheduledEmails, processScheduledReminders, expireOldRequests } from './services/review-email.service.js';
 import { registerWebhooks as registerReviewWebhooks } from './services/product-sync.service.js';
 import { supabase } from './config/supabase.js';
@@ -1579,6 +1580,9 @@ app.use('/api/tracking', trackingRouter);
 
 // RMA sync routes
 app.use('/api/rma', rmaRouter);
+
+// Quiz funnel routes
+app.use('/api/quiz', quizRouter);
 
 // Widget config endpoint
 app.get('/api/widget/config', async (req, res) => {
