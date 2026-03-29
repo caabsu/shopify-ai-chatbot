@@ -49,7 +49,7 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 // Serve widget static files with short caching so browser doesn't re-download every time
 const widgetDir = path.resolve(process.cwd(), 'apps/widget/dist');

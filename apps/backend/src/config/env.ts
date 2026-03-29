@@ -52,7 +52,7 @@ export const config = {
   },
   gemini: {
     apiKey: optionalEnv('GEMINI_API_KEY', ''),
-    reviewModel: optionalEnv('GEMINI_REVIEW_MODEL', 'gemini-3.1-flash-lite-preview'),
-    imageModel: optionalEnv('GEMINI_IMAGE_MODEL', 'nano-banana-pro-preview'),
+    reviewModel: optionalEnv('GEMINI_REVIEW_MODEL', 'gemini-2.0-flash'),
+    imageModel: optionalEnv('GEMINI_IMAGE_MODEL', 'gemini-2.0-flash-exp'),
   },
 } as const;

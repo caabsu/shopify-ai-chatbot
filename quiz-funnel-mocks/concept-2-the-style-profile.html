@@ -356,16 +356,17 @@ input{font-family:inherit}
       <div class="checkpoint-divider"></div>
 
       <div class="checkpoint-upload-prompt">Now see it in your space</div>
-      <div class="upload-zone" id="upload-zone" onclick="simulateUpload()">
-        <div class="upload-preview-img"></div>
-        <div class="upload-content">
+      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('photo-input').click()">
+        <img class="upload-preview-img" id="upload-preview-img" style="display:none;width:100%;border-radius:0;object-fit:cover" alt="Room preview">
+        <div class="upload-content" id="upload-content">
           <div class="upload-icon"><span class="material-symbols-outlined">cloud_upload</span></div>
           <div class="upload-text">Drop a photo of your room</div>
           <div class="upload-hint">Any angle, any quality</div>
         </div>
       </div>
       <div class="upload-actions">
-        <span class="upload-sample" onclick="simulateUpload()">Use a sample room</span>
+        <span class="upload-sample" onclick="useSampleRoom()">Use a sample room</span>
       </div>
       <div class="upload-privacy"><span class="material-symbols-outlined">lock</span> Your photo is never stored or shared.</div>
     </div>
@@ -691,15 +692,147 @@ window.selectIntensity=function(el,val){
   setTimeout(function(){goToScreen('screen-checkpoint')},500);
 };
 
-// Upload (from merged checkpoint screen)
-window.simulateUpload=function(){
-  var zone=document.getElementById('upload-zone');
-  zone.classList.add('has-preview');
+// ── Real photo upload + AI processing ──────────────────────────────
+var uploadedPhoto = { base64: '', mimeType: 'image/jpeg' };
+var renderResult = null;
+var renderError = null;
+
+window.handlePhotoSelect = function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var dataUrl = ev.target.result;
+    var parts = dataUrl.split(',');
+    uploadedPhoto.base64 = parts[1];
+    uploadedPhoto.mimeType = file.type || 'image/jpeg';
+    // Show preview
+    var img = document.getElementById('upload-preview-img');
+    img.src = dataUrl;
+    img.style.display = 'block';
+    document.getElementById('upload-content').style.display = 'none';
+    document.getElementById('upload-zone').classList.add('has-preview');
+    // Navigate to loading after brief pause
+    setTimeout(function(){
+      goToScreen('screen-loading');
+      startLoading();
+    }, 600);
+  };
+  reader.readAsDataURL(file);
+};
+
+window.useSampleRoom = function() {
+  // Use a placeholder gradient (no real photo) — still triggers AI with context
+  uploadedPhoto.base64 = '';
+  uploadedPhoto.mimeType = 'image/jpeg';
+  document.getElementById('upload-zone').classList.add('has-preview');
+  document.getElementById('upload-content').innerHTML = '<div style="padding:24px;text-align:center;color:var(--fg-muted);font-size:13px">Sample room selected</div>';
   setTimeout(function(){
     goToScreen('screen-loading');
     startLoading();
-  },800);
+  }, 600);
 };
+
+function callRenderAPI() {
+  var ctx = {
+    concept: 'style-profile',
+    who: state.who,
+    track: state.track,
+    vibe: state.vibe,
+    intensity: state.intensity,
+    profileName: getProfileName()
+  };
+  var body = {
+    image_base64: uploadedPhoto.base64,
+    mime_type: uploadedPhoto.mimeType,
+    context: ctx
+  };
+  renderResult = null;
+  renderError = null;
+
+  fetch('/api/quiz/render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) { renderError = data.error; return; }
+    renderResult = data;
+    populateRevealScreen(data);
+  })
+  .catch(function(err) {
+    renderError = err.message || 'Failed to process';
+    console.error('[quiz] Render API error:', err);
+  });
+
+  // Also fetch product details
+  fetch('/api/quiz/products', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ handles: getStyleProducts(ctx) })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.products && data.products.length) populateProducts(data.products);
+  })
+  .catch(function(err) { console.error('[quiz] Products API error:', err); });
+}
+
+function getStyleProducts(ctx) {
+  var map = {
+    'rustic-warm': ['aven','cade','fenn','dell','ruvo','anka'],
+    'bohemian-layered': ['anka','saku','cielo','iven','yaro','hue'],
+    'modern-cozy': ['cloud','brio','knoll','azura','sterling','tava'],
+    'japandi-warm': ['hollis','jules','elm','cade','maren','ostra'],
+    'art-deco-warm': ['calix','cadence','zael','nyra','elys','ember'],
+    'dark-luxe': ['soren','slate','vireo','ode','xara','york'],
+    'warm-industrial': ['blane','arvo','saro','garek','vexa','sylos'],
+    'moody-maximalist': ['aria','delos','kismet','sia','niva','calen']
+  };
+  var key = (ctx.vibe || '').toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
+  return (map[key] || map['modern-cozy']).slice(0, 3);
+}
+
+function populateRevealScreen(data) {
+  // Set before/after images
+  if (uploadedPhoto.base64) {
+    var beforeEl = document.querySelector('.slider-before-img');
+    beforeEl.style.background = 'none';
+    beforeEl.innerHTML = '<img src="data:' + uploadedPhoto.mimeType + ';base64,' + uploadedPhoto.base64 + '" style="width:100%;height:100%;object-fit:cover" alt="Before">';
+  }
+  if (data.render && data.render.imageBase64) {
+    var afterEl = document.querySelector('.slider-after-img');
+    afterEl.style.background = 'none';
+    afterEl.innerHTML = '<img src="data:' + data.render.mimeType + ';base64,' + data.render.imageBase64 + '" style="width:100%;height:100%;object-fit:cover" alt="After">';
+  }
+  // Show review tips
+  if (data.review && data.review.ambiance) {
+    var recap = document.getElementById('reveal-recap');
+    recap.textContent = data.review.ambiance;
+  }
+}
+
+function populateProducts(products) {
+  var grid = document.querySelector('.product-grid');
+  if (!grid || !products.length) return;
+  grid.innerHTML = '';
+  products.forEach(function(p) {
+    var card = document.createElement('div');
+    card.className = 'product-card';
+    var imgStyle = p.image
+      ? 'background:url(' + p.image + ') center/cover no-repeat'
+      : 'background:linear-gradient(135deg,#e8d4a8,#c8a858)';
+    card.innerHTML = '<div class="product-card-img" style="' + imgStyle + '"></div>'
+      + '<div class="product-card-body">'
+      + '<div class="product-card-match">Matched to your profile</div>'
+      + '<div class="product-card-name">' + p.title + '</div>'
+      + '<div class="product-card-price">' + p.price + '</div>'
+      + '<button class="btn-atc" onclick="addToCart(this)">Add to my room</button>'
+      + '</div>';
+    grid.appendChild(card);
+  });
+}
 
 // Reveal screen dynamic content
 var observer=new MutationObserver(function(){
@@ -716,12 +849,15 @@ document.querySelectorAll('.screen').forEach(function(s){
   observer.observe(s,{attributes:true,attributeFilter:['class']});
 });
 
-// Loading
+// Loading — calls real AI API in parallel with animation
 function startLoading(){
   var name=getProfileName();
   document.getElementById('loading-headline').textContent='Applying your '+name+' profile\u2026';
   document.getElementById('lc-2').textContent='Placing '+state.vibe+' fixtures\u2026';
   document.getElementById('lc-3').textContent='Calibrating warmth to your '+name+' profile\u2026';
+
+  // Fire the real API call
+  callRenderAPI();
 
   var bf=document.getElementById('loading-bar-fill');
   var bg=document.getElementById('loading-blur-bg');
@@ -733,7 +869,7 @@ function startLoading(){
   if(ltEl)ltEl.style.transform='translateY(0)';
   if(ltBox){ltBox.classList.remove('visible');setTimeout(function(){ltBox.classList.add('visible')},1000)}
   var ltIdx=0;
-  setInterval(function(){if(ltEl){ltIdx=(ltIdx+1)%ltEl.children.length;ltEl.style.transform='translateY(-'+(ltIdx*70)+'px)'}},3000);
+  var tickerInterval=setInterval(function(){if(ltEl){ltIdx=(ltIdx+1)%ltEl.children.length;ltEl.style.transform='translateY(-'+(ltIdx*70)+'px)'}},3000);
   for(var i=0;i<5;i++){var el=document.getElementById('lc-'+i);el.style.display='none';el.classList.remove('visible')}
   var cc=0;
   document.getElementById('lc-0').style.display='block';
@@ -744,14 +880,32 @@ function startLoading(){
       setTimeout(function(){prev.style.display='none';cc++;var next=document.getElementById('lc-'+cc);next.style.display='block';requestAnimationFrame(function(){next.classList.add('visible')})},300);
     }
   },2500);
-  var start=performance.now(),dur=12000;
+
+  // Animation runs for minimum 8s, but waits for API if needed
+  var animDone = false;
+  var minDur = 8000;
+  var start=performance.now();
   function ease(t){if(t<.7)return t;if(t<.92){var l=(t-.7)/.22;return .7+l*.18*(1-Math.pow(1-l,3))}var l2=(t-.92)/.08;return .88+l2*.12}
+
+  function tryFinish() {
+    if (!animDone) return;
+    // Wait for API result or error (or no photo)
+    if (renderResult || renderError || !uploadedPhoto.base64) {
+      clearInterval(ci);
+      clearInterval(tickerInterval);
+      setTimeout(function(){ goToScreen('screen-reveal') }, 400);
+    } else {
+      // API still in flight — poll every 500ms
+      setTimeout(tryFinish, 500);
+    }
+  }
+
   function animate(){
-    var t=Math.min((performance.now()-start)/dur,1);
+    var t=Math.min((performance.now()-start)/minDur,1);
     bf.style.transition='none';bf.style.width=(ease(t)*100)+'%';
     if(t>=.7&&!bg.classList.contains('visible'))bg.classList.add('visible');
     if(t<1){requestAnimationFrame(animate)}
-    else{clearInterval(ci);setTimeout(function(){goToScreen('screen-reveal')},400)}
+    else{ animDone = true; tryFinish(); }
   }
   requestAnimationFrame(animate);
 }

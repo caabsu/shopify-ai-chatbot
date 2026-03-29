@@ -316,10 +316,10 @@ quizRouter.get('/recommendations/:profileKey', async (req, res) => {
 // POST /api/quiz/render — Upload photo and get AI visualization
 quizRouter.post('/render', async (req, res) => {
   try {
-    const { session_id, image_base64, mime_type, profile_key, profile_name } = req.body;
+    const { session_id, image_base64, mime_type, context } = req.body;
 
-    if (!image_base64 || !profile_key || !profile_name) {
-      res.status(400).json({ error: 'image_base64, profile_key, and profile_name are required' });
+    if (!image_base64 || !context) {
+      res.status(400).json({ error: 'image_base64 and context are required' });
       return;
     }
 
@@ -331,13 +331,12 @@ quizRouter.post('/render', async (req, res) => {
       });
     }
 
-    const result = await quizImage.processRoomPhoto(image_base64, mime_type || 'image/jpeg', profile_key, profile_name);
+    const result = await quizImage.processRoomPhoto(image_base64, mime_type || 'image/jpeg', context);
 
     // Update session with render result
     if (session_id) {
       await quizService.updateSession(session_id, {
         render_status: 'completed',
-        render_url: `data:${result.render.mimeType};base64,${result.render.imageBase64.slice(0, 50)}...`,
       });
     }
 
@@ -347,6 +346,7 @@ quizRouter.post('/render', async (req, res) => {
         imageBase64: result.render.imageBase64,
         mimeType: result.render.mimeType,
       },
+      suggestedProducts: quizImage.getProductSuggestions(context),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -364,19 +364,76 @@ quizRouter.post('/render', async (req, res) => {
 // POST /api/quiz/review — Analyze room only (no render)
 quizRouter.post('/review', async (req, res) => {
   try {
-    const { image_base64, mime_type, profile_key, profile_name } = req.body;
+    const { image_base64, mime_type, context } = req.body;
 
-    if (!image_base64 || !profile_key || !profile_name) {
-      res.status(400).json({ error: 'image_base64, profile_key, and profile_name are required' });
+    if (!image_base64 || !context) {
+      res.status(400).json({ error: 'image_base64 and context are required' });
       return;
     }
 
-    const review = await quizImage.reviewRoomPhoto(image_base64, mime_type || 'image/jpeg', profile_key, profile_name);
-    res.json(review);
+    const review = await quizImage.reviewRoomPhoto(image_base64, mime_type || 'image/jpeg', context);
+    res.json({
+      review,
+      suggestedProducts: quizImage.getProductSuggestions(context),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[quiz.controller] POST /review error:', message);
     res.status(500).json({ error: 'Failed to review room photo' });
+  }
+});
+
+// POST /api/quiz/products — Get product details for suggested handles
+quizRouter.post('/products', async (req, res) => {
+  try {
+    const { handles } = req.body;
+    if (!handles || !Array.isArray(handles) || handles.length === 0) {
+      res.status(400).json({ error: 'handles array is required' });
+      return;
+    }
+
+    const brandId = await resolveBrandId(req);
+
+    // Fetch product details from Shopify MCP
+    const { searchProducts } = await import('../services/shopify-mcp.service.js');
+    const products: Array<{ handle: string; title: string; price: string; image: string; url: string }> = [];
+
+    // Search for each product by handle
+    for (const handle of handles.slice(0, 6)) {
+      try {
+        const result = await searchProducts(
+          handle,
+          `Looking up product with handle "${handle}" for quiz funnel recommendation`,
+          { limit: 1 },
+          brandId,
+        );
+        // Parse MCP result to extract product info
+        const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+        // Extract product data from MCP response
+        const titleMatch = resultStr.match(/\*\*([^*]+)\*\*/);
+        const priceMatch = resultStr.match(/\$[\d,.]+/);
+        const imageMatch = resultStr.match(/https:\/\/cdn\.shopify\.com[^\s"')]+/);
+        const urlMatch = resultStr.match(/https:\/\/[^\s"']*\/products\/[^\s"')]+/);
+
+        if (titleMatch) {
+          products.push({
+            handle,
+            title: titleMatch[1],
+            price: priceMatch ? priceMatch[0] : '',
+            image: imageMatch ? imageMatch[0] : '',
+            url: urlMatch ? urlMatch[0] : `/products/${handle}`,
+          });
+        }
+      } catch (err) {
+        console.error(`[quiz.controller] Failed to fetch product "${handle}":`, err instanceof Error ? err.message : err);
+      }
+    }
+
+    res.json({ products });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] POST /products error:', message);
+    res.status(500).json({ error: 'Failed to fetch products' });
   }
 });
 

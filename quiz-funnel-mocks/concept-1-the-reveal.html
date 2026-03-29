@@ -248,8 +248,9 @@ input{font-family:inherit}
   <div class="inner">
     <h2 class="headline-sm">Drop a photo of your space.</h2>
     <p class="subhead">Any angle, any quality. The more we see, the better we match.</p>
+    <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
     <div class="upload-zone" id="upload-zone">
-      <div class="preview-img"></div>
+      <div class="preview-img" id="preview-img"></div>
       <div class="upload-icon-group">
         <span class="material-symbols-outlined">cloud_upload</span>
         <div class="upload-text">Click or drag a photo here</div>
@@ -511,39 +512,166 @@ window.goBack=goBack;
 
 document.getElementById('cta-start').addEventListener('click',function(){goToScreen('screen-upload')});
 
+// ── Real photo upload + AI processing ──────────────────────────────
+var uploadedPhoto = { base64: '', mimeType: 'image/jpeg' };
+var selectedMood = '';
+var renderResult = null;
+var renderError = null;
+
 var uploadZone=document.getElementById('upload-zone');
-uploadZone.addEventListener('click',function(){simulateUpload()});
-document.getElementById('camera-option').addEventListener('click',function(){simulateUpload()});
+
+window.handlePhotoSelect = function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var dataUrl = ev.target.result;
+    var parts = dataUrl.split(',');
+    uploadedPhoto.base64 = parts[1];
+    uploadedPhoto.mimeType = file.type || 'image/jpeg';
+    // Show preview
+    var prev = document.getElementById('preview-img');
+    prev.style.background = 'url(' + dataUrl + ') center/cover no-repeat';
+    uploadZone.classList.add('has-image');
+    setTimeout(function(){goToScreen('screen-mood')},600);
+  };
+  reader.readAsDataURL(file);
+};
+
+uploadZone.addEventListener('click',function(){ document.getElementById('photo-input').click() });
+document.getElementById('camera-option').addEventListener('click',function(){ document.getElementById('photo-input').click() });
 uploadZone.addEventListener('dragover',function(e){e.preventDefault();uploadZone.style.borderColor='var(--gold)';uploadZone.style.background='rgba(197,160,89,.05)'});
 uploadZone.addEventListener('dragleave',function(){uploadZone.style.borderColor='';uploadZone.style.background=''});
-uploadZone.addEventListener('drop',function(e){e.preventDefault();simulateUpload()});
+uploadZone.addEventListener('drop',function(e){
+  e.preventDefault();
+  var file = e.dataTransfer.files[0];
+  if (file) {
+    // Simulate the file input change
+    var dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('photo-input').files = dt.files;
+    handlePhotoSelect({ target: { files: [file] } });
+  }
+});
 
-function simulateUpload(){
+// Sample room fallback
+window.simulateUpload=function(){
+  uploadedPhoto.base64 = '';
+  uploadedPhoto.mimeType = 'image/jpeg';
   uploadZone.classList.add('has-image');
-  setTimeout(function(){goToScreen('screen-mood')},800);
-}
-window.simulateUpload=simulateUpload;
+  setTimeout(function(){goToScreen('screen-mood')},600);
+};
 
 document.querySelectorAll('.mood-tile').forEach(function(tile){
   tile.addEventListener('click',function(){
     document.querySelectorAll('.mood-tile').forEach(function(t){t.classList.remove('selected')});
     tile.classList.add('selected');
+    selectedMood = tile.querySelector('.mood-tile-name')?.textContent || 'Modern';
     setTimeout(function(){goToScreen('screen-loading');startLoading()},500);
   });
 });
+
+function callRevealAPI() {
+  var ctx = {
+    concept: 'reveal',
+    mood: selectedMood
+  };
+  renderResult = null;
+  renderError = null;
+
+  fetch('/api/quiz/render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      image_base64: uploadedPhoto.base64,
+      mime_type: uploadedPhoto.mimeType,
+      context: ctx
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) { renderError = data.error; return; }
+    renderResult = data;
+    populateRevealImages(data);
+  })
+  .catch(function(err) {
+    renderError = err.message || 'Failed to process';
+    console.error('[quiz] Render API error:', err);
+  });
+
+  // Fetch real products
+  var moodProducts = {
+    'cozy-warm': ['aven','cade','fenn'],
+    'bright-open': ['cloud','saku','brio'],
+    'moody-dramatic': ['soren','nyra','zael'],
+    'soft-editorial': ['hollis','fable','zola']
+  };
+  var moodKey = selectedMood.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
+  var handles = moodProducts[moodKey] || moodProducts['cozy-warm'];
+
+  fetch('/api/quiz/products', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ handles: handles })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.products && data.products.length) populateRevealProducts(data.products);
+  })
+  .catch(function(err) { console.error('[quiz] Products API error:', err); });
+}
+
+function populateRevealImages(data) {
+  if (uploadedPhoto.base64) {
+    var beforeEl = document.querySelector('.slider-before-img');
+    beforeEl.style.background = 'none';
+    beforeEl.innerHTML = '<img src="data:' + uploadedPhoto.mimeType + ';base64,' + uploadedPhoto.base64 + '" style="width:100%;height:100%;object-fit:cover" alt="Before">';
+  }
+  if (data.render && data.render.imageBase64) {
+    var afterEl = document.querySelector('.slider-after-img');
+    afterEl.style.background = 'none';
+    afterEl.innerHTML = '<img src="data:' + data.render.mimeType + ';base64,' + data.render.imageBase64 + '" style="width:100%;height:100%;object-fit:cover" alt="After">';
+  }
+}
+
+function populateRevealProducts(products) {
+  var grid = document.querySelector('.product-grid');
+  if (!grid || !products.length) return;
+  grid.innerHTML = '';
+  products.forEach(function(p) {
+    var card = document.createElement('div');
+    card.className = 'product-card';
+    var imgHtml = p.image
+      ? '<div class="product-card-img" style="background:url(' + p.image + ') center/cover no-repeat"><span class="product-badge">Used in your render</span></div>'
+      : '<div class="product-card-img"><span class="product-badge">Used in your render</span></div>';
+    card.innerHTML = imgHtml
+      + '<div class="product-card-body">'
+      + '<div class="product-card-name">' + p.title + '</div>'
+      + '<div class="product-card-desc">Matched to your mood</div>'
+      + '<div class="product-card-footer">'
+      + '<div class="product-card-price">' + p.price + '</div>'
+      + '<button class="btn-atc" onclick="addToCart(this)">Add to cart</button>'
+      + '</div></div>';
+    grid.appendChild(card);
+  });
+}
 
 function startLoading(){
   var bf=document.getElementById('loading-bar-fill');
   var bg=document.getElementById('loading-bg');
   bf.style.transition='none';bf.style.width='0%';
   bg.classList.remove('visible');
+
+  // Fire real API call
+  callRevealAPI();
+
   // Loading testimonials ticker
   var ltEl=document.getElementById('loading-ticker');
   var ltBox=document.getElementById('loading-testimonials');
   if(ltEl)ltEl.style.transform='translateY(0)';
   if(ltBox){ltBox.classList.remove('visible');setTimeout(function(){ltBox.classList.add('visible')},1000)}
   var ltIdx=0;
-  setInterval(function(){if(ltEl){ltIdx=(ltIdx+1)%ltEl.children.length;ltEl.style.transform='translateY(-'+(ltIdx*70)+'px)'}},3000);
+  var tickerInterval=setInterval(function(){if(ltEl){ltIdx=(ltIdx+1)%ltEl.children.length;ltEl.style.transform='translateY(-'+(ltIdx*70)+'px)'}},3000);
   for(var i=0;i<5;i++){var el=document.getElementById('lc-'+i);el.style.display='none';el.classList.remove('visible')}
   var cc=0;
   document.getElementById('lc-0').style.display='block';
@@ -554,14 +682,29 @@ function startLoading(){
       setTimeout(function(){prev.style.display='none';cc++;var next=document.getElementById('lc-'+cc);next.style.display='block';requestAnimationFrame(function(){next.classList.add('visible')})},300);
     }
   },2500);
-  var start=performance.now(),dur=12000;
+
+  var animDone = false;
+  var minDur = 8000;
+  var start=performance.now();
   function ease(t){if(t<.7)return t;if(t<.92){var l=(t-.7)/.22;return .7+l*.18*(1-Math.pow(1-l,3))}var l2=(t-.92)/.08;return .88+l2*.12}
+
+  function tryFinish() {
+    if (!animDone) return;
+    if (renderResult || renderError || !uploadedPhoto.base64) {
+      clearInterval(ci);
+      clearInterval(tickerInterval);
+      setTimeout(function(){ goToScreen('screen-reveal') }, 400);
+    } else {
+      setTimeout(tryFinish, 500);
+    }
+  }
+
   function animate(){
-    var t=Math.min((performance.now()-start)/dur,1);
+    var t=Math.min((performance.now()-start)/minDur,1);
     bf.style.transition='none';bf.style.width=(ease(t)*100)+'%';
     if(t>=.7&&!bg.classList.contains('visible'))bg.classList.add('visible');
     if(t<1){requestAnimationFrame(animate)}
-    else{clearInterval(ci);setTimeout(function(){goToScreen('screen-reveal')},400)}
+    else{ animDone = true; tryFinish(); }
   }
   requestAnimationFrame(animate);
 }
