@@ -66,9 +66,10 @@ interface DebugInfo {
   renderPrompt: string;
   generatePrompt: string;
   review: Record<string, unknown> | null;
-  timings: { reviewMs?: number; renderMs?: number; totalMs: number };
+  timings: { reviewMs?: number; renderMs?: number; productImageFetchMs?: number; totalMs: number };
   model: { review: string; image: string };
   agentTrace: string[];
+  productImages?: Array<{ handle: string; title: string; imageUrl: string }>;
 }
 
 type Phase = 'idle' | 'uploading' | 'calling-api' | 'reviewing' | 'rendering' | 'done' | 'error';
@@ -797,7 +798,10 @@ export default function FunnelPlaygroundPage() {
                     open={expandedSections.timings}
                     onToggle={() => toggleSection('timings')}
                   >
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '8px' }}>
+                      {debug.timings.productImageFetchMs !== undefined && (
+                        <TimingBox label="Img Fetch" ms={debug.timings.productImageFetchMs} />
+                      )}
                       {debug.timings.reviewMs !== undefined && (
                         <TimingBox label="Review" ms={debug.timings.reviewMs} />
                       )}
@@ -806,6 +810,30 @@ export default function FunnelPlaygroundPage() {
                       )}
                       <TimingBox label="Total" ms={debug.timings.totalMs} highlight />
                     </div>
+                    {/* Product reference images */}
+                    {debug.productImages && debug.productImages.length > 0 && (
+                      <div style={{ marginTop: '10px' }}>
+                        <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                          Product Reference Images ({debug.productImages.length})
+                        </p>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {debug.productImages.map((pi) => (
+                            <div key={pi.handle} style={{ textAlign: 'center' }}>
+                              {pi.imageUrl && (
+                                <img
+                                  src={pi.imageUrl}
+                                  alt={pi.title}
+                                  style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-secondary)' }}
+                                />
+                              )}
+                              <p style={{ fontSize: '9px', color: 'var(--text-tertiary)', margin: '3px 0 0', maxWidth: '56px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {pi.handle}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </DebugSection>
 
                   {/* Atmosphere */}

@@ -13,6 +13,64 @@ async function getClient() {
   return genaiClient;
 }
 
+// ── Product image fetching ───────────────────────────────────────────────
+
+export interface ProductImage {
+  handle: string;
+  title: string;
+  imageUrl: string;
+  base64: string;
+  mimeType: string;
+}
+
+/** Fetch product images from Shopify Admin API by handles, then download as base64 */
+export async function fetchProductImages(handles: string[], brandId?: string): Promise<ProductImage[]> {
+  if (handles.length === 0) return [];
+
+  const { graphql } = await import('./shopify-admin.service.js');
+
+  // Build aliased GraphQL query to fetch all products in one call
+  const fragments = handles.slice(0, 4).map((h, i) =>
+    `p${i}: productByHandle(handle: "${h.replace(/"/g, '')}") { title handle featuredImage { url } }`
+  ).join('\n');
+
+  const query = `{ ${fragments} }`;
+
+  let data: Record<string, { title: string; handle: string; featuredImage: { url: string } | null } | null>;
+  try {
+    data = await graphql(query, {}, brandId);
+  } catch (err) {
+    console.error('[quiz-image] Failed to fetch product data from Shopify:', err instanceof Error ? err.message : err);
+    return [];
+  }
+
+  // Download each product image as base64
+  const results: ProductImage[] = [];
+  for (const key of Object.keys(data)) {
+    const product = data[key];
+    if (!product?.featuredImage?.url) continue;
+
+    try {
+      const imgRes = await fetch(product.featuredImage.url);
+      if (!imgRes.ok) continue;
+      const buf = Buffer.from(await imgRes.arrayBuffer());
+      const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+      results.push({
+        handle: product.handle,
+        title: product.title,
+        imageUrl: product.featuredImage.url,
+        base64: buf.toString('base64'),
+        mimeType: contentType.split(';')[0],
+      });
+    } catch (err) {
+      console.error(`[quiz-image] Failed to download image for "${product.handle}":`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  console.log(`[quiz-image] Fetched ${results.length}/${handles.slice(0, 4).length} product images from Shopify`);
+  return results;
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface QuizContext {
@@ -327,7 +385,9 @@ CRITICAL INSTRUCTIONS:
 5. Every material surface should respond to the new lighting — wood should catch warm light, metal should gleam, fabric should show new shadow folds
 6. The result should look like a professional interior design photograph taken AFTER a complete lighting redesign
 
-The transformation should be so clear that even without labels, a viewer could identify the specific mood just from the lighting quality.`;
+The transformation should be so clear that even without labels, a viewer could identify the specific mood just from the lighting quality.
+
+IMPORTANT: Product reference images are provided alongside this prompt. Use EXACTLY these product designs — their shapes, materials, finishes, and proportions — when placing fixtures in the scene. Do NOT invent generic fixtures.`;
 }
 
 // ── Build generation-from-scratch prompt (for sample rooms) ─────────────────
@@ -371,7 +431,9 @@ REQUIREMENTS:
 5. The room should feel aspirational but believable — a real home, beautifully lit
 6. High quality, detailed, magazine-worthy composition
 
-This image should make someone think: "I want my room to feel like this."`;
+This image should make someone think: "I want my room to feel like this."
+
+IMPORTANT: Product reference images are provided alongside this prompt. Use EXACTLY these product designs — their shapes, materials, finishes, and proportions — when placing fixtures in the room. Do NOT invent generic fixtures. The lighting products in the generated image must visually match the reference photos.`;
 }
 
 // ── Review (Analyze Room Photo) ──────────────────────────────────────────────
@@ -428,21 +490,34 @@ export async function renderVisualization(
   roomMimeType: string,
   review: RoomReview,
   ctx: QuizContext,
+  productImages?: ProductImage[],
 ): Promise<RenderResult> {
   const client = await getClient();
   const prompt = buildRenderPrompt(review, ctx);
 
-  console.log(`[quiz-image] Generating visualization — ${review.placements.length} products, style: ${getStyleKey(ctx)}`);
+  console.log(`[quiz-image] Generating visualization — ${review.placements.length} products, style: ${getStyleKey(ctx)}, ${productImages?.length || 0} product ref images`);
+
+  // Build parts: room photo first, then product reference images, then prompt text
+  const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [
+    { inlineData: { mimeType: roomMimeType, data: roomImageBase64 } },
+  ];
+
+  // Add product reference images so Gemini can see the actual fixture designs
+  if (productImages && productImages.length > 0) {
+    for (const pi of productImages) {
+      parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
+      parts.push({ text: `[Product reference: "${pi.title}" (handle: ${pi.handle}) — use this exact fixture design]` });
+    }
+  }
+
+  parts.push({ text: prompt });
 
   const response = await client.models.generateContent({
     model: config.gemini.imageModel,
     contents: [
       {
         role: 'user',
-        parts: [
-          { inlineData: { mimeType: roomMimeType, data: roomImageBase64 } },
-          { text: prompt },
-        ],
+        parts,
       },
     ],
     config: {
@@ -470,18 +545,31 @@ export async function renderVisualization(
 
 // ── Generate from scratch (no room photo — sample rooms) ─────────────────────
 
-export async function generateFromScratch(ctx: QuizContext): Promise<RenderResult> {
+export async function generateFromScratch(ctx: QuizContext, productImages?: ProductImage[]): Promise<RenderResult> {
   const client = await getClient();
   const prompt = buildGeneratePrompt(ctx);
 
-  console.log(`[quiz-image] Generating sample room from scratch — style: ${getStyleKey(ctx)}`);
+  console.log(`[quiz-image] Generating sample room from scratch — style: ${getStyleKey(ctx)}, ${productImages?.length || 0} product ref images`);
+
+  // Build parts: product reference images first, then prompt text
+  const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [];
+
+  // Add product reference images so Gemini can see the actual fixture designs
+  if (productImages && productImages.length > 0) {
+    for (const pi of productImages) {
+      parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
+      parts.push({ text: `[Product reference: "${pi.title}" (handle: ${pi.handle}) — use this exact fixture design in the generated room]` });
+    }
+  }
+
+  parts.push({ text: prompt });
 
   const response = await client.models.generateContent({
     model: config.gemini.imageModel,
     contents: [
       {
         role: 'user',
-        parts: [{ text: prompt }],
+        parts,
       },
     ],
     config: {
@@ -513,10 +601,20 @@ export async function processRoomPhoto(
   mimeType: string,
   ctx: QuizContext,
 ): Promise<{ review: RoomReview; render: RenderResult }> {
+  // Fetch product reference images from Shopify
+  const productHandles = getSuggestedProducts(ctx).slice(0, 3);
+  let productImages: ProductImage[] = [];
+  try {
+    console.log(`[quiz-image] Fetching product reference images for: ${productHandles.join(', ')}`);
+    productImages = await fetchProductImages(productHandles);
+  } catch (err) {
+    console.error('[quiz-image] Failed to fetch product images (continuing without):', err instanceof Error ? err.message : err);
+  }
+
   // If no photo provided, generate from scratch
   if (!imageBase64) {
     console.log('[quiz-image] No photo provided — generating sample room from scratch');
-    const render = await generateFromScratch(ctx);
+    const render = await generateFromScratch(ctx, productImages);
     const key = getStyleKey(ctx);
     const atmo = MOOD_ATMOSPHERES[key];
     return {
@@ -537,7 +635,7 @@ export async function processRoomPhoto(
 
   // Normal flow: Review + Render
   const review = await reviewRoomPhoto(imageBase64, mimeType, ctx);
-  const render = await renderVisualization(imageBase64, mimeType, review, ctx);
+  const render = await renderVisualization(imageBase64, mimeType, review, ctx, productImages);
   return { review, render };
 }
 

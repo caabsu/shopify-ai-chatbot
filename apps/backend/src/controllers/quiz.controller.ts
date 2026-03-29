@@ -330,9 +330,10 @@ quizRouter.post('/render-debug', async (req, res) => {
       renderPrompt: string;
       generatePrompt: string;
       review: unknown;
-      timings: { reviewMs?: number; renderMs?: number; totalMs: number };
+      timings: { reviewMs?: number; renderMs?: number; productImageFetchMs?: number; totalMs: number };
       model: { review: string; image: string };
       agentTrace: string[];
+      productImages: Array<{ handle: string; title: string; imageUrl: string }>;
     } = {
       styleKey: '',
       atmosphere: null,
@@ -343,6 +344,7 @@ quizRouter.post('/render-debug', async (req, res) => {
       timings: { totalMs: 0 },
       model: { review: '', image: '' },
       agentTrace: [],
+      productImages: [],
     };
 
     const totalStart = Date.now();
@@ -364,13 +366,28 @@ quizRouter.post('/render-debug', async (req, res) => {
       image: config.gemini.imageModel,
     };
 
+    // Fetch product reference images from Shopify
+    const productHandles = quizImage.getProductSuggestions(context).slice(0, 3);
+    let productImages: quizImage.ProductImage[] = [];
+    debug.agentTrace.push(`[PRODUCTS] Fetching reference images from Shopify for: ${productHandles.join(', ')}...`);
+    const imgFetchStart = Date.now();
+    try {
+      productImages = await quizImage.fetchProductImages(productHandles);
+      debug.timings.productImageFetchMs = Date.now() - imgFetchStart;
+      debug.productImages = productImages.map(pi => ({ handle: pi.handle, title: pi.title, imageUrl: pi.imageUrl }));
+      debug.agentTrace.push(`[PRODUCTS] Fetched ${productImages.length}/${productHandles.length} product images in ${debug.timings.productImageFetchMs}ms.`);
+    } catch (err) {
+      debug.timings.productImageFetchMs = Date.now() - imgFetchStart;
+      debug.agentTrace.push(`[PRODUCTS] WARNING: Failed to fetch product images in ${debug.timings.productImageFetchMs}ms — continuing without references.`);
+    }
+
     let result: { review: any; render: any };
 
     if (!image_base64) {
       // Sample room — generate from scratch
-      debug.agentTrace.push(`[EXEC] Calling ${config.gemini.imageModel} with generate-from-scratch prompt (${debug.generatePrompt.length} chars)...`);
+      debug.agentTrace.push(`[EXEC] Calling ${config.gemini.imageModel} with generate-from-scratch prompt (${debug.generatePrompt.length} chars) + ${productImages.length} product ref images...`);
       const genStart = Date.now();
-      const render = await quizImage.generateFromScratch(context);
+      const render = await quizImage.generateFromScratch(context, productImages);
       debug.timings.renderMs = Date.now() - genStart;
       debug.agentTrace.push(`[EXEC] Image generated in ${debug.timings.renderMs}ms.`);
       debug.renderPrompt = debug.generatePrompt;
@@ -403,9 +420,9 @@ quizRouter.post('/render-debug', async (req, res) => {
       const actualRenderPrompt = debugInfo.renderPromptBuilder(review);
       debug.renderPrompt = actualRenderPrompt;
 
-      debug.agentTrace.push(`[EXEC] Step 2: Calling ${config.gemini.imageModel} with render prompt (${actualRenderPrompt.length} chars) + room photo...`);
+      debug.agentTrace.push(`[EXEC] Step 2: Calling ${config.gemini.imageModel} with render prompt (${actualRenderPrompt.length} chars) + room photo + ${productImages.length} product ref images...`);
       const renderStart = Date.now();
-      const render = await quizImage.renderVisualization(image_base64, mime_type || 'image/jpeg', review, context);
+      const render = await quizImage.renderVisualization(image_base64, mime_type || 'image/jpeg', review, context, productImages);
       debug.timings.renderMs = Date.now() - renderStart;
       debug.agentTrace.push(`[EXEC] Image rendered in ${debug.timings.renderMs}ms.`);
 
