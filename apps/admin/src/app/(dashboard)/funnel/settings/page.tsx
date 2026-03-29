@@ -46,7 +46,21 @@ export default function QuizSettingsPage() {
         return r.json();
       })
       .then((data) => {
-        setConfig({ ...DEFAULT_CONFIG, ...data });
+        // API stores values via JSON.stringify, so unwrap double-encoded strings
+        const cleaned: Record<string, string> = {};
+        for (const [k, v] of Object.entries(data)) {
+          if (typeof v === 'string') {
+            try {
+              const parsed = JSON.parse(v);
+              cleaned[k] = typeof parsed === 'string' ? parsed : String(v);
+            } catch {
+              cleaned[k] = v;
+            }
+          } else {
+            cleaned[k] = String(v ?? '');
+          }
+        }
+        setConfig({ ...DEFAULT_CONFIG, ...cleaned });
         setLoading(false);
       })
       .catch((err) => {
@@ -78,7 +92,10 @@ export default function QuizSettingsPage() {
 
   // ── Helpers for concept checkboxes ──
 
-  const activeConcepts = config.active_concepts
+  const activeConceptsRaw = typeof config.active_concepts === 'string'
+    ? config.active_concepts
+    : String(config.active_concepts ?? '');
+  const activeConcepts = activeConceptsRaw
     .split(',')
     .map((c) => c.trim())
     .filter(Boolean);
