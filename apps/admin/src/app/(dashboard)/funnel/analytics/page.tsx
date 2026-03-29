@@ -165,7 +165,7 @@ export default function FunnelAnalyticsPage() {
   /* ---------- Determine A/B winner ---------- */
   const winner =
     comparison.length === 2
-      ? comparison[0].conversionRate >= comparison[1].conversionRate
+      ? (comparison[0].conversionRate ?? 0) >= (comparison[1].conversionRate ?? 0)
         ? comparison[0].concept
         : comparison[1].concept
       : null;
@@ -281,10 +281,10 @@ export default function FunnelAnalyticsPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <Stat label="Sessions" value={String(c.totalSessions)} />
                     <Stat label="Completed" value={String(c.completedSessions)} />
-                    <Stat label="Completion Rate" value={`${c.completionRate.toFixed(1)}%`} />
+                    <Stat label="Completion Rate" value={`${(c.completionRate ?? 0).toFixed(1)}%`} />
                     <Stat
                       label="Conversion Rate"
-                      value={`${c.conversionRate.toFixed(1)}%`}
+                      value={`${(c.conversionRate ?? 0).toFixed(1)}%`}
                       highlight={isWinner}
                     />
                   </div>
@@ -368,7 +368,7 @@ export default function FunnelAnalyticsPage() {
               <Tooltip
                 contentStyle={tooltipStyle}
                 formatter={(value: number, _name: string, props: { payload?: DurationRow }) => [
-                  `${value.toFixed(1)}s${props.payload ? ` (n=${props.payload.sampleSize})` : ''}`,
+                  `${(value ?? 0).toFixed(1)}s${props.payload ? ` (n=${props.payload.sampleSize})` : ''}`,
                   'Avg Duration',
                 ]}
               />
@@ -440,7 +440,7 @@ export default function FunnelAnalyticsPage() {
                         borderBottom: '1px solid var(--border-secondary)',
                       }}
                     >
-                      {d.percentage.toFixed(1)}%
+                      {(d.percentage ?? 0).toFixed(1)}%
                     </td>
                   </tr>
                 ))}
@@ -521,7 +521,7 @@ export default function FunnelAnalyticsPage() {
                         borderBottom: '1px solid var(--border-secondary)',
                       }}
                     >
-                      {u.conversionRate.toFixed(1)}%
+                      {(u.conversionRate ?? 0).toFixed(1)}%
                     </td>
                   </tr>
                 ))}
