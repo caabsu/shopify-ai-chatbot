@@ -437,6 +437,190 @@ quizRouter.post('/products', async (req, res) => {
   }
 });
 
+// GET /api/quiz/search-products — Search Shopify catalog for products
+quizRouter.get('/search-products', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const query = (req.query.q as string) || '';
+    const { searchProducts } = await import('../services/shopify-mcp.service.js');
+
+    const result = await searchProducts(
+      query || 'light lamp pendant',
+      'Browsing product catalog for quiz funnel product pool management',
+      { limit: 20 },
+      brandId,
+    );
+
+    // Parse MCP response to extract structured product data
+    const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+    const products: Array<{ handle: string; title: string; price: string; image: string }> = [];
+
+    // Extract products from MCP response (markdown format)
+    const productBlocks = resultStr.split(/\n(?=\*\*)/);
+    for (const block of productBlocks) {
+      const titleMatch = block.match(/\*\*([^*]+)\*\*/);
+      const priceMatch = block.match(/\$[\d,.]+/);
+      const imageMatch = block.match(/https:\/\/cdn\.shopify\.com[^\s"')]+/);
+      const handleMatch = block.match(/\/products\/([a-z0-9-]+)/i);
+
+      if (titleMatch && handleMatch) {
+        products.push({
+          handle: handleMatch[1],
+          title: titleMatch[1],
+          price: priceMatch ? priceMatch[0] : '',
+          image: imageMatch ? imageMatch[0] : '',
+        });
+      }
+    }
+
+    res.json({ products });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] GET /search-products error:', message);
+    res.status(500).json({ error: 'Failed to search products' });
+  }
+});
+
+// ── Catalog Sync ────────────────────────────────────────────────────────────
+
+// GET /api/quiz/catalog — Fetch ALL products from Shopify Admin API (paginated)
+quizRouter.get('/catalog', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { graphql } = await import('../services/shopify-admin.service.js');
+
+    const allProducts: Array<{
+      id: string;
+      handle: string;
+      title: string;
+      status: string;
+      productType: string;
+      tags: string[];
+      image: string;
+      price: string;
+      maxPrice: string;
+      currency: string;
+      variants: Array<{
+        id: string;
+        title: string;
+        price: string;
+        available: boolean;
+        image: string;
+      }>;
+    }> = [];
+
+    let cursor: string | null = null;
+    let hasNext = true;
+
+    while (hasNext) {
+      const query = `
+        query Products($cursor: String) {
+          products(first: 50, after: $cursor, sortKey: TITLE) {
+            edges {
+              node {
+                id
+                title
+                handle
+                status
+                productType
+                tags
+                featuredImage { url }
+                variants(first: 30) {
+                  edges {
+                    node {
+                      id
+                      title
+                      price
+                      availableForSale
+                      image { url }
+                    }
+                  }
+                }
+                priceRange {
+                  minVariantPrice { amount currencyCode }
+                  maxVariantPrice { amount currencyCode }
+                }
+              }
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      `;
+
+      const data: {
+        products: {
+          edges: Array<{
+            node: {
+              id: string;
+              title: string;
+              handle: string;
+              status: string;
+              productType: string;
+              tags: string[];
+              featuredImage: { url: string } | null;
+              variants: {
+                edges: Array<{
+                  node: {
+                    id: string;
+                    title: string;
+                    price: string;
+                    availableForSale: boolean;
+                    image: { url: string } | null;
+                  };
+                }>;
+              };
+              priceRange: {
+                minVariantPrice: { amount: string; currencyCode: string };
+                maxVariantPrice: { amount: string; currencyCode: string };
+              };
+            };
+          }>;
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        };
+      } = await graphql(query, { cursor }, brandId);
+
+      for (const edge of data.products.edges) {
+        const p = edge.node;
+        const minPrice = parseFloat(p.priceRange.minVariantPrice.amount);
+        const maxPrice = parseFloat(p.priceRange.maxVariantPrice.amount);
+
+        allProducts.push({
+          id: p.id,
+          handle: p.handle,
+          title: p.title,
+          status: p.status,
+          productType: p.productType,
+          tags: p.tags,
+          image: p.featuredImage?.url || '',
+          price: `$${minPrice % 1 === 0 ? minPrice.toFixed(0) : minPrice.toFixed(2)}`,
+          maxPrice: `$${maxPrice % 1 === 0 ? maxPrice.toFixed(0) : maxPrice.toFixed(2)}`,
+          currency: p.priceRange.minVariantPrice.currencyCode,
+          variants: p.variants.edges.map((v) => ({
+            id: v.node.id,
+            title: v.node.title,
+            price: `$${parseFloat(v.node.price) % 1 === 0 ? parseFloat(v.node.price).toFixed(0) : parseFloat(v.node.price).toFixed(2)}`,
+            available: v.node.availableForSale,
+            image: v.node.image?.url || '',
+          })),
+        });
+      }
+
+      hasNext = data.products.pageInfo.hasNextPage;
+      cursor = data.products.pageInfo.endCursor;
+    }
+
+    res.json({
+      products: allProducts,
+      count: allProducts.length,
+      synced_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] GET /catalog error:', message);
+    res.status(500).json({ error: 'Failed to fetch product catalog' });
+  }
+});
+
 // ── Config ───────────────────────────────────────────────────────────────────
 
 // GET /api/quiz/config — Get all quiz config
