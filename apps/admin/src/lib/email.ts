@@ -73,7 +73,9 @@ export async function sendTicketReplyEmail(opts: {
     ? `<div style="margin-top: 24px; padding: 12px 16px; border-left: 3px solid #e5e5e5; color: #888; font-size: 13px; white-space: pre-wrap;">--- Original Message ---\n${escapeHtml(originalMessage)}</div>`
     : '';
 
-  const textBody = `${replyContent}
+  // Strip markdown links for plain text: [text](url) → text (url)
+  const plainContent = replyContent.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '$1 ($2)');
+  const textBody = `${plainContent}
 
 ---
 ${signature}
@@ -82,7 +84,7 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
 
   const htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-  <div style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(replyContent)}</div>
+  <div style="white-space: pre-wrap; line-height: 1.6;">${markdownToHtml(replyContent)}</div>
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
   <p style="color: #888; font-size: 13px;">
     ${escapeHtml(signature).replace(/\n/g, '<br>')}<br><br>
@@ -130,4 +132,13 @@ function escapeHtml(text: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/** Escape HTML then convert markdown-style links [text](url) to <a> tags */
+function markdownToHtml(text: string): string {
+  const escaped = escapeHtml(text);
+  return escaped.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" style="color: #C5A059; text-decoration: underline;">$1</a>'
+  );
 }
