@@ -167,7 +167,17 @@ export default function ProductPoolsPage() {
       const res = await fetch(`${BASE}/api/quiz/product-pools`);
       if (!res.ok) throw new Error(`Failed to load pools (${res.status})`);
       const data = await res.json();
-      setPools(Array.isArray(data) ? data : data.pools || []);
+      const raw = Array.isArray(data) ? data : data.pools || [];
+      // Normalize product_handles in case backend returns strings
+      setPools(raw.map((p: ProductPool) => ({
+        ...p,
+        product_handles: Array.isArray(p.product_handles)
+          ? p.product_handles
+          : typeof p.product_handles === 'string'
+            ? (() => { try { return JSON.parse(p.product_handles); } catch { return []; } })()
+            : [],
+        profile_keys: Array.isArray(p.profile_keys) ? p.profile_keys : [],
+      })));
     } catch (err) {
       setPoolError(err instanceof Error ? err.message : 'Failed to load pools');
     }

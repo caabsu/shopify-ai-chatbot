@@ -3,6 +3,24 @@ import type { QuizProductPool } from '../types/index.js';
 
 // ── Product Pool CRUD ────────────────────────────────────────────────────────
 
+/** Normalize product_handles from DB — may be a JSON string (double-encoded) or a real array */
+function normalizeHandles(val: unknown): string[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : []; }
+    catch { return []; }
+  }
+  return [];
+}
+
+function normalizePool(row: Record<string, unknown>): QuizProductPool {
+  return {
+    ...row,
+    product_handles: normalizeHandles(row.product_handles),
+    profile_keys: Array.isArray(row.profile_keys) ? row.profile_keys : [],
+  } as QuizProductPool;
+}
+
 export async function listPools(brandId: string): Promise<QuizProductPool[]> {
   const { data: rows, error } = await supabase
     .from('quiz_product_pools')
@@ -15,7 +33,7 @@ export async function listPools(brandId: string): Promise<QuizProductPool[]> {
     throw new Error('Failed to list product pools');
   }
 
-  return (rows ?? []) as QuizProductPool[];
+  return (rows ?? []).map((r) => normalizePool(r as Record<string, unknown>));
 }
 
 export async function getPool(id: string): Promise<QuizProductPool | null> {
@@ -49,7 +67,7 @@ export async function createPool(data: {
       name: data.name,
       description: data.description ?? null,
       profile_keys: data.profile_keys ?? [],
-      product_handles: JSON.stringify(data.product_handles ?? []),
+      product_handles: data.product_handles ?? [],
       priority: data.priority ?? 0,
     })
     .select()
@@ -60,14 +78,13 @@ export async function createPool(data: {
     throw new Error('Failed to create product pool');
   }
 
-  return row as QuizProductPool;
+  return normalizePool(row as Record<string, unknown>);
 }
 
 export async function updatePool(id: string, updates: Partial<Pick<QuizProductPool,
   'name' | 'description' | 'profile_keys' | 'product_handles' | 'priority' | 'enabled'
 >>): Promise<QuizProductPool> {
   const payload: Record<string, unknown> = { ...updates, updated_at: new Date().toISOString() };
-  if (updates.product_handles) payload.product_handles = JSON.stringify(updates.product_handles);
 
   const { data: row, error } = await supabase
     .from('quiz_product_pools')
@@ -81,7 +98,7 @@ export async function updatePool(id: string, updates: Partial<Pick<QuizProductPo
     throw new Error('Failed to update product pool');
   }
 
-  return row as QuizProductPool;
+  return normalizePool(row as Record<string, unknown>);
 }
 
 export async function deletePool(id: string): Promise<void> {
@@ -122,9 +139,7 @@ export async function getRecommendations(brandId: string, profileKey: string): P
   const seen = new Set<string>();
 
   for (const pool of matchingPools) {
-    const poolHandles = Array.isArray(pool.product_handles)
-      ? pool.product_handles
-      : JSON.parse(pool.product_handles as unknown as string || '[]');
+    const poolHandles = normalizeHandles(pool.product_handles);
 
     for (const handle of poolHandles) {
       if (!seen.has(handle)) {
