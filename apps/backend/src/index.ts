@@ -58,6 +58,19 @@ app.use('/widget', express.static(widgetDir, {
   etag: true,
 }));
 
+// Serve quiz funnel mock files
+const quizMocksDir = path.resolve(process.cwd(), 'quiz-funnel-mocks');
+app.use('/quiz-assets', express.static(quizMocksDir, {
+  maxAge: '1m',
+  etag: true,
+}));
+app.get('/quiz/reveal', (_req, res) => {
+  res.sendFile(path.join(quizMocksDir, 'concept-1-the-reveal.html'));
+});
+app.get('/quiz/style-profile', (_req, res) => {
+  res.sendFile(path.join(quizMocksDir, 'concept-2-the-style-profile.html'));
+});
+
 // Shared playground styles (tab bar + common layout)
 const playgroundTabStyles = `
     /* ── Playground Tab Bar ── */
