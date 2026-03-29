@@ -548,15 +548,70 @@ export function getProductSuggestions(ctx: QuizContext): string[] {
 }
 
 // ── Debug helpers (for playground) ────────────────────────────────────────
+
 export function getAtmosphereProfile(ctx: QuizContext): AtmosphereProfile | null {
   const key = getStyleKey(ctx);
   return MOOD_ATMOSPHERES[key] || null;
 }
 
-export function getDebugPrompts(ctx: QuizContext): { reviewPrompt: string; generatePrompt: string; styleKey: string } {
+export function getDebugPrompts(ctx: QuizContext): { reviewPrompt: string; generatePrompt: string; renderPromptBuilder: (review: RoomReview) => string; styleKey: string } {
   return {
     reviewPrompt: buildReviewPrompt(ctx),
     generatePrompt: buildGeneratePrompt(ctx),
+    renderPromptBuilder: (review: RoomReview) => buildRenderPrompt(review, ctx),
     styleKey: getStyleKey(ctx),
   };
+}
+
+/** Build a structured trace of the AI agent's reasoning process */
+export function buildAgentTrace(ctx: QuizContext, hasPhoto: boolean): string[] {
+  const trace: string[] = [];
+  const key = getStyleKey(ctx);
+  const atmo = MOOD_ATMOSPHERES[key];
+  const products = getSuggestedProducts(ctx);
+
+  // Step 1: Context interpretation
+  if (ctx.concept === 'reveal') {
+    trace.push(`[CONTEXT] User selected concept "The Reveal" with mood "${ctx.mood || 'unknown'}".`);
+  } else {
+    trace.push(`[CONTEXT] User selected concept "The Style Profile".`);
+    trace.push(`[CONTEXT] Track: ${ctx.track === 'soft' ? 'Soft & Cozy' : 'Dramatic & Moody'}, Vibe: "${ctx.vibe}", Intensity: ${ctx.intensity}.`);
+    if (ctx.who) trace.push(`[CONTEXT] Designing for: ${ctx.who}.`);
+    if (ctx.profileName) trace.push(`[CONTEXT] Combined profile name: "${ctx.profileName}".`);
+  }
+
+  // Step 2: Style key resolution
+  trace.push(`[RESOLVE] Input "${ctx.mood || ctx.vibe || ''}" → style key "${key}".`);
+  if (atmo) {
+    trace.push(`[ATMOSPHERE] Matched atmosphere profile. Color temp: ${atmo.colorTemp.split('—')[0].trim()}, emotional tone: "${atmo.emotionalTone.split('.')[0]}".`);
+  } else {
+    trace.push(`[ATMOSPHERE] WARNING: No atmosphere profile found for key "${key}" — using defaults.`);
+  }
+
+  // Step 3: Product pool selection
+  const poolHit = STYLE_PRODUCT_MAP[key] ? 'direct match' : 'fallback to modern-cozy';
+  trace.push(`[PRODUCTS] Pool lookup: "${key}" → ${poolHit}. ${products.length} products available.`);
+  trace.push(`[PRODUCTS] Top picks for prompts: ${products.slice(0, 6).join(', ')}.`);
+
+  // Step 4: Pipeline decision
+  if (hasPhoto) {
+    trace.push(`[PIPELINE] Photo provided → two-step pipeline: Review (analyze room) → Render (transform image).`);
+    trace.push(`[PIPELINE] Step 1: Send photo + review prompt to review model. AI will analyze room layout, furniture, lighting, and suggest product placements.`);
+    trace.push(`[PIPELINE] Step 2: Send photo + render prompt (including review results) to image model. AI will generate transformed room with fixtures + mood lighting.`);
+  } else {
+    trace.push(`[PIPELINE] No photo provided → single-step: Generate sample room from scratch.`);
+    trace.push(`[PIPELINE] AI will create a photorealistic room image with fixtures placed and mood lighting applied, purely from text description.`);
+  }
+
+  // Step 5: Prompt strategy
+  if (atmo) {
+    trace.push(`[PROMPT] Injecting full atmosphere block into prompt: colorTemp, lightQuality, shadowStyle, materialTones, emotionalTone, renderDirective.`);
+    trace.push(`[PROMPT] Render directive emphasis: "${atmo.renderDirective.slice(0, 100)}..."`);
+  }
+
+  // Step 6: Model selection
+  trace.push(`[MODELS] Review model: ${config.gemini.reviewModel} (text analysis).`);
+  trace.push(`[MODELS] Image model: ${config.gemini.imageModel} (image generation with responseModalities: IMAGE+TEXT).`);
+
+  return trace;
 }

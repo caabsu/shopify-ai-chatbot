@@ -68,6 +68,7 @@ interface DebugInfo {
   review: Record<string, unknown> | null;
   timings: { reviewMs?: number; renderMs?: number; totalMs: number };
   model: { review: string; image: string };
+  agentTrace: string[];
 }
 
 type Phase = 'idle' | 'uploading' | 'calling-api' | 'reviewing' | 'rendering' | 'done' | 'error';
@@ -105,6 +106,7 @@ export default function FunnelPlaygroundPage() {
   // Debug panel
   const [debugOpen, setDebugOpen] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    trace: true,
     atmosphere: true,
     timings: true,
     review: false,
@@ -724,6 +726,69 @@ export default function FunnelPlaygroundPage() {
                       <span style={tagStyle}>Image: <strong>{debug.model.image}</strong></span>
                     </div>
                   </div>
+
+                  {/* Agent Trace */}
+                  {debug.agentTrace && debug.agentTrace.length > 0 && (
+                    <DebugSection
+                      title={`Agent Trace (${debug.agentTrace.length} steps)`}
+                      icon={<Sparkles size={12} style={{ color: ACCENT }} />}
+                      open={expandedSections.trace}
+                      onToggle={() => toggleSection('trace')}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                        {debug.agentTrace.map((line, i) => {
+                          const tagMatch = line.match(/^\[([A-Z]+)\]\s/);
+                          const tag = tagMatch ? tagMatch[1] : '';
+                          const text = tagMatch ? line.slice(tagMatch[0].length) : line;
+                          const tagColors: Record<string, string> = {
+                            CONTEXT: '#8b5cf6',
+                            RESOLVE: '#f59e0b',
+                            ATMOSPHERE: '#ec4899',
+                            PRODUCTS: '#06b6d4',
+                            PIPELINE: '#3b82f6',
+                            PROMPT: '#10b981',
+                            MODELS: '#6366f1',
+                            EXEC: '#f97316',
+                            DONE: '#22c55e',
+                          };
+                          const color = tagColors[tag] || 'var(--text-tertiary)';
+                          return (
+                            <div
+                              key={i}
+                              style={{
+                                display: 'flex',
+                                gap: '6px',
+                                padding: '4px 0',
+                                borderBottom: i < debug.agentTrace.length - 1 ? '1px solid var(--border-secondary)' : 'none',
+                                alignItems: 'flex-start',
+                              }}
+                            >
+                              {tag && (
+                                <span
+                                  style={{
+                                    fontSize: '9px',
+                                    fontWeight: 700,
+                                    color,
+                                    backgroundColor: `${color}15`,
+                                    padding: '1px 5px',
+                                    borderRadius: '3px',
+                                    flexShrink: 0,
+                                    marginTop: '1px',
+                                    fontFamily: 'var(--font-mono, monospace)',
+                                  }}
+                                >
+                                  {tag}
+                                </span>
+                              )}
+                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                {text}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </DebugSection>
+                  )}
 
                   {/* Timings */}
                   <DebugSection

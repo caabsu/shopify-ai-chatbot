@@ -332,6 +332,7 @@ quizRouter.post('/render-debug', async (req, res) => {
       review: unknown;
       timings: { reviewMs?: number; renderMs?: number; totalMs: number };
       model: { review: string; image: string };
+      agentTrace: string[];
     } = {
       styleKey: '',
       atmosphere: null,
@@ -341,9 +342,13 @@ quizRouter.post('/render-debug', async (req, res) => {
       review: null,
       timings: { totalMs: 0 },
       model: { review: '', image: '' },
+      agentTrace: [],
     };
 
     const totalStart = Date.now();
+
+    // Build agent reasoning trace
+    debug.agentTrace = quizImage.buildAgentTrace(context, !!image_base64);
 
     // Get debug info
     const debugInfo = quizImage.getDebugPrompts(context);
@@ -363,9 +368,11 @@ quizRouter.post('/render-debug', async (req, res) => {
 
     if (!image_base64) {
       // Sample room — generate from scratch
+      debug.agentTrace.push(`[EXEC] Calling ${config.gemini.imageModel} with generate-from-scratch prompt (${debug.generatePrompt.length} chars)...`);
       const genStart = Date.now();
       const render = await quizImage.generateFromScratch(context);
       debug.timings.renderMs = Date.now() - genStart;
+      debug.agentTrace.push(`[EXEC] Image generated in ${debug.timings.renderMs}ms.`);
       debug.renderPrompt = debug.generatePrompt;
 
       result = {
@@ -385,22 +392,28 @@ quizRouter.post('/render-debug', async (req, res) => {
       debug.review = result.review;
     } else {
       // Real photo — review then render
+      debug.agentTrace.push(`[EXEC] Step 1: Calling ${config.gemini.reviewModel} with review prompt (${debug.reviewPrompt.length} chars) + room photo...`);
       const reviewStart = Date.now();
       const review = await quizImage.reviewRoomPhoto(image_base64, mime_type || 'image/jpeg', context);
       debug.timings.reviewMs = Date.now() - reviewStart;
       debug.review = review;
+      debug.agentTrace.push(`[EXEC] Review complete in ${debug.timings.reviewMs}ms — room: ${review.roomType}, ${review.placements?.length || 0} placements, furniture: [${review.furniture?.slice(0, 3).join(', ')}].`);
 
+      // Build the actual render prompt using review results
+      const actualRenderPrompt = debugInfo.renderPromptBuilder(review);
+      debug.renderPrompt = actualRenderPrompt;
+
+      debug.agentTrace.push(`[EXEC] Step 2: Calling ${config.gemini.imageModel} with render prompt (${actualRenderPrompt.length} chars) + room photo...`);
       const renderStart = Date.now();
       const render = await quizImage.renderVisualization(image_base64, mime_type || 'image/jpeg', review, context);
       debug.timings.renderMs = Date.now() - renderStart;
-
-      // Build the actual render prompt that was used (we need to reconstruct it)
-      debug.renderPrompt = `[Render prompt built from review with ${review.placements?.length || 0} placements]`;
+      debug.agentTrace.push(`[EXEC] Image rendered in ${debug.timings.renderMs}ms.`);
 
       result = { review, render };
     }
 
     debug.timings.totalMs = Date.now() - totalStart;
+    debug.agentTrace.push(`[DONE] Total pipeline: ${debug.timings.totalMs}ms. Returning image + ${(quizImage.getProductSuggestions(context)).length} product suggestions.`);
 
     res.json({
       review: result.review,
