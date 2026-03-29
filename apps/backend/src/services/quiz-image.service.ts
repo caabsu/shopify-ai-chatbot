@@ -80,7 +80,7 @@ function getStyleKey(ctx: QuizContext): string {
   if (ctx.concept === 'style-profile' && ctx.vibe) {
     return ctx.vibe.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
   }
-  return 'modern-cozy'; // fallback
+  return 'modern-cozy';
 }
 
 function getSuggestedProducts(ctx: QuizContext): string[] {
@@ -88,39 +88,150 @@ function getSuggestedProducts(ctx: QuizContext): string[] {
   return STYLE_PRODUCT_MAP[key] || STYLE_PRODUCT_MAP['modern-cozy'];
 }
 
-// ── Build context-aware prompt ──────────────────────────────────────────────
+// ── Deep mood/style atmosphere definitions ──────────────────────────────────
+// These are the core differentiation layer — they make each mood VISIBLY different
+
+interface AtmosphereProfile {
+  colorTemp: string;
+  lightQuality: string;
+  shadowStyle: string;
+  materialTones: string;
+  emotionalTone: string;
+  renderDirective: string;
+}
+
+const MOOD_ATMOSPHERES: Record<string, AtmosphereProfile> = {
+  // ─── Concept 1: The Reveal moods ───
+  'cozy-warm': {
+    colorTemp: '2200K–2700K — deep amber, honey gold, candlelight warmth',
+    lightQuality: 'Soft, diffused, pooling. Light should gather in warm pockets — beside the sofa, under a pendant, around a reading nook. No harsh edges. Everything should feel like golden hour indoors.',
+    shadowStyle: 'Deep, soft-edged shadows with warm undertones. Shadows should feel enveloping, not dark — more like a gentle dimming. Shadow color: warm umber/sienna, never cool gray.',
+    materialTones: 'Favor brass, aged bronze, warm wood, cream linen shades, amber glass. Fixtures feel collected, organic, lived-in.',
+    emotionalTone: 'Intimate, nurturing, deeply comfortable. The room should feel like a hug. Think: rainy Sunday afternoon, candles lit, blanket wrapped.',
+    renderDirective: 'Make the entire room feel bathed in warm amber light. The color temperature should shift the whole scene toward golden tones. Walls should pick up warm reflections. Furniture should look more inviting. The air itself should almost glow. Reduce any blue/cool tones in the existing scene. Add visible warm light pools on floors and walls near each fixture. Light should feel like it\'s melting into the surfaces.',
+  },
+  'bright-open': {
+    colorTemp: '3500K–4500K — bright white with warm undertones, daylight-balanced, clean',
+    lightQuality: 'Crisp, even, expansive. Light should fill the room uniformly, eliminating dark corners. Think architectural lighting — clean, purposeful, making the space feel larger and airier. Some fixtures provide directed task light.',
+    shadowStyle: 'Minimal, sharp-edged shadows. Where shadows exist, they should be crisp and geometric. Shadow color: neutral/light gray. The overall impression is brightness and openness.',
+    materialTones: 'Favor brushed nickel, matte white, clear glass, polished chrome, light oak. Fixtures should feel sleek, minimal, almost invisible — letting the room breathe.',
+    emotionalTone: 'Energizing, clear-headed, optimistic. The room should feel like a bright spring morning. Think: fresh air, productivity, clean surfaces catching light.',
+    renderDirective: 'Brighten the entire scene significantly. The room should feel flooded with clean, natural-feeling light. Reduce all dark corners — light reaches everywhere. The color palette should shift slightly cooler and brighter. White surfaces should glow. The space should feel 30% larger due to the light. Add visible brightness on walls, ceiling bounce light, and make windows appear to let in more light. The overall feel is AIRY and SPACIOUS.',
+  },
+  'moody-dramatic': {
+    colorTemp: '1800K–2500K — deep amber to warm tungsten, mixed with focused spots',
+    lightQuality: 'Theatrical, directional, high-contrast. Light should sculpt the room — dramatic downlights creating focused pools, uplights casting wall washes, statement pendants drawing the eye. Some areas purposefully left in rich shadow.',
+    shadowStyle: 'Bold, deep, intentional shadows. Strong contrast between lit and unlit areas. Shadow color: rich charcoal/deep umber with warmth. Shadows are a design element — they create depth, mystery, and drama.',
+    materialTones: 'Favor dark brass, matte black, smoked glass, dark marble, blackened steel. Fixtures should be sculptural, commanding — objects of desire.',
+    emotionalTone: 'Powerful, seductive, atmospheric. The room should feel like a boutique hotel bar or a private gallery. Think: late evening, cocktails, low music, deliberate luxury.',
+    renderDirective: 'DARKEN the overall scene significantly — this is moody lighting. Create strong contrast pools: bright focused light surrounded by deep shadow. Specific areas get dramatically lit while others fall into rich darkness. Add warm downlight cones from pendants, focused spots highlighting art or features. The room should feel like NIGHT — even if the original photo was daytime, shift the entire mood to evening. Make metals gleam. Make glass catch light. Every shadow should feel intentional.',
+  },
+  'soft-editorial': {
+    colorTemp: '2800K–3200K — neutral warm, gallery-quality, precise',
+    lightQuality: 'Refined, precise, considered. Every light source has a purpose. Soft diffused ambient from ceiling, targeted accent light for features. Nothing is overlighting — there\'s restraint. The quality of light itself should feel expensive.',
+    shadowStyle: 'Subtle, graduated shadows with neutral tones. Shadows create gentle depth without drama. Shadow transitions are smooth and sophisticated. Think: museum lighting — controlled, flattering, intentional.',
+    materialTones: 'Favor matte brass, opaline glass, natural stone, linen, matte ceramics. Fixtures should feel curated, gallery-worthy — beautiful objects that happen to be functional.',
+    emotionalTone: 'Elevated, serene, intellectual. The room should feel like a design magazine spread — every element considered, nothing accidental. Think: quiet Sunday morning at a beautiful home, coffee in hand, perfectly composed.',
+    renderDirective: 'Create refined, even lighting with subtle warmth. The scene should look like a professional interior photography shoot — perfect exposure, no harsh spots, flattering light on every surface. Add gentle ambient glow that makes textures visible. Walls should have smooth, even illumination. The overall palette should feel muted and sophisticated — not dramatic, not bright, but PERFECTLY balanced. Add subtle light/shadow gradients on walls. Make fabrics and surfaces look tactile.',
+  },
+
+  // ─── Concept 2: Soft Track vibes ───
+  'rustic-warm': {
+    colorTemp: '2200K–2700K — deep honey amber, firelight',
+    lightQuality: 'Organic, uneven, natural. Light should feel like it comes from lived-in sources — a well-worn lamp, a pendant over the dining table. Warmth should radiate outward in soft halos.',
+    shadowStyle: 'Soft, warm-toned shadows that create a sense of age and texture. Think: late afternoon light through old windows.',
+    materialTones: 'Weathered brass, reclaimed wood, aged iron, linen, woven textures. Nothing should look new — everything should feel found, collected.',
+    emotionalTone: 'Grounded, authentic, nostalgic. A farmhouse kitchen, a cottage reading corner.',
+    renderDirective: 'Shift the scene to warm amber tones throughout. Add texture-enhancing light that shows wood grain, fabric weave, surface imperfections as beautiful. Light should pool warmly near fixtures. The overall image should feel like a warm vintage photograph — not filtered, but genuinely warm-lit.',
+  },
+  'bohemian-layered': {
+    colorTemp: '2400K–3000K — warm with pockets of varied color temperature',
+    lightQuality: 'Layered, eclectic, abundant. Multiple light sources at different heights creating a rich tapestry of illumination. Some pooling, some ambient, some accent — nothing matches perfectly and that\'s the point.',
+    shadowStyle: 'Complex, overlapping shadows from multiple sources. Creates depth and visual richness. Warm undertones.',
+    materialTones: 'Mixed materials: rattan, colored glass, macramé, mixed metals, ceramic. Fixtures should feel collected from travels — each one unique.',
+    emotionalTone: 'Free-spirited, artistic, warm chaos. Think: a well-traveled creative\'s studio apartment.',
+    renderDirective: 'Add MULTIPLE light sources creating overlapping warm pools. Each fixture should cast its own distinct glow. The scene should feel richly layered — some areas brighter, some dimmer, all warm. Show light interacting with different textures and surfaces. The overall effect is ABUNDANCE of warm light, not uniformity.',
+  },
+  'modern-cozy': {
+    colorTemp: '2700K–3200K — warm white, clean but not cold',
+    lightQuality: 'Clean, deliberate warmth. Modern fixtures providing warm but defined light. Ambient + task layering. No clutter, but still inviting.',
+    shadowStyle: 'Clean, defined shadows with warm edges. Geometric where possible. Refined but not severe.',
+    materialTones: 'Matte white, brushed brass, frosted glass, light walnut, concrete. Fixtures are modern with organic touches.',
+    emotionalTone: 'Approachable luxury. Think: a well-designed Scandinavian-influenced home that still feels warm and lived-in.',
+    renderDirective: 'Add clean, warm light that modernizes the space. Balance between bright functionality and warm comfort. Show defined light zones — a reading light, a pendant over a surface, ambient from a floor lamp. Everything should feel intentional but comfortable. The palette stays warm but clean.',
+  },
+  'japandi-warm': {
+    colorTemp: '2700K–3000K — soft neutral warm, like natural daylight filtered through rice paper',
+    lightQuality: 'Minimal, diffused, zen-like. Light should feel filtered, indirect, gentle. Think: paper lanterns, diffused pendants, light that seems to float.',
+    shadowStyle: 'Very soft, almost imperceptible gradients. No hard lines. Shadow and light blend gently like watercolor.',
+    materialTones: 'Light wood, paper, linen, matte ceramic, simple brass. Fixtures should be minimal, sculptural, art-objects with restraint.',
+    emotionalTone: 'Serene, meditative, perfectly balanced. Think: a Japanese tea room meets Scandinavian cabin.',
+    renderDirective: 'Create the most SUBTLE, refined lighting. Everything should feel soft and diffused — as if light is passing through rice paper. No harsh pools or bright spots. The entire room should glow gently and evenly with warm undertones. Reduce contrast. Make everything feel calm, quiet, and perfectly harmonious.',
+  },
+
+  // ─── Concept 2: Dramatic Track vibes ───
+  'art-deco-warm': {
+    colorTemp: '2500K–3000K — warm gold, champagne',
+    lightQuality: 'Geometric, glamorous, structured. Light should feel like it\'s at a 1930s cocktail party — warm metallics catching light, crystal refracting it, geometric patterns cast on walls.',
+    shadowStyle: 'Geometric shadow patterns from structured fixtures. Sharp lines mixed with warm pools. Drama through geometry.',
+    materialTones: 'Gold, polished brass, crystal, smoked mirror, lacquer, marble. Fixtures should feel LUXURIOUS — geometric, ornate, precious.',
+    emotionalTone: 'Glamorous, confident, celebrating. Think: a Manhattan penthouse, champagne on a gallery night.',
+    renderDirective: 'Add GOLDEN light with geometric quality. Show fixtures that create patterned shadows on walls. Metals should GLEAM — warm gold reflections on surfaces. The scene should feel richer, more luxurious. Add warm accent light highlighting architectural features. Everything should feel elevated and intentionally glamorous.',
+  },
+  'dark-luxe': {
+    colorTemp: '1800K–2400K — ultra-warm amber, dimmed, intimate',
+    lightQuality: 'Minimal, focused, seductive. Very few light sources, each one creating an intimate island of warm light in surrounding darkness. Less is more — the darkness itself is the design.',
+    shadowStyle: 'DEEP, rich shadows. Most of the room should be in elegant shadow. Only key features are illuminated. Shadow color: deep charcoal/warm black.',
+    materialTones: 'Black brass, dark bronze, onyx, dark glass, black marble. Fixtures should be barely visible — dark objects that emit warm light.',
+    emotionalTone: 'Mysterious, intimate, powerfully quiet. Think: a members-only speakeasy, a luxury hotel room at midnight.',
+    renderDirective: 'SIGNIFICANTLY darken the entire scene. This is DARK luxe — most of the room should be in shadow. Only 20-30% of the space should be illuminated, and that illumination should be deep amber/gold. Create extreme contrast. Make dark surfaces look rich, not muddy. Add just a few warm focal points of light. The air should feel thick with atmosphere. This should look like NIGHT, candles, intimacy.',
+  },
+  'warm-industrial': {
+    colorTemp: '2500K–3000K — warm with raw, slightly unfinished quality',
+    lightQuality: 'Functional, honest, warm. Light should feel purposeful — pendant over work surface, exposed bulb in socket, clip lamp on shelf. No pretense, but real warmth.',
+    shadowStyle: 'Hard-edged shadows from directional fixtures. Industrial character. Strong and honest like exposed brick and steel beams.',
+    materialTones: 'Raw steel, aged iron, copper patina, exposed filament bulbs, concrete, canvas. Fixtures should look like they were made in a workshop — functional beauty.',
+    emotionalTone: 'Authentic, hardworking, warm underneath. Think: a converted warehouse loft, a coffee roaster\'s studio.',
+    renderDirective: 'Add warm, directional light with industrial character. Show visible light sources — exposed bulbs, industrial pendants casting defined pools. Add warm light reflecting off metal and concrete surfaces. The scene should feel raw but inviting — warm light humanizing hard materials. Show hard shadows but with warm color.',
+  },
+  'moody-maximalist': {
+    colorTemp: '2200K–2800K — rich warm, layered from many sources',
+    lightQuality: 'Abundant, layered, theatrical. Multiple dramatic fixtures all creating their own atmosphere. Light from every angle — pendants, sconces, floor lamps, table lamps — each one contributing to a rich, immersive experience.',
+    shadowStyle: 'Complex, dramatic, overlapping. Multiple light sources create intricate shadow play. Deep and theatrical.',
+    materialTones: 'Mixed: dark metals, colored glass, ornate detailing, velvet, jewel tones. Fixtures should be STATEMENT pieces — conversation starters, design objects.',
+    emotionalTone: 'Maximalist, immersive, electric. Think: a collector\'s living room, an art-filled salon, a Wes Anderson set.',
+    renderDirective: 'Add MULTIPLE dramatic fixtures creating a rich, layered lighting scene. Every corner should have something interesting happening with light. Show warm pools overlapping, fixtures reflecting in surfaces, dramatic shadows mixing. The scene should feel FULL of light and character — not bright, but richly saturated with warm illumination from many sources. More is more.',
+  },
+};
+
+// ── Build context-aware review prompt ────────────────────────────────────────
 
 function buildReviewPrompt(ctx: QuizContext): string {
   const products = getSuggestedProducts(ctx);
   const productList = products.slice(0, 6).join(', ');
+  const key = getStyleKey(ctx);
+  const atmo = MOOD_ATMOSPHERES[key];
 
   let styleDesc = '';
   if (ctx.concept === 'reveal') {
-    const moodDescriptions: Record<string, string> = {
-      'cozy-warm': 'warm, inviting atmosphere with natural materials, soft textures, and amber-toned lighting that creates an intimate, welcoming feel',
-      'bright-open': 'airy, luminous space with clean lines, bright lighting, and a fresh contemporary aesthetic that maximizes openness',
-      'moody-dramatic': 'bold, atmospheric space with statement lighting, dramatic contrasts, deep tones, and luxurious materials that command attention',
-      'soft-editorial': 'refined, curated aesthetic with minimal, elegant lighting, muted tones, and gallery-quality composition that feels magazine-worthy',
-    };
-    const key = getStyleKey(ctx);
-    styleDesc = moodDescriptions[key] || 'a tastefully lit, modern space';
+    styleDesc = `Mood: "${ctx.mood || 'Modern'}"\n`;
   } else {
-    const trackDesc = ctx.track === 'soft'
-      ? 'gentle, organic, and naturally warm'
-      : 'bold, sculptural, and dramatically atmospheric';
-    const intensityDesc: Record<string, string> = {
-      'Understated': 'subtle and restrained — let the architecture speak, lighting should whisper',
-      'Balanced': 'harmonious and composed — lighting should complement without dominating',
-      'Expressive': 'confident and curated — lighting becomes a design element in its own right',
-      'Statement': 'bold and commanding — lighting is the centerpiece, the first thing you notice',
-    };
-    styleDesc = `${trackDesc}. The user's vibe is "${ctx.vibe || 'Modern'}" at "${ctx.intensity || 'Balanced'}" intensity — ${intensityDesc[ctx.intensity || 'Balanced'] || 'harmoniously balanced'}`;
-    if (ctx.who) styleDesc += `. They're designing for: ${ctx.who}`;
+    const trackLabel = ctx.track === 'soft' ? 'Soft & Cozy' : 'Dramatic & Moody';
+    styleDesc = `Track: ${trackLabel}, Vibe: "${ctx.vibe || 'Modern'}", Intensity: ${ctx.intensity || 'Balanced'}\n`;
+    if (ctx.who) styleDesc += `Designing for: ${ctx.who}\n`;
+  }
+
+  if (atmo) {
+    styleDesc += `Color temperature: ${atmo.colorTemp}\n`;
+    styleDesc += `Light quality: ${atmo.lightQuality}\n`;
+    styleDesc += `Material direction: ${atmo.materialTones}\n`;
+    styleDesc += `Emotional tone: ${atmo.emotionalTone}`;
   }
 
   return `You are an expert interior lighting designer for Outlight, a premium modern lighting brand.
 
-STYLE DIRECTION: ${styleDesc}
+STYLE DIRECTION:
+${styleDesc}
 
 Analyze this room photo and suggest where Outlight lighting products should be placed to transform the space according to the style direction above.
 
@@ -147,7 +258,7 @@ Return a JSON object with these exact fields:
       "reasoning": "The warm wabi-sabi aesthetic of Aven complements the natural wood tones..."
     }
   ],
-  "ambiance": "2-3 sentences describing how these products transform the space — the light quality, mood, atmosphere",
+  "ambiance": "2-3 sentences describing how these products transform the space — the light quality, mood, atmosphere. Be SPECIFIC about the emotional shift.",
   "tips": ["2-3 specific styling tips for this aesthetic"]
 }
 
@@ -157,42 +268,110 @@ IMPORTANT:
 - Use ONLY product names from the catalog above in suggestedProduct
 - Match product choices to the style direction — every choice should feel intentional
 - Be specific about WHY each product works in that location
+- The ambiance field should describe the TRANSFORMED mood in vivid, sensory terms
 
 Return ONLY valid JSON, no markdown fences or extra text.`;
 }
 
+// ── Build deeply mood-specific render prompt ────────────────────────────────
+
 function buildRenderPrompt(review: RoomReview, ctx: QuizContext): string {
+  const key = getStyleKey(ctx);
+  const atmo = MOOD_ATMOSPHERES[key];
   const placementDesc = review.placements
-    .map((p) => `- ${p.suggestedProduct} (${p.productType}) at ${p.location}`)
+    .map((p) => `- ${p.suggestedProduct} (${p.productType.replace(/_/g, ' ')}) at ${p.location} — ${p.reasoning}`)
     .join('\n');
 
-  let styleDirection = '';
+  let styleLabel = '';
   if (ctx.concept === 'reveal') {
-    styleDirection = `"${ctx.mood || 'Modern'}" mood lighting`;
+    styleLabel = `"${ctx.mood || 'Modern'}" mood`;
   } else {
-    styleDirection = `"${ctx.profileName || ctx.vibe || 'Modern'}" style profile`;
+    styleLabel = `"${ctx.profileName || ctx.vibe || 'Modern'}" style (${ctx.intensity || 'Balanced'} intensity)`;
   }
 
-  return `Transform this room photo by adding elegant modern lighting fixtures.
+  // Build the atmosphere-specific rendering instructions
+  let atmosphereBlock = '';
+  if (atmo) {
+    atmosphereBlock = `
+ATMOSPHERE — THIS IS CRITICAL:
+Color Temperature: ${atmo.colorTemp}
+Light Quality: ${atmo.lightQuality}
+Shadow Treatment: ${atmo.shadowStyle}
+Materials & Finishes: ${atmo.materialTones}
+Emotional Goal: ${atmo.emotionalTone}
 
-STYLE: ${styleDirection}
+SPECIFIC RENDERING DIRECTION:
+${atmo.renderDirective}`;
+  }
+
+  return `Transform this room photograph by adding modern lighting fixtures and COMPLETELY changing the lighting atmosphere.
+
+STYLE: ${styleLabel}
 ROOM: ${review.roomType}, ${review.dimensions}
 CURRENT STATE: ${review.description}
 TARGET AMBIANCE: ${review.ambiance}
+${atmosphereBlock}
 
-PRODUCT PLACEMENTS:
+PRODUCT PLACEMENTS (add these fixtures):
 ${placementDesc}
 
-INSTRUCTIONS:
-1. Keep the room EXACTLY as-is — same furniture, colors, angles, perspective
-2. ADD the lighting products at the specified locations, naturally integrated
-3. Show the LIGHT EMISSION from each fixture — warm pools of light on surfaces, soft shadows, ambient glow
-4. The overall lighting mood should shift to match the style direction
-5. Products should look photorealistic — proper scale, materials (brass, glass, marble, wood), and proportions
-6. Show how the light interacts with the room — reflections on surfaces, depth through shadow, warmth through color temperature
-7. Make it feel like a professional interior design photograph
+CRITICAL INSTRUCTIONS:
+1. Keep the room structure, furniture, and architecture EXACTLY as-is — same layout, same perspective, same items
+2. ADD the lighting products at the specified locations — they should look physically present and photorealistic (proper scale, real materials, correct proportions)
+3. TRANSFORM THE ENTIRE LIGHTING of the scene according to the atmosphere direction above:
+   - Shift the color temperature of ALL light in the image to match the target
+   - Adjust overall brightness/darkness to match the emotional goal
+   - Create the specified shadow treatment throughout the room
+   - Show realistic light emission: pools of light on floors/walls, glow around fixtures, reflected light on surfaces
+4. The MOOD SHIFT should be DRAMATIC and OBVIOUS — someone comparing the before and after should immediately feel the emotional difference
+5. Every material surface should respond to the new lighting — wood should catch warm light, metal should gleam, fabric should show new shadow folds
+6. The result should look like a professional interior design photograph taken AFTER a complete lighting redesign
 
-The result should look like this room was photographed AFTER a professional lighting design installation.`;
+The transformation should be so clear that even without labels, a viewer could identify the specific mood just from the lighting quality.`;
+}
+
+// ── Build generation-from-scratch prompt (for sample rooms) ─────────────────
+
+function buildGeneratePrompt(ctx: QuizContext): string {
+  const products = getSuggestedProducts(ctx).slice(0, 3);
+  const key = getStyleKey(ctx);
+  const atmo = MOOD_ATMOSPHERES[key];
+
+  let styleLabel = '';
+  if (ctx.concept === 'reveal') {
+    styleLabel = `"${ctx.mood || 'Modern'}" mood`;
+  } else {
+    styleLabel = `"${ctx.profileName || ctx.vibe || 'Modern'}" style (${ctx.intensity || 'Balanced'} intensity)`;
+  }
+
+  let atmosphereBlock = '';
+  if (atmo) {
+    atmosphereBlock = `
+ATMOSPHERE:
+Color Temperature: ${atmo.colorTemp}
+Light Quality: ${atmo.lightQuality}
+Shadow Treatment: ${atmo.shadowStyle}
+Materials & Finishes: ${atmo.materialTones}
+Emotional Goal: ${atmo.emotionalTone}
+
+SPECIFIC DIRECTION:
+${atmo.renderDirective}`;
+  }
+
+  return `Generate a photorealistic interior photograph of a beautifully designed living room, styled with ${styleLabel} lighting.
+
+The room should feature modern Outlight lighting fixtures: ${products.join(', ')} — show them as elegant, premium lighting products naturally integrated into the space.
+${atmosphereBlock}
+
+REQUIREMENTS:
+1. Photorealistic — should look like a professional interior design photograph
+2. The lighting atmosphere MUST clearly convey the ${styleLabel} direction
+3. Show 2-3 lighting fixtures that feel naturally placed
+4. Show realistic light emission from each fixture — pools of light, ambient glow, surface reflections
+5. The room should feel aspirational but believable — a real home, beautifully lit
+6. High quality, detailed, magazine-worthy composition
+
+This image should make someone think: "I want my room to feel like this."`;
 }
 
 // ── Review (Analyze Room Photo) ──────────────────────────────────────────────
@@ -289,6 +468,44 @@ export async function renderVisualization(
   throw new Error('No image generated in Gemini response');
 }
 
+// ── Generate from scratch (no room photo — sample rooms) ─────────────────────
+
+export async function generateFromScratch(ctx: QuizContext): Promise<RenderResult> {
+  const client = await getClient();
+  const prompt = buildGeneratePrompt(ctx);
+
+  console.log(`[quiz-image] Generating sample room from scratch — style: ${getStyleKey(ctx)}`);
+
+  const response = await client.models.generateContent({
+    model: config.gemini.imageModel,
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: prompt }],
+      },
+    ],
+    config: {
+      responseModalities: ['IMAGE', 'TEXT'],
+    },
+  });
+
+  const candidates = response.candidates ?? [];
+  for (const candidate of candidates) {
+    const parts = candidate.content?.parts ?? [];
+    for (const part of parts) {
+      if (part.inlineData) {
+        console.log('[quiz-image] Sample room generated successfully');
+        return {
+          imageBase64: part.inlineData.data,
+          mimeType: part.inlineData.mimeType ?? 'image/png',
+        };
+      }
+    }
+  }
+
+  throw new Error('No image generated in Gemini response');
+}
+
 // ── Combined: Review + Render Pipeline ───────────────────────────────────────
 
 export async function processRoomPhoto(
@@ -296,12 +513,31 @@ export async function processRoomPhoto(
   mimeType: string,
   ctx: QuizContext,
 ): Promise<{ review: RoomReview; render: RenderResult }> {
-  // Step 1: Analyze the room
+  // If no photo provided, generate from scratch
+  if (!imageBase64) {
+    console.log('[quiz-image] No photo provided — generating sample room from scratch');
+    const render = await generateFromScratch(ctx);
+    const key = getStyleKey(ctx);
+    const atmo = MOOD_ATMOSPHERES[key];
+    return {
+      review: {
+        roomType: 'living',
+        dimensions: 'Sample room',
+        description: 'AI-generated sample room',
+        currentLighting: 'None — generated from scratch',
+        furniture: [],
+        colorPalette: [],
+        placements: [],
+        ambiance: atmo?.emotionalTone || 'A beautifully lit space tailored to your style.',
+        tips: [],
+      },
+      render,
+    };
+  }
+
+  // Normal flow: Review + Render
   const review = await reviewRoomPhoto(imageBase64, mimeType, ctx);
-
-  // Step 2: Generate visualization
   const render = await renderVisualization(imageBase64, mimeType, review, ctx);
-
   return { review, render };
 }
 

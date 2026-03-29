@@ -313,13 +313,13 @@ quizRouter.get('/recommendations/:profileKey', async (req, res) => {
 
 // ── Image Processing ─────────────────────────────────────────────────────────
 
-// POST /api/quiz/render — Upload photo and get AI visualization
+// POST /api/quiz/render — Upload photo and get AI visualization (or generate sample)
 quizRouter.post('/render', async (req, res) => {
   try {
     const { session_id, image_base64, mime_type, context } = req.body;
 
-    if (!image_base64 || !context) {
-      res.status(400).json({ error: 'image_base64 and context are required' });
+    if (!context) {
+      res.status(400).json({ error: 'context is required' });
       return;
     }
 
@@ -327,11 +327,11 @@ quizRouter.post('/render', async (req, res) => {
     if (session_id) {
       await quizService.updateSession(session_id, {
         render_status: 'processing',
-        photo_uploaded: true,
+        photo_uploaded: !!image_base64,
       });
     }
 
-    const result = await quizImage.processRoomPhoto(image_base64, mime_type || 'image/jpeg', context);
+    const result = await quizImage.processRoomPhoto(image_base64 || '', mime_type || 'image/jpeg', context);
 
     // Update session with render result
     if (session_id) {
@@ -366,8 +366,28 @@ quizRouter.post('/review', async (req, res) => {
   try {
     const { image_base64, mime_type, context } = req.body;
 
-    if (!image_base64 || !context) {
-      res.status(400).json({ error: 'image_base64 and context are required' });
+    if (!context) {
+      res.status(400).json({ error: 'context is required' });
+      return;
+    }
+
+    // If no photo, return a synthetic review (sample room)
+    if (!image_base64) {
+      const suggestedProducts = quizImage.getProductSuggestions(context);
+      res.json({
+        review: {
+          roomType: 'living',
+          dimensions: 'Sample room',
+          description: 'AI-generated sample room',
+          currentLighting: 'None — sample',
+          furniture: [],
+          colorPalette: [],
+          placements: [],
+          ambiance: 'A beautifully lit space tailored to your style.',
+          tips: [],
+        },
+        suggestedProducts,
+      });
       return;
     }
 

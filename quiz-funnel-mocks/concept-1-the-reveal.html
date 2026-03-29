@@ -566,7 +566,7 @@ document.querySelectorAll('.mood-tile').forEach(function(tile){
   tile.addEventListener('click',function(){
     document.querySelectorAll('.mood-tile').forEach(function(t){t.classList.remove('selected')});
     tile.classList.add('selected');
-    selectedMood = tile.querySelector('.mood-tile-name')?.textContent || 'Modern';
+    selectedMood = tile.querySelector('.mood-tile-label')?.textContent || tile.getAttribute('data-mood') || 'Modern';
     setTimeout(function(){goToScreen('screen-loading');startLoading()},500);
   });
 });
@@ -622,15 +622,28 @@ function callRevealAPI() {
 }
 
 function populateRevealImages(data) {
-  if (uploadedPhoto.base64) {
-    var beforeEl = document.querySelector('.slider-before-img');
-    beforeEl.style.background = 'none';
-    beforeEl.innerHTML = '<img src="data:' + uploadedPhoto.mimeType + ';base64,' + uploadedPhoto.base64 + '" style="width:100%;height:100%;object-fit:cover" alt="Before">';
-  }
   if (data.render && data.render.imageBase64) {
-    var afterEl = document.querySelector('.slider-after-img');
-    afterEl.style.background = 'none';
-    afterEl.innerHTML = '<img src="data:' + data.render.mimeType + ';base64,' + data.render.imageBase64 + '" style="width:100%;height:100%;object-fit:cover" alt="After">';
+    if (uploadedPhoto.base64) {
+      // Real photo: show before/after slider
+      var beforeEl = document.querySelector('.slider-before-img');
+      beforeEl.style.background = 'none';
+      beforeEl.innerHTML = '<img src="data:' + uploadedPhoto.mimeType + ';base64,' + uploadedPhoto.base64 + '" style="width:100%;height:100%;object-fit:cover" alt="Before">';
+      var afterEl = document.querySelector('.slider-after-img');
+      afterEl.style.background = 'none';
+      afterEl.innerHTML = '<img src="data:' + data.render.mimeType + ';base64,' + data.render.imageBase64 + '" style="width:100%;height:100%;object-fit:cover" alt="After">';
+    } else {
+      // Sample room: hide slider controls, show generated image full
+      var sliderWrap = document.getElementById('slider-wrap');
+      sliderWrap.style.cursor = 'default';
+      var handle = document.getElementById('slider-handle');
+      if (handle) handle.style.display = 'none';
+      document.querySelectorAll('.slider-label').forEach(function(l){l.style.display='none'});
+      var afterEl = document.getElementById('slider-after');
+      afterEl.style.clipPath = 'none';
+      var afterImg = document.querySelector('.slider-after-img');
+      afterImg.style.background = 'none';
+      afterImg.innerHTML = '<img src="data:' + data.render.mimeType + ';base64,' + data.render.imageBase64 + '" style="width:100%;height:100%;object-fit:cover" alt="Your space, transformed">';
+    }
   }
 }
 
@@ -690,7 +703,7 @@ function startLoading(){
 
   function tryFinish() {
     if (!animDone) return;
-    if (renderResult || renderError || !uploadedPhoto.base64) {
+    if (renderResult || renderError) {
       clearInterval(ci);
       clearInterval(tickerInterval);
       setTimeout(function(){ goToScreen('screen-reveal') }, 400);
