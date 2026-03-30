@@ -308,9 +308,9 @@ export async function batchTagAllProducts(
 
     console.log(`[mood-tagger] Batch complete: ${tagged} tagged, ${skipped} skipped, ${errors} errors`);
 
-    // Post-processing: ensure minimum coverage per mood
-    if (tagged > 0) {
-      const promoted = await ensureMinimumCoverage(brandId);
+    // Post-processing: ensure minimum coverage per mood × collection
+    const promoted = await ensureMinimumCoverage(brandId);
+    if (promoted > 0) {
       console.log(`[mood-tagger] Post-processing promoted ${promoted} product-mood scores to meet minimums`);
     }
 
@@ -320,14 +320,58 @@ export async function batchTagAllProducts(
   }
 }
 
-// ── Post-processing: ensure minimum products per mood × product type ─────
+// ── Post-processing: ensure minimum products per mood × collection ───────
 
-const MIN_PER_MOOD_TYPE = 4; // Minimum products per mood per product type
+const MIN_PER_MOOD_COLLECTION = 4;
 const PROMOTE_THRESHOLD = 0.50;
 
-const COLLECTION_PRODUCT_TYPES = ['pendant', 'floor_lamp', 'desk_lamp', 'wall_sconce', 'chandelier'];
+const INDOOR_COLLECTIONS = [
+  'floor-table-lamps', 'desk-lamp', 'indoor-wall-lights', 'chandeliers', 'pendant-lights',
+];
 
 async function ensureMinimumCoverage(brandId: string): Promise<number> {
+  // 1. Fetch actual products per Shopify collection
+  const { graphql } = await import('./shopify-admin.service.js');
+  const collectionHandles: Record<string, Set<string>> = {};
+
+  for (const colHandle of INDOOR_COLLECTIONS) {
+    const handles = new Set<string>();
+    let cursor: string | null = null;
+    let hasNext = true;
+
+    while (hasNext) {
+      const data: {
+        collectionByHandle: {
+          products: {
+            edges: Array<{ node: { handle: string; status: string } }>;
+            pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          };
+        } | null;
+      } = await graphql(
+        `query($handle: String!, $cursor: String) {
+          collectionByHandle(handle: $handle) {
+            products(first: 100, after: $cursor) {
+              edges { node { handle status } }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+        }`,
+        { handle: colHandle, cursor },
+        brandId,
+      );
+
+      if (!data.collectionByHandle) break;
+      for (const edge of data.collectionByHandle.products.edges) {
+        if (edge.node.status === 'ACTIVE') handles.add(edge.node.handle);
+      }
+      hasNext = data.collectionByHandle.products.pageInfo.hasNextPage;
+      cursor = data.collectionByHandle.products.pageInfo.endCursor;
+    }
+
+    collectionHandles[colHandle] = handles;
+  }
+
+  // 2. Load all mood tags
   const { data: allTags, error } = await supabase
     .from('product_mood_tags')
     .select('*')
@@ -335,34 +379,37 @@ async function ensureMinimumCoverage(brandId: string): Promise<number> {
 
   if (error || !allTags || allTags.length === 0) return 0;
 
+  const tagsByHandle = new Map(allTags.map((t) => [t.product_handle, t]));
+
+  // 3. For each mood × collection, ensure at least 4 products
   let totalPromoted = 0;
 
   for (const moodKey of ALL_MOOD_KEYS) {
-    for (const productType of COLLECTION_PRODUCT_TYPES) {
-      // Products of this type
-      const typeProducts = allTags.filter((t) => t.product_type === productType);
-      if (typeProducts.length === 0) continue;
+    for (const colHandle of INDOOR_COLLECTIONS) {
+      const productHandles = collectionHandles[colHandle];
+      if (!productHandles || productHandles.size === 0) continue;
 
-      // Already tagged for this mood
-      const tagged = typeProducts.filter(
+      // Get tagged products in this collection for this mood
+      const collectionTags = [...productHandles]
+        .map((h) => tagsByHandle.get(h))
+        .filter((t): t is NonNullable<typeof t> => t != null);
+
+      const alreadyTagged = collectionTags.filter(
         (t) => ((t.mood_scores as Record<string, number>)?.[moodKey] ?? 0) >= PROMOTE_THRESHOLD,
       );
 
-      if (tagged.length >= MIN_PER_MOOD_TYPE) continue;
+      if (alreadyTagged.length >= MIN_PER_MOOD_COLLECTION) continue;
 
-      // Promote candidates: same type, below threshold, sorted by score desc
-      const candidates = typeProducts
-        .filter((t) => {
-          const score = (t.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
-          return score < PROMOTE_THRESHOLD;
-        })
+      // Promote: sort candidates by their score for this mood (highest first)
+      const candidates = collectionTags
+        .filter((t) => ((t.mood_scores as Record<string, number>)?.[moodKey] ?? 0) < PROMOTE_THRESHOLD)
         .sort((a, b) => {
           const sa = (a.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
           const sb = (b.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
           return sb - sa;
         });
 
-      const needed = MIN_PER_MOOD_TYPE - tagged.length;
+      const needed = MIN_PER_MOOD_COLLECTION - alreadyTagged.length;
       const toPromote = candidates.slice(0, needed);
 
       for (const tag of toPromote) {
@@ -378,7 +425,7 @@ async function ensureMinimumCoverage(brandId: string): Promise<number> {
       }
 
       if (toPromote.length > 0) {
-        console.log(`[mood-tagger] ${moodKey}×${productType}: promoted ${toPromote.length} (had ${tagged.length}, need ${MIN_PER_MOOD_TYPE})`);
+        console.log(`[mood-tagger] ${moodKey}×${colHandle}: promoted ${toPromote.length} (had ${alreadyTagged.length}, need ${MIN_PER_MOOD_COLLECTION})`);
       }
     }
   }
