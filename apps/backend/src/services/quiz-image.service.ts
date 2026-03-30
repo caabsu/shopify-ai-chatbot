@@ -418,7 +418,21 @@ Rules: floor lamp → floor beside seating, table lamp → on a surface, pendant
 {"roomType":"living","currentLighting":"all existing lights","furniture":["pieces"],"placements":[{"fixture":1,"location":"right of sofa on floor","x":72,"y":68}],"ambiance":"one sentence"}`;
 }
 
-// ── Build concise render prompt with clear ref image mapping ────────────────
+// ── Build natural-language render prompt ──────────────────────────────────────
+
+function getIntensityDirections(intensity?: string): string {
+  switch ((intensity || 'balanced').toLowerCase()) {
+    case 'understated':
+    case 'subtle':
+      return 'Keep the lighting subtle and understated — soft warm glow, minimal brightness, gentle ambient light that blends naturally into the room.';
+    case 'expressive':
+      return 'Make the lighting expressive — warm, noticeable light that defines the space. Visible warm pools and clear ambient glow. The fixtures should feel like a deliberate design choice.';
+    case 'statement':
+      return 'The lighting should make a statement — bold warm illumination, dramatic warm light pools, strong ambient glow. The fixtures are the focal point of the room.';
+    default: // balanced
+      return 'The lighting should feel balanced — warm and inviting with visible light pools on nearby surfaces, but not overpowering. Natural and comfortable.';
+  }
+}
 
 function buildRenderPrompt(review: RoomReview, ctx: QuizContext, productImages?: ProductImage[]): string {
   if (!productImages || productImages.length === 0) {
@@ -426,72 +440,38 @@ function buildRenderPrompt(review: RoomReview, ctx: QuizContext, productImages?:
   }
 
   const existingLights = review.currentLighting || 'all visible light fixtures';
-  const key = getStyleKey(ctx);
-  const atmo = MOOD_ATMOSPHERES[key];
-  const colorTemp = atmo ? atmo.colorTemp.split('—')[0].trim() : '2700K';
 
-  // Map each product to a location from the review — by fixture number or index, never by handle
-  const placementLines = productImages.map((pi, i) => {
+  // Build natural placement descriptions: "floor lamp (attachment #2) is placed next to the sofa"
+  // Attachment #1 = room photo, #2 = first product, #3 = second product, etc.
+  const placementDescs = productImages.map((pi, i) => {
+    const attachmentNum = i + 2; // room photo is attachment #1
     const fixtureNum = i + 1;
-    // Try to find placement by fixture number first, then fall back to index
     const rp = review.placements?.find((p: any) => p.fixture === fixtureNum)
       || (i < (review.placements?.length || 0) ? review.placements[i] : null);
     const loc = rp?.location || getDefaultLocation(pi.productType);
-    return `- Ref #${fixtureNum} "${pi.title}" (${pi.productType}) → ${loc}`;
-  }).join('\n');
+    return `${pi.productType} (attachment #${attachmentNum}) is placed ${loc}`;
+  }).join(', and ');
 
-  return `Edit this room photo. Add ONLY these ${productImages.length} fixtures — no others.
+  const intensityNote = getIntensityDirections(ctx.intensity);
 
-1. REMOVE: ${existingLights}. Erase completely, fill with surrounding texture.
-
-2. ADD (match each reference image exactly — same silhouette, shape, materials, color):
-${placementLines}
-
-3. LIGHTING: ${colorTemp} warm glow. Visible warm light pools on nearby surfaces from each fixture.
-
-Keep all furniture, walls, flooring, camera angle unchanged.`;
+  return `Using the image of the space attached, make the following edits: Remove all existing light fixtures (${existingLights}). Then, place these ${productImages.length} lights according to the following: ${placementDescs}. Ensure the shape and design of each light fixture stays exactly as shown in its reference attachment — do not change or simplify them. The output should be realistic, well-placed, and properly illuminated. ${intensityNote}`;
 }
 
 // ── Build generation-from-scratch prompt (for sample rooms) ─────────────────
 
 function buildGeneratePrompt(ctx: QuizContext, productImages?: ProductImage[]): string {
-  const key = getStyleKey(ctx);
-  const atmo = MOOD_ATMOSPHERES[key];
-  const vibeLabel = ctx.vibe || 'Soft Modern';
+  const intensityNote = getIntensityDirections(ctx.intensity);
 
-  // Build product placement instructions with types
-  let productSection: string;
   if (productImages && productImages.length > 0) {
-    productSection = productImages.map((p, i) =>
-      `- Ref #${i + 1}: "${p.title}" — this is a ${p.productType}. Look at Ref Image #${i + 1} and reproduce this exact fixture design. Place it naturally in the room (${p.productType === 'floor lamp' ? 'beside seating on the floor' : p.productType === 'pendant light' ? 'hanging from the ceiling over a table or seating area' : p.productType === 'table lamp' ? 'on a side table or console' : p.productType === 'wall sconce' ? 'mounted on the wall at eye level' : p.productType === 'chandelier' ? 'hanging from the ceiling as a centerpiece' : 'in an appropriate location'}).`
-    ).join('\n');
-  } else {
-    const products = getSuggestedProducts(ctx).slice(0, 3);
-    productSection = products.map(p => `- "${p}" — place naturally in the room`).join('\n');
+    const fixtureDescs = productImages.map((p, i) =>
+      `${p.productType} (attachment #${i + 1}) placed ${getDefaultLocation(p.productType)}`
+    ).join(', and ');
+
+    return `Generate a photorealistic interior photograph of a beautiful living room. Place these ${productImages.length} Outlight lighting fixtures in the room: ${fixtureDescs}. Ensure each fixture matches its reference attachment exactly — same shape, design, materials, and color. The room should have no other lighting. The output should be realistic and properly illuminated. ${intensityNote}`;
   }
 
-  // Atmosphere paragraph
-  let atmosParagraph = '';
-  if (atmo) {
-    atmosParagraph = `The lighting mood is "${vibeLabel}" — color temperature around ${atmo.colorTemp.split('—')[0].trim()}. ${atmo.renderDirective}`;
-  }
-
-  const numFixtures = productImages?.length || 3;
-
-  return `Generate a photorealistic, square (1:1 aspect ratio) interior photograph of a beautiful living room featuring Outlight lighting fixtures. This should look like a professional interior design photo — aspirational but believable. The room should have NO lighting except the Outlight fixtures below.
-
-Include ALL ${numFixtures} of these fixtures from the Outlight brand:
-
-${productSection}
-
-Every single fixture listed above MUST be clearly visible in the generated image. Do not omit any.
-
-${atmosParagraph}
-
-Each fixture must emit realistic warm light with visible pools on nearby walls and surfaces, soft ambient glow, and natural shadows.
-
-PRODUCT FIDELITY (CRITICAL):
-Study each reference image carefully. Every fixture MUST have the EXACT same silhouette, shade shape, arm geometry, base form, material finish, and color as its reference. Do not simplify or approximate. Do not invent any fixture design.`;
+  const products = getSuggestedProducts(ctx).slice(0, 3);
+  return `Generate a photorealistic interior photograph of a beautiful living room featuring ${products.length} Outlight lighting fixtures (${products.join(', ')}). Place them naturally in the room. The output should be realistic and properly illuminated. ${intensityNote}`;
 }
 
 // ── Review (Analyze Room Photo) ──────────────────────────────────────────────
@@ -554,9 +534,9 @@ export async function renderVisualization(
   const client = await getClient();
   const prompt = buildRenderPrompt(review, ctx, productImages);
 
-  console.log(`[quiz-image] Generating visualization — ${review.placements.length} products, style: ${getStyleKey(ctx)}, ${productImages?.length || 0} product ref images`);
+  console.log(`[quiz-image] Generating visualization — ${productImages?.length || 0} products, style: ${getStyleKey(ctx)}`);
 
-  // Build parts: room photo first, then numbered product reference images, then prompt
+  // Build parts: room photo (attachment #1), then product images (attachment #2, #3, ...), then prompt
   const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [
     { inlineData: { mimeType: roomMimeType, data: roomImageBase64 } },
   ];
@@ -565,7 +545,7 @@ export async function renderVisualization(
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[REF #${i + 1}: "${pi.title}" — ${pi.productType}. Reproduce this EXACT fixture: same silhouette, shape, materials, color.]` });
+      parts.push({ text: `[Attachment #${i + 2}: "${pi.title}" — a ${pi.productType}]` });
     }
   }
 
@@ -574,7 +554,7 @@ export async function renderVisualization(
   const response = await client.models.generateContent({
     model: config.gemini.imageModel,
     contents: [{ role: 'user', parts }],
-    config: { responseModalities: ['IMAGE', 'TEXT'], imageConfig: { aspectRatio: '1:1' } },
+    config: { responseModalities: ['IMAGE', 'TEXT'] },
   });
 
   const candidates = response.candidates ?? [];
@@ -600,7 +580,7 @@ export async function generateFromScratch(ctx: QuizContext, productImages?: Prod
   const client = await getClient();
   const prompt = buildGeneratePrompt(ctx, productImages);
 
-  console.log(`[quiz-image] Generating sample room from scratch — style: ${getStyleKey(ctx)}, ${productImages?.length || 0} product ref images`);
+  console.log(`[quiz-image] Generating sample room from scratch — style: ${getStyleKey(ctx)}, ${productImages?.length || 0} products`);
 
   const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [];
 
@@ -608,7 +588,7 @@ export async function generateFromScratch(ctx: QuizContext, productImages?: Prod
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[REF #${i + 1}: "${pi.title}" — ${pi.productType}. Reproduce this EXACT fixture: same silhouette, shape, materials, color.]` });
+      parts.push({ text: `[Attachment #${i + 1}: "${pi.title}" — a ${pi.productType}]` });
     }
   }
 
