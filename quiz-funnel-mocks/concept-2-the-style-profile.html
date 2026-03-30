@@ -281,16 +281,47 @@ input{font-family:inherit}
 .ts-thumb-4{background:linear-gradient(135deg,#ede4d4,#d8ccb0 30%,#c0b090 55%,#8a7a5e)}
 .ts-thumb-5{background:linear-gradient(135deg,#d4b068,#a88838 30%,#7a6228 55%,#4a3a18)}
 
-/* ─── Reroll ────────────────────────────────── */
-.reroll-section{margin-bottom:36px;text-align:center}
-.reroll-link{font-size:13px;color:var(--gold);border-bottom:1px solid var(--gold-line);padding-bottom:1px;margin-bottom:12px;display:inline-block;cursor:pointer;transition:color .3s}
-.reroll-link:hover{color:var(--gold-hover)}
-.reroll-thumbs{display:flex;gap:8px;justify-content:center;margin-top:10px}
-.reroll-thumb{width:60px;height:60px;border:1px solid var(--border);cursor:pointer;transition:border-color .3s}
-.reroll-thumb:hover{border-color:var(--gold)}
-.reroll-thumb:nth-child(1){background:linear-gradient(135deg,#c9a86c,#7a5a3a)}
-.reroll-thumb:nth-child(2){background:linear-gradient(135deg,#dcc090,#a88050)}
-.reroll-thumb:nth-child(3){background:linear-gradient(135deg,#f0dbb8,#b89858)}
+/* ─── Shuffle / Regenerate ──────────────────── */
+.shuffle-section{margin-bottom:36px;text-align:center}
+.shuffle-heading{font-family:'Newsreader',serif;font-weight:200;font-size:1.2rem;color:var(--fg);margin-bottom:6px;font-variation-settings:'opsz' 72}
+.shuffle-sub{font-size:12px;color:var(--fg-muted);margin-bottom:20px;line-height:1.6}
+
+.shuffle-actions{display:flex;gap:12px;justify-content:center;max-width:480px;margin:0 auto 24px}
+.shuffle-btn{display:flex;align-items:center;justify-content:center;gap:8px;flex:1;padding:14px 20px;background:var(--surface);border:1px solid var(--border);font-family:'Manrope',sans-serif;font-size:.58rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--fg);transition:border-color .35s var(--ease-smooth),background .35s;cursor:pointer}
+.shuffle-btn:hover{border-color:var(--gold);background:var(--gold-light)}
+.shuffle-btn .material-symbols-outlined{font-size:18px;color:var(--gold);transition:transform .5s var(--ease-out)}
+.shuffle-btn:hover .material-symbols-outlined{transform:rotate(180deg)}
+.shuffle-btn.primary-shuffle{background:var(--gold);color:var(--fg);border-color:var(--gold)}
+.shuffle-btn.primary-shuffle:hover{background:var(--gold-hover)}
+.shuffle-btn.primary-shuffle .material-symbols-outlined{color:var(--fg)}
+.shuffle-btn.shuffling{pointer-events:none;opacity:.7}
+.shuffle-btn.shuffling .material-symbols-outlined{animation:shuffleSpin .8s var(--ease-out) infinite}
+
+/* Shuffle product preview strip */
+.shuffle-preview{display:flex;gap:8px;justify-content:center;max-width:520px;margin:0 auto;min-height:80px}
+.shuffle-preview-card{width:72px;height:72px;border:1px solid var(--border);overflow:hidden;opacity:0;transform:scale(.85);transition:all .4s var(--ease-out);position:relative}
+.shuffle-preview-card.visible{opacity:1;transform:scale(1)}
+.shuffle-preview-card img{width:100%;height:100%;object-fit:cover;display:block}
+.shuffle-preview-card .sp-name{position:absolute;bottom:0;left:0;right:0;padding:3px 4px;background:linear-gradient(to top,rgba(0,0,0,.6),transparent);font-size:7px;font-weight:500;color:#fff;letter-spacing:.03em;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+
+/* Shuffle animation states */
+.shuffle-preview-card.exit{opacity:0;transform:scale(.7) rotate(-6deg);transition:all .3s var(--ease-smooth)}
+.shuffle-preview-card.enter{animation:shuffleCardIn .5s var(--ease-out) both}
+
+@keyframes shuffleSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes shuffleCardIn{from{opacity:0;transform:translateY(12px) scale(.85)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes shuffleRegenPulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Regenerating overlay on image */
+.regen-overlay{position:absolute;inset:0;background:rgba(19,19,20,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;opacity:0;transition:opacity .4s;pointer-events:none;z-index:5}
+.regen-overlay.visible{opacity:1;pointer-events:auto}
+.regen-overlay-text{font-size:.5rem;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.9)}
+.regen-spinner{width:28px;height:28px;border:2px solid rgba(255,255,255,.25);border-top-color:var(--gold);border-radius:50%;animation:shuffleSpin .8s linear infinite}
+
+@media(max-width:600px){
+  .shuffle-actions{flex-direction:column;gap:8px}
+  .shuffle-preview-card{width:60px;height:60px}
+}
 
 /* ─── Email ─────────────────────────────────── */
 .email-section{background:var(--surface);border:1px solid var(--border);padding:36px 28px;text-align:center;margin-bottom:36px}
@@ -522,19 +553,21 @@ input{font-family:inherit}
     <h2 class="headline">Your room, transformed.</h2>
     <div class="reveal-badge" id="reveal-badge"></div>
     <p class="reveal-recap" id="reveal-recap"></p>
-    <div class="slider-wrap" id="slider-wrap">
+    <div class="slider-wrap" id="slider-wrap" style="position:relative">
       <div class="slider-before"><div class="slider-before-img"></div><span class="slider-label slider-label-before">Before</span></div>
       <div class="slider-after" id="slider-after"><div class="slider-after-img"></div><span class="slider-label slider-label-after">After</span></div>
       <div class="slider-handle" id="slider-handle"><div class="slider-handle-circle"><span class="material-symbols-outlined">drag_handle</span></div></div>
+      <div class="regen-overlay" id="regen-overlay">
+        <div class="regen-spinner"></div>
+        <div class="regen-overlay-text">Regenerating with new fixtures…</div>
+      </div>
     </div>
     <div class="matched-label">Matched to your profile</div>
     <div class="product-grid" id="product-grid">
       <div class="product-card">
         <div class="product-card-img prod-grad-1"></div>
         <div class="product-card-body">
-          <div class="product-card-match">98% match</div>
           <div class="product-card-name">Aven Floor Lamp</div>
-          <div class="product-card-desc">Warm ambient arc lamp</div>
           <div class="product-card-price">$289</div>
           <button class="btn-atc" onclick="addToCart(this)">Add to cart</button>
         </div>
@@ -542,9 +575,7 @@ input{font-family:inherit}
       <div class="product-card">
         <div class="product-card-img prod-grad-2"></div>
         <div class="product-card-body">
-          <div class="product-card-match">95% match</div>
           <div class="product-card-name">Mira Pendant</div>
-          <div class="product-card-desc">Sculptural overhead glow</div>
           <div class="product-card-price">$199</div>
           <button class="btn-atc" onclick="addToCart(this)">Add to cart</button>
         </div>
@@ -552,9 +583,7 @@ input{font-family:inherit}
       <div class="product-card">
         <div class="product-card-img prod-grad-3"></div>
         <div class="product-card-body">
-          <div class="product-card-match">92% match</div>
           <div class="product-card-name">Luma Table Lamp</div>
-          <div class="product-card-desc">Directed warmth, anywhere</div>
           <div class="product-card-price">$149</div>
           <button class="btn-atc" onclick="addToCart(this)">Add to cart</button>
         </div>
@@ -600,9 +629,38 @@ input{font-family:inherit}
         </div>
       </div>
     </div>
-    <div class="reroll-section">
-      <span class="reroll-link">Try a different mood</span>
-      <div class="reroll-thumbs"><div class="reroll-thumb"></div><div class="reroll-thumb"></div><div class="reroll-thumb"></div></div>
+    <div class="shuffle-section" id="shuffle-section">
+      <h3 class="shuffle-heading">Not quite right?</h3>
+      <p class="shuffle-sub">Try different fixtures in the same scene — or hand-pick your own.</p>
+      <div class="shuffle-actions">
+        <button class="shuffle-btn primary-shuffle" id="shuffle-regen-btn" onclick="shuffleAndRegenerate()">
+          <span class="material-symbols-outlined">autorenew</span>
+          Shuffle fixtures
+        </button>
+        <button class="shuffle-btn" id="shuffle-choose-btn" onclick="openChooseOwn()">
+          <span class="material-symbols-outlined">grid_view</span>
+          Choose my own
+        </button>
+      </div>
+      <div class="shuffle-preview" id="shuffle-preview"></div>
+    </div>
+
+    <!-- Choose-own overlay (slide-up collection picker) -->
+    <div id="choose-own-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45)">
+      <div id="choose-own-panel" style="position:absolute;bottom:0;left:0;right:0;max-height:85vh;background:var(--bg);overflow-y:auto;transform:translateY(100%);transition:transform .4s var(--ease-out)">
+        <div style="position:sticky;top:0;z-index:2;background:var(--bg);padding:20px 24px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-family:'Newsreader',serif;font-weight:200;font-size:1.1rem;color:var(--fg);font-variation-settings:'opsz' 72">Choose your fixtures</div>
+            <div style="font-size:11px;color:var(--fg-muted);margin-top:2px">Select up to 4 — replaces current fixtures, same scene</div>
+          </div>
+          <button onclick="closeChooseOwn()" style="background:none;border:none;cursor:pointer;color:var(--fg-muted);padding:4px"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div id="choose-own-collections" style="padding:20px 24px 100px"></div>
+        <div style="position:sticky;bottom:0;left:0;right:0;padding:16px 24px;background:linear-gradient(to top,var(--bg) 80%,transparent);text-align:center">
+          <div id="choose-own-count" style="font-size:12px;color:var(--fg-muted);margin-bottom:10px"></div>
+          <button class="btn-primary" id="choose-own-confirm" onclick="confirmChooseOwn()" style="opacity:.35;pointer-events:none">Regenerate with selected</button>
+        </div>
+      </div>
     </div>
     <div class="email-section">
       <h3 id="email-title">Save your lookbook</h3>
@@ -937,6 +995,308 @@ window.confirmProductSelection=function(mode){
   goToScreen('screen-checkpoint');
 };
 
+// ── Shuffle & Regenerate (on reveal screen) ──
+var usedProductHandles=[]; // tracks all handles already shown (to exclude from shuffle)
+var isRegenerating=false;
+var chooseOwnSelections=[];
+
+// Get all available products from loaded collections, grouped by collection
+function getAllCollectionProducts(){
+  var result={};
+  var order=['pendant-lights','floor-table-lamps','indoor-wall-lights','chandeliers','desk-lamp'];
+  order.forEach(function(handle){
+    var col=collectionProducts[handle];
+    if(col&&col.products&&col.products.length){
+      result[handle]={label:col.label,products:col.products};
+    }
+  });
+  return result;
+}
+
+// Pick random items from array, excluding specific handles
+function pickRandom(arr,count,exclude){
+  var pool=arr.filter(function(p){return exclude.indexOf(p.handle)<0});
+  var result=[];
+  var copy=pool.slice();
+  for(var i=0;i<count&&copy.length>0;i++){
+    var idx=Math.floor(Math.random()*copy.length);
+    result.push(copy[idx]);
+    copy.splice(idx,1);
+  }
+  return result;
+}
+
+// Shuffle: pick 3 random products (always 1 floor lamp + 2 from other collections)
+window.shuffleAndRegenerate=function(){
+  if(isRegenerating)return;
+
+  // Ensure collections are loaded
+  if(!collectionsLoaded){loadCollections();return}
+
+  var allCols=getAllCollectionProducts();
+  var floorCol=allCols['floor-table-lamps'];
+  var otherKeys=['pendant-lights','indoor-wall-lights','chandeliers','desk-lamp'];
+
+  // Always pick 1 floor lamp
+  var floorPick=floorCol?pickRandom(floorCol.products,1,usedProductHandles):[];
+  if(floorPick.length===0&&floorCol){
+    // If all floor lamps used, reset exclusions for floor lamps only
+    floorPick=pickRandom(floorCol.products,1,[]);
+  }
+
+  // Pick 2 from other collections (spread across different collections)
+  var otherPicks=[];
+  var shuffledKeys=otherKeys.slice().sort(function(){return Math.random()-.5});
+  for(var k=0;k<shuffledKeys.length&&otherPicks.length<2;k++){
+    var col=allCols[shuffledKeys[k]];
+    if(col){
+      var pick=pickRandom(col.products,1,usedProductHandles.concat(otherPicks.map(function(p){return p.handle})));
+      if(pick.length)otherPicks.push(pick[0]);
+    }
+  }
+
+  var newProducts=floorPick.concat(otherPicks);
+  if(newProducts.length<3){
+    // Fallback: pick from any collection
+    var allProds=[];
+    Object.keys(allCols).forEach(function(k){allCols[k].products.forEach(function(p){allProds.push(p)})});
+    var extra=pickRandom(allProds,3-newProducts.length,usedProductHandles.concat(newProducts.map(function(p){return p.handle})));
+    newProducts=newProducts.concat(extra);
+  }
+
+  // Track used handles
+  newProducts.forEach(function(p){if(usedProductHandles.indexOf(p.handle)<0)usedProductHandles.push(p.handle)});
+
+  // Animate shuffle preview
+  animateShufflePreview(newProducts,function(){
+    // Set these as selected and regenerate
+    selectedProducts=newProducts.map(function(p){return p.handle});
+    selectionMode='curated';
+    regenerateWithProducts(newProducts);
+  });
+};
+
+function animateShufflePreview(products,callback){
+  var preview=document.getElementById('shuffle-preview');
+  var btn=document.getElementById('shuffle-regen-btn');
+  btn.classList.add('shuffling');
+
+  // Exit existing cards
+  var existing=preview.querySelectorAll('.shuffle-preview-card');
+  existing.forEach(function(c){c.classList.add('exit')});
+
+  setTimeout(function(){
+    preview.innerHTML='';
+    products.forEach(function(p,i){
+      var card=document.createElement('div');
+      card.className='shuffle-preview-card';
+      card.style.animationDelay=(i*100)+'ms';
+      var img=p.image?'<img src="'+p.image+'" alt="'+p.title+'">':'';
+      card.innerHTML=img+'<div class="sp-name">'+p.title+'</div>';
+      preview.appendChild(card);
+      // Trigger enter animation
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){card.classList.add('enter','visible')});
+      });
+    });
+
+    // Wait for animation then callback
+    setTimeout(function(){
+      btn.classList.remove('shuffling');
+      if(callback)callback();
+    },800);
+  },350);
+}
+
+function regenerateWithProducts(products){
+  isRegenerating=true;
+
+  // Show regen overlay on image
+  var overlay=document.getElementById('regen-overlay');
+  overlay.classList.add('visible');
+
+  // Disable shuffle buttons
+  document.getElementById('shuffle-regen-btn').style.opacity='.5';
+  document.getElementById('shuffle-regen-btn').style.pointerEvents='none';
+  document.getElementById('shuffle-choose-btn').style.opacity='.5';
+  document.getElementById('shuffle-choose-btn').style.pointerEvents='none';
+
+  var ctx={
+    concept:'style-profile',
+    who:state.who,
+    track:state.track,
+    vibe:state.vibe,
+    intensity:state.intensity,
+    profileName:getProfileName(),
+    selectionMode:'curated',
+    selectedProducts:products.map(function(p){return p.handle})
+  };
+
+  // Use original uploaded photo for regeneration (same scene)
+  var body={
+    image_base64:uploadedPhoto.base64,
+    mime_type:uploadedPhoto.mimeType,
+    context:ctx
+  };
+
+  // Render API call
+  fetch('/api/quiz/render',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  })
+  .then(function(r){return r.json()})
+  .then(function(data){
+    if(data.error){
+      console.error('[shuffle] Render error:',data.error);
+      showToast('Failed to regenerate — please try again');
+    }else{
+      renderResult=data;
+      // Update the after image
+      var afterImg=document.querySelector('.slider-after-img');
+      if(afterImg&&data.render&&data.render.imageBase64){
+        afterImg.style.background='none';
+        afterImg.innerHTML='<img src="data:'+data.render.mimeType+';base64,'+data.render.imageBase64+'" style="width:100%;height:100%;object-fit:cover" alt="Regenerated">';
+      }
+    }
+    finishRegenerate();
+  })
+  .catch(function(err){
+    console.error('[shuffle] Render API error:',err);
+    showToast('Connection error — please try again');
+    finishRegenerate();
+  });
+
+  // Also fetch product details for the grid
+  fetch('/api/quiz/products',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({handles:products.map(function(p){return p.handle})})
+  })
+  .then(function(r){return r.json()})
+  .then(function(data){
+    if(data.products&&data.products.length)populateProducts(data.products);
+  })
+  .catch(function(err){console.error('[shuffle] Products API error:',err)});
+}
+
+function finishRegenerate(){
+  isRegenerating=false;
+  var overlay=document.getElementById('regen-overlay');
+  overlay.classList.remove('visible');
+  document.getElementById('shuffle-regen-btn').style.opacity='';
+  document.getElementById('shuffle-regen-btn').style.pointerEvents='';
+  document.getElementById('shuffle-choose-btn').style.opacity='';
+  document.getElementById('shuffle-choose-btn').style.pointerEvents='';
+}
+
+// ── Choose My Own (collection picker overlay) ──
+
+window.openChooseOwn=function(){
+  if(!collectionsLoaded)loadCollections();
+  chooseOwnSelections=[];
+  var overlay=document.getElementById('choose-own-overlay');
+  var panel=document.getElementById('choose-own-panel');
+  overlay.style.display='block';
+  renderChooseOwnCollections();
+  updateChooseOwnCount();
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){panel.style.transform='translateY(0)'});
+  });
+  // Close on backdrop click
+  overlay.onclick=function(e){if(e.target===overlay)closeChooseOwn()};
+};
+
+window.closeChooseOwn=function(){
+  var panel=document.getElementById('choose-own-panel');
+  panel.style.transform='translateY(100%)';
+  setTimeout(function(){document.getElementById('choose-own-overlay').style.display='none'},400);
+};
+
+function renderChooseOwnCollections(){
+  var container=document.getElementById('choose-own-collections');
+  container.innerHTML='';
+  var order=['pendant-lights','floor-table-lamps','indoor-wall-lights','chandeliers','desk-lamp'];
+  order.forEach(function(handle){
+    var col=collectionProducts[handle];
+    if(!col)return;
+    var prods=(col.products||[]).slice(0,8); // show up to 8 per collection
+
+    var section=document.createElement('div');
+    section.style.cssText='margin-bottom:24px';
+
+    var label=document.createElement('div');
+    label.style.cssText='font-size:.5rem;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:'+('var(--fg-muted)')+';margin-bottom:10px';
+    label.textContent=col.label;
+    section.appendChild(label);
+
+    var row=document.createElement('div');
+    row.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px';
+    prods.forEach(function(p){
+      var isSelected=chooseOwnSelections.indexOf(p.handle)>=0;
+      var isExcluded=usedProductHandles.indexOf(p.handle)>=0&&!isSelected;
+      var card=document.createElement('div');
+      card.className='sel-product'+(isSelected?' selected':'');
+      card.style.cssText=isExcluded?'opacity:.4':'';
+      var imgHtml=p.image?'<img src="'+p.image+'" alt="'+p.title+'" loading="lazy">':'';
+      card.innerHTML='<div class="sel-product-check"><span class="material-symbols-outlined">check</span></div>'
+        +'<div class="sel-product-img">'+imgHtml+'</div>'
+        +'<div class="sel-product-info">'
+        +'<div class="sel-product-name">'+p.title+'</div>'
+        +'<div class="sel-product-price">'+p.price+'</div>'
+        +'</div>';
+      card.addEventListener('click',function(){
+        var idx=chooseOwnSelections.indexOf(p.handle);
+        if(idx>=0){chooseOwnSelections.splice(idx,1)}
+        else if(chooseOwnSelections.length<4){chooseOwnSelections.push(p.handle)}
+        renderChooseOwnCollections();
+        updateChooseOwnCount();
+      });
+      row.appendChild(card);
+    });
+    section.appendChild(row);
+    container.appendChild(section);
+  });
+}
+
+function updateChooseOwnCount(){
+  var countEl=document.getElementById('choose-own-count');
+  var btn=document.getElementById('choose-own-confirm');
+  if(chooseOwnSelections.length===0){
+    countEl.innerHTML='Select up to <strong>4 fixtures</strong>';
+    btn.style.opacity='.35';btn.style.pointerEvents='none';
+  }else{
+    countEl.innerHTML='<strong>'+chooseOwnSelections.length+'</strong> of 4 selected';
+    btn.style.opacity='1';btn.style.pointerEvents='auto';
+  }
+}
+
+window.confirmChooseOwn=function(){
+  closeChooseOwn();
+
+  // Build product objects from collections
+  var productObjs=[];
+  chooseOwnSelections.forEach(function(handle){
+    Object.keys(collectionProducts).forEach(function(k){
+      (collectionProducts[k].products||[]).forEach(function(p){
+        if(p.handle===handle)productObjs.push(p);
+      });
+    });
+  });
+
+  // Track used
+  productObjs.forEach(function(p){if(usedProductHandles.indexOf(p.handle)<0)usedProductHandles.push(p.handle)});
+
+  // Set selections and regenerate
+  selectedProducts=chooseOwnSelections.slice();
+  selectionMode='curated';
+
+  // Show preview strip then regenerate
+  animateShufflePreview(productObjs,function(){
+    regenerateWithProducts(productObjs);
+  });
+};
+
 // ── Real photo upload + AI processing ──
 var uploadedPhoto={base64:'',mimeType:'image/jpeg'};
 var renderResult=null;
@@ -1092,16 +1452,16 @@ function populateProducts(products){
   var grid=document.getElementById('product-grid');
   if(!grid||!products.length)return;
   grid.innerHTML='';
-  products.forEach(function(p,i){
+  products.forEach(function(p){
+    // Track shown products for shuffle exclusion
+    if(p.handle&&usedProductHandles.indexOf(p.handle)<0)usedProductHandles.push(p.handle);
     var card=document.createElement('div');
     card.className='product-card';
     var imgStyle=p.image
       ?'background:url('+p.image+') center/cover no-repeat'
       :'background:linear-gradient(135deg,#e8d4a8,#c8a858)';
-    var matchPct=[98,95,92][i]||90;
     card.innerHTML='<div class="product-card-img" style="'+imgStyle+'"></div>'
       +'<div class="product-card-body">'
-      +'<div class="product-card-match">'+matchPct+'% match</div>'
       +'<div class="product-card-name">'+p.title+'</div>'
       +'<div class="product-card-price">'+p.price+'</div>'
       +'<button class="btn-atc" onclick="addToCart(this)">Add to cart</button>'
@@ -1131,6 +1491,9 @@ function startLoading(){
   document.getElementById('loading-headline').textContent='Applying your '+name+' profile\u2026';
   document.getElementById('lc-2').textContent='Placing '+state.vibe+' fixtures\u2026';
   document.getElementById('lc-3').textContent='Calibrating warmth to your '+name+' profile\u2026';
+
+  // Pre-load collections for shuffle on reveal screen
+  if(!collectionsLoaded)loadCollections();
 
   callRenderAPI();
 
