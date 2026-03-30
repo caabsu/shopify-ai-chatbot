@@ -1370,40 +1370,39 @@ function startLoading(){
     }
   },2600);
 
-  // Two-phase progress: Phase 1 (0-65%) smooth 5s ramp, Phase 2 (65-90%) slow crawl while waiting for API, Phase 3 snap to 100% on done
+  // Progress: Phase 1 (0-60%) in 4s, Phase 2 (60-85%) slow crawl, snap to 100% on API done
   var start=performance.now();
   var currentPct=0;
+  var apiDone=false;
 
   function animate(){
     var elapsed=performance.now()-start;
-    var targetPct;
 
-    if(renderPhase==='done'||renderResult){
-      // Snap to 100%
-      targetPct=100;
-    }else if(renderPhase==='error'||renderError){
-      targetPct=100;
-    }else if(elapsed<5000){
-      // Phase 1: smooth ramp to 65% in 5s
-      targetPct=(elapsed/5000)*65;
-    }else{
-      // Phase 2: slow crawl from 65% → 90% (takes ~60s to reach 90%)
-      var extra=Math.min((elapsed-5000)/60000,1);
-      targetPct=65+extra*25;
+    // Check if API finished
+    if(!apiDone&&(renderPhase==='done'||renderResult||renderPhase==='error'||renderError)){
+      apiDone=true;
     }
 
-    // Smooth interpolation
-    currentPct+=(targetPct-currentPct)*0.08;
-    bf.style.transition='none';bf.style.width=Math.min(currentPct,100)+'%';
+    if(apiDone){
+      // Fast ramp to 100%
+      currentPct=Math.min(currentPct+3,100);
+    }else if(elapsed<4000){
+      currentPct=(elapsed/4000)*60;
+    }else{
+      // Slow crawl 60→85% over 60s
+      var extra=Math.min((elapsed-4000)/60000,1);
+      currentPct=60+extra*25;
+    }
 
-    if(currentPct>=60&&!bg.classList.contains('visible'))bg.classList.add('visible');
+    bf.style.transition='none';bf.style.width=currentPct+'%';
 
-    if(currentPct>=99.5){
-      // Done — transition to reveal
+    if(currentPct>=55&&!bg.classList.contains('visible'))bg.classList.add('visible');
+
+    if(currentPct>=100){
       bf.style.width='100%';
       clearInterval(ci);
       clearInterval(tickerInterval);
-      setTimeout(function(){goToScreen('screen-reveal')},450);
+      setTimeout(function(){goToScreen('screen-reveal')},400);
     }else{
       requestAnimationFrame(animate);
     }

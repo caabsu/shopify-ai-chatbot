@@ -97,6 +97,57 @@ export async function fetchProductImages(handles: string[], brandId?: string): P
   return results;
 }
 
+/**
+ * Select 1-3 products for AI placement following strict rules:
+ * - ALWAYS include a floor lamp (from floor-table-lamps collection)
+ * - If 2: floor lamp + desk/table lamp
+ * - If 3: floor lamp + desk/table lamp + pendant or chandelier
+ * - NEVER two products from the same collection
+ *
+ * For AI-mode: picks 3 products. User-curated mode uses user's selection.
+ */
+function selectProductsForRender(allHandles: string[], typeByHandle: Map<string, string>): string[] {
+  // Categorize available handles by type
+  const floorLamps: string[] = [];
+  const deskTableLamps: string[] = [];
+  const overheadLights: string[] = []; // pendants, chandeliers, ceiling
+
+  for (const handle of allHandles) {
+    const ptype = typeByHandle.get(handle) || '';
+    if (ptype === 'floor_lamp') floorLamps.push(handle);
+    else if (ptype === 'desk_lamp' || ptype === 'table_lamp') deskTableLamps.push(handle);
+    else if (ptype === 'pendant' || ptype === 'chandelier' || ptype === 'ceiling_light') overheadLights.push(handle);
+  }
+
+  const selected: string[] = [];
+
+  // 1. Always pick a floor lamp
+  if (floorLamps.length > 0) {
+    selected.push(floorLamps[Math.floor(Math.random() * floorLamps.length)]);
+  } else if (allHandles.length > 0) {
+    // Fallback: just pick the first handle
+    selected.push(allHandles[0]);
+  }
+
+  // 2. Add desk/table lamp if available
+  if (deskTableLamps.length > 0) {
+    selected.push(deskTableLamps[Math.floor(Math.random() * deskTableLamps.length)]);
+  }
+
+  // 3. Add pendant or chandelier if available
+  if (overheadLights.length > 0) {
+    selected.push(overheadLights[Math.floor(Math.random() * overheadLights.length)]);
+  }
+
+  // If we still only have 1 and there are more products, try to add any non-duplicate
+  if (selected.length === 1 && allHandles.length > 1) {
+    const remaining = allHandles.filter(h => !selected.includes(h));
+    if (remaining.length > 0) selected.push(remaining[0]);
+  }
+
+  return selected.slice(0, 3);
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface QuizContext {
@@ -313,43 +364,50 @@ function buildReviewPrompt(ctx: QuizContext, productImages?: ProductImage[]): st
   const vibeLabel = ctx.vibe || 'Soft Modern';
   const moodLine = atmo ? `${atmo.colorTemp.split('—')[0].trim()} warmth. ${atmo.emotionalTone.split('.')[0]}.` : '';
 
-  return `You are a lighting designer for Outlight (premium warm modern lighting).
+  const numProducts = productImages?.length || products.slice(0, 3).length;
+
+  return `You are a professional interior lighting designer working for Outlight, a premium warm modern lighting brand. Your job is to analyze this room photo like a real designer would — studying the architecture, ceiling height, furniture layout, natural light sources, and spatial flow — then recommend exactly where to place each Outlight fixture for maximum aesthetic and functional impact.
 
 Mood: "${vibeLabel}" — ${moodLine}
 
-Analyze this room photo and suggest placements for ALL products in this catalog. Each product's type is listed — you MUST use that exact type in your response. Do not reclassify products. Do not skip any product.
+Here are the ${numProducts} Outlight fixtures to place. Each product's type is listed — you MUST use that exact type in your placement. Do not reclassify.
 
-Catalog:
 ${productList}
 
-Return ONLY valid JSON in this format:
+DESIGN PRINCIPLES — think like a professional:
+- Floor lamps belong BESIDE seating (next to a sofa arm, beside an armchair, flanking a reading nook). They should be placed where someone would actually read or relax. Never in the middle of a room or blocking a walkway.
+- Table/desk lamps go ON a visible surface — a side table, console table, nightstand, or desk. Pick the most natural surface visible in the photo.
+- Pendants and chandeliers hang FROM THE CEILING — over a dining table, kitchen island, or as a room centerpiece. Consider the ceiling height.
+- Wall sconces mount on walls — flanking a mirror, beside a bed headboard, along a hallway, or beside artwork.
+- Study the room's spatial balance. Don't cluster all lights in one corner — distribute them to create layered lighting.
+- x/y coordinates are percentages of the image (0-100). Be PRECISE — place the fixture exactly where it should appear visually in the photograph.
+
+Return ONLY valid JSON:
 {
   "roomType": "living"|"bedroom"|"office"|"dining"|"kitchen"|"hallway",
   "dimensions": "e.g. 12x15ft, 9ft ceiling",
   "description": "Brief room description",
-  "currentLighting": "Current light sources",
-  "furniture": ["key pieces"],
-  "colorPalette": ["hex colors"],
+  "currentLighting": "Existing light sources in the photo",
+  "furniture": ["key furniture pieces visible"],
+  "colorPalette": ["dominant hex colors"],
   "placements": [
     {
-      "productType": "floor_lamp"|"table_lamp"|"wall_sconce"|"pendant"|"chandelier"|"ceiling_light",
+      "productType": "floor_lamp"|"table_lamp"|"wall_sconce"|"pendant"|"chandelier"|"ceiling_light"|"desk_lamp",
       "suggestedProduct": "handle_name",
-      "location": "specific location in room",
+      "location": "Very specific: e.g. 'to the right of the gray sofa arm, on the hardwood floor'",
       "x": 25,
       "y": 65,
-      "reasoning": "Brief reason"
+      "reasoning": "Why this location works (lighting balance, functionality, aesthetics)"
     }
   ],
-  "ambiance": "How the lighting transforms the mood",
-  "tips": ["1-2 tips"]
+  "ambiance": "How these fixtures transform the room's mood",
+  "tips": ["1-2 pro lighting tips"]
 }
 
 Rules:
-- You MUST place ALL products from the catalog — one placement per product. Do not skip any.
-- x/y are image percentages (0-100).
-- Use ONLY products from the catalog above.
-- The productType for each product MUST match what is listed in the catalog (e.g. if it says "floor_lamp", use "floor_lamp").
-- Place products in sensible locations for their type (floor lamps on floor, pendants from ceiling, table lamps on surfaces, wall sconces on walls).`;
+- Place ALL ${numProducts} fixtures. Do not skip any.
+- Use ONLY products from the catalog. Each productType MUST match the catalog listing.
+- x/y must be PRECISE image coordinates where the fixture base/mount point would appear in the photo.`;
 }
 
 // ── Build concise render prompt with clear ref image mapping ────────────────
@@ -593,7 +651,28 @@ export async function processRoomPhoto(
   mimeType: string,
   ctx: QuizContext,
 ): Promise<{ review: RoomReview; render: RenderResult }> {
-  const productHandles = getSuggestedProducts(ctx).slice(0, 4);
+  const { supabase } = await import('../config/supabase.js');
+
+  // Get the full pool of suggested product handles
+  const allSuggested = getSuggestedProducts(ctx);
+
+  // For user-curated mode, use their exact selection (up to 4)
+  // For AI mode, apply the floor-lamp-first selection logic
+  let productHandles: string[];
+  if (ctx.selectedProducts && ctx.selectedProducts.length > 0) {
+    productHandles = ctx.selectedProducts.slice(0, 4);
+  } else {
+    // Fetch types for the pool to make intelligent selection
+    const poolHandles = allSuggested.slice(0, 10);
+    const { data: poolTags } = await supabase
+      .from('product_mood_tags')
+      .select('product_handle, product_type')
+      .in('product_handle', poolHandles);
+    const poolTypes = new Map((poolTags || []).map(t => [t.product_handle, t.product_type]));
+    productHandles = selectProductsForRender(poolHandles, poolTypes);
+    console.log(`[quiz-image] AI product selection: ${productHandles.join(', ')} (from pool of ${poolHandles.length})`);
+  }
+
   let productImages: ProductImage[] = [];
   try {
     console.log(`[quiz-image] Fetching product reference images for: ${productHandles.join(', ')}`);
