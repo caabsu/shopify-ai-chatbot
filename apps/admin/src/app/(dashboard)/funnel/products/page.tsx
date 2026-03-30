@@ -22,6 +22,10 @@ import {
   LayoutGrid,
   List,
   ArrowRight,
+  Sparkles,
+  Save,
+  RotateCcw,
+  Layers,
 } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -122,6 +126,20 @@ export default function ProductPoolsPage() {
   const [taggingStarting, setTaggingStarting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
+  // Mood tags loaded from DB (keyed by product handle)
+  const [moodTags, setMoodTags] = useState<Record<string, MoodTag>>({});
+  const [moodTagsLoaded, setMoodTagsLoaded] = useState(false);
+
+  // Product detail panel
+  const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
+  const [editingScores, setEditingScores] = useState<Record<string, number> | null>(null);
+  const [editingType, setEditingType] = useState<string>('');
+  const [savingTag, setSavingTag] = useState(false);
+  const [retagging, setRetagging] = useState(false);
+
+  // Collection view mode
+  const [catalogViewMode, setCatalogViewMode] = useState<'all' | 'collections'>('collections');
+
   // Pool state
   const [pools, setPools] = useState<ProductPool[]>([]);
   const [poolsLoading, setPoolsLoading] = useState(true);
@@ -220,6 +238,120 @@ export default function ProductPoolsPage() {
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [taggingStatus?.inProgress, fetchTaggingStatus]);
+
+  // ── Load mood tags ──────────────────────────────────────────────
+  const fetchMoodTags = useCallback(async () => {
+    try {
+      const res = await fetch(`${BASE}/api/quiz/mood-tags`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const byHandle: Record<string, MoodTag> = {};
+      for (const tag of (data.tags || [])) {
+        byHandle[tag.product_handle] = tag;
+      }
+      setMoodTags(byHandle);
+      setMoodTagsLoaded(true);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { fetchMoodTags(); }, [fetchMoodTags]);
+
+  // Re-fetch mood tags when tagging completes
+  useEffect(() => {
+    if (moodTagsLoaded && taggingStatus && !taggingStatus.inProgress) {
+      fetchMoodTags();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taggingStatus?.inProgress]);
+
+  // ── Tag management functions ──────────────────────────────────
+  async function saveTagEdits(handle: string) {
+    if (!editingScores) return;
+    setSavingTag(true);
+    try {
+      const res = await fetch(`${BASE}/api/quiz/mood-tags/${handle}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mood_scores: editingScores, product_type: editingType || null }),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      await fetchMoodTags();
+    } catch (err) {
+      console.error('Failed to save tag:', err);
+    }
+    setSavingTag(false);
+  }
+
+  async function deleteTag(handle: string) {
+    if (!confirm('Remove all mood tags from this product?')) return;
+    try {
+      const res = await fetch(`${BASE}/api/quiz/mood-tags/${handle}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
+      await fetchMoodTags();
+      setSelectedProduct(null);
+    } catch (err) {
+      console.error('Failed to delete tag:', err);
+    }
+  }
+
+  async function retagProduct(handle: string) {
+    setRetagging(true);
+    try {
+      const product = catalog.find(p => p.handle === handle);
+      const res = await fetch(`${BASE}/api/quiz/tag-product/${handle}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: product?.title || handle, image_url: product?.image || '' }),
+      });
+      if (!res.ok) throw new Error('Failed to re-tag');
+      await fetchMoodTags();
+      // Refresh editing state
+      const updated = await res.json();
+      if (updated.mood_scores) {
+        setEditingScores(updated.mood_scores);
+        setEditingType(updated.product_type || '');
+      }
+    } catch (err) {
+      console.error('Failed to re-tag:', err);
+    }
+    setRetagging(false);
+  }
+
+  function openProductDetail(product: CatalogProduct) {
+    setSelectedProduct(product);
+    const tag = moodTags[product.handle];
+    if (tag) {
+      setEditingScores({ ...tag.mood_scores });
+      setEditingType(tag.product_type || '');
+    } else {
+      setEditingScores(null);
+      setEditingType('');
+    }
+  }
+
+  function getTopMood(handle: string): { key: string; score: number } | null {
+    const tag = moodTags[handle];
+    if (!tag?.mood_scores) return null;
+    let topKey = '';
+    let topScore = 0;
+    for (const [k, v] of Object.entries(tag.mood_scores)) {
+      if (v > topScore) { topKey = k; topScore = v; }
+    }
+    return topKey ? { key: topKey, score: topScore } : null;
+  }
+
+  // Get products for a specific mood key, sorted by score descending, limited to 4
+  function getCollectionProducts(moodKey: string): Array<CatalogProduct & { moodScore: number }> {
+    return catalog
+      .map(p => {
+        const tag = moodTags[p.handle];
+        const score = tag?.mood_scores?.[moodKey] ?? 0;
+        return { ...p, moodScore: score };
+      })
+      .filter(p => p.moodScore >= 0.3)
+      .sort((a, b) => b.moodScore - a.moodScore)
+      .slice(0, 4);
+  }
 
   async function startBatchTagging(force = false) {
     setTaggingStarting(true);
@@ -599,21 +731,34 @@ export default function ProductPoolsPage() {
                 </select>
                 <div style={{ display: 'flex', gap: '2px', padding: '2px', backgroundColor: 'var(--bg-secondary)', borderRadius: '7px', border: '1px solid var(--border-primary)' }}>
                   <button
-                    onClick={() => setCatalogView('grid')}
+                    onClick={() => setCatalogViewMode('collections')}
+                    title="By Collection"
                     style={{
                       padding: '5px 8px', border: 'none', borderRadius: '5px', cursor: 'pointer',
-                      backgroundColor: catalogView === 'grid' ? 'var(--bg-primary)' : 'transparent',
-                      color: catalogView === 'grid' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                      backgroundColor: catalogViewMode === 'collections' ? 'var(--bg-primary)' : 'transparent',
+                      color: catalogViewMode === 'collections' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                    }}
+                  >
+                    <Layers size={14} />
+                  </button>
+                  <button
+                    onClick={() => { setCatalogViewMode('all'); setCatalogView('grid'); }}
+                    title="Grid View"
+                    style={{
+                      padding: '5px 8px', border: 'none', borderRadius: '5px', cursor: 'pointer',
+                      backgroundColor: catalogViewMode === 'all' && catalogView === 'grid' ? 'var(--bg-primary)' : 'transparent',
+                      color: catalogViewMode === 'all' && catalogView === 'grid' ? 'var(--text-primary)' : 'var(--text-tertiary)',
                     }}
                   >
                     <LayoutGrid size={14} />
                   </button>
                   <button
-                    onClick={() => setCatalogView('list')}
+                    onClick={() => { setCatalogViewMode('all'); setCatalogView('list'); }}
+                    title="List View"
                     style={{
                       padding: '5px 8px', border: 'none', borderRadius: '5px', cursor: 'pointer',
-                      backgroundColor: catalogView === 'list' ? 'var(--bg-primary)' : 'transparent',
-                      color: catalogView === 'list' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                      backgroundColor: catalogViewMode === 'all' && catalogView === 'list' ? 'var(--bg-primary)' : 'transparent',
+                      color: catalogViewMode === 'all' && catalogView === 'list' ? 'var(--text-primary)' : 'var(--text-tertiary)',
                     }}
                   >
                     <List size={14} />
@@ -624,19 +769,105 @@ export default function ProductPoolsPage() {
                 </span>
               </div>
 
-              {/* Product grid/list */}
-              {catalogView === 'grid' ? (
+              {/* ── Collections View ── */}
+              {catalogViewMode === 'collections' && !catalogSearch && !catalogTypeFilter ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {VARIATION_GROUPS.map((group) => (
+                    <div key={group.group}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        {group.group}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '14px' }}>{group.subtitle}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {group.keys.map(({ key, label }) => {
+                          const products = getCollectionProducts(key);
+                          return (
+                            <div key={key} style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{label}</span>
+                                  <span style={{ fontSize: '10px', color: ACCENT, fontWeight: 500 }}>{key}</span>
+                                </div>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                  {products.length} product{products.length !== 1 ? 's' : ''} (top 4)
+                                </span>
+                              </div>
+                              {products.length > 0 ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                                  {products.map((p) => (
+                                    <div
+                                      key={p.handle}
+                                      onClick={() => openProductDetail(p)}
+                                      style={{ cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '8px', overflow: 'hidden', transition: 'border-color 150ms' }}
+                                      onMouseOver={(e) => (e.currentTarget.style.borderColor = ACCENT)}
+                                      onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border-primary)')}
+                                    >
+                                      {p.image ? (
+                                        <img src={p.image} alt={p.title} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} loading="lazy" />
+                                      ) : (
+                                        <div style={{ width: '100%', aspectRatio: '1', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                          <ImageIcon size={20} style={{ color: 'var(--text-tertiary)' }} />
+                                        </div>
+                                      )}
+                                      <div style={{ padding: '8px 10px' }}>
+                                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>
+                                          {p.title}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                          <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{p.price}</span>
+                                          <span style={{ fontSize: '10px', fontWeight: 600, color: ACCENT }}>{Math.round(p.moodScore * 100)}%</span>
+                                        </div>
+                                        {moodTags[p.handle]?.product_type && (
+                                          <span style={{ display: 'inline-block', marginTop: '3px', fontSize: '8px', fontWeight: 500, padding: '1px 5px', borderRadius: '3px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                            {moodTags[p.handle].product_type}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-tertiary)', border: '1px dashed var(--border-primary)', borderRadius: '8px' }}>
+                                  No products tagged for this mood yet — run AI categorization above
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : catalogView === 'grid' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
                   {filteredCatalog.map((p) => (
-                    <CatalogCard key={p.handle} product={p} />
+                    <CatalogCard key={p.handle} product={p} moodTag={moodTags[p.handle]} onSelect={() => openProductDetail(p)} />
                   ))}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {filteredCatalog.map((p) => (
-                    <CatalogRow key={p.handle} product={p} />
+                    <CatalogRow key={p.handle} product={p} moodTag={moodTags[p.handle]} onSelect={() => openProductDetail(p)} />
                   ))}
                 </div>
+              )}
+
+              {/* ── Product Detail Panel ── */}
+              {selectedProduct && (
+                <ProductDetailPanel
+                  product={selectedProduct}
+                  moodTag={moodTags[selectedProduct.handle] || null}
+                  editingScores={editingScores}
+                  editingType={editingType}
+                  savingTag={savingTag}
+                  retagging={retagging}
+                  onClose={() => setSelectedProduct(null)}
+                  onScoreChange={(key, val) => setEditingScores(prev => prev ? { ...prev, [key]: val } : { [key]: val })}
+                  onTypeChange={setEditingType}
+                  onSave={() => saveTagEdits(selectedProduct.handle)}
+                  onDelete={() => deleteTag(selectedProduct.handle)}
+                  onRetag={() => retagProduct(selectedProduct.handle)}
+                />
               )}
             </>
           )}
@@ -1278,33 +1509,58 @@ export default function ProductPoolsPage() {
 
 // ── Catalog Card (grid view) ────────────────────────────────────────────────
 
-function CatalogCard({ product }: { product: CatalogProduct }) {
-  const [showVariants, setShowVariants] = useState(false);
+function CatalogCard({ product, moodTag, onSelect }: { product: CatalogProduct; moodTag?: MoodTag; onSelect: () => void }) {
+  // Find top mood
+  let topMood: { key: string; score: number } | null = null;
+  if (moodTag?.mood_scores) {
+    for (const [k, v] of Object.entries(moodTag.mood_scores)) {
+      if (!topMood || v > topMood.score) topMood = { key: k, score: v };
+    }
+  }
 
   return (
     <div
+      onClick={onSelect}
       style={{
         backgroundColor: 'var(--bg-primary)',
         border: '1px solid var(--border-primary)',
         borderRadius: '8px',
         overflow: 'hidden',
+        cursor: 'pointer',
+        transition: 'border-color 150ms',
       }}
+      onMouseOver={(e) => (e.currentTarget.style.borderColor = '#10b981')}
+      onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border-primary)')}
     >
-      {product.image ? (
-        <img
-          src={product.image}
-          alt={product.title}
-          style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
-          loading="lazy"
-        />
-      ) : (
-        <div style={{
-          width: '100%', aspectRatio: '1', backgroundColor: 'var(--bg-tertiary)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <ImageIcon size={24} style={{ color: 'var(--text-tertiary)' }} />
-        </div>
-      )}
+      <div style={{ position: 'relative' }}>
+        {product.image ? (
+          <img
+            src={product.image}
+            alt={product.title}
+            style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
+            loading="lazy"
+          />
+        ) : (
+          <div style={{
+            width: '100%', aspectRatio: '1', backgroundColor: 'var(--bg-tertiary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <ImageIcon size={24} style={{ color: 'var(--text-tertiary)' }} />
+          </div>
+        )}
+        {/* Tag indicator */}
+        {moodTag && (
+          <div style={{
+            position: 'absolute', top: '6px', right: '6px',
+            display: 'flex', alignItems: 'center', gap: '3px',
+            padding: '2px 7px', borderRadius: '4px',
+            backgroundColor: 'rgba(16,185,129,0.9)', color: '#fff',
+            fontSize: '9px', fontWeight: 600,
+          }}>
+            <Tag size={9} /> Tagged
+          </div>
+        )}
+      </div>
       <div style={{ padding: '10px 12px' }}>
         <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>
           {product.title}
@@ -1312,63 +1568,57 @@ function CatalogCard({ product }: { product: CatalogProduct }) {
         <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>
           {product.price}{product.price !== product.maxPrice ? ` – ${product.maxPrice}` : ''}
         </div>
+        {/* Top mood chip */}
+        {topMood && topMood.score > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+            <span style={{
+              fontSize: '9px', fontWeight: 500, padding: '2px 6px', borderRadius: '3px',
+              backgroundColor: `#10b98115`, color: '#10b981',
+            }}>
+              {topMood.key} · {Math.round(topMood.score * 100)}%
+            </span>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
             {product.handle}
           </span>
-          {product.variants.length > 1 && (
-            <button
-              onClick={() => setShowVariants(!showVariants)}
-              style={{
-                fontSize: '10px', color: '#10b981', backgroundColor: 'transparent',
-                border: 'none', cursor: 'pointer', padding: '0',
-              }}
-            >
-              {product.variants.length} variant{product.variants.length !== 1 ? 's' : ''}
-            </button>
+          {moodTag?.product_type && (
+            <span style={{
+              fontSize: '9px', fontWeight: 500, padding: '2px 6px', borderRadius: '3px',
+              backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)',
+              textTransform: 'uppercase', letterSpacing: '0.03em',
+            }}>
+              {moodTag.product_type}
+            </span>
           )}
         </div>
-        {product.productType && (
-          <span style={{
-            display: 'inline-block', marginTop: '4px', fontSize: '9px', fontWeight: 500,
-            padding: '2px 6px', borderRadius: '3px',
-            backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)',
-            textTransform: 'uppercase', letterSpacing: '0.03em',
-          }}>
-            {product.productType}
-          </span>
-        )}
       </div>
-      {showVariants && (
-        <div style={{ borderTop: '1px solid var(--border-primary)', padding: '8px 12px', backgroundColor: 'var(--bg-secondary)' }}>
-          {product.variants.map((v) => (
-            <div key={v.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 0', fontSize: '11px' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>{v.title}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: 'var(--text-tertiary)' }}>{v.price}</span>
-                <span style={{
-                  width: '6px', height: '6px', borderRadius: '50%',
-                  backgroundColor: v.available ? '#10b981' : '#ef4444',
-                }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
 // ── Catalog Row (list view) ─────────────────────────────────────────────────
 
-function CatalogRow({ product }: { product: CatalogProduct }) {
+function CatalogRow({ product, moodTag, onSelect }: { product: CatalogProduct; moodTag?: MoodTag; onSelect: () => void }) {
+  let topMood: { key: string; score: number } | null = null;
+  if (moodTag?.mood_scores) {
+    for (const [k, v] of Object.entries(moodTag.mood_scores)) {
+      if (!topMood || v > topMood.score) topMood = { key: k, score: v };
+    }
+  }
+
   return (
     <div
+      onClick={onSelect}
       style={{
         display: 'flex', alignItems: 'center', gap: '10px',
         padding: '8px 12px', backgroundColor: 'var(--bg-primary)',
         border: '1px solid var(--border-primary)', borderRadius: '7px',
+        cursor: 'pointer', transition: 'border-color 150ms',
       }}
+      onMouseOver={(e) => (e.currentTarget.style.borderColor = '#10b981')}
+      onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border-primary)')}
     >
       {product.image ? (
         <img src={product.image} alt="" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }} />
@@ -1385,21 +1635,274 @@ function CatalogRow({ product }: { product: CatalogProduct }) {
           {product.handle}
         </div>
       </div>
-      {product.productType && (
+      {topMood && topMood.score > 0 && (
         <span style={{
           fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '4px',
-          backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)',
-          textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap',
+          backgroundColor: `#10b98115`, color: '#10b981', whiteSpace: 'nowrap',
         }}>
-          {product.productType}
+          {topMood.key} · {Math.round(topMood.score * 100)}%
         </span>
       )}
+      {moodTag ? (
+        <Tag size={13} style={{ color: '#10b981', flexShrink: 0 }} />
+      ) : (
+        <Circle size={13} style={{ color: 'var(--border-primary)', flexShrink: 0 }} />
+      )}
       <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-        {product.price}{product.price !== product.maxPrice ? ` – ${product.maxPrice}` : ''}
+        {product.price}
       </span>
-      <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
-        {product.variants.length} variant{product.variants.length !== 1 ? 's' : ''}
-      </span>
+    </div>
+  );
+}
+
+// ── Product Detail Panel (slide-over) ───────────────────────────────────────
+
+const ALL_MOOD_KEYS = [
+  'golden-nook', 'layered-warmth', 'soft-modern', 'quiet-glow',
+  'gilded-evening', 'deep-amber', 'foundry-glow', 'midnight-warmth',
+];
+
+const MOOD_LABELS: Record<string, string> = {
+  'golden-nook': 'Golden Nook',
+  'layered-warmth': 'Layered Warmth',
+  'soft-modern': 'Soft Modern',
+  'quiet-glow': 'Quiet Glow',
+  'gilded-evening': 'Gilded Evening',
+  'deep-amber': 'Deep Amber',
+  'foundry-glow': 'Foundry Glow',
+  'midnight-warmth': 'Midnight Warmth',
+};
+
+const PRODUCT_TYPES = ['pendant', 'floor_lamp', 'table_lamp', 'wall_sconce', 'chandelier', 'ceiling_light', 'desk_lamp'];
+
+function ProductDetailPanel({
+  product,
+  moodTag,
+  editingScores,
+  editingType,
+  savingTag,
+  retagging,
+  onClose,
+  onScoreChange,
+  onTypeChange,
+  onSave,
+  onDelete,
+  onRetag,
+}: {
+  product: CatalogProduct;
+  moodTag: MoodTag | null;
+  editingScores: Record<string, number> | null;
+  editingType: string;
+  savingTag: boolean;
+  retagging: boolean;
+  onClose: () => void;
+  onScoreChange: (key: string, val: number) => void;
+  onTypeChange: (val: string) => void;
+  onSave: () => void;
+  onDelete: () => void;
+  onRetag: () => void;
+}) {
+  const hasTag = !!moodTag;
+  const scores = editingScores || {};
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000, display: 'flex',
+        justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        width: '480px', maxWidth: '100vw', backgroundColor: 'var(--bg-primary)',
+        borderLeft: '1px solid var(--border-primary)',
+        display: 'flex', flexDirection: 'column', height: '100%',
+        animation: 'slideIn 200ms ease-out',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px', borderBottom: '1px solid var(--border-primary)', flexShrink: 0,
+        }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+            Product Tags
+          </h3>
+          <button onClick={onClose} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '28px', height: '28px', borderRadius: '6px', border: 'none',
+            cursor: 'pointer', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-secondary)',
+          }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body - scrollable */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+          {/* Product info */}
+          <div style={{ display: 'flex', gap: '14px', marginBottom: '20px' }}>
+            {product.image ? (
+              <img src={product.image} alt={product.title} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: '80px', height: '80px', borderRadius: '8px', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <ImageIcon size={24} style={{ color: 'var(--text-tertiary)' }} />
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>{product.title}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '2px' }}>{product.handle}</div>
+              <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>{product.price}</div>
+            </div>
+          </div>
+
+          {/* Actions row */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+            <button
+              onClick={onRetag}
+              disabled={retagging}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '7px 14px', fontSize: '12px', fontWeight: 500,
+                color: '#fff', backgroundColor: retagging ? '#9ca3af' : '#10b981',
+                border: 'none', borderRadius: '7px', cursor: retagging ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {retagging ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={13} />}
+              {hasTag ? 'Re-tag with AI' : 'Tag with AI'}
+            </button>
+            {hasTag && (
+              <button
+                onClick={onDelete}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '4px',
+                  padding: '7px 14px', fontSize: '12px', fontWeight: 500,
+                  color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.06)',
+                  border: '1px solid rgba(239,68,68,0.15)', borderRadius: '7px', cursor: 'pointer',
+                }}
+              >
+                <Trash2 size={12} /> Remove Tags
+              </button>
+            )}
+          </div>
+
+          {/* Tag status */}
+          {!hasTag && !editingScores && (
+            <div style={{
+              padding: '24px', textAlign: 'center', border: '1px dashed var(--border-primary)',
+              borderRadius: '10px', color: 'var(--text-tertiary)', fontSize: '13px',
+            }}>
+              <Tag size={24} style={{ color: 'var(--text-tertiary)', margin: '0 auto 8px', display: 'block' }} />
+              This product has no mood tags yet.<br />
+              Click &quot;Tag with AI&quot; to analyze its image.
+            </div>
+          )}
+
+          {/* Mood scores editor */}
+          {(hasTag || editingScores) && (
+            <div>
+              {/* Product type */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Product Type
+                </label>
+                <select
+                  value={editingType}
+                  onChange={(e) => onTypeChange(e.target.value)}
+                  style={{
+                    padding: '7px 12px', fontSize: '13px', borderRadius: '7px',
+                    border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', width: '100%',
+                  }}
+                >
+                  <option value="">Unclassified</option>
+                  {PRODUCT_TYPES.map((t) => (
+                    <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Mood scores */}
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Mood Scores
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {ALL_MOOD_KEYS.map((key) => {
+                  const val = scores[key] ?? 0;
+                  const pct = Math.round(val * 100);
+                  return (
+                    <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '12px', color: 'var(--text-primary)', fontWeight: 500, minWidth: '120px' }}>
+                        {MOOD_LABELS[key] || key}
+                      </span>
+                      <div style={{ flex: 1, position: 'relative' }}>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={pct}
+                          onChange={(e) => onScoreChange(key, parseInt(e.target.value) / 100)}
+                          style={{ width: '100%', accentColor: '#10b981', cursor: 'pointer' }}
+                        />
+                      </div>
+                      <span style={{
+                        fontSize: '11px', fontWeight: 600, minWidth: '36px', textAlign: 'right',
+                        color: pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : 'var(--text-tertiary)',
+                      }}>
+                        {pct}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Tagged by info */}
+              {moodTag && (
+                <div style={{ marginTop: '16px', padding: '10px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '7px', fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                  Tagged by: <strong style={{ color: 'var(--text-secondary)' }}>{moodTag.tagged_at ? 'AI' : 'manual'}</strong>
+                  {moodTag.tagged_at && <> · {new Date(moodTag.tagged_at).toLocaleString()}</>}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {(hasTag || editingScores) && (
+          <div style={{
+            display: 'flex', justifyContent: 'flex-end', gap: '8px',
+            padding: '14px 20px', borderTop: '1px solid var(--border-primary)', flexShrink: 0,
+          }}>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '8px 16px', fontSize: '12px', fontWeight: 500,
+                color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border-primary)', borderRadius: '7px', cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onSave}
+              disabled={savingTag}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '8px 16px', fontSize: '12px', fontWeight: 600,
+                color: '#fff',
+                backgroundColor: savingTag ? '#9ca3af' : '#10b981',
+                border: 'none', borderRadius: '7px',
+                cursor: savingTag ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <Save size={13} />
+              {savingTag ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+      `}</style>
     </div>
   );
 }

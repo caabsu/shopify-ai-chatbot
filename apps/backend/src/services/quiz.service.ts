@@ -57,7 +57,8 @@ export async function updateSession(
   updates: Partial<Pick<QuizSession,
     'status' | 'current_step' | 'answers' | 'profile_key' | 'profile_name' |
     'email' | 'photo_uploaded' | 'photo_url' | 'render_url' | 'render_status' |
-    'recommended_products' | 'cart_created' | 'converted' | 'completed_at'
+    'selection_mode' | 'selected_products' | 'recommended_products' |
+    'cart_created' | 'converted' | 'completed_at'
   >>,
 ): Promise<QuizSession> {
   const { data: row, error } = await supabase

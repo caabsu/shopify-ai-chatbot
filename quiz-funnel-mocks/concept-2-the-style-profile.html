@@ -111,18 +111,67 @@ input{font-family:inherit}
 .vibe-tile.selected{border-color:var(--amber)}
 .vibe-tile-img{aspect-ratio:4/3;width:100%;position:relative}
 .vibe-tile-label{position:absolute;bottom:0;left:0;right:0;padding:32px 12px 14px;background:linear-gradient(to top,rgba(0,0,0,.6),transparent);font-size:.5rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:#fff;text-align:center}
-.grad-rustic{background:linear-gradient(135deg,#e8d4a8,#c9a070 40%,#a67d52 70%,#7a5a3a)}
-.grad-bohemian{background:linear-gradient(135deg,#f5e0b8,#dbb876 30%,#c49a58 60%,#8b6a3a)}
-.grad-modern-cozy{background:linear-gradient(135deg,#f0e4d0,#d4c4a0 35%,#b8a480 65%,#998468)}
-.grad-japandi{background:linear-gradient(135deg,#ede4d4,#d8ccb0 30%,#c0b090 55%,#8a7a5e)}
-.grad-art-deco{background:linear-gradient(135deg,#d4b068,#a88838 30%,#7a6228 55%,#4a3a18)}
-.grad-dark-luxe{background:linear-gradient(135deg,#b89848,#886a28 30%,#5a4420 55%,#1a1408)}
-.grad-warm-industrial{background:linear-gradient(135deg,#c8a868,#987848 35%,#685038 65%,#483428)}
-.grad-moody-max{background:linear-gradient(135deg,#d4a858,#9a7030 25%,#6a4a22 50%,#1a1008)}
+.grad-golden-nook{background:linear-gradient(135deg,#f5e6c8,#e0c888 30%,#c8a060 55%,#a88040)}
+.grad-layered-warmth{background:linear-gradient(135deg,#f5deb8,#dbb478 30%,#c4946a 55%,#a07050)}
+.grad-soft-modern{background:linear-gradient(135deg,#f0e8dc,#d8ccb0 30%,#bca880 55%,#9a8c68)}
+.grad-quiet-glow{background:linear-gradient(135deg,#ede6d8,#dcd0b4 30%,#c4b898 55%,#a8986c)}
+.grad-gilded-evening{background:linear-gradient(135deg,#dcc070,#b89838 30%,#8a7028 55%,#5a4818)}
+.grad-deep-amber{background:linear-gradient(135deg,#c8a050,#987030 30%,#6a4c22 55%,#3a2810)}
+.grad-foundry-glow{background:linear-gradient(135deg,#c8b080,#a08858 30%,#786040 55%,#504030)}
+.grad-midnight-warmth{background:linear-gradient(135deg,#b88060,#8a5838 25%,#6a3830 50%,#2a1810)}
 .grad-understated{background:linear-gradient(135deg,#f0e4d0,#ddd0b4 40%,#c8b898 70%,#b0a080)}
 .grad-balanced{background:linear-gradient(135deg,#e8d4a8,#d0b880 35%,#b89a64 65%,#a08450)}
 .grad-expressive{background:linear-gradient(135deg,#dcc080,#c4a058 30%,#a8843c 60%,#8a6828)}
 .grad-statement{background:linear-gradient(135deg,#c8a040,#a07828 30%,#785420 55%,#382410)}
+
+/* ─── Product Selection ────────────────────────── */
+.product-sel-screen{padding:0;min-height:100vh;min-height:100dvh;justify-content:flex-start;overflow-y:auto}
+.product-sel-inner{max-width:640px;width:100%;margin:0 auto;padding:64px 28px 80px;text-align:center}
+.product-sel-choice{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0 auto;max-width:520px}
+.sel-option{background:var(--surface);border:1px solid var(--border);padding:32px 24px;cursor:pointer;transition:border-color .35s var(--ease-smooth);text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}
+.sel-option:hover{border-color:var(--border-hover)}
+.sel-option.active{border-color:var(--gold)}
+.sel-option-icon{color:var(--gold);opacity:.7}
+.sel-option-icon .material-symbols-outlined{font-size:32px}
+.sel-option-title{font-family:'Newsreader',serif;font-weight:200;font-size:17px;color:var(--fg);line-height:1.3;font-variation-settings:'opsz' 72}
+.sel-option-desc{font-size:12px;color:var(--fg-muted);line-height:1.6}
+
+/* ─── Curated Browser ────────────────────────── */
+.curated-browser{display:none;margin-top:36px;text-align:left}
+.curated-browser.visible{display:block}
+.curated-type-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.curated-type-tabs::-webkit-scrollbar{display:none}
+.curated-tab{padding:11px 20px;font-size:.56rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .3s,border-color .3s;white-space:nowrap;flex-shrink:0}
+.curated-tab:hover{color:var(--fg)}
+.curated-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.curated-product-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.curated-product{position:relative;background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:border-color .35s var(--ease-smooth);overflow:hidden}
+.curated-product:hover{border-color:var(--border-hover)}
+.curated-product.selected{border-color:var(--gold)}
+.curated-product-check{position:absolute;top:10px;right:10px;width:22px;height:22px;border:1.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;z-index:2;transition:all .25s}
+.curated-product.selected .curated-product-check{background:var(--gold);border-color:var(--gold)}
+.curated-product-check .material-symbols-outlined{font-size:14px;color:var(--surface);opacity:0;transition:opacity .25s}
+.curated-product.selected .curated-product-check .material-symbols-outlined{opacity:1}
+.curated-product-img{aspect-ratio:1;width:100%;background:linear-gradient(135deg,#e8d4a8,#c8a858)}
+.curated-product-img img{width:100%;height:100%;object-fit:cover;display:block}
+.curated-product-info{padding:12px 14px}
+.curated-product-name{font-family:'Newsreader',serif;font-weight:300;font-size:14px;color:var(--fg);line-height:1.3;margin-bottom:3px}
+.curated-product-type{font-size:.46rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--fg-muted)}
+.curated-product-score{font-size:.44rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-top:4px}
+.curated-selection-count{font-size:12px;color:var(--fg-muted);text-align:center;margin-top:20px}
+.curated-selection-count strong{color:var(--fg);font-weight:500}
+.product-sel-continue{margin-top:28px;text-align:center}
+
+/* ─── AI Suggest confirmation ────────────────── */
+.ai-suggest-confirm{display:none;margin-top:32px;text-align:center}
+.ai-suggest-confirm.visible{display:block}
+.ai-suggest-note{font-size:13px;color:var(--fg-muted);line-height:1.65;max-width:360px;margin:0 auto 24px}
+
+@media(max-width:600px){
+  .product-sel-choice{grid-template-columns:1fr;gap:12px}
+  .curated-product-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .product-sel-inner{padding:56px 20px 72px}
+}
 
 /* ─── Checkpoint + Upload (merged) ──────────── */
 .checkpoint-screen{padding:0;min-height:100vh;min-height:100dvh;position:relative}
@@ -300,20 +349,20 @@ input{font-family:inherit}
   <div class="inner">
     <div class="landing-hero"></div>
     <h1 class="headline">Your space has a voice.<br>We help it speak.</h1>
-    <p class="subhead">Answer 5 quick questions &mdash; then see your room transformed with curated lighting.</p>
+    <p class="subhead">Answer a few quick questions &mdash; then see your room transformed with curated lighting.</p>
     <button class="btn-primary" onclick="goToScreen('screen-step1')">Find my style</button>
     <div class="trust-strip">
       <span class="trust-text"><span class="material-symbols-outlined">star</span> 4.9 from 2,840 transformations</span>
       <div class="trust-thumbs"><div class="trust-thumb"></div><div class="trust-thumb"></div><div class="trust-thumb"></div></div>
     </div>
-    <div class="step-dots"><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div></div>
+    <div class="step-dots"><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div></div>
   </div>
 </div>
 
 <!-- STEP 1 -->
 <div class="screen" id="screen-step1">
   <div class="inner">
-    <div class="step-info">Step 1 of 5</div>
+    <div class="step-info">Step 1 of 6</div>
     <h2 class="headline-sm">Who are you designing for?</h2>
     <p class="subhead">This helps us personalize fixture recommendations.</p>
     <div class="chip-list">
@@ -328,7 +377,7 @@ input{font-family:inherit}
 <!-- STEP 2 -->
 <div class="screen" id="screen-step2">
   <div class="inner">
-    <div class="step-info">Step 2 of 5</div>
+    <div class="step-info">Step 2 of 6</div>
     <h2 class="headline-sm">Which feels more like you?</h2>
     <p class="subhead">There are no wrong answers &mdash; just instinct.</p>
     <div class="side-choice">
@@ -347,7 +396,7 @@ input{font-family:inherit}
 <!-- STEP 3 -->
 <div class="screen" id="screen-step3">
   <div class="inner">
-    <div class="step-info">Step 3 of 5</div>
+    <div class="step-info">Step 3 of 6</div>
     <h2 class="headline-sm">Which speaks to you most?</h2>
     <p class="subhead">Pick the vibe that pulls you in.</p>
     <div class="vibe-grid" id="vibe-grid-3"></div>
@@ -357,7 +406,7 @@ input{font-family:inherit}
 <!-- STEP 4 -->
 <div class="screen" id="screen-step4">
   <div class="inner">
-    <div class="step-info">Step 4 of 5</div>
+    <div class="step-info">Step 4 of 6</div>
     <h2 class="headline-sm">How bold do you want to go?</h2>
     <p class="subhead">From whisper-quiet to conversation starter.</p>
     <div class="vibe-grid" id="vibe-grid-4">
@@ -369,7 +418,45 @@ input{font-family:inherit}
   </div>
 </div>
 
-<!-- STEP 5: PROFILE + UPLOAD (merged) -->
+<!-- STEP 5: PRODUCT SELECTION -->
+<div class="screen product-sel-screen" id="screen-step5-products">
+  <div class="product-sel-inner">
+    <div class="step-info">Step 5 of 6</div>
+    <h2 class="headline-sm">How should we choose your fixtures?</h2>
+    <p class="subhead">We've matched products to your style. Pick your path.</p>
+
+    <div class="product-sel-choice">
+      <div class="sel-option" id="sel-ai-suggest" onclick="selectProductMode('ai')">
+        <div class="sel-option-icon"><span class="material-symbols-outlined">auto_awesome</span></div>
+        <div class="sel-option-title">Suggest the best for my space</div>
+        <div class="sel-option-desc">We'll pick the perfect fixtures based on your profile</div>
+      </div>
+      <div class="sel-option" id="sel-curated" onclick="selectProductMode('curated')">
+        <div class="sel-option-icon"><span class="material-symbols-outlined">grid_view</span></div>
+        <div class="sel-option-title">Choose from curated collection</div>
+        <div class="sel-option-desc">Browse and select the fixtures you love most</div>
+      </div>
+    </div>
+
+    <!-- AI Suggest confirmation -->
+    <div class="ai-suggest-confirm" id="ai-suggest-confirm">
+      <div class="ai-suggest-note">We'll select the top-matched fixtures for your <strong id="ai-suggest-profile"></strong> profile and place them in your room.</div>
+      <button class="btn-primary" onclick="confirmProductSelection()">Continue</button>
+    </div>
+
+    <!-- Curated browser -->
+    <div class="curated-browser" id="curated-browser">
+      <div class="curated-type-tabs" id="curated-type-tabs"></div>
+      <div class="curated-product-grid" id="curated-product-grid"></div>
+      <div class="curated-selection-count" id="curated-selection-count"></div>
+      <div class="product-sel-continue">
+        <button class="btn-primary" id="curated-continue-btn" onclick="confirmProductSelection()" style="opacity:.35;pointer-events:none">Continue with selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 6: PROFILE + UPLOAD (merged) -->
 <div class="screen checkpoint-screen" id="screen-checkpoint">
   <div class="checkpoint-bg"><div class="checkpoint-bg-gradient" id="checkpoint-bg-grad"></div></div>
   <div class="checkpoint-overlay">
@@ -398,7 +485,7 @@ input{font-family:inherit}
   </div>
 </div>
 
-<!-- STEP 6: LOADING -->
+<!-- STEP 7: LOADING -->
 <div class="screen loading-screen" id="screen-loading">
   <div class="loading-blur-bg" id="loading-blur-bg"></div>
   <div class="loading-inner">
@@ -443,7 +530,7 @@ input{font-family:inherit}
   </div>
 </div>
 
-<!-- STEP 7: REVEAL -->
+<!-- STEP 8: REVEAL -->
 <div class="screen reveal-screen" id="screen-reveal">
   <div class="reveal-inner">
     <h2 class="headline">Your room, transformed.</h2>
@@ -555,52 +642,72 @@ input{font-family:inherit}
 var state={track:'',vibe:'',intensity:'',who:''};
 var currentScreen='screen-landing';
 var navHistory=['screen-landing'];
-var screenOrder=['screen-landing','screen-step1','screen-step2','screen-step3','screen-step4','screen-checkpoint','screen-loading','screen-reveal'];
+var screenOrder=['screen-landing','screen-step1','screen-step2','screen-step3','screen-step4','screen-step5-products','screen-checkpoint','screen-loading','screen-reveal'];
 
 var vibes={
   soft:[
-    {label:'Rustic Warm',cls:'grad-rustic'},
-    {label:'Bohemian Layered',cls:'grad-bohemian'},
-    {label:'Modern Cozy',cls:'grad-modern-cozy'},
-    {label:'Japandi Warm',cls:'grad-japandi'}
+    {label:'Golden Nook',cls:'grad-golden-nook',key:'golden-nook'},
+    {label:'Layered Warmth',cls:'grad-layered-warmth',key:'layered-warmth'},
+    {label:'Soft Modern',cls:'grad-soft-modern',key:'soft-modern'},
+    {label:'Quiet Glow',cls:'grad-quiet-glow',key:'quiet-glow'}
   ],
   dramatic:[
-    {label:'Art Deco Warm',cls:'grad-art-deco'},
-    {label:'Dark Luxe',cls:'grad-dark-luxe'},
-    {label:'Warm Industrial',cls:'grad-warm-industrial'},
-    {label:'Moody Maximalist',cls:'grad-moody-max'}
+    {label:'Gilded Evening',cls:'grad-gilded-evening',key:'gilded-evening'},
+    {label:'Deep Amber',cls:'grad-deep-amber',key:'deep-amber'},
+    {label:'Foundry Glow',cls:'grad-foundry-glow',key:'foundry-glow'},
+    {label:'Midnight Warmth',cls:'grad-midnight-warmth',key:'midnight-warmth'}
   ]
 };
 
 var descriptions={
-  'Soft Rustic Understated':'You gravitate toward warm, lived-in spaces where light feels natural, never harsh. Your rooms have texture, intention, and quiet confidence.',
-  'Soft Rustic Balanced':'You love warmth with intention \u2014 rustic textures grounded by clean, purposeful lighting that feels collected over time.',
-  'Soft Rustic Expressive':'Your spaces tell stories through warm layers of light, rich textures, and fixtures that feel both timeless and characterful.',
-  'Soft Rustic Statement':'Bold warmth defines your style \u2014 dramatic rustic fixtures that anchor a room and make the lighting itself a focal point.',
-  'Soft Bohemian Understated':'You prefer layered, organic warmth that feels effortless. Light should fill a room like afternoon sun through curtains.',
-  'Soft Bohemian Balanced':'Free-spirited warmth with just enough structure \u2014 your lighting feels curated yet relaxed, never overthought.',
-  'Soft Modern Understated':'Clean lines meet warm tones. You want lighting that disappears into the architecture while making everything feel inviting.',
-  'Soft Modern Balanced':'Modern warmth with intention. Every fixture earns its place, and the result is a room that feels both minimal and alive.',
-  'Soft Japandi Understated':'Quiet, refined warmth. You believe light should feel like a natural element \u2014 present but never competing for attention.',
-  'Soft Japandi Balanced':'Where Japanese restraint meets Scandinavian warmth. Your lighting is purposeful, serene, and deeply considered.',
-  'Dramatic Art Deco Understated':'Restrained glamour. You appreciate the geometry and warmth of deco-inspired fixtures without overwhelming the space.',
-  'Dramatic Art Deco Balanced':'Warm deco elegance with measured drama. Your rooms have presence and sophistication without feeling theatrical.',
-  'Dramatic Art Deco Expressive':'Rich, warm art deco energy. Your lighting makes bold geometric statements while keeping the overall tone inviting.',
-  'Dramatic Art Deco Statement':'Full deco drama \u2014 warm metallics, bold silhouettes, and fixtures that command attention from every angle.',
-  'Dramatic Dark Luxe Understated':'Subtle darkness with warm undertones. Your lighting creates intimacy and depth without overpowering the room.',
-  'Dramatic Dark Luxe Balanced':'Rich, warm contrast defines your spaces. Fixtures emerge from shadow to create atmosphere that feels intentional and luxurious.',
-  'Dramatic Warm Industrial Understated':'Raw warmth with industrial bones. Your lighting bridges the gap between factory and home with quiet confidence.',
-  'Dramatic Warm Industrial Balanced':'Industrial structure softened by warm light. Your spaces feel purposeful, honest, and deeply comfortable.',
-  'Dramatic Moody Maximalist Expressive':'Layered, warm, and unapologetically bold. Your lighting creates rich, immersive environments that invite you to stay.',
-  'Dramatic Moody Maximalist Statement':'Maximum warmth, maximum drama. Every fixture is a conversation piece, and your rooms feel like curated galleries of light.'
+  'Soft Golden Understated':'You gravitate toward warm, golden spaces where light feels natural, never harsh. Your rooms glow with soft intention and quiet confidence.',
+  'Soft Golden Balanced':'Warm golden light with intention \u2014 clean fixtures grounded by a honey-toned palette that feels collected over time.',
+  'Soft Golden Expressive':'Your spaces tell stories through rich golden warmth, layered textures, and fixtures that feel both timeless and characterful.',
+  'Soft Golden Statement':'Bold golden warmth defines your style \u2014 striking fixtures that anchor a room and make the lighting itself a focal point.',
+  'Soft Layered Understated':'You prefer layered, organic warmth that feels effortless. Light should fill a room like afternoon sun through curtains.',
+  'Soft Layered Balanced':'Free-spirited warmth with just enough structure \u2014 your lighting feels curated yet relaxed, never overthought.',
+  'Soft Layered Expressive':'Rich, layered warmth defines your rooms \u2014 multiple light sources creating depth and character that feels intentional yet organic.',
+  'Soft Layered Statement':'Maximum layered warmth. Every fixture adds another dimension, creating rooms that feel immersive and deeply inviting.',
+  'Soft Soft Understated':'Clean lines meet warm tones. You want lighting that disappears into the architecture while making everything feel inviting.',
+  'Soft Soft Balanced':'Modern warmth with intention. Every fixture earns its place, and the result is a room that feels both minimal and alive.',
+  'Soft Soft Expressive':'Soft modern warmth with personality \u2014 fixtures that bring character to clean spaces without overwhelming their calm.',
+  'Soft Soft Statement':'Modern fixtures with warm presence. Your lighting makes a statement while keeping the overall tone refined and inviting.',
+  'Soft Quiet Understated':'Quiet, refined warmth. You believe light should feel like a natural element \u2014 present but never competing for attention.',
+  'Soft Quiet Balanced':'Serene warmth with considered restraint. Your lighting is purposeful, gentle, and deeply calming.',
+  'Soft Quiet Expressive':'Gentle light with subtle drama \u2014 quiet fixtures that reveal their beauty the longer you look.',
+  'Soft Quiet Statement':'Quiet confidence in every fixture \u2014 understated forms that become the soul of a room through pure warmth.',
+  'Dramatic Gilded Understated':'Restrained glamour. You appreciate the geometry and warmth of gilded fixtures without overwhelming the space.',
+  'Dramatic Gilded Balanced':'Warm gilded elegance with measured drama. Your rooms have presence and sophistication without feeling theatrical.',
+  'Dramatic Gilded Expressive':'Rich, warm gilded energy. Your lighting makes bold statements while keeping the overall tone inviting.',
+  'Dramatic Gilded Statement':'Full gilded drama \u2014 warm metallics, bold silhouettes, and fixtures that command attention from every angle.',
+  'Dramatic Deep Understated':'Subtle darkness with warm amber undertones. Your lighting creates intimacy and depth without overpowering the room.',
+  'Dramatic Deep Balanced':'Rich, warm contrast defines your spaces. Fixtures emerge from deep amber shadow to create intentional atmosphere.',
+  'Dramatic Deep Expressive':'Deep amber warmth radiating through shadow \u2014 bold, rich, and unmistakably dramatic.',
+  'Dramatic Deep Statement':'The deepest warmth. Your rooms are immersive amber chambers where light and shadow play in dramatic harmony.',
+  'Dramatic Foundry Understated':'Raw warmth with industrial bones. Your lighting bridges the gap between foundry and home with quiet confidence.',
+  'Dramatic Foundry Balanced':'Industrial structure softened by warm light. Your spaces feel purposeful, honest, and deeply comfortable.',
+  'Dramatic Foundry Expressive':'Foundry warmth with character \u2014 fixtures that honor their materials while creating inviting, layered light.',
+  'Dramatic Foundry Statement':'Bold industrial warmth. Every fixture tells the story of craft, heat, and the beauty of honest materials.',
+  'Dramatic Midnight Understated':'Subtle midnight warmth \u2014 deep, intimate spaces where warm light feels like a secret.',
+  'Dramatic Midnight Balanced':'Midnight warmth with purpose. Dark, enveloping rooms punctuated by fixtures that glow with intention.',
+  'Dramatic Midnight Expressive':'Layered, warm, and unapologetically bold. Your lighting creates rich, immersive midnight environments.',
+  'Dramatic Midnight Statement':'Maximum warmth in the deepest dark. Every fixture is a conversation piece in your curated gallery of light.'
 };
 
 function getProfileName(){
   var t=state.track==='soft'?'Soft':'Dramatic';
   var parts=[t];
-  if(state.vibe)parts.push(state.vibe.split(' ')[0]);
+  if(state.vibe){
+    var first=state.vibe.split(' ')[0];
+    parts.push(first);
+  }
   if(state.intensity)parts.push(state.intensity);
   return parts.join(' ');
+}
+
+function getVibeKey(){
+  if(!state.vibe)return 'soft-modern';
+  return state.vibe.toLowerCase().replace(/\s+/g,'-');
 }
 
 function getProfileDesc(){
@@ -630,15 +737,15 @@ function goToScreen(id){
 
   cur.classList.remove('active');
 
-  var quizScreens=['screen-step1','screen-step2','screen-step3','screen-step4','screen-checkpoint'];
+  var quizScreens=['screen-step1','screen-step2','screen-step3','screen-step4','screen-step5-products','screen-checkpoint'];
   var qi=quizScreens.indexOf(id);
-  if(qi>=0){pb.classList.add('visible');pf.style.width=((qi+1)/5*100)+'%'}
+  if(qi>=0){pb.classList.add('visible');pf.style.width=((qi+1)/6*100)+'%'}
   else{pb.classList.remove('visible')}
 
-  var showBack=['screen-step1','screen-step2','screen-step3','screen-step4','screen-checkpoint'];
+  var showBack=['screen-step1','screen-step2','screen-step3','screen-step4','screen-step5-products','screen-checkpoint'];
   if(showBack.indexOf(id)>=0){bb.classList.add('visible')}else{bb.classList.remove('visible')}
 
-  var showTag=['screen-step3','screen-step4','screen-checkpoint'];
+  var showTag=['screen-step3','screen-step4','screen-step5-products','screen-checkpoint'];
   if(showTag.indexOf(id)>=0){updateStyleTag()}else{document.getElementById('style-tag').classList.remove('visible')}
 
   setTimeout(function(){
@@ -698,12 +805,155 @@ function selectVibe(el,label){
   setTimeout(function(){goToScreen('screen-step4')},520);
 }
 
-// Step 4: Intensity -> merged checkpoint+upload
+// Step 4: Intensity -> product selection
 window.selectIntensity=function(el,val){
   document.querySelectorAll('#vibe-grid-4 .vibe-tile').forEach(function(t){t.classList.remove('selected')});
   el.classList.add('selected');
   state.intensity=val;
   updateStyleTag();
+  setTimeout(function(){goToScreen('screen-step5-products')},520);
+};
+
+// ── Step 5: Product selection mode ──
+var selectionMode='';
+var selectedProducts=[];
+var curatedProducts=[];
+var activeType='all';
+
+window.selectProductMode=function(mode){
+  selectionMode=mode;
+  document.querySelectorAll('.sel-option').forEach(function(o){o.classList.remove('active')});
+  var aiConf=document.getElementById('ai-suggest-confirm');
+  var curBrowser=document.getElementById('curated-browser');
+
+  if(mode==='ai'){
+    document.getElementById('sel-ai-suggest').classList.add('active');
+    aiConf.classList.add('visible');
+    curBrowser.classList.remove('visible');
+    document.getElementById('ai-suggest-profile').textContent=getProfileName();
+    selectedProducts=[];
+  }else{
+    document.getElementById('sel-curated').classList.add('active');
+    aiConf.classList.remove('visible');
+    curBrowser.classList.add('visible');
+    selectedProducts=[];
+    loadCuratedProducts();
+  }
+};
+
+function loadCuratedProducts(){
+  var moodKey=getVibeKey();
+  // Try to fetch from API, fallback to mock data
+  fetch('/api/quiz/mood-products/'+moodKey+'/by-type')
+    .then(function(r){return r.json()})
+    .then(function(data){
+      if(data&&typeof data==='object'&&!data.error){
+        curatedProducts=[];
+        var tabs=Object.keys(data);
+        tabs.forEach(function(type){
+          (data[type]||[]).forEach(function(p){
+            curatedProducts.push({
+              handle:p.product_handle,
+              title:p.product_title,
+              image:p.product_image_url,
+              type:p.product_type||type,
+              score:p.mood_scores?p.mood_scores[moodKey]:0
+            });
+          });
+        });
+        renderCuratedBrowser();
+      }else{
+        useMockCurated();
+      }
+    })
+    .catch(function(){useMockCurated()});
+}
+
+function useMockCurated(){
+  var mockProducts=[
+    {handle:'aven',title:'Aven Pendant',image:'',type:'pendant',score:0.92},
+    {handle:'cade',title:'Cade Floor Lamp',image:'',type:'floor_lamp',score:0.88},
+    {handle:'fenn',title:'Fenn Sconce',image:'',type:'wall_sconce',score:0.85},
+    {handle:'dell',title:'Dell Table Lamp',image:'',type:'table_lamp',score:0.83},
+    {handle:'cloud',title:'Cloud Pendant',image:'',type:'pendant',score:0.80},
+    {handle:'brio',title:'Brio Chandelier',image:'',type:'chandelier',score:0.78},
+    {handle:'saku',title:'Saku Sconce',image:'',type:'wall_sconce',score:0.76},
+    {handle:'hollis',title:'Hollis Floor Lamp',image:'',type:'floor_lamp',score:0.74},
+    {handle:'elm',title:'Elm Table Lamp',image:'',type:'table_lamp',score:0.72}
+  ];
+  curatedProducts=mockProducts;
+  renderCuratedBrowser();
+}
+
+function renderCuratedBrowser(){
+  var tabsEl=document.getElementById('curated-type-tabs');
+  var gridEl=document.getElementById('curated-product-grid');
+
+  // Get unique types
+  var types=['all'];
+  var typeLabels={'all':'All','pendant':'Pendants','floor_lamp':'Floor Lamps','table_lamp':'Table Lamps',
+    'wall_sconce':'Wall Sconces','chandelier':'Chandeliers','ceiling_light':'Ceiling Lights','desk_lamp':'Desk Lamps','other':'Other'};
+  curatedProducts.forEach(function(p){
+    var t=p.type||'other';
+    if(types.indexOf(t)<0)types.push(t);
+  });
+
+  // Render tabs
+  tabsEl.innerHTML='';
+  types.forEach(function(t){
+    var tab=document.createElement('div');
+    tab.className='curated-tab'+(t===activeType?' active':'');
+    tab.textContent=typeLabels[t]||t;
+    tab.addEventListener('click',function(){activeType=t;renderCuratedBrowser()});
+    tabsEl.appendChild(tab);
+  });
+
+  // Filter + render products
+  var filtered=activeType==='all'?curatedProducts:curatedProducts.filter(function(p){return(p.type||'other')===activeType});
+  gridEl.innerHTML='';
+  filtered.forEach(function(p){
+    var card=document.createElement('div');
+    var isSelected=selectedProducts.indexOf(p.handle)>=0;
+    card.className='curated-product'+(isSelected?' selected':'');
+    var imgHtml=p.image
+      ?'<img src="'+p.image+'" alt="'+p.title+'">'
+      :'';
+    var scorePct=Math.round((p.score||0)*100);
+    card.innerHTML='<div class="curated-product-check"><span class="material-symbols-outlined">check</span></div>'
+      +'<div class="curated-product-img">'+imgHtml+'</div>'
+      +'<div class="curated-product-info">'
+      +'<div class="curated-product-name">'+p.title+'</div>'
+      +'<div class="curated-product-type">'+(typeLabels[p.type]||p.type||'')+'</div>'
+      +(scorePct>0?'<div class="curated-product-score">'+scorePct+'% match</div>':'')
+      +'</div>';
+    card.addEventListener('click',function(){toggleProduct(p.handle)});
+    gridEl.appendChild(card);
+  });
+
+  updateSelectionCount();
+}
+
+function toggleProduct(handle){
+  var idx=selectedProducts.indexOf(handle);
+  if(idx>=0){selectedProducts.splice(idx,1)}
+  else if(selectedProducts.length<6){selectedProducts.push(handle)}
+  renderCuratedBrowser();
+}
+
+function updateSelectionCount(){
+  var countEl=document.getElementById('curated-selection-count');
+  var btnEl=document.getElementById('curated-continue-btn');
+  if(selectedProducts.length===0){
+    countEl.innerHTML='Select up to <strong>6 fixtures</strong> for your room';
+    btnEl.style.opacity='.35';btnEl.style.pointerEvents='none';
+  }else{
+    countEl.innerHTML='<strong>'+selectedProducts.length+'</strong> of 6 fixtures selected';
+    btnEl.style.opacity='1';btnEl.style.pointerEvents='auto';
+  }
+}
+
+window.confirmProductSelection=function(){
+  // Populate checkpoint screen
   var name=getProfileName();
   var desc=getProfileDesc();
   document.getElementById('checkpoint-name').textContent=name.replace(/ /g,' \u00b7 ');
@@ -712,7 +962,7 @@ window.selectIntensity=function(el,val){
   bgGrad.style.background=state.track==='soft'
     ?'radial-gradient(ellipse at 40% 40%,#f5e6c8,#e8d4a8 30%,#d4be8a 55%,#c5a875 75%,#b89a6a)'
     :'radial-gradient(ellipse at 50% 50%,#c9a86c,#a68854 25%,#7a6240 50%,#4d3c28 75%,#2a2018)';
-  setTimeout(function(){goToScreen('screen-checkpoint')},520);
+  goToScreen('screen-checkpoint');
 };
 
 // ── Real photo upload + AI processing ──
@@ -777,7 +1027,9 @@ function callRenderAPI(){
     track:state.track,
     vibe:state.vibe,
     intensity:state.intensity,
-    profileName:getProfileName()
+    profileName:getProfileName(),
+    selectionMode:selectionMode||'ai',
+    selectedProducts:selectedProducts.length>0?selectedProducts:undefined
   };
   var body={
     image_base64:uploadedPhoto.base64,
@@ -816,18 +1068,22 @@ function callRenderAPI(){
 }
 
 function getStyleProducts(ctx){
+  // If user selected specific products, use those
+  if(selectedProducts&&selectedProducts.length>0){
+    return selectedProducts.slice(0,6);
+  }
   var map={
-    'rustic-warm':['aven','cade','fenn','dell','ruvo','anka'],
-    'bohemian-layered':['anka','saku','cielo','iven','yaro','hue'],
-    'modern-cozy':['cloud','brio','knoll','azura','sterling','tava'],
-    'japandi-warm':['hollis','jules','elm','cade','maren','ostra'],
-    'art-deco-warm':['calix','cadence','zael','nyra','elys','ember'],
-    'dark-luxe':['soren','slate','vireo','ode','xara','york'],
-    'warm-industrial':['blane','arvo','saro','garek','vexa','sylos'],
-    'moody-maximalist':['aria','delos','kismet','sia','niva','calen']
+    'golden-nook':['aven','cade','fenn','dell','ruvo','anka'],
+    'layered-warmth':['anka','saku','cielo','iven','yaro','hue'],
+    'soft-modern':['cloud','brio','knoll','azura','sterling','tava'],
+    'quiet-glow':['hollis','jules','elm','cade','maren','ostra'],
+    'gilded-evening':['calix','cadence','zael','nyra','elys','ember'],
+    'deep-amber':['soren','slate','vireo','ode','xara','york'],
+    'foundry-glow':['blane','arvo','saro','garek','vexa','sylos'],
+    'midnight-warmth':['aria','delos','kismet','sia','niva','calen']
   };
-  var key=(ctx.vibe||'').toLowerCase().replace(/[^a-z]+/g,'-').replace(/^-|-$/g,'');
-  return(map[key]||map['modern-cozy']).slice(0,3);
+  var key=(ctx.vibe||'').toLowerCase().replace(/\s+/g,'-');
+  return(map[key]||map['soft-modern']).slice(0,3);
 }
 
 function populateRevealScreen(data){
@@ -1007,6 +1263,14 @@ QuizTracker.init({ concept: 'style-profile' });
   window.selectIntensity = function(el, val) {
     QuizTracker.answer('intensity', val);
     _origIntensity(el, val);
+  };
+  var _origConfirmProducts = window.confirmProductSelection;
+  window.confirmProductSelection = function() {
+    QuizTracker.answer('selectionMode', selectionMode || 'ai');
+    if (selectedProducts && selectedProducts.length > 0) {
+      QuizTracker.answer('selectedProducts', selectedProducts.join(','));
+    }
+    _origConfirmProducts();
     setTimeout(function() {
       var nameEl = document.getElementById('checkpoint-name');
       if (nameEl && nameEl.textContent) {

@@ -676,6 +676,8 @@ export interface QuizSession {
   photo_url: string | null;
   render_url: string | null;
   render_status: 'pending' | 'processing' | 'completed' | 'failed' | null;
+  selection_mode: 'ai' | 'curated' | null;
+  selected_products: string[] | null;
   recommended_products: string[] | null;
   cart_created: boolean;
   converted: boolean;

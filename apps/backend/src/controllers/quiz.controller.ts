@@ -459,11 +459,13 @@ quizRouter.post('/render', async (req, res) => {
       return;
     }
 
-    // Update session render status
+    // Update session render status + product selection
     if (session_id) {
       await quizService.updateSession(session_id, {
         render_status: 'processing',
         photo_uploaded: !!image_base64,
+        selection_mode: context.selectionMode === 'curated' ? 'curated' : 'ai',
+        selected_products: context.selectedProducts?.length ? context.selectedProducts : null,
       });
     }
 
@@ -938,6 +940,55 @@ quizRouter.get('/mood-tags', async (req, res) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[quiz.controller] GET /mood-tags error:', message);
     res.status(500).json({ error: 'Failed to get mood tags' });
+  }
+});
+
+// PATCH /api/quiz/mood-tags/:handle — Update mood scores for a product
+quizRouter.patch('/mood-tags/:handle', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { handle } = req.params;
+    const { mood_scores, product_type } = req.body;
+
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString(), tagged_by: 'manual' };
+    if (mood_scores && typeof mood_scores === 'object') updates.mood_scores = mood_scores;
+    if (product_type !== undefined) updates.product_type = product_type;
+
+    const { data, error } = await supabase
+      .from('product_mood_tags')
+      .update(updates)
+      .eq('brand_id', brandId)
+      .eq('product_handle', handle)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] PATCH /mood-tags/:handle error:', message);
+    res.status(500).json({ error: 'Failed to update mood tag' });
+  }
+});
+
+// DELETE /api/quiz/mood-tags/:handle — Remove mood tag for a product
+quizRouter.delete('/mood-tags/:handle', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { handle } = req.params;
+
+    const { error } = await supabase
+      .from('product_mood_tags')
+      .delete()
+      .eq('brand_id', brandId)
+      .eq('product_handle', handle);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] DELETE /mood-tags/:handle error:', message);
+    res.status(500).json({ error: 'Failed to delete mood tag' });
   }
 });
 
