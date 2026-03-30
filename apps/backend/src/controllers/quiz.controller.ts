@@ -9,6 +9,16 @@ import { supabase } from '../config/supabase.js';
 
 export const quizRouter = Router();
 
+/**
+ * Shopify Admin API returns MoneyV2.amount as cents (e.g. "46900" for $469.00).
+ * This helper converts to dollars.
+ */
+function parseShopifyPrice(amountStr: string): number {
+  const num = parseFloat(amountStr);
+  if (isNaN(num)) return 0;
+  return num / 100;
+}
+
 // ── Sessions ─────────────────────────────────────────────────────────────────
 
 // POST /api/quiz/sessions — Create a new quiz session
@@ -740,8 +750,8 @@ quizRouter.get('/catalog', async (req, res) => {
       for (const edge of data.products.edges) {
         const p = edge.node;
         if (p.status !== 'ACTIVE') continue; // Skip draft/archived products
-        const minPrice = parseFloat(p.priceRange.minVariantPrice.amount);
-        const maxPrice = parseFloat(p.priceRange.maxVariantPrice.amount);
+        const minPrice = parseShopifyPrice(p.priceRange.minVariantPrice.amount);
+        const maxPrice = parseShopifyPrice(p.priceRange.maxVariantPrice.amount);
 
         allProducts.push({
           id: p.id,
@@ -757,7 +767,7 @@ quizRouter.get('/catalog', async (req, res) => {
           variants: p.variants.edges.map((v) => ({
             id: v.node.id,
             title: v.node.title,
-            price: `$${parseFloat(v.node.price).toFixed(2)}`,
+            price: `$${parseShopifyPrice(v.node.price).toFixed(2)}`,
             available: v.node.availableForSale,
             image: v.node.image?.url || '',
           })),
@@ -853,7 +863,7 @@ quizRouter.get('/collections', async (req, res) => {
         for (const edge of data.collectionByHandle.products.edges) {
           const n = edge.node;
           if (n.status !== 'ACTIVE') continue; // Skip draft/archived products
-          const amt = parseFloat(n.priceRange.minVariantPrice.amount);
+          const amt = parseShopifyPrice(n.priceRange.minVariantPrice.amount);
           const cur = n.priceRange.minVariantPrice.currencyCode;
           allProducts.push({
             handle: n.handle,
