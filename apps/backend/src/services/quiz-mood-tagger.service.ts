@@ -71,26 +71,31 @@ Given this product image, analyze the fixture's form, material, finish, color, a
 2. "mood_scores": Rate 0.00 to 1.00 how well this product fits each mood. Consider the fixture's aesthetic, material warmth, form factor, and the kind of space/atmosphere it would create:
 ${moodDescriptions}
 
-Higher scores (0.80+) mean this product is a PERFECT fit for that mood.
-Mid scores (0.40-0.70) mean it could work but isn't ideal.
-Low scores (0.00-0.30) mean poor fit.
+IMPORTANT — Be highly selective and conservative with scores. Most products should strongly match only 1-2 moods. Follow this distribution strictly:
+- Give 0.70+ to AT MOST 1-2 moods (the product's true best-fit moods)
+- Give 0.40-0.69 to AT MOST 1-2 secondary moods (only if genuinely applicable)
+- Give 0.00-0.30 to all remaining moods (most moods should fall here)
 
-3. "reasoning": 1-2 sentences explaining the classification.
+A score of 0.50+ means "Yes, this product belongs in this mood." Be very intentional about which moods get that threshold. If you give 0.50+ to more than 3 moods, you are being too generous.
+
+The 8 moods represent DISTINCT aesthetics. A sleek minimalist fixture does NOT belong in a raw industrial mood. A vintage brass piece does NOT belong in a zen-minimalist mood. Think carefully about what makes each mood unique and only tag products that truly embody that specific aesthetic.
+
+3. "reasoning": 1-2 sentences explaining why you chose the top 1-2 moods and why the others don't fit.
 
 Return ONLY valid JSON with this exact structure:
 {
   "product_type": "pendant",
   "mood_scores": {
     "golden-nook": 0.85,
-    "layered-warmth": 0.60,
-    "soft-modern": 0.45,
-    "quiet-glow": 0.30,
+    "layered-warmth": 0.15,
+    "soft-modern": 0.10,
+    "quiet-glow": 0.05,
     "gilded-evening": 0.70,
-    "deep-amber": 0.55,
-    "foundry-glow": 0.40,
-    "midnight-warmth": 0.65
+    "deep-amber": 0.25,
+    "foundry-glow": 0.10,
+    "midnight-warmth": 0.20
   },
-  "reasoning": "This brass pendant with amber glass..."
+  "reasoning": "This brass pendant with amber glass strongly fits golden-nook for its intimate warmth and gilded-evening for its glamorous metallic finish. Other moods don't match its ornate character."
 }
 
 Return ONLY valid JSON, no markdown fences or extra text.`;
