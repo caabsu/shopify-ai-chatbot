@@ -297,12 +297,17 @@ function buildReviewPrompt(ctx: QuizContext, productImages?: ProductImage[]): st
   const key = getStyleKey(ctx);
   const atmo = MOOD_ATMOSPHERES[key];
 
-  // Build product list with types if available
+  // Build product list with explicit types from DB so the review AI can't misclassify
   let productList: string;
   if (productImages && productImages.length > 0) {
-    productList = productImages.map(p => `${p.handle} (${p.productType})`).join(', ');
+    // Use the raw DB type key (e.g., "floor_lamp") so it maps directly to the JSON productType enum
+    productList = productImages.map(p => {
+      // Find the raw key that maps to this label, for the JSON enum
+      const rawKey = Object.entries(PRODUCT_TYPE_LABELS).find(([, v]) => v === p.productType)?.[0] || p.productType.replace(/ /g, '_');
+      return `- ${p.handle} → type: "${rawKey}" (${p.productType})`;
+    }).join('\n');
   } else {
-    productList = products.slice(0, 6).join(', ');
+    productList = products.slice(0, 6).map(h => `- ${h}`).join('\n');
   }
 
   const vibeLabel = ctx.vibe || 'Soft Modern';
@@ -312,10 +317,12 @@ function buildReviewPrompt(ctx: QuizContext, productImages?: ProductImage[]): st
 
 Mood: "${vibeLabel}" — ${moodLine}
 
-Analyze this room and suggest 2-3 product placements from this catalog:
+Analyze this room photo and suggest 2-3 placements from this product catalog. Each product's type is listed in parentheses — you MUST use that exact type in your response. Do not reclassify products.
+
+Catalog:
 ${productList}
 
-Return JSON:
+Return ONLY valid JSON in this format:
 {
   "roomType": "living"|"bedroom"|"office"|"dining"|"kitchen"|"hallway",
   "dimensions": "e.g. 12x15ft, 9ft ceiling",
@@ -340,9 +347,8 @@ Return JSON:
 Rules:
 - 2-3 placements max. x/y are image percentages (0-100).
 - Use ONLY products from the catalog above.
-- Match product types to sensible locations (floor lamps on floor, pendants from ceiling, etc).
-
-Return ONLY valid JSON.`;
+- The productType for each product MUST match what is listed in the catalog (e.g. if it says "floor_lamp", use "floor_lamp").
+- Place products in sensible locations for their type (floor lamps on floor, pendants from ceiling, table lamps on surfaces, wall sconces on walls).`;
 }
 
 // ── Build concise render prompt with clear ref image mapping ────────────────
@@ -352,33 +358,36 @@ function buildRenderPrompt(review: RoomReview, ctx: QuizContext, productImages?:
   const atmo = MOOD_ATMOSPHERES[key];
   const vibeLabel = ctx.vibe || 'Soft Modern';
 
-  // Build numbered placement list that maps to reference images
+  // Build placement instructions using ACTUAL product type from DB, not review AI's guess
   const placementLines = review.placements.map((p, i) => {
-    const typeLabel = PRODUCT_TYPE_LABELS[p.productType] || p.productType.replace(/_/g, ' ');
+    // Look up the real product type from our reference images (DB-sourced), not the review AI's classification
     const refMatch = productImages?.find(pi => pi.handle === p.suggestedProduct);
-    const refTag = refMatch ? ` [SEE REF IMAGE #${(productImages!.indexOf(refMatch) + 1)}]` : '';
-    return `${i + 1}. "${p.suggestedProduct}" — ${typeLabel} → ${p.location}${refTag}`;
+    const refIdx = refMatch ? productImages!.indexOf(refMatch) + 1 : null;
+    const actualType = refMatch?.productType || PRODUCT_TYPE_LABELS[p.productType] || p.productType.replace(/_/g, ' ');
+
+    if (refIdx) {
+      return `- Place Ref #${refIdx} ("${refMatch!.title}"), which is a ${actualType}, ${p.location}. Look at Ref Image #${refIdx} carefully — reproduce that exact fixture.`;
+    }
+    return `- Place "${p.suggestedProduct}" (${actualType}) ${p.location}.`;
   }).join('\n');
 
-  // Concise atmosphere directive
-  const atmoLine = atmo
-    ? `Lighting: ${atmo.colorTemp.split('—')[0].trim()}. ${atmo.renderDirective.split('.').slice(0, 2).join('.')}. ${atmo.emotionalTone.split('.')[0]}.`
-    : '';
+  // Build atmosphere paragraph
+  let atmosParagraph = '';
+  if (atmo) {
+    atmosParagraph = `Set the overall lighting mood to "${vibeLabel}" — color temperature around ${atmo.colorTemp.split('—')[0].trim()}. ${atmo.renderDirective}`;
+  }
 
-  return `Edit this ${review.roomType} photo. Add these Outlight fixtures and transform the lighting to "${vibeLabel}" mood.
+  return `You are editing a photo of a ${review.roomType}. Your job is to add Outlight lighting fixtures into this room and adjust the scene's lighting to match the "${vibeLabel}" mood.
 
-FIXTURES TO ADD:
+Here is where to place each fixture:
+
 ${placementLines}
 
-${atmoLine}
+${atmosParagraph}
 
-RULES:
-1. Keep room layout, furniture, perspective EXACTLY as-is.
-2. Each fixture MUST match its reference image exactly — same shape, materials, finish, proportions. Do NOT invent generic fixtures.
-3. Place each fixture at the correct scale for its type (floor lamps ~5ft tall on floor, pendants hanging from ceiling, table lamps on surfaces, wall sconces mounted on walls).
-4. Add warm light emission from each fixture — pools on nearby surfaces, ambient glow, realistic shadows.
-5. Shift the overall scene lighting to match the mood — warmer color temperature, adjusted brightness.
-6. Result should look like a professional interior design photo.`;
+Each fixture must emit realistic warm light — visible pools on nearby walls, floors, and surfaces, with soft ambient glow and natural shadows.
+
+CRITICAL: Maintain the exact same shape, size, color, and design of every light fixture as shown in its reference image. Do not invent a generic lamp — copy the reference exactly. The original room scene must remain mostly unchanged except for the addition of the new lights and the adjusted lighting mood. Keep all furniture, walls, objects, and perspective exactly as they are.`;
 }
 
 // ── Build generation-from-scratch prompt (for sample rooms) ─────────────────
@@ -388,33 +397,34 @@ function buildGeneratePrompt(ctx: QuizContext, productImages?: ProductImage[]): 
   const atmo = MOOD_ATMOSPHERES[key];
   const vibeLabel = ctx.vibe || 'Soft Modern';
 
-  // Build product list with types
-  let productList: string;
+  // Build product placement instructions with types
+  let productSection: string;
   if (productImages && productImages.length > 0) {
-    productList = productImages.map((p, i) => `${i + 1}. "${p.title}" — ${p.productType} [SEE REF IMAGE #${i + 1}]`).join('\n');
+    productSection = productImages.map((p, i) =>
+      `- Ref #${i + 1}: "${p.title}" — this is a ${p.productType}. Look at Ref Image #${i + 1} and reproduce this exact fixture design. Place it naturally in the room (${p.productType === 'floor lamp' ? 'beside seating on the floor' : p.productType === 'pendant light' ? 'hanging from the ceiling over a table or seating area' : p.productType === 'table lamp' ? 'on a side table or console' : p.productType === 'wall sconce' ? 'mounted on the wall at eye level' : p.productType === 'chandelier' ? 'hanging from the ceiling as a centerpiece' : 'in an appropriate location'}).`
+    ).join('\n');
   } else {
     const products = getSuggestedProducts(ctx).slice(0, 3);
-    productList = products.join(', ');
+    productSection = products.map(p => `- "${p}" — place naturally in the room`).join('\n');
   }
 
-  const atmoLine = atmo
-    ? `${atmo.colorTemp.split('—')[0].trim()} warmth. ${atmo.emotionalTone.split('.')[0]}.`
-    : '';
+  // Atmosphere paragraph
+  let atmosParagraph = '';
+  if (atmo) {
+    atmosParagraph = `The lighting mood is "${vibeLabel}" — color temperature around ${atmo.colorTemp.split('—')[0].trim()}. ${atmo.renderDirective}`;
+  }
 
-  return `Generate a photorealistic interior photo of a living room with "${vibeLabel}" lighting mood.
+  return `Generate a photorealistic interior photograph of a beautiful living room featuring Outlight lighting fixtures. This should look like a professional interior design photo — aspirational but believable.
 
-FIXTURES TO INCLUDE (from Outlight lighting brand):
-${productList}
+Include these fixtures from the Outlight brand:
 
-Mood: ${atmoLine}
+${productSection}
 
-RULES:
-1. Photorealistic professional interior design photograph.
-2. Each fixture MUST match its reference image exactly — same shape, materials, finish. Do NOT invent generic fixtures.
-3. Place fixtures naturally: floor lamps beside seating, pendants over tables, wall sconces at eye level.
-4. Show warm light emission from each fixture with realistic pools and ambient glow.
-5. The overall lighting should clearly convey "${vibeLabel}" atmosphere.
-6. Aspirational but believable — a real home, beautifully lit.`;
+${atmosParagraph}
+
+Each fixture must emit realistic warm light with visible pools on nearby walls and surfaces, soft ambient glow, and natural shadows.
+
+CRITICAL: Every fixture must match its reference image exactly — same shape, size, color, materials, and finish. Do not invent generic lamps. Copy the reference designs precisely.`;
 }
 
 // ── Review (Analyze Room Photo) ──────────────────────────────────────────────
@@ -488,7 +498,7 @@ export async function renderVisualization(
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — ${pi.productType}. Reproduce this EXACT fixture design.]` });
+      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — this is a ${pi.productType}. When placing this fixture in the room, copy this exact design — same shape, size, color, materials, and proportions.]` });
     }
   }
 
@@ -531,7 +541,7 @@ export async function generateFromScratch(ctx: QuizContext, productImages?: Prod
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — ${pi.productType}. Reproduce this EXACT fixture design.]` });
+      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — this is a ${pi.productType}. When placing this fixture in the room, copy this exact design — same shape, size, color, materials, and proportions.]` });
     }
   }
 
