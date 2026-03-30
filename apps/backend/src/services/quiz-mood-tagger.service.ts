@@ -1,6 +1,6 @@
 import { config } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
-import { ALL_MOOD_KEYS, MOOD_KEY_LABELS } from './quiz-image.service.js';
+import { ALL_MOOD_KEYS } from './quiz-image.service.js';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,45 +57,48 @@ async function getClient() {
 // ── Build the tagging prompt ────────────────────────────────────────────────
 
 function buildTaggingPrompt(): string {
-  const moodDescriptions = ALL_MOOD_KEYS.map((key) => {
-    const info = MOOD_KEY_LABELS[key];
-    return `- "${key}" (${info.label}, ${info.track} track)`;
-  }).join('\n');
+  return `You are classifying a lighting product for Outlight, a premium modern lighting brand. Your goal is to assign the product to the 1-2 moods it fits BEST from the 8 options below.
 
-  return `You are classifying a lighting product for Outlight, a premium modern lighting brand with a warm, clean, aesthetic sensibility.
+Each mood has a SPECIFIC visual identity. Read the descriptions carefully — they define what materials, forms, and aesthetics qualify:
 
-Given this product image, analyze the fixture's form, material, finish, color, and overall feeling, then provide:
+SOFT TRACK (warm, approachable):
+- "golden-nook": Intimate candlelight warmth. Brass, aged bronze, amber glass, cream linen shades. Fixtures feel collected, organic, lived-in. Soft diffused pooling light.
+- "layered-warmth": Abundant layered lighting from mixed sources. Rattan, tinted glass, textured ceramics, mixed metals (brass+copper). Eclectic, collected, full of personality.
+- "soft-modern": Clean Scandinavian warmth. Matte white, brushed brass, frosted glass, light walnut, concrete. Modern minimal fixtures with organic touches. Intentional, purposeful lighting.
+- "quiet-glow": Zen-like, minimal, diffused. Light wood, paper, linen, matte ceramic. Sculptural minimal fixtures — art objects with restraint. Japanese/Scandinavian calm.
 
+DRAMATIC TRACK (warm with depth and contrast):
+- "gilded-evening": Glamorous, geometric, opulent. GOLD, polished brass, crystal, smoked glass, lacquer, warm marble. Fixtures are luxurious, geometric, ornate, precious. Art deco, cocktail party elegance.
+- "deep-amber": Intimate, focused, few light sources. Dark brass, aged bronze, amber glass, dark wood, dark marble. Dark-toned fixtures that emit deep warm light. Moody, hotel-lounge luxury.
+- "foundry-glow": Raw, industrial, honest. Raw steel, aged iron, copper patina, exposed filament bulbs, concrete. Workshop-made, functional beauty. Industrial pendants, cage lights, pipe fixtures.
+- "midnight-warmth": Theatrical maximalism. Mixed warm metals, tinted glass, ornate detailing, velvet, jewel tones. STATEMENT fixtures — large chandeliers, dramatic multi-arm pieces, conversation starters.
+
+SCORING RULES:
+- Each product should score 0.50+ on exactly 1-2 moods (its BEST fits)
+- Score 0.30-0.49 for 1-2 secondary moods at most
+- Score 0.00-0.29 for all others
+- NEVER give 0.50+ to more than 2 moods
+
+CRITICAL: The dramatic track moods are NOT rare. ANY product with dark/black finishes, industrial materials, geometric/ornate forms, or statement-piece proportions belongs in the dramatic track, NOT the soft track. A black metal fixture is foundry-glow or deep-amber, NOT soft-modern. A geometric gold fixture is gilded-evening, NOT golden-nook. A large ornate chandelier is midnight-warmth, NOT layered-warmth.
+
+Also provide:
 1. "product_type": Classify as exactly ONE of: "pendant", "floor_lamp", "table_lamp", "wall_sconce", "chandelier", "ceiling_light", "desk_lamp"
+2. "reasoning": 1-2 sentences explaining your mood choice.
 
-2. "mood_scores": Rate 0.00 to 1.00 how well this product fits each mood. Consider the fixture's aesthetic, material warmth, form factor, and the kind of space/atmosphere it would create:
-${moodDescriptions}
-
-IMPORTANT — Be highly selective and conservative with scores. Most products should strongly match only 1-2 moods. Follow this distribution strictly:
-- Give 0.70+ to AT MOST 1-2 moods (the product's true best-fit moods)
-- Give 0.40-0.69 to AT MOST 1-2 secondary moods (only if genuinely applicable)
-- Give 0.00-0.30 to all remaining moods (most moods should fall here)
-
-A score of 0.50+ means "Yes, this product belongs in this mood." Be very intentional about which moods get that threshold. If you give 0.50+ to more than 3 moods, you are being too generous.
-
-The 8 moods represent DISTINCT aesthetics. A sleek minimalist fixture does NOT belong in a raw industrial mood. A vintage brass piece does NOT belong in a zen-minimalist mood. Think carefully about what makes each mood unique and only tag products that truly embody that specific aesthetic.
-
-3. "reasoning": 1-2 sentences explaining why you chose the top 1-2 moods and why the others don't fit.
-
-Return ONLY valid JSON with this exact structure:
+Return ONLY valid JSON:
 {
   "product_type": "pendant",
   "mood_scores": {
-    "golden-nook": 0.85,
+    "golden-nook": 0.10,
     "layered-warmth": 0.15,
-    "soft-modern": 0.10,
+    "soft-modern": 0.05,
     "quiet-glow": 0.05,
-    "gilded-evening": 0.70,
-    "deep-amber": 0.25,
+    "gilded-evening": 0.80,
+    "deep-amber": 0.35,
     "foundry-glow": 0.10,
     "midnight-warmth": 0.20
   },
-  "reasoning": "This brass pendant with amber glass strongly fits golden-nook for its intimate warmth and gilded-evening for its glamorous metallic finish. Other moods don't match its ornate character."
+  "reasoning": "This geometric gold pendant with crystal accents is quintessential gilded-evening — glamorous, opulent, art-deco inspired."
 }
 
 Return ONLY valid JSON, no markdown fences or extra text.`;
@@ -304,10 +307,76 @@ export async function batchTagAllProducts(
     };
 
     console.log(`[mood-tagger] Batch complete: ${tagged} tagged, ${skipped} skipped, ${errors} errors`);
+
+    // Post-processing: ensure minimum coverage per mood
+    if (tagged > 0) {
+      const promoted = await ensureMinimumCoverage(brandId);
+      console.log(`[mood-tagger] Post-processing promoted ${promoted} product-mood scores to meet minimums`);
+    }
+
     return { tagged, skipped, errors };
   } finally {
     batchInProgress = false;
   }
+}
+
+// ── Post-processing: ensure minimum products per mood ────────────────────
+
+const MIN_PER_MOOD = 20; // Minimum products total per mood (across all collections)
+const PROMOTE_THRESHOLD = 0.50; // Score to promote to
+
+async function ensureMinimumCoverage(brandId: string): Promise<number> {
+  // Load all tagged products
+  const { data: allTags, error } = await supabase
+    .from('product_mood_tags')
+    .select('*')
+    .eq('brand_id', brandId);
+
+  if (error || !allTags || allTags.length === 0) return 0;
+
+  let totalPromoted = 0;
+
+  for (const moodKey of ALL_MOOD_KEYS) {
+    // Count how many products currently have score >= 0.5 for this mood
+    const currentlyTagged = allTags.filter(
+      (t) => ((t.mood_scores as Record<string, number>)?.[moodKey] ?? 0) >= PROMOTE_THRESHOLD,
+    );
+
+    if (currentlyTagged.length >= MIN_PER_MOOD) continue;
+
+    // Need more products for this mood — find untagged products sorted by their score for this mood (highest first)
+    const candidates = allTags
+      .filter((t) => {
+        const score = (t.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
+        return score < PROMOTE_THRESHOLD && score > 0; // Has some score but below threshold
+      })
+      .sort((a, b) => {
+        const sa = (a.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
+        const sb = (b.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
+        return sb - sa; // Highest first
+      });
+
+    const needed = MIN_PER_MOOD - currentlyTagged.length;
+    const toPromote = candidates.slice(0, needed);
+
+    for (const tag of toPromote) {
+      const updatedScores = { ...(tag.mood_scores as Record<string, number>) };
+      updatedScores[moodKey] = PROMOTE_THRESHOLD;
+
+      const { error: updateErr } = await supabase
+        .from('product_mood_tags')
+        .update({ mood_scores: updatedScores, updated_at: new Date().toISOString() })
+        .eq('id', tag.id);
+
+      if (!updateErr) totalPromoted++;
+    }
+
+    if (toPromote.length > 0) {
+      console.log(`[mood-tagger] ${moodKey}: promoted ${toPromote.length} products (had ${currentlyTagged.length}, target ${MIN_PER_MOOD})`);
+    }
+  }
+
+  return totalPromoted;
 }
 
 // ── Query products by mood ──────────────────────────────────────────────────
