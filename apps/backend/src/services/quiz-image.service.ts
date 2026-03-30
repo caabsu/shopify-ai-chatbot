@@ -21,22 +21,42 @@ export interface ProductImage {
   imageUrl: string;
   base64: string;
   mimeType: string;
+  productType: string; // e.g. "floor lamp", "pendant light", "wall sconce"
 }
 
-/** Fetch product images from Shopify Admin API by handles, then download as base64 */
+const PRODUCT_TYPE_LABELS: Record<string, string> = {
+  floor_lamp: 'floor lamp',
+  table_lamp: 'table lamp',
+  desk_lamp: 'desk lamp',
+  wall_sconce: 'wall sconce',
+  chandelier: 'chandelier',
+  pendant: 'pendant light',
+  ceiling_light: 'ceiling light',
+};
+
+/** Fetch product images from Shopify Admin API by handles, then download as base64.
+ *  Also looks up AI-classified product type from mood tags. */
 export async function fetchProductImages(handles: string[], brandId?: string): Promise<ProductImage[]> {
   if (handles.length === 0) return [];
 
   const { graphql } = await import('./shopify-admin.service.js');
+  const { supabase } = await import('../config/supabase.js');
+
+  // Fetch product type from mood tags (AI-classified, more reliable than Shopify productType)
+  const { data: moodTags } = await supabase
+    .from('product_mood_tags')
+    .select('product_handle, product_type')
+    .in('product_handle', handles.slice(0, 4));
+  const typeByHandle = new Map((moodTags || []).map(t => [t.product_handle, t.product_type]));
 
   // Build aliased GraphQL query to fetch all products in one call
   const fragments = handles.slice(0, 4).map((h, i) =>
-    `p${i}: productByHandle(handle: "${h.replace(/"/g, '')}") { title handle featuredImage { url } }`
+    `p${i}: productByHandle(handle: "${h.replace(/"/g, '')}") { title handle productType featuredImage { url } }`
   ).join('\n');
 
   const query = `{ ${fragments} }`;
 
-  let data: Record<string, { title: string; handle: string; featuredImage: { url: string } | null } | null>;
+  let data: Record<string, { title: string; handle: string; productType: string; featuredImage: { url: string } | null } | null>;
   try {
     data = await graphql(query, {}, brandId);
   } catch (err) {
@@ -55,12 +75,18 @@ export async function fetchProductImages(handles: string[], brandId?: string): P
       if (!imgRes.ok) continue;
       const buf = Buffer.from(await imgRes.arrayBuffer());
       const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+
+      // Use AI-classified type from mood tags, fall back to Shopify productType
+      const rawType = typeByHandle.get(product.handle) || product.productType || '';
+      const typeLabel = PRODUCT_TYPE_LABELS[rawType] || rawType.replace(/_/g, ' ') || 'lighting fixture';
+
       results.push({
         handle: product.handle,
         title: product.title,
         imageUrl: product.featuredImage.url,
         base64: buf.toString('base64'),
         mimeType: contentType.split(';')[0],
+        productType: typeLabel,
       });
     } catch (err) {
       console.error(`[quiz-image] Failed to download image for "${product.handle}":`, err instanceof Error ? err.message : err);
@@ -266,160 +292,129 @@ export const MOOD_KEY_LABELS: Record<string, { label: string; track: 'soft' | 'd
 
 // ── Build context-aware review prompt ────────────────────────────────────────
 
-function buildReviewPrompt(ctx: QuizContext): string {
+function buildReviewPrompt(ctx: QuizContext, productImages?: ProductImage[]): string {
   const products = getSuggestedProducts(ctx);
-  const productList = products.slice(0, 6).join(', ');
   const key = getStyleKey(ctx);
   const atmo = MOOD_ATMOSPHERES[key];
 
-  const trackLabel = ctx.track === 'dramatic' ? 'Dramatic & Warm' : 'Soft & Cozy';
-  let styleDesc = `Track: ${trackLabel}, Vibe: "${ctx.vibe || 'Soft Modern'}", Intensity: ${ctx.intensity || 'Balanced'}\n`;
-  if (ctx.who) styleDesc += `Designing for: ${ctx.who}\n`;
-
-  if (atmo) {
-    styleDesc += `Color temperature: ${atmo.colorTemp}\n`;
-    styleDesc += `Light quality: ${atmo.lightQuality}\n`;
-    styleDesc += `Material direction: ${atmo.materialTones}\n`;
-    styleDesc += `Emotional tone: ${atmo.emotionalTone}`;
+  // Build product list with types if available
+  let productList: string;
+  if (productImages && productImages.length > 0) {
+    productList = productImages.map(p => `${p.handle} (${p.productType})`).join(', ');
+  } else {
+    productList = products.slice(0, 6).join(', ');
   }
 
-  return `You are an expert interior lighting designer for Outlight, a premium modern lighting brand with a warm, clean, aesthetic sensibility.
+  const vibeLabel = ctx.vibe || 'Soft Modern';
+  const moodLine = atmo ? `${atmo.colorTemp.split('—')[0].trim()} warmth. ${atmo.emotionalTone.split('.')[0]}.` : '';
 
-STYLE DIRECTION:
-${styleDesc}
+  return `You are a lighting designer for Outlight (premium warm modern lighting).
 
-Analyze this room photo and suggest where Outlight lighting products should be placed to transform the space according to the style direction above.
+Mood: "${vibeLabel}" — ${moodLine}
 
-PRODUCT CATALOG TO DRAW FROM (use these specific names):
+Analyze this room and suggest 2-3 product placements from this catalog:
 ${productList}
 
-Product types available: pendant lights, floor lamps, table/desk lamps, wall sconces, chandeliers, ceiling lights.
-
-Return a JSON object with these exact fields:
+Return JSON:
 {
-  "roomType": "living" | "bedroom" | "office" | "dining" | "kitchen" | "bathroom" | "hallway" | "outdoor",
-  "dimensions": "estimated room size, e.g. '12x15 feet, 9ft ceiling'",
-  "description": "2-3 sentence description of the room — its architecture, materials, current state",
-  "currentLighting": "describe the existing light sources and their quality",
-  "furniture": ["list", "of", "key", "furniture", "pieces"],
-  "colorPalette": ["dominant", "colors", "in", "hex"],
+  "roomType": "living"|"bedroom"|"office"|"dining"|"kitchen"|"hallway",
+  "dimensions": "e.g. 12x15ft, 9ft ceiling",
+  "description": "Brief room description",
+  "currentLighting": "Current light sources",
+  "furniture": ["key pieces"],
+  "colorPalette": ["hex colors"],
   "placements": [
     {
-      "productType": "floor_lamp",
-      "suggestedProduct": "aven",
-      "location": "next to the reading nook, left of the sofa",
+      "productType": "floor_lamp"|"table_lamp"|"wall_sconce"|"pendant"|"chandelier"|"ceiling_light",
+      "suggestedProduct": "handle_name",
+      "location": "specific location in room",
       "x": 25,
       "y": 65,
-      "reasoning": "The warm wabi-sabi aesthetic of Aven complements the natural wood tones..."
+      "reasoning": "Brief reason"
     }
   ],
-  "ambiance": "2-3 sentences describing how these products transform the space — the light quality, mood, atmosphere. Be SPECIFIC about the emotional shift.",
-  "tips": ["2-3 specific styling tips for this aesthetic"]
+  "ambiance": "How the lighting transforms the mood",
+  "tips": ["1-2 tips"]
 }
 
-IMPORTANT:
-- Suggest 2-4 placements (don't over-light the space)
-- x/y are percentages (0-100) marking where in the image each product goes
-- Use ONLY product names from the catalog above in suggestedProduct
-- Match product choices to the style direction — every choice should feel intentional
-- Be specific about WHY each product works in that location
-- The ambiance field should describe the TRANSFORMED mood in vivid, sensory terms
+Rules:
+- 2-3 placements max. x/y are image percentages (0-100).
+- Use ONLY products from the catalog above.
+- Match product types to sensible locations (floor lamps on floor, pendants from ceiling, etc).
 
-Return ONLY valid JSON, no markdown fences or extra text.`;
+Return ONLY valid JSON.`;
 }
 
-// ── Build deeply mood-specific render prompt ────────────────────────────────
+// ── Build concise render prompt with clear ref image mapping ────────────────
 
-function buildRenderPrompt(review: RoomReview, ctx: QuizContext): string {
+function buildRenderPrompt(review: RoomReview, ctx: QuizContext, productImages?: ProductImage[]): string {
   const key = getStyleKey(ctx);
   const atmo = MOOD_ATMOSPHERES[key];
-  const placementDesc = review.placements
-    .map((p) => `- ${p.suggestedProduct} (${p.productType.replace(/_/g, ' ')}) at ${p.location} — ${p.reasoning}`)
-    .join('\n');
+  const vibeLabel = ctx.vibe || 'Soft Modern';
 
-  const styleLabel = `"${ctx.profileName || ctx.vibe || 'Soft Modern'}" style (${ctx.intensity || 'Balanced'} intensity)`;
+  // Build numbered placement list that maps to reference images
+  const placementLines = review.placements.map((p, i) => {
+    const typeLabel = PRODUCT_TYPE_LABELS[p.productType] || p.productType.replace(/_/g, ' ');
+    const refMatch = productImages?.find(pi => pi.handle === p.suggestedProduct);
+    const refTag = refMatch ? ` [SEE REF IMAGE #${(productImages!.indexOf(refMatch) + 1)}]` : '';
+    return `${i + 1}. "${p.suggestedProduct}" — ${typeLabel} → ${p.location}${refTag}`;
+  }).join('\n');
 
-  let atmosphereBlock = '';
-  if (atmo) {
-    atmosphereBlock = `
-ATMOSPHERE — THIS IS CRITICAL:
-Color Temperature: ${atmo.colorTemp}
-Light Quality: ${atmo.lightQuality}
-Shadow Treatment: ${atmo.shadowStyle}
-Materials & Finishes: ${atmo.materialTones}
-Emotional Goal: ${atmo.emotionalTone}
+  // Concise atmosphere directive
+  const atmoLine = atmo
+    ? `Lighting: ${atmo.colorTemp.split('—')[0].trim()}. ${atmo.renderDirective.split('.').slice(0, 2).join('.')}. ${atmo.emotionalTone.split('.')[0]}.`
+    : '';
 
-SPECIFIC RENDERING DIRECTION:
-${atmo.renderDirective}`;
-  }
+  return `Edit this ${review.roomType} photo. Add these Outlight fixtures and transform the lighting to "${vibeLabel}" mood.
 
-  return `Transform this room photograph by adding modern lighting fixtures and COMPLETELY changing the lighting atmosphere.
+FIXTURES TO ADD:
+${placementLines}
 
-STYLE: ${styleLabel}
-ROOM: ${review.roomType}, ${review.dimensions}
-CURRENT STATE: ${review.description}
-TARGET AMBIANCE: ${review.ambiance}
-${atmosphereBlock}
+${atmoLine}
 
-PRODUCT PLACEMENTS (add these fixtures):
-${placementDesc}
-
-CRITICAL INSTRUCTIONS:
-1. Keep the room structure, furniture, and architecture EXACTLY as-is — same layout, same perspective, same items
-2. ADD the lighting products at the specified locations — they should look physically present and photorealistic (proper scale, real materials, correct proportions)
-3. TRANSFORM THE ENTIRE LIGHTING of the scene according to the atmosphere direction above:
-   - Shift the color temperature of ALL light in the image to match the target
-   - Adjust overall brightness/darkness to match the emotional goal
-   - Create the specified shadow treatment throughout the room
-   - Show realistic light emission: pools of light on floors/walls, glow around fixtures, reflected light on surfaces
-4. The MOOD SHIFT should be DRAMATIC and OBVIOUS — someone comparing the before and after should immediately feel the emotional difference
-5. Every material surface should respond to the new lighting — wood should catch warm light, metal should gleam, fabric should show new shadow folds
-6. The result should look like a professional interior design photograph taken AFTER a complete lighting redesign
-
-The transformation should be so clear that even without labels, a viewer could identify the specific mood just from the lighting quality.
-
-IMPORTANT: Product reference images are provided alongside this prompt. Use EXACTLY these product designs — their shapes, materials, finishes, and proportions — when placing fixtures in the scene. Do NOT invent generic fixtures.`;
+RULES:
+1. Keep room layout, furniture, perspective EXACTLY as-is.
+2. Each fixture MUST match its reference image exactly — same shape, materials, finish, proportions. Do NOT invent generic fixtures.
+3. Place each fixture at the correct scale for its type (floor lamps ~5ft tall on floor, pendants hanging from ceiling, table lamps on surfaces, wall sconces mounted on walls).
+4. Add warm light emission from each fixture — pools on nearby surfaces, ambient glow, realistic shadows.
+5. Shift the overall scene lighting to match the mood — warmer color temperature, adjusted brightness.
+6. Result should look like a professional interior design photo.`;
 }
 
 // ── Build generation-from-scratch prompt (for sample rooms) ─────────────────
 
-function buildGeneratePrompt(ctx: QuizContext): string {
-  const products = getSuggestedProducts(ctx).slice(0, 3);
+function buildGeneratePrompt(ctx: QuizContext, productImages?: ProductImage[]): string {
   const key = getStyleKey(ctx);
   const atmo = MOOD_ATMOSPHERES[key];
+  const vibeLabel = ctx.vibe || 'Soft Modern';
 
-  const styleLabel = `"${ctx.profileName || ctx.vibe || 'Soft Modern'}" style (${ctx.intensity || 'Balanced'} intensity)`;
-
-  let atmosphereBlock = '';
-  if (atmo) {
-    atmosphereBlock = `
-ATMOSPHERE:
-Color Temperature: ${atmo.colorTemp}
-Light Quality: ${atmo.lightQuality}
-Shadow Treatment: ${atmo.shadowStyle}
-Materials & Finishes: ${atmo.materialTones}
-Emotional Goal: ${atmo.emotionalTone}
-
-SPECIFIC DIRECTION:
-${atmo.renderDirective}`;
+  // Build product list with types
+  let productList: string;
+  if (productImages && productImages.length > 0) {
+    productList = productImages.map((p, i) => `${i + 1}. "${p.title}" — ${p.productType} [SEE REF IMAGE #${i + 1}]`).join('\n');
+  } else {
+    const products = getSuggestedProducts(ctx).slice(0, 3);
+    productList = products.join(', ');
   }
 
-  return `Generate a photorealistic interior photograph of a beautifully designed living room, styled with ${styleLabel} lighting.
+  const atmoLine = atmo
+    ? `${atmo.colorTemp.split('—')[0].trim()} warmth. ${atmo.emotionalTone.split('.')[0]}.`
+    : '';
 
-The room should feature modern Outlight lighting fixtures: ${products.join(', ')} — show them as elegant, premium lighting products naturally integrated into the space.
-${atmosphereBlock}
+  return `Generate a photorealistic interior photo of a living room with "${vibeLabel}" lighting mood.
 
-REQUIREMENTS:
-1. Photorealistic — should look like a professional interior design photograph
-2. The lighting atmosphere MUST clearly convey the ${styleLabel} direction
-3. Show 2-3 lighting fixtures that feel naturally placed
-4. Show realistic light emission from each fixture — pools of light, ambient glow, surface reflections
-5. The room should feel aspirational but believable — a real home, beautifully lit
-6. High quality, detailed, magazine-worthy composition
+FIXTURES TO INCLUDE (from Outlight lighting brand):
+${productList}
 
-This image should make someone think: "I want my room to feel like this."
+Mood: ${atmoLine}
 
-IMPORTANT: Product reference images are provided alongside this prompt. Use EXACTLY these product designs — their shapes, materials, finishes, and proportions — when placing fixtures in the room. Do NOT invent generic fixtures. The lighting products in the generated image must visually match the reference photos.`;
+RULES:
+1. Photorealistic professional interior design photograph.
+2. Each fixture MUST match its reference image exactly — same shape, materials, finish. Do NOT invent generic fixtures.
+3. Place fixtures naturally: floor lamps beside seating, pendants over tables, wall sconces at eye level.
+4. Show warm light emission from each fixture with realistic pools and ambient glow.
+5. The overall lighting should clearly convey "${vibeLabel}" atmosphere.
+6. Aspirational but believable — a real home, beautifully lit.`;
 }
 
 // ── Review (Analyze Room Photo) ──────────────────────────────────────────────
@@ -428,9 +423,10 @@ export async function reviewRoomPhoto(
   imageBase64: string,
   mimeType: string,
   ctx: QuizContext,
+  productImages?: ProductImage[],
 ): Promise<RoomReview> {
   const client = await getClient();
-  const prompt = buildReviewPrompt(ctx);
+  const prompt = buildReviewPrompt(ctx, productImages);
 
   console.log(`[quiz-image] Reviewing room photo — style: ${getStyleKey(ctx)}`);
 
@@ -479,19 +475,20 @@ export async function renderVisualization(
   productImages?: ProductImage[],
 ): Promise<RenderResult> {
   const client = await getClient();
-  const prompt = buildRenderPrompt(review, ctx);
+  const prompt = buildRenderPrompt(review, ctx, productImages);
 
   console.log(`[quiz-image] Generating visualization — ${review.placements.length} products, style: ${getStyleKey(ctx)}, ${productImages?.length || 0} product ref images`);
 
-  // Build parts: room photo first, then product reference images, then prompt text
+  // Build parts: room photo first, then numbered product reference images, then prompt
   const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [
     { inlineData: { mimeType: roomMimeType, data: roomImageBase64 } },
   ];
 
   if (productImages && productImages.length > 0) {
-    for (const pi of productImages) {
+    for (let i = 0; i < productImages.length; i++) {
+      const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[Product reference: "${pi.title}" (handle: ${pi.handle}) — use this exact fixture design]` });
+      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — ${pi.productType}. Reproduce this EXACT fixture design.]` });
     }
   }
 
@@ -524,16 +521,17 @@ export async function renderVisualization(
 
 export async function generateFromScratch(ctx: QuizContext, productImages?: ProductImage[]): Promise<RenderResult> {
   const client = await getClient();
-  const prompt = buildGeneratePrompt(ctx);
+  const prompt = buildGeneratePrompt(ctx, productImages);
 
   console.log(`[quiz-image] Generating sample room from scratch — style: ${getStyleKey(ctx)}, ${productImages?.length || 0} product ref images`);
 
   const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [];
 
   if (productImages && productImages.length > 0) {
-    for (const pi of productImages) {
+    for (let i = 0; i < productImages.length; i++) {
+      const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[Product reference: "${pi.title}" (handle: ${pi.handle}) — use this exact fixture design in the generated room]` });
+      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — ${pi.productType}. Reproduce this EXACT fixture design.]` });
     }
   }
 
@@ -599,7 +597,7 @@ export async function processRoomPhoto(
     };
   }
 
-  const review = await reviewRoomPhoto(imageBase64, mimeType, ctx);
+  const review = await reviewRoomPhoto(imageBase64, mimeType, ctx, productImages);
   const render = await renderVisualization(imageBase64, mimeType, review, ctx, productImages);
   return { review, render };
 }
@@ -621,7 +619,7 @@ export function getDebugPrompts(ctx: QuizContext): { reviewPrompt: string; gener
   return {
     reviewPrompt: buildReviewPrompt(ctx),
     generatePrompt: buildGeneratePrompt(ctx),
-    renderPromptBuilder: (review: RoomReview) => buildRenderPrompt(review, ctx),
+    renderPromptBuilder: (review: RoomReview) => buildRenderPrompt(review, ctx, undefined),
     styleKey: getStyleKey(ctx),
   };
 }
