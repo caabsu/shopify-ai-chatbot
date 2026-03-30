@@ -21,6 +21,10 @@ import {
   CheckCircle2,
   Loader2,
   X,
+  Monitor,
+  Smartphone,
+  RotateCw,
+  ExternalLink,
 } from 'lucide-react';
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -70,6 +74,9 @@ type Phase = 'idle' | 'uploading' | 'calling-api' | 'reviewing' | 'rendering' | 
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function FunnelPlaygroundPage() {
+  // Tab: 'debug' (backend workflow) or 'preview' (customer-facing quiz)
+  const [mode, setMode] = useState<'debug' | 'preview'>('preview');
+
   // Style profile selection
   const [track, setTrack] = useState<'soft' | 'dramatic'>('soft');
   const [vibe, setVibe] = useState('Soft Modern');
@@ -94,6 +101,11 @@ export default function FunnelPlaygroundPage() {
   const [resultMimeType, setResultMimeType] = useState('');
   const [debug, setDebug] = useState<DebugInfo | null>(null);
   const [suggestedProducts, setSuggestedProducts] = useState<string[]>([]);
+
+  // Preview mode state
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [previewKey, setPreviewKey] = useState(0); // used to force iframe reload
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Debug panel
   const [debugOpen, setDebugOpen] = useState(true);
@@ -251,30 +263,162 @@ export default function FunnelPlaygroundPage() {
     error: 'Failed',
   };
 
+  const previewUrl = `${BACKEND}/quiz/style-profile`;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <FlaskConical size={20} style={{ color: ACCENT }} />
-        <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-          Playground
-        </h2>
-        <span
-          style={{
-            fontSize: '10px',
-            fontWeight: 600,
-            color: ACCENT,
-            backgroundColor: `${ACCENT}18`,
-            padding: '2px 8px',
-            borderRadius: '4px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-          }}
-        >
-          Debug
-        </span>
+      {/* ── Header with mode tabs ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <FlaskConical size={20} style={{ color: ACCENT }} />
+          <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+            Playground
+          </h2>
+        </div>
+        <div style={{ display: 'flex', gap: '0', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-primary)', padding: '3px' }}>
+          <button
+            onClick={() => setMode('preview')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '7px 16px', fontSize: '12px', fontWeight: mode === 'preview' ? 600 : 400,
+              color: mode === 'preview' ? ACCENT : 'var(--text-tertiary)',
+              backgroundColor: mode === 'preview' ? 'var(--bg-primary)' : 'transparent',
+              border: 'none', borderRadius: '6px', cursor: 'pointer',
+              transition: 'all 150ms',
+            }}
+          >
+            <Eye size={14} /> Customer Preview
+          </button>
+          <button
+            onClick={() => setMode('debug')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '7px 16px', fontSize: '12px', fontWeight: mode === 'debug' ? 600 : 400,
+              color: mode === 'debug' ? ACCENT : 'var(--text-tertiary)',
+              backgroundColor: mode === 'debug' ? 'var(--bg-primary)' : 'transparent',
+              border: 'none', borderRadius: '6px', cursor: 'pointer',
+              transition: 'all 150ms',
+            }}
+          >
+            <Cpu size={14} /> Backend Debug
+          </button>
+        </div>
       </div>
 
+      {/* ═══════ CUSTOMER PREVIEW MODE ═══════ */}
+      {mode === 'preview' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Preview toolbar */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 16px', backgroundColor: 'var(--bg-primary)',
+            border: '1px solid var(--border-primary)', borderRadius: '10px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Device:</span>
+              <div style={{ display: 'flex', gap: '2px', padding: '2px', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                <button
+                  onClick={() => setPreviewDevice('desktop')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    padding: '4px 10px', fontSize: '11px', fontWeight: 500,
+                    color: previewDevice === 'desktop' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                    backgroundColor: previewDevice === 'desktop' ? 'var(--bg-primary)' : 'transparent',
+                    border: 'none', borderRadius: '4px', cursor: 'pointer',
+                  }}
+                >
+                  <Monitor size={12} /> Desktop
+                </button>
+                <button
+                  onClick={() => setPreviewDevice('mobile')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    padding: '4px 10px', fontSize: '11px', fontWeight: 500,
+                    color: previewDevice === 'mobile' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                    backgroundColor: previewDevice === 'mobile' ? 'var(--bg-primary)' : 'transparent',
+                    border: 'none', borderRadius: '4px', cursor: 'pointer',
+                  }}
+                >
+                  <Smartphone size={12} /> Mobile
+                </button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => setPreviewKey(k => k + 1)}
+                title="Restart quiz"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  padding: '5px 12px', fontSize: '11px', fontWeight: 500,
+                  color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-primary)', borderRadius: '6px', cursor: 'pointer',
+                }}
+              >
+                <RotateCw size={12} /> Restart
+              </button>
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  padding: '5px 12px', fontSize: '11px', fontWeight: 500,
+                  color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-primary)', borderRadius: '6px', cursor: 'pointer',
+                  textDecoration: 'none',
+                }}
+              >
+                <ExternalLink size={12} /> Open in new tab
+              </a>
+            </div>
+          </div>
+
+          {/* Preview frame */}
+          <div style={{
+            display: 'flex', justifyContent: 'center',
+            backgroundColor: previewDevice === 'mobile' ? 'var(--bg-secondary)' : 'transparent',
+            borderRadius: '12px',
+            padding: previewDevice === 'mobile' ? '20px' : '0',
+          }}>
+            <div style={{
+              width: previewDevice === 'mobile' ? '390px' : '100%',
+              height: previewDevice === 'mobile' ? '844px' : 'calc(100vh - 180px)',
+              border: previewDevice === 'mobile'
+                ? '8px solid #1a1a1a'
+                : '1px solid var(--border-primary)',
+              borderRadius: previewDevice === 'mobile' ? '40px' : '10px',
+              overflow: 'hidden',
+              backgroundColor: '#FAF8F5',
+              position: 'relative',
+              boxShadow: previewDevice === 'mobile'
+                ? '0 20px 60px rgba(0,0,0,0.15), inset 0 0 0 2px rgba(255,255,255,0.1)'
+                : 'none',
+            }}>
+              {/* Notch for mobile */}
+              {previewDevice === 'mobile' && (
+                <div style={{
+                  position: 'absolute', top: '0', left: '50%', transform: 'translateX(-50%)',
+                  width: '150px', height: '30px', backgroundColor: '#1a1a1a',
+                  borderRadius: '0 0 20px 20px', zIndex: 10,
+                }} />
+              )}
+              <iframe
+                key={previewKey}
+                ref={iframeRef}
+                src={previewUrl}
+                style={{
+                  width: '100%', height: '100%', border: 'none',
+                  backgroundColor: '#FAF8F5',
+                }}
+                title="Quiz Funnel Preview"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════ BACKEND DEBUG MODE ═══════ */}
+      {mode === 'debug' && (
       <div style={{ display: 'grid', gridTemplateColumns: debugOpen ? '1fr 420px' : '1fr', gap: '20px' }}>
         {/* ── Left: Controls + Result ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -834,6 +978,7 @@ export default function FunnelPlaygroundPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Spin keyframe */}
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>

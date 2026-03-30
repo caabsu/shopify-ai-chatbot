@@ -175,6 +175,9 @@ export default function ProductPoolsPage() {
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [allIndoorHandles, setAllIndoorHandles] = useState<Set<string>>(new Set());
 
+  // Expanded collection (shows all products in a collection)
+  const [expandedCollection, setExpandedCollection] = useState<string | null>(null);
+
   // Pool state
   const [pools, setPools] = useState<ProductPool[]>([]);
   const [poolsLoading, setPoolsLoading] = useState(true);
@@ -407,20 +410,33 @@ export default function ProductPoolsPage() {
     return topKey ? { key: topKey, score: topScore } : null;
   }
 
-  // Get top 4 best-selling products for a mood+collection combo
-  function getMoodCollectionProducts(moodKey: string, collectionHandle: string): Array<CollectionProduct & { moodScore: number }> {
+  // Get best-selling products for a mood+collection combo (tagged Yes for this mood)
+  function getMoodCollectionProducts(moodKey: string, collectionHandle: string, limit = 4): Array<CollectionProduct & { moodScore: number }> {
     const col = collections[collectionHandle];
     if (!col) return [];
     // Products are already sorted by best-selling rank from Shopify
-    // Filter to those with a meaningful mood score, keep best-selling order
+    // Binary: score >= 0.5 = Yes (tagged for this mood)
     return col.products
       .map(p => {
         const tag = moodTags[p.handle];
         const score = tag?.mood_scores?.[moodKey] ?? 0;
         return { ...p, moodScore: score };
       })
-      .filter(p => p.moodScore >= 0.2)
-      .slice(0, 4);
+      .filter(p => p.moodScore >= 0.5)
+      .slice(0, limit);
+  }
+
+  // Get ALL products in a collection with their tag status
+  function getCollectionAllProducts(collectionHandle: string): Array<CollectionProduct & { taggedMoods: string[] }> {
+    const col = collections[collectionHandle];
+    if (!col) return [];
+    return col.products.map(p => {
+      const tag = moodTags[p.handle];
+      const taggedMoods = tag?.mood_scores
+        ? Object.entries(tag.mood_scores).filter(([, v]) => v >= 0.5).map(([k]) => k)
+        : [];
+      return { ...p, taggedMoods };
+    });
   }
 
   async function startBatchTagging(force = false) {
@@ -897,34 +913,118 @@ export default function ProductPoolsPage() {
                                   const col = collections[colHandle];
                                   if (!col) return null;
                                   const products = getMoodCollectionProducts(key, colHandle);
+                                  const expandKey = `${key}__${colHandle}`;
+                                  const isExpanded = expandedCollection === expandKey;
+                                  const allProducts = isExpanded ? getCollectionAllProducts(colHandle) : [];
                                   return (
                                     <div key={colHandle}>
-                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{col.label}</span>
-                                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                                          {products.length > 0 ? `${products.length} best sellers` : 'no matches'}
+                                      <div
+                                        onClick={() => setExpandedCollection(isExpanded ? null : expandKey)}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', cursor: 'pointer', userSelect: 'none' }}
+                                      >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <ChevronRight size={12} style={{
+                                            color: 'var(--text-tertiary)', transition: 'transform 150ms',
+                                            transform: isExpanded ? 'rotate(90deg)' : 'none',
+                                          }} />
+                                          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{col.label}</span>
+                                          <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>({col.products.length})</span>
+                                        </div>
+                                        <span style={{ fontSize: '10px', color: isExpanded ? moodColor : 'var(--text-tertiary)' }}>
+                                          {isExpanded ? 'showing all' : products.length > 0 ? `${products.length} tagged` : 'no matches'}
                                         </span>
                                       </div>
-                                      {products.length > 0 ? (
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                                          {products.map((p, idx) => (
-                                            <CollectionProductCard
-                                              key={p.handle}
-                                              product={p}
-                                              rank={idx + 1}
-                                              moodKey={key}
-                                              moodColor={moodColor}
-                                              moodTag={moodTags[p.handle]}
-                                              onSelect={() => {
-                                                const cat = catalog.find(c => c.handle === p.handle);
-                                                if (cat) openProductDetail(cat);
-                                              }}
-                                            />
-                                          ))}
-                                        </div>
+                                      {!isExpanded ? (
+                                        products.length > 0 ? (
+                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                                            {products.map((p, idx) => (
+                                              <CollectionProductCard
+                                                key={p.handle}
+                                                product={p}
+                                                rank={idx + 1}
+                                                moodKey={key}
+                                                moodColor={moodColor}
+                                                moodTag={moodTags[p.handle]}
+                                                onSelect={() => {
+                                                  const cat = catalog.find(c => c.handle === p.handle);
+                                                  if (cat) openProductDetail(cat);
+                                                }}
+                                              />
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <div style={{ padding: '12px', textAlign: 'center', fontSize: '11px', color: 'var(--text-tertiary)', border: '1px dashed var(--border-primary)', borderRadius: '6px' }}>
+                                            No products tagged for this mood — run AI categorization
+                                          </div>
+                                        )
                                       ) : (
-                                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '11px', color: 'var(--text-tertiary)', border: '1px dashed var(--border-primary)', borderRadius: '6px' }}>
-                                          No products match this mood — run AI categorization
+                                        /* Expanded: show ALL products in this collection */
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px' }}>
+                                          {allProducts.map((p, idx) => {
+                                            const isTaggedForMood = p.taggedMoods.includes(key);
+                                            return (
+                                              <div
+                                                key={p.handle}
+                                                onClick={() => {
+                                                  const cat = catalog.find(c => c.handle === p.handle);
+                                                  if (cat) openProductDetail(cat);
+                                                }}
+                                                style={{
+                                                  cursor: 'pointer', border: `1px solid ${isTaggedForMood ? `${moodColor}60` : 'var(--border-primary)'}`,
+                                                  borderRadius: '6px', overflow: 'hidden', transition: 'border-color 150ms',
+                                                  opacity: isTaggedForMood ? 1 : 0.6, position: 'relative',
+                                                }}
+                                                onMouseOver={(e) => { e.currentTarget.style.borderColor = moodColor; e.currentTarget.style.opacity = '1'; }}
+                                                onMouseOut={(e) => { e.currentTarget.style.borderColor = isTaggedForMood ? `${moodColor}60` : 'var(--border-primary)'; e.currentTarget.style.opacity = isTaggedForMood ? '1' : '0.6'; }}
+                                              >
+                                                {/* Rank badge */}
+                                                <div style={{
+                                                  position: 'absolute', top: '4px', left: '4px', zIndex: 2,
+                                                  width: '16px', height: '16px', borderRadius: '50%',
+                                                  backgroundColor: idx < 2 ? '#f59e0b' : 'rgba(0,0,0,0.4)',
+                                                  color: '#fff', fontSize: '8px', fontWeight: 700,
+                                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                }}>
+                                                  {idx + 1}
+                                                </div>
+                                                {/* Tagged badge */}
+                                                {isTaggedForMood && (
+                                                  <div style={{
+                                                    position: 'absolute', top: '4px', right: '4px', zIndex: 2,
+                                                    padding: '1px 5px', borderRadius: '3px', fontSize: '7px', fontWeight: 700,
+                                                    backgroundColor: moodColor, color: '#fff', textTransform: 'uppercase',
+                                                  }}>
+                                                    Yes
+                                                  </div>
+                                                )}
+                                                {p.image ? (
+                                                  <img src={p.image} alt={p.title} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} loading="lazy" />
+                                                ) : (
+                                                  <div style={{ width: '100%', aspectRatio: '1', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <ImageIcon size={16} style={{ color: 'var(--text-tertiary)' }} />
+                                                  </div>
+                                                )}
+                                                <div style={{ padding: '5px 7px' }}>
+                                                  <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>
+                                                    {p.title}
+                                                  </div>
+                                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>{p.price}</span>
+                                                    {p.taggedMoods.length > 0 && (
+                                                      <div style={{ display: 'flex', gap: '2px' }}>
+                                                        {p.taggedMoods.slice(0, 3).map(mk => (
+                                                          <div key={mk} title={MOOD_LABELS[mk] || mk} style={{
+                                                            width: '6px', height: '6px', borderRadius: '50%',
+                                                            backgroundColor: MOOD_COLORS[mk] || '#999',
+                                                          }} />
+                                                        ))}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
                                         </div>
                                       )}
                                     </div>
@@ -1622,11 +1722,9 @@ function CollectionProductCard({
   moodTag?: MoodTag;
   onSelect: () => void;
 }) {
-  // Get all moods this product is tagged with (score >= 0.4)
+  // Get all moods this product is tagged Yes for (score >= 0.5)
   const taggedMoods = moodTag
-    ? Object.entries(moodTag.mood_scores)
-        .filter(([, v]) => v >= 0.4)
-        .sort((a, b) => b[1] - a[1])
+    ? Object.entries(moodTag.mood_scores).filter(([, v]) => v >= 0.5).map(([k]) => k)
     : [];
 
   return (
@@ -1650,16 +1748,16 @@ function CollectionProductCard({
         {rank}
       </div>
 
-      {/* Tag status indicator */}
-      {moodTag && (
+      {/* Tag status dots */}
+      {taggedMoods.length > 0 && (
         <div style={{
           position: 'absolute', top: '6px', right: '6px', zIndex: 2,
           display: 'flex', gap: '2px',
         }}>
-          {taggedMoods.slice(0, 3).map(([k]) => (
+          {taggedMoods.slice(0, 4).map((k) => (
             <div
               key={k}
-              title={`${MOOD_LABELS[k] || k}: ${Math.round((moodTag.mood_scores[k] || 0) * 100)}%`}
+              title={MOOD_LABELS[k] || k}
               style={{
                 width: '8px', height: '8px', borderRadius: '50%',
                 backgroundColor: k === moodKey ? moodColor : (MOOD_COLORS[k] || '#999'),
@@ -1683,29 +1781,23 @@ function CollectionProductCard({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
           <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{product.price}</span>
-          <span style={{
-            fontSize: '10px', fontWeight: 600,
-            color: product.moodScore >= 0.7 ? moodColor : product.moodScore >= 0.4 ? '#f59e0b' : 'var(--text-tertiary)',
-          }}>
-            {Math.round(product.moodScore * 100)}%
-          </span>
         </div>
-        {/* Mood tag chips - easy to recognize */}
+        {/* Mood tag chips - Yes-tagged moods only */}
         {taggedMoods.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px', marginTop: '2px' }}>
-            {taggedMoods.slice(0, 2).map(([k, v]) => (
+            {taggedMoods.slice(0, 3).map((k) => (
               <span key={k} style={{
                 fontSize: '8px', fontWeight: 600, padding: '1px 5px', borderRadius: '3px',
                 backgroundColor: k === moodKey ? `${moodColor}20` : 'var(--bg-tertiary)',
                 color: k === moodKey ? moodColor : 'var(--text-tertiary)',
                 textTransform: 'uppercase', letterSpacing: '0.02em',
               }}>
-                {(MOOD_LABELS[k] || k).split(' ')[0]} {Math.round(v * 100)}
+                {(MOOD_LABELS[k] || k).split(' ')[0]}
               </span>
             ))}
-            {taggedMoods.length > 2 && (
+            {taggedMoods.length > 3 && (
               <span style={{ fontSize: '8px', color: 'var(--text-tertiary)', padding: '1px 3px' }}>
-                +{taggedMoods.length - 2}
+                +{taggedMoods.length - 3}
               </span>
             )}
           </div>
@@ -1718,14 +1810,6 @@ function CollectionProductCard({
 // ── Catalog Card (all-products grid view) ───────────────────────────────────
 
 function CatalogCard({ product, moodTag, onSelect }: { product: CatalogProduct; moodTag?: MoodTag; onSelect: () => void }) {
-  // Find top mood
-  let topMood: { key: string; score: number } | null = null;
-  if (moodTag?.mood_scores) {
-    for (const [k, v] of Object.entries(moodTag.mood_scores)) {
-      if (!topMood || v > topMood.score) topMood = { key: k, score: v };
-    }
-  }
-
   return (
     <div
       onClick={onSelect}
@@ -1776,15 +1860,15 @@ function CatalogCard({ product, moodTag, onSelect }: { product: CatalogProduct; 
         <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>
           {product.price}{product.price !== product.maxPrice ? ` – ${product.maxPrice}` : ''}
         </div>
-        {/* Mood tags - color-coded chips */}
+        {/* Mood tags - binary Yes chips */}
         {moodTag?.mood_scores && (() => {
           const moods = Object.entries(moodTag.mood_scores)
-            .filter(([, v]) => v >= 0.4)
-            .sort((a, b) => b[1] - a[1])
+            .filter(([, v]) => v >= 0.5)
+            .map(([k]) => k)
             .slice(0, 3);
           return moods.length > 0 ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: '4px' }}>
-              {moods.map(([k, v]) => (
+              {moods.map((k) => (
                 <span key={k} style={{
                   fontSize: '8px', fontWeight: 600, padding: '2px 6px', borderRadius: '3px',
                   backgroundColor: `${MOOD_COLORS[k] || '#999'}20`,
@@ -1792,7 +1876,7 @@ function CatalogCard({ product, moodTag, onSelect }: { product: CatalogProduct; 
                   display: 'flex', alignItems: 'center', gap: '3px',
                 }}>
                   <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: MOOD_COLORS[k] || '#999' }} />
-                  {(MOOD_LABELS[k] || k).split(' ')[0]} {Math.round(v * 100)}
+                  {MOOD_LABELS[k] || k}
                 </span>
               ))}
             </div>
@@ -1820,13 +1904,6 @@ function CatalogCard({ product, moodTag, onSelect }: { product: CatalogProduct; 
 // ── Catalog Row (list view) ─────────────────────────────────────────────────
 
 function CatalogRow({ product, moodTag, onSelect }: { product: CatalogProduct; moodTag?: MoodTag; onSelect: () => void }) {
-  let topMood: { key: string; score: number } | null = null;
-  if (moodTag?.mood_scores) {
-    for (const [k, v] of Object.entries(moodTag.mood_scores)) {
-      if (!topMood || v > topMood.score) topMood = { key: k, score: v };
-    }
-  }
-
   return (
     <div
       onClick={onSelect}
@@ -1854,14 +1931,14 @@ function CatalogRow({ product, moodTag, onSelect }: { product: CatalogProduct; m
           {product.handle}
         </div>
       </div>
-      {/* Mood chips */}
+      {/* Mood chips - binary Yes tags */}
       <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
         {moodTag?.mood_scores ? (() => {
           const moods = Object.entries(moodTag.mood_scores)
-            .filter(([, v]) => v >= 0.4)
-            .sort((a, b) => b[1] - a[1])
+            .filter(([, v]) => v >= 0.5)
+            .map(([k]) => k)
             .slice(0, 3);
-          return moods.length > 0 ? moods.map(([k, v]) => (
+          return moods.length > 0 ? moods.map((k) => (
             <span key={k} style={{
               fontSize: '9px', fontWeight: 600, padding: '2px 7px', borderRadius: '4px',
               backgroundColor: `${MOOD_COLORS[k] || '#999'}18`,
@@ -1869,7 +1946,7 @@ function CatalogRow({ product, moodTag, onSelect }: { product: CatalogProduct; m
               display: 'flex', alignItems: 'center', gap: '3px',
             }}>
               <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: MOOD_COLORS[k] || '#999' }} />
-              {(MOOD_LABELS[k] || k).split(' ')[0]} {Math.round(v * 100)}
+              {MOOD_LABELS[k] || k}
             </span>
           )) : <Circle size={13} style={{ color: 'var(--border-primary)' }} />;
         })() : <Circle size={13} style={{ color: 'var(--border-primary)' }} />}
@@ -2046,34 +2123,55 @@ function ProductDetailPanel({
                 </select>
               </div>
 
-              {/* Mood scores */}
+              {/* Mood tags - Yes/No toggles */}
               <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Mood Scores
+                Mood Tags
               </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {ALL_MOOD_KEYS.map((key) => {
-                  const val = scores[key] ?? 0;
-                  const pct = Math.round(val * 100);
+                  const isOn = (scores[key] ?? 0) >= 0.5;
+                  const moodColor = MOOD_COLORS[key] || '#10b981';
                   return (
-                    <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '12px', color: 'var(--text-primary)', fontWeight: 500, minWidth: '120px' }}>
+                    <div
+                      key={key}
+                      onClick={() => onScoreChange(key, isOn ? 0 : 1)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '8px 12px', borderRadius: '7px', cursor: 'pointer',
+                        backgroundColor: isOn ? `${moodColor}10` : 'var(--bg-secondary)',
+                        border: `1px solid ${isOn ? `${moodColor}40` : 'var(--border-primary)'}`,
+                        transition: 'all 150ms',
+                      }}
+                    >
+                      <div style={{
+                        width: '8px', height: '8px', borderRadius: '50%',
+                        backgroundColor: moodColor, flexShrink: 0,
+                      }} />
+                      <span style={{
+                        fontSize: '13px', fontWeight: 500, flex: 1,
+                        color: isOn ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                      }}>
                         {MOOD_LABELS[key] || key}
                       </span>
-                      <div style={{ flex: 1, position: 'relative' }}>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={pct}
-                          onChange={(e) => onScoreChange(key, parseInt(e.target.value) / 100)}
-                          style={{ width: '100%', accentColor: '#10b981', cursor: 'pointer' }}
-                        />
+                      {/* Toggle switch */}
+                      <div style={{
+                        width: '36px', height: '20px', borderRadius: '10px',
+                        backgroundColor: isOn ? moodColor : 'var(--bg-tertiary)',
+                        position: 'relative', transition: 'background-color 150ms', flexShrink: 0,
+                      }}>
+                        <div style={{
+                          width: '16px', height: '16px', borderRadius: '50%',
+                          backgroundColor: '#fff', position: 'absolute', top: '2px',
+                          left: isOn ? '18px' : '2px',
+                          transition: 'left 150ms',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                        }} />
                       </div>
                       <span style={{
-                        fontSize: '11px', fontWeight: 600, minWidth: '36px', textAlign: 'right',
-                        color: pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : 'var(--text-tertiary)',
+                        fontSize: '11px', fontWeight: 600, minWidth: '24px', textAlign: 'right',
+                        color: isOn ? moodColor : 'var(--text-tertiary)',
                       }}>
-                        {pct}%
+                        {isOn ? 'Yes' : 'No'}
                       </span>
                     </div>
                   );
