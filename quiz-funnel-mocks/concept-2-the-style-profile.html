@@ -1606,66 +1606,62 @@ window.showToast=function(msg){var t=document.getElementById('toast');t.textCont
 </script>
 <script src="/quiz-assets/quiz-tracker.js"></script>
 <script>
-QuizTracker.init({ concept: 'style-profile' });
+try { QuizTracker.init({ concept: 'style-profile' }); } catch(e) {}
 (function(){
   var _orig = window.goToScreen;
   var _prevScreen = 'screen-landing';
   window.goToScreen = function(id) {
-    QuizTracker.stepComplete(_prevScreen, null);
+    try { QuizTracker.stepComplete(_prevScreen, null); } catch(e) {}
     _orig(id);
-    QuizTracker.stepEnter(id);
-    _prevScreen = id;
-    if (id === 'screen-reveal') QuizTracker.complete();
+    try { QuizTracker.stepEnter(id); _prevScreen = id; if (id === 'screen-reveal') QuizTracker.complete(); } catch(e) {}
   };
   var _origChip = window.selectChip;
   window.selectChip = function(el) {
-    QuizTracker.answer('who', el.dataset.val);
+    try { QuizTracker.answer('who', el.dataset.val); } catch(e) {}
     _origChip(el);
   };
   var _origTrack = window.selectTrack;
   window.selectTrack = function(el, track) {
-    QuizTracker.answer('track', track);
+    try { QuizTracker.answer('track', track); } catch(e) {}
     _origTrack(el, track);
   };
   var _origIntensity = window.selectIntensity;
   window.selectIntensity = function(el, val) {
-    QuizTracker.answer('intensity', val);
+    try { QuizTracker.answer('intensity', val); } catch(e) {}
     _origIntensity(el, val);
   };
   var _origConfirmProducts = window.confirmProductSelection;
   window.confirmProductSelection = function(mode) {
-    QuizTracker.answer('selectionMode', mode || selectionMode || 'ai');
-    if (selectedProducts && selectedProducts.length > 0) {
-      QuizTracker.answer('selectedProducts', selectedProducts.join(','));
-    }
+    try { QuizTracker.answer('selectionMode', mode || 'ai'); } catch(e) {}
     _origConfirmProducts(mode);
     setTimeout(function() {
-      var nameEl = document.getElementById('checkpoint-name');
-      if (nameEl && nameEl.textContent) {
-        QuizTracker.profileResult(
-          nameEl.textContent.toLowerCase().replace(/\s+/g, '-'),
-          nameEl.textContent
-        );
-      }
+      try {
+        var nameEl = document.getElementById('checkpoint-name');
+        if (nameEl && nameEl.textContent) {
+          QuizTracker.profileResult(
+            nameEl.textContent.toLowerCase().replace(/\s+/g, '-'),
+            nameEl.textContent
+          );
+        }
+      } catch(e) {}
     }, 100);
   };
   var _origUpload = window.handlePhotoSelect;
   window.handlePhotoSelect = function(e) {
-    QuizTracker.photoUpload();
+    try { QuizTracker.photoUpload(); } catch(e) {}
     _origUpload(e);
   };
   var _origEmail = window.handleEmail;
   window.handleEmail = function(e) {
-    var input = e.target.querySelector('input[type="email"]');
-    if (input && input.value) QuizTracker.emailCapture(input.value);
+    try { var input = e.target.querySelector('input[type="email"]'); if (input && input.value) QuizTracker.emailCapture(input.value); } catch(e) {}
     _origEmail(e);
   };
   var _origCart = window.addToCart;
   window.addToCart = function(btn) {
-    QuizTracker.cartAdd('product');
+    try { QuizTracker.cartAdd('product'); } catch(e) {}
     _origCart(btn);
   };
-  QuizTracker.stepEnter('screen-landing');
+  try { QuizTracker.stepEnter('screen-landing'); } catch(e) {}
 })();
 </script>
 </body>
