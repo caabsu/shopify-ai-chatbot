@@ -779,6 +779,116 @@ quizRouter.get('/catalog', async (req, res) => {
   }
 });
 
+// GET /api/quiz/collections — Fetch products from specific indoor collections, sorted by BEST_SELLING
+const INDOOR_COLLECTIONS = [
+  { handle: 'floor-table-lamps', label: 'Floor Lamps', type: 'floor_lamp' },
+  { handle: 'desk-lamp', label: 'Desk Lamps', type: 'desk_lamp' },
+  { handle: 'indoor-wall-lights', label: 'Indoor Wall Lights', type: 'wall_sconce' },
+  { handle: 'chandeliers', label: 'Chandeliers', type: 'chandelier' },
+  { handle: 'pendant-lights', label: 'Pendant Lights', type: 'pendant' },
+];
+
+quizRouter.get('/collections', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { graphql } = await import('../services/shopify-admin.service.js');
+
+    const collections: Record<string, {
+      label: string;
+      type: string;
+      products: Array<{
+        handle: string;
+        title: string;
+        image: string;
+        price: string;
+        bestSellerRank: number;
+      }>;
+    }> = {};
+
+    for (const col of INDOOR_COLLECTIONS) {
+      let allProducts: Array<{ handle: string; title: string; image: string; price: string }> = [];
+      let cursor: string | null = null;
+      let hasNext = true;
+
+      while (hasNext) {
+        const data: {
+          collectionByHandle: {
+            products: {
+              edges: Array<{
+                node: {
+                  title: string;
+                  handle: string;
+                  featuredImage: { url: string } | null;
+                  priceRange: { minVariantPrice: { amount: string; currencyCode: string } };
+                };
+              }>;
+              pageInfo: { hasNextPage: boolean; endCursor: string | null };
+            };
+          } | null;
+        } = await graphql(
+          `query($handle: String!, $cursor: String) {
+            collectionByHandle(handle: $handle) {
+              products(first: 50, after: $cursor, sortKey: BEST_SELLING) {
+                edges {
+                  node {
+                    title
+                    handle
+                    featuredImage { url }
+                    priceRange { minVariantPrice { amount currencyCode } }
+                  }
+                }
+                pageInfo { hasNextPage endCursor }
+              }
+            }
+          }`,
+          { handle: col.handle, cursor },
+          brandId,
+        );
+
+        if (!data.collectionByHandle) break;
+
+        for (const edge of data.collectionByHandle.products.edges) {
+          const n = edge.node;
+          const amt = parseFloat(n.priceRange.minVariantPrice.amount);
+          const cur = n.priceRange.minVariantPrice.currencyCode;
+          allProducts.push({
+            handle: n.handle,
+            title: n.title,
+            image: n.featuredImage?.url || '',
+            price: `${cur === 'USD' ? '$' : cur + ' '}${amt % 1 === 0 ? amt.toFixed(0) : amt.toFixed(2)}`,
+          });
+        }
+
+        hasNext = data.collectionByHandle.products.pageInfo.hasNextPage;
+        cursor = data.collectionByHandle.products.pageInfo.endCursor;
+      }
+
+      collections[col.handle] = {
+        label: col.label,
+        type: col.type,
+        products: allProducts.map((p, i) => ({ ...p, bestSellerRank: i + 1 })),
+      };
+    }
+
+    // Build a set of all valid indoor handles
+    const allHandles = new Set<string>();
+    for (const col of Object.values(collections)) {
+      for (const p of col.products) allHandles.add(p.handle);
+    }
+
+    res.json({
+      collections,
+      allHandles: Array.from(allHandles),
+      collectionMeta: INDOOR_COLLECTIONS,
+      synced_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] GET /collections error:', message);
+    res.status(500).json({ error: 'Failed to fetch collections' });
+  }
+});
+
 // ── Config ───────────────────────────────────────────────────────────────────
 
 // GET /api/quiz/config — Get all quiz config

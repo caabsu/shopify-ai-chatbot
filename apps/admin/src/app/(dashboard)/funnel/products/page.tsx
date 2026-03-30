@@ -98,7 +98,37 @@ interface MoodTag {
   product_type: string | null;
   mood_scores: Record<string, number>;
   tagged_at: string;
+  tagged_by?: string;
 }
+
+interface CollectionProduct {
+  handle: string;
+  title: string;
+  image: string;
+  price: string;
+  bestSellerRank: number;
+}
+
+interface CollectionData {
+  label: string;
+  type: string;
+  products: CollectionProduct[];
+}
+
+const INDOOR_COLLECTION_HANDLES = [
+  'floor-table-lamps', 'desk-lamp', 'indoor-wall-lights', 'chandeliers', 'pendant-lights',
+];
+
+const MOOD_COLORS: Record<string, string> = {
+  'golden-nook': '#c8a060',
+  'layered-warmth': '#d4956a',
+  'soft-modern': '#8cb4c0',
+  'quiet-glow': '#c4b8a0',
+  'gilded-evening': '#c8a040',
+  'deep-amber': '#7a5530',
+  'foundry-glow': '#8a7060',
+  'midnight-warmth': '#6a3040',
+};
 
 interface TaggingStatus {
   total: number;
@@ -139,6 +169,11 @@ export default function ProductPoolsPage() {
 
   // Collection view mode
   const [catalogViewMode, setCatalogViewMode] = useState<'all' | 'collections'>('collections');
+
+  // Shopify collections (best-selling sorted)
+  const [collections, setCollections] = useState<Record<string, CollectionData>>({});
+  const [collectionsLoading, setCollectionsLoading] = useState(false);
+  const [allIndoorHandles, setAllIndoorHandles] = useState<Set<string>>(new Set());
 
   // Pool state
   const [pools, setPools] = useState<ProductPool[]>([]);
@@ -256,6 +291,38 @@ export default function ProductPoolsPage() {
 
   useEffect(() => { fetchMoodTags(); }, [fetchMoodTags]);
 
+  // ── Load Shopify collections (best-selling sorted) ─────��───
+  const fetchCollections = useCallback(async () => {
+    setCollectionsLoading(true);
+    try {
+      // Check localStorage cache first
+      const cached = localStorage.getItem('quiz_collections');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          // Use cache if less than 1 hour old
+          if (parsed.synced_at && Date.now() - new Date(parsed.synced_at).getTime() < 3600000) {
+            setCollections(parsed.collections || {});
+            setAllIndoorHandles(new Set(parsed.allHandles || []));
+            setCollectionsLoading(false);
+            return;
+          }
+        } catch { /* ignore */ }
+      }
+      const res = await fetch(`${BASE}/api/quiz/collections`);
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      const data = await res.json();
+      setCollections(data.collections || {});
+      setAllIndoorHandles(new Set(data.allHandles || []));
+      localStorage.setItem('quiz_collections', JSON.stringify(data));
+    } catch (err) {
+      console.error('Failed to load collections:', err);
+    }
+    setCollectionsLoading(false);
+  }, []);
+
+  useEffect(() => { fetchCollections(); }, [fetchCollections]);
+
   // Re-fetch mood tags when tagging completes
   useEffect(() => {
     if (moodTagsLoaded && taggingStatus && !taggingStatus.inProgress) {
@@ -340,16 +407,19 @@ export default function ProductPoolsPage() {
     return topKey ? { key: topKey, score: topScore } : null;
   }
 
-  // Get products for a specific mood key, sorted by score descending, limited to 4
-  function getCollectionProducts(moodKey: string): Array<CatalogProduct & { moodScore: number }> {
-    return catalog
+  // Get top 4 best-selling products for a mood+collection combo
+  function getMoodCollectionProducts(moodKey: string, collectionHandle: string): Array<CollectionProduct & { moodScore: number }> {
+    const col = collections[collectionHandle];
+    if (!col) return [];
+    // Products are already sorted by best-selling rank from Shopify
+    // Filter to those with a meaningful mood score, keep best-selling order
+    return col.products
       .map(p => {
         const tag = moodTags[p.handle];
         const score = tag?.mood_scores?.[moodKey] ?? 0;
         return { ...p, moodScore: score };
       })
-      .filter(p => p.moodScore >= 0.3)
-      .sort((a, b) => b.moodScore - a.moodScore)
+      .filter(p => p.moodScore >= 0.2)
       .slice(0, 4);
   }
 
@@ -393,6 +463,12 @@ export default function ProductPoolsPage() {
     }
     return items;
   }, [catalog, catalogSearch, catalogTypeFilter]);
+
+  // Filter catalog to only indoor products
+  const indoorCatalog = useMemo(() => {
+    if (allIndoorHandles.size === 0) return filteredCatalog;
+    return filteredCatalog.filter(p => allIndoorHandles.has(p.handle));
+  }, [filteredCatalog, allIndoorHandles]);
 
   // Modal filtered catalog
   const modalFilteredCatalog = useMemo(() => {
@@ -676,19 +752,36 @@ export default function ProductPoolsPage() {
                 )}
               </span>
             </div>
-            <button
-              onClick={syncCatalog}
-              disabled={catalogLoading}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
-                fontSize: '12px', fontWeight: 500, color: '#fff',
-                backgroundColor: catalogLoading ? '#9ca3af' : ACCENT,
-                border: 'none', borderRadius: '7px', cursor: catalogLoading ? 'not-allowed' : 'pointer',
-              }}
-            >
-              <RefreshCw size={13} style={{ animation: catalogLoading ? 'spin 1s linear infinite' : 'none' }} />
-              {catalogLoading ? 'Syncing...' : catalog.length > 0 ? 'Re-sync' : 'Sync from Shopify'}
-            </button>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                onClick={() => { localStorage.removeItem('quiz_collections'); fetchCollections(); }}
+                disabled={collectionsLoading}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
+                  fontSize: '12px', fontWeight: 500,
+                  color: collectionsLoading ? '#9ca3af' : 'var(--text-secondary)',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-primary)', borderRadius: '7px',
+                  cursor: collectionsLoading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <Layers size={13} style={{ animation: collectionsLoading ? 'spin 1s linear infinite' : 'none' }} />
+                {collectionsLoading ? 'Loading...' : 'Refresh Collections'}
+              </button>
+              <button
+                onClick={syncCatalog}
+                disabled={catalogLoading}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
+                  fontSize: '12px', fontWeight: 500, color: '#fff',
+                  backgroundColor: catalogLoading ? '#9ca3af' : ACCENT,
+                  border: 'none', borderRadius: '7px', cursor: catalogLoading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <RefreshCw size={13} style={{ animation: catalogLoading ? 'spin 1s linear infinite' : 'none' }} />
+                {catalogLoading ? 'Syncing...' : catalog.length > 0 ? 'Re-sync' : 'Sync from Shopify'}
+              </button>
+            </div>
           </div>
 
           {catalogError && (
@@ -765,72 +858,79 @@ export default function ProductPoolsPage() {
                   </button>
                 </div>
                 <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
-                  {filteredCatalog.length} shown
+                  {catalogViewMode === 'all' ? `${indoorCatalog.length} indoor` : `${Object.values(collections).reduce((s, c) => s + c.products.length, 0)} products`}
                 </span>
               </div>
 
-              {/* ── Collections View ── */}
+              {/* ── Collections View (by mood → by collection type → 4 best-selling) ── */}
               {catalogViewMode === 'collections' && !catalogSearch && !catalogTypeFilter ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                collectionsLoading ? (
+                  <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '14px' }}>
+                    <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 8px', display: 'block' }} />
+                    Loading collections...
+                  </div>
+                ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                   {VARIATION_GROUPS.map((group) => (
                     <div key={group.group}>
                       <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
                         {group.group}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '14px' }}>{group.subtitle}</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '16px' }}>{group.subtitle}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         {group.keys.map(({ key, label }) => {
-                          const products = getCollectionProducts(key);
+                          const moodColor = MOOD_COLORS[key] || ACCENT;
                           return (
-                            <div key={key} style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '14px 16px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{label}</span>
-                                  <span style={{ fontSize: '10px', color: ACCENT, fontWeight: 500 }}>{key}</span>
+                            <div key={key} style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', overflow: 'hidden' }}>
+                              {/* Mood header with color accent */}
+                              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: moodColor, flexShrink: 0 }} />
+                                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{label}</span>
+                                  <span style={{ fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '4px', backgroundColor: `${moodColor}18`, color: moodColor }}>{key}</span>
                                 </div>
-                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                  {products.length} product{products.length !== 1 ? 's' : ''} (top 4)
-                                </span>
                               </div>
-                              {products.length > 0 ? (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                                  {products.map((p) => (
-                                    <div
-                                      key={p.handle}
-                                      onClick={() => openProductDetail(p)}
-                                      style={{ cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '8px', overflow: 'hidden', transition: 'border-color 150ms' }}
-                                      onMouseOver={(e) => (e.currentTarget.style.borderColor = ACCENT)}
-                                      onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border-primary)')}
-                                    >
-                                      {p.image ? (
-                                        <img src={p.image} alt={p.title} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} loading="lazy" />
+
+                              {/* Collection rows */}
+                              <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                {INDOOR_COLLECTION_HANDLES.map((colHandle) => {
+                                  const col = collections[colHandle];
+                                  if (!col) return null;
+                                  const products = getMoodCollectionProducts(key, colHandle);
+                                  return (
+                                    <div key={colHandle}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{col.label}</span>
+                                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                          {products.length > 0 ? `${products.length} best sellers` : 'no matches'}
+                                        </span>
+                                      </div>
+                                      {products.length > 0 ? (
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                                          {products.map((p, idx) => (
+                                            <CollectionProductCard
+                                              key={p.handle}
+                                              product={p}
+                                              rank={idx + 1}
+                                              moodKey={key}
+                                              moodColor={moodColor}
+                                              moodTag={moodTags[p.handle]}
+                                              onSelect={() => {
+                                                const cat = catalog.find(c => c.handle === p.handle);
+                                                if (cat) openProductDetail(cat);
+                                              }}
+                                            />
+                                          ))}
+                                        </div>
                                       ) : (
-                                        <div style={{ width: '100%', aspectRatio: '1', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                          <ImageIcon size={20} style={{ color: 'var(--text-tertiary)' }} />
+                                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '11px', color: 'var(--text-tertiary)', border: '1px dashed var(--border-primary)', borderRadius: '6px' }}>
+                                          No products match this mood — run AI categorization
                                         </div>
                                       )}
-                                      <div style={{ padding: '8px 10px' }}>
-                                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>
-                                          {p.title}
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                          <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{p.price}</span>
-                                          <span style={{ fontSize: '10px', fontWeight: 600, color: ACCENT }}>{Math.round(p.moodScore * 100)}%</span>
-                                        </div>
-                                        {moodTags[p.handle]?.product_type && (
-                                          <span style={{ display: 'inline-block', marginTop: '3px', fontSize: '8px', fontWeight: 500, padding: '1px 5px', borderRadius: '3px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                                            {moodTags[p.handle].product_type}
-                                          </span>
-                                        )}
-                                      </div>
                                     </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-tertiary)', border: '1px dashed var(--border-primary)', borderRadius: '8px' }}>
-                                  No products tagged for this mood yet — run AI categorization above
-                                </div>
-                              )}
+                                  );
+                                })}
+                              </div>
                             </div>
                           );
                         })}
@@ -838,15 +938,16 @@ export default function ProductPoolsPage() {
                     </div>
                   ))}
                 </div>
+                )
               ) : catalogView === 'grid' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                  {filteredCatalog.map((p) => (
+                  {indoorCatalog.map((p) => (
                     <CatalogCard key={p.handle} product={p} moodTag={moodTags[p.handle]} onSelect={() => openProductDetail(p)} />
                   ))}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {filteredCatalog.map((p) => (
+                  {indoorCatalog.map((p) => (
                     <CatalogRow key={p.handle} product={p} moodTag={moodTags[p.handle]} onSelect={() => openProductDetail(p)} />
                   ))}
                 </div>
@@ -1509,6 +1610,113 @@ export default function ProductPoolsPage() {
 
 // ── Catalog Card (grid view) ────────────────────────────────────────────────
 
+// ── Collection Product Card (used in mood×collection grid) ──────────────────
+
+function CollectionProductCard({
+  product, rank, moodKey, moodColor, moodTag, onSelect,
+}: {
+  product: CollectionProduct & { moodScore: number };
+  rank: number;
+  moodKey: string;
+  moodColor: string;
+  moodTag?: MoodTag;
+  onSelect: () => void;
+}) {
+  // Get all moods this product is tagged with (score >= 0.4)
+  const taggedMoods = moodTag
+    ? Object.entries(moodTag.mood_scores)
+        .filter(([, v]) => v >= 0.4)
+        .sort((a, b) => b[1] - a[1])
+    : [];
+
+  return (
+    <div
+      onClick={onSelect}
+      style={{
+        cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '8px',
+        overflow: 'hidden', transition: 'border-color 150ms', position: 'relative',
+      }}
+      onMouseOver={(e) => (e.currentTarget.style.borderColor = moodColor)}
+      onMouseOut={(e) => (e.currentTarget.style.borderColor = 'var(--border-primary)')}
+    >
+      {/* Best-seller rank badge */}
+      <div style={{
+        position: 'absolute', top: '6px', left: '6px', zIndex: 2,
+        width: '20px', height: '20px', borderRadius: '50%',
+        backgroundColor: rank <= 2 ? '#f59e0b' : 'rgba(0,0,0,0.5)',
+        color: '#fff', fontSize: '10px', fontWeight: 700,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {rank}
+      </div>
+
+      {/* Tag status indicator */}
+      {moodTag && (
+        <div style={{
+          position: 'absolute', top: '6px', right: '6px', zIndex: 2,
+          display: 'flex', gap: '2px',
+        }}>
+          {taggedMoods.slice(0, 3).map(([k]) => (
+            <div
+              key={k}
+              title={`${MOOD_LABELS[k] || k}: ${Math.round((moodTag.mood_scores[k] || 0) * 100)}%`}
+              style={{
+                width: '8px', height: '8px', borderRadius: '50%',
+                backgroundColor: k === moodKey ? moodColor : (MOOD_COLORS[k] || '#999'),
+                border: '1.5px solid rgba(255,255,255,0.8)',
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {product.image ? (
+        <img src={product.image} alt={product.title} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} loading="lazy" />
+      ) : (
+        <div style={{ width: '100%', aspectRatio: '1', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <ImageIcon size={20} style={{ color: 'var(--text-tertiary)' }} />
+        </div>
+      )}
+      <div style={{ padding: '8px 10px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>
+          {product.title}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+          <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{product.price}</span>
+          <span style={{
+            fontSize: '10px', fontWeight: 600,
+            color: product.moodScore >= 0.7 ? moodColor : product.moodScore >= 0.4 ? '#f59e0b' : 'var(--text-tertiary)',
+          }}>
+            {Math.round(product.moodScore * 100)}%
+          </span>
+        </div>
+        {/* Mood tag chips - easy to recognize */}
+        {taggedMoods.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px', marginTop: '2px' }}>
+            {taggedMoods.slice(0, 2).map(([k, v]) => (
+              <span key={k} style={{
+                fontSize: '8px', fontWeight: 600, padding: '1px 5px', borderRadius: '3px',
+                backgroundColor: k === moodKey ? `${moodColor}20` : 'var(--bg-tertiary)',
+                color: k === moodKey ? moodColor : 'var(--text-tertiary)',
+                textTransform: 'uppercase', letterSpacing: '0.02em',
+              }}>
+                {(MOOD_LABELS[k] || k).split(' ')[0]} {Math.round(v * 100)}
+              </span>
+            ))}
+            {taggedMoods.length > 2 && (
+              <span style={{ fontSize: '8px', color: 'var(--text-tertiary)', padding: '1px 3px' }}>
+                +{taggedMoods.length - 2}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Catalog Card (all-products grid view) ───────────────────────────────────
+
 function CatalogCard({ product, moodTag, onSelect }: { product: CatalogProduct; moodTag?: MoodTag; onSelect: () => void }) {
   // Find top mood
   let topMood: { key: string; score: number } | null = null;
@@ -1568,17 +1776,28 @@ function CatalogCard({ product, moodTag, onSelect }: { product: CatalogProduct; 
         <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>
           {product.price}{product.price !== product.maxPrice ? ` – ${product.maxPrice}` : ''}
         </div>
-        {/* Top mood chip */}
-        {topMood && topMood.score > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-            <span style={{
-              fontSize: '9px', fontWeight: 500, padding: '2px 6px', borderRadius: '3px',
-              backgroundColor: `#10b98115`, color: '#10b981',
-            }}>
-              {topMood.key} · {Math.round(topMood.score * 100)}%
-            </span>
-          </div>
-        )}
+        {/* Mood tags - color-coded chips */}
+        {moodTag?.mood_scores && (() => {
+          const moods = Object.entries(moodTag.mood_scores)
+            .filter(([, v]) => v >= 0.4)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3);
+          return moods.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: '4px' }}>
+              {moods.map(([k, v]) => (
+                <span key={k} style={{
+                  fontSize: '8px', fontWeight: 600, padding: '2px 6px', borderRadius: '3px',
+                  backgroundColor: `${MOOD_COLORS[k] || '#999'}20`,
+                  color: MOOD_COLORS[k] || '#999',
+                  display: 'flex', alignItems: 'center', gap: '3px',
+                }}>
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: MOOD_COLORS[k] || '#999' }} />
+                  {(MOOD_LABELS[k] || k).split(' ')[0]} {Math.round(v * 100)}
+                </span>
+              ))}
+            </div>
+          ) : null;
+        })()}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
             {product.handle}
@@ -1635,19 +1854,26 @@ function CatalogRow({ product, moodTag, onSelect }: { product: CatalogProduct; m
           {product.handle}
         </div>
       </div>
-      {topMood && topMood.score > 0 && (
-        <span style={{
-          fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '4px',
-          backgroundColor: `#10b98115`, color: '#10b981', whiteSpace: 'nowrap',
-        }}>
-          {topMood.key} · {Math.round(topMood.score * 100)}%
-        </span>
-      )}
-      {moodTag ? (
-        <Tag size={13} style={{ color: '#10b981', flexShrink: 0 }} />
-      ) : (
-        <Circle size={13} style={{ color: 'var(--border-primary)', flexShrink: 0 }} />
-      )}
+      {/* Mood chips */}
+      <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+        {moodTag?.mood_scores ? (() => {
+          const moods = Object.entries(moodTag.mood_scores)
+            .filter(([, v]) => v >= 0.4)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3);
+          return moods.length > 0 ? moods.map(([k, v]) => (
+            <span key={k} style={{
+              fontSize: '9px', fontWeight: 600, padding: '2px 7px', borderRadius: '4px',
+              backgroundColor: `${MOOD_COLORS[k] || '#999'}18`,
+              color: MOOD_COLORS[k] || '#999', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', gap: '3px',
+            }}>
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: MOOD_COLORS[k] || '#999' }} />
+              {(MOOD_LABELS[k] || k).split(' ')[0]} {Math.round(v * 100)}
+            </span>
+          )) : <Circle size={13} style={{ color: 'var(--border-primary)' }} />;
+        })() : <Circle size={13} style={{ color: 'var(--border-primary)' }} />}
+      </div>
       <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
         {product.price}
       </span>
