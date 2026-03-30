@@ -126,50 +126,42 @@ input{font-family:inherit}
 
 /* ─── Product Selection ────────────────────────── */
 .product-sel-screen{padding:0;min-height:100vh;min-height:100dvh;justify-content:flex-start;overflow-y:auto}
-.product-sel-inner{max-width:640px;width:100%;margin:0 auto;padding:64px 28px 80px;text-align:center}
-.product-sel-choice{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0 auto;max-width:520px}
-.sel-option{background:var(--surface);border:1px solid var(--border);padding:32px 24px;cursor:pointer;transition:border-color .35s var(--ease-smooth);text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}
-.sel-option:hover{border-color:var(--border-hover)}
-.sel-option.active{border-color:var(--gold)}
-.sel-option-icon{color:var(--gold);opacity:.7}
-.sel-option-icon .material-symbols-outlined{font-size:32px}
-.sel-option-title{font-family:'Newsreader',serif;font-weight:200;font-size:17px;color:var(--fg);line-height:1.3;font-variation-settings:'opsz' 72}
-.sel-option-desc{font-size:12px;color:var(--fg-muted);line-height:1.6}
+.product-sel-inner{max-width:720px;width:100%;margin:0 auto;padding:64px 28px 80px;text-align:center}
 
-/* ─── Curated Browser ────────────────────────── */
-.curated-browser{display:none;margin-top:36px;text-align:left}
-.curated-browser.visible{display:block}
-.curated-type-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.curated-type-tabs::-webkit-scrollbar{display:none}
-.curated-tab{padding:11px 20px;font-size:.56rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .3s,border-color .3s;white-space:nowrap;flex-shrink:0}
-.curated-tab:hover{color:var(--fg)}
-.curated-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
-.curated-product-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.curated-product{position:relative;background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:border-color .35s var(--ease-smooth);overflow:hidden}
-.curated-product:hover{border-color:var(--border-hover)}
-.curated-product.selected{border-color:var(--gold)}
-.curated-product-check{position:absolute;top:10px;right:10px;width:22px;height:22px;border:1.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;z-index:2;transition:all .25s}
-.curated-product.selected .curated-product-check{background:var(--gold);border-color:var(--gold)}
-.curated-product-check .material-symbols-outlined{font-size:14px;color:var(--surface);opacity:0;transition:opacity .25s}
-.curated-product.selected .curated-product-check .material-symbols-outlined{opacity:1}
-.curated-product-img{aspect-ratio:1;width:100%;background:linear-gradient(135deg,#e8d4a8,#c8a858)}
-.curated-product-img img{width:100%;height:100%;object-fit:cover;display:block}
-.curated-product-info{padding:12px 14px}
-.curated-product-name{font-family:'Newsreader',serif;font-weight:300;font-size:14px;color:var(--fg);line-height:1.3;margin-bottom:3px}
-.curated-product-type{font-size:.46rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--fg-muted)}
-.curated-product-score{font-size:.44rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-top:4px}
-.curated-selection-count{font-size:12px;color:var(--fg-muted);text-align:center;margin-top:20px}
-.curated-selection-count strong{color:var(--fg);font-weight:500}
-.product-sel-continue{margin-top:28px;text-align:center}
+/* Primary AI suggest button */
+.ai-suggest-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:440px;margin:0 auto 12px;padding:20px 32px;background:var(--gold);color:var(--fg);font-family:'Manrope',sans-serif;font-size:.7rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;border:none;transition:background .4s var(--ease-smooth);-webkit-tap-highlight-color:transparent}
+.ai-suggest-btn:hover{background:var(--gold-hover)}
+.ai-suggest-btn .material-symbols-outlined{font-size:18px}
+.ai-suggest-sub{font-size:12px;color:var(--fg-muted);margin-bottom:36px}
 
-/* ─── AI Suggest confirmation ────────────────── */
-.ai-suggest-confirm{display:none;margin-top:32px;text-align:center}
-.ai-suggest-confirm.visible{display:block}
-.ai-suggest-note{font-size:13px;color:var(--fg-muted);line-height:1.65;max-width:360px;margin:0 auto 24px}
+/* Or divider */
+.sel-divider{display:flex;align-items:center;gap:16px;max-width:440px;margin:0 auto 32px}
+.sel-divider-line{flex:1;height:1px;background:var(--border)}
+.sel-divider-text{font-size:.5rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-subtle)}
+
+/* Collection sections */
+.sel-collections{text-align:left}
+.sel-collection{margin-bottom:28px}
+.sel-collection-label{font-size:.5rem;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:10px;padding-left:2px}
+.sel-collection-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.sel-product{position:relative;background:var(--surface);border:1px solid var(--border);cursor:pointer;transition:border-color .35s var(--ease-smooth);overflow:hidden}
+.sel-product:hover{border-color:var(--border-hover)}
+.sel-product.selected{border-color:var(--gold)}
+.sel-product-check{position:absolute;top:8px;right:8px;width:20px;height:20px;border:1.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;z-index:2;transition:all .25s}
+.sel-product.selected .sel-product-check{background:var(--gold);border-color:var(--gold)}
+.sel-product-check .material-symbols-outlined{font-size:13px;color:var(--surface);opacity:0;transition:opacity .25s}
+.sel-product.selected .sel-product-check .material-symbols-outlined{opacity:1}
+.sel-product-img{aspect-ratio:1;width:100%;background:linear-gradient(135deg,#e8d4a8,#c8a858);overflow:hidden}
+.sel-product-img img{width:100%;height:100%;object-fit:cover;display:block}
+.sel-product-info{padding:10px 10px 8px}
+.sel-product-name{font-family:'Newsreader',serif;font-weight:300;font-size:13px;color:var(--fg);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sel-product-price{font-size:11px;color:var(--fg-muted);margin-top:2px}
+.sel-selection-bar{position:sticky;bottom:0;left:0;right:0;padding:16px 0;background:linear-gradient(to top,var(--bg) 80%,transparent);text-align:center;z-index:10}
+.sel-selection-info{font-size:12px;color:var(--fg-muted);margin-bottom:12px}
+.sel-selection-info strong{color:var(--fg);font-weight:500}
 
 @media(max-width:600px){
-  .product-sel-choice{grid-template-columns:1fr;gap:12px}
-  .curated-product-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .sel-collection-row{grid-template-columns:repeat(2,1fr);gap:8px}
   .product-sel-inner{padding:56px 20px 72px}
 }
 
@@ -422,36 +414,30 @@ input{font-family:inherit}
 <div class="screen product-sel-screen" id="screen-step5-products">
   <div class="product-sel-inner">
     <div class="step-info">Step 5 of 6</div>
-    <h2 class="headline-sm">How should we choose your fixtures?</h2>
-    <p class="subhead">We've matched products to your style. Pick your path.</p>
+    <h2 class="headline-sm">Your fixtures</h2>
+    <p class="subhead">We've matched products to your style profile.</p>
 
-    <div class="product-sel-choice">
-      <div class="sel-option" id="sel-ai-suggest" onclick="selectProductMode('ai')">
-        <div class="sel-option-icon"><span class="material-symbols-outlined">auto_awesome</span></div>
-        <div class="sel-option-title">Suggest the best for my space</div>
-        <div class="sel-option-desc">We'll pick the perfect fixtures based on your profile</div>
-      </div>
-      <div class="sel-option" id="sel-curated" onclick="selectProductMode('curated')">
-        <div class="sel-option-icon"><span class="material-symbols-outlined">grid_view</span></div>
-        <div class="sel-option-title">Choose from curated collection</div>
-        <div class="sel-option-desc">Browse and select the fixtures you love most</div>
-      </div>
+    <!-- Primary: AI suggest -->
+    <button class="ai-suggest-btn" onclick="confirmProductSelection('ai')">
+      <span class="material-symbols-outlined">auto_awesome</span>
+      Suggest the best for my space
+    </button>
+    <div class="ai-suggest-sub">We'll pick the perfect fixtures based on your profile</div>
+
+    <!-- Divider -->
+    <div class="sel-divider">
+      <div class="sel-divider-line"></div>
+      <div class="sel-divider-text">Or choose your own</div>
+      <div class="sel-divider-line"></div>
     </div>
 
-    <!-- AI Suggest confirmation -->
-    <div class="ai-suggest-confirm" id="ai-suggest-confirm">
-      <div class="ai-suggest-note">We'll select the top-matched fixtures for your <strong id="ai-suggest-profile"></strong> profile and place them in your room.</div>
-      <button class="btn-primary" onclick="confirmProductSelection()">Continue</button>
-    </div>
+    <!-- Collections stacked vertically — 4 products per row -->
+    <div class="sel-collections" id="sel-collections"></div>
 
-    <!-- Curated browser -->
-    <div class="curated-browser" id="curated-browser">
-      <div class="curated-type-tabs" id="curated-type-tabs"></div>
-      <div class="curated-product-grid" id="curated-product-grid"></div>
-      <div class="curated-selection-count" id="curated-selection-count"></div>
-      <div class="product-sel-continue">
-        <button class="btn-primary" id="curated-continue-btn" onclick="confirmProductSelection()" style="opacity:.35;pointer-events:none">Continue with selected</button>
-      </div>
+    <!-- Sticky selection bar -->
+    <div class="sel-selection-bar" id="sel-selection-bar" style="display:none">
+      <div class="sel-selection-info" id="sel-selection-info"></div>
+      <button class="btn-primary" onclick="confirmProductSelection('curated')">Continue with selected</button>
     </div>
   </div>
 </div>
@@ -753,6 +739,8 @@ function goToScreen(id){
     currentScreen=id;
     window.scrollTo(0,0);
     if(navHistory[navHistory.length-1]!==id)navHistory.push(id);
+    // Load collections when entering step 5
+    if(id==='screen-step5-products')loadCollections();
   },220);
 }
 window.goToScreen=goToScreen;
@@ -814,145 +802,129 @@ window.selectIntensity=function(el,val){
   setTimeout(function(){goToScreen('screen-step5-products')},520);
 };
 
-// ── Step 5: Product selection mode ──
+// ── Step 5: Product selection ──
 var selectionMode='';
 var selectedProducts=[];
-var curatedProducts=[];
-var activeType='all';
+var collectionProducts={}; // {collectionLabel: [{handle,title,image,price},...]}
+var collectionsLoaded=false;
 
-window.selectProductMode=function(mode){
-  selectionMode=mode;
-  document.querySelectorAll('.sel-option').forEach(function(o){o.classList.remove('active')});
-  var aiConf=document.getElementById('ai-suggest-confirm');
-  var curBrowser=document.getElementById('curated-browser');
-
-  if(mode==='ai'){
-    document.getElementById('sel-ai-suggest').classList.add('active');
-    aiConf.classList.add('visible');
-    curBrowser.classList.remove('visible');
-    document.getElementById('ai-suggest-profile').textContent=getProfileName();
-    selectedProducts=[];
-  }else{
-    document.getElementById('sel-curated').classList.add('active');
-    aiConf.classList.remove('visible');
-    curBrowser.classList.add('visible');
-    selectedProducts=[];
-    loadCuratedProducts();
-  }
-};
-
-function loadCuratedProducts(){
-  var moodKey=getVibeKey();
-  // Try to fetch from API, fallback to mock data
-  fetch('/api/quiz/mood-products/'+moodKey+'/by-type')
+// Load collections on entering step 5
+function loadCollections(){
+  if(collectionsLoaded)return;
+  var baseUrl=window.QUIZ_BACKEND||'';
+  fetch(baseUrl+'/api/quiz/collections')
     .then(function(r){return r.json()})
     .then(function(data){
-      if(data&&typeof data==='object'&&!data.error){
-        curatedProducts=[];
-        var tabs=Object.keys(data);
-        tabs.forEach(function(type){
-          (data[type]||[]).forEach(function(p){
-            curatedProducts.push({
-              handle:p.product_handle,
-              title:p.product_title,
-              image:p.product_image_url,
-              type:p.product_type||type,
-              score:p.mood_scores?p.mood_scores[moodKey]:0
-            });
-          });
-        });
-        renderCuratedBrowser();
+      if(data&&data.collections){
+        collectionProducts=data.collections;
+        collectionsLoaded=true;
+        renderCollections();
       }else{
-        useMockCurated();
+        useMockCollections();
       }
     })
-    .catch(function(){useMockCurated()});
+    .catch(function(){useMockCollections()});
 }
 
-function useMockCurated(){
-  var mockProducts=[
-    {handle:'aven',title:'Aven Pendant',image:'',type:'pendant',score:0.92},
-    {handle:'cade',title:'Cade Floor Lamp',image:'',type:'floor_lamp',score:0.88},
-    {handle:'fenn',title:'Fenn Sconce',image:'',type:'wall_sconce',score:0.85},
-    {handle:'dell',title:'Dell Table Lamp',image:'',type:'table_lamp',score:0.83},
-    {handle:'cloud',title:'Cloud Pendant',image:'',type:'pendant',score:0.80},
-    {handle:'brio',title:'Brio Chandelier',image:'',type:'chandelier',score:0.78},
-    {handle:'saku',title:'Saku Sconce',image:'',type:'wall_sconce',score:0.76},
-    {handle:'hollis',title:'Hollis Floor Lamp',image:'',type:'floor_lamp',score:0.74},
-    {handle:'elm',title:'Elm Table Lamp',image:'',type:'table_lamp',score:0.72}
-  ];
-  curatedProducts=mockProducts;
-  renderCuratedBrowser();
+function useMockCollections(){
+  collectionProducts={
+    'pendant-lights':{label:'Pendant Lights',type:'pendant',products:[
+      {handle:'aven-pendant',title:'Aven Pendant',image:'',price:'$289',bestSellerRank:1},
+      {handle:'cloud-pendant',title:'Cloud Pendant',image:'',price:'$349',bestSellerRank:2},
+      {handle:'luna-pendant',title:'Luna Pendant',image:'',price:'$199',bestSellerRank:3},
+      {handle:'orb-pendant',title:'Orb Pendant',image:'',price:'$259',bestSellerRank:4}
+    ]},
+    'floor-table-lamps':{label:'Floor Lamps',type:'floor_lamp',products:[
+      {handle:'cade-floor-lamp',title:'Cade Floor Lamp',image:'',price:'$449',bestSellerRank:1},
+      {handle:'hollis-floor-lamp',title:'Hollis Floor Lamp',image:'',price:'$389',bestSellerRank:2},
+      {handle:'reed-floor-lamp',title:'Reed Floor Lamp',image:'',price:'$319',bestSellerRank:3},
+      {handle:'arch-floor-lamp',title:'Arch Floor Lamp',image:'',price:'$479',bestSellerRank:4}
+    ]},
+    'indoor-wall-lights':{label:'Indoor Wall Lights',type:'wall_sconce',products:[
+      {handle:'fenn-sconce',title:'Fenn Sconce',image:'',price:'$179',bestSellerRank:1},
+      {handle:'saku-sconce',title:'Saku Sconce',image:'',price:'$159',bestSellerRank:2},
+      {handle:'arc-sconce',title:'Arc Wall Light',image:'',price:'$199',bestSellerRank:3},
+      {handle:'ray-sconce',title:'Ray Wall Light',image:'',price:'$149',bestSellerRank:4}
+    ]},
+    'chandeliers':{label:'Chandeliers',type:'chandelier',products:[
+      {handle:'brio-chandelier',title:'Brio Chandelier',image:'',price:'$899',bestSellerRank:1},
+      {handle:'lux-chandelier',title:'Lux Chandelier',image:'',price:'$1,249',bestSellerRank:2},
+      {handle:'nova-chandelier',title:'Nova Chandelier',image:'',price:'$679',bestSellerRank:3},
+      {handle:'grand-chandelier',title:'Grand Chandelier',image:'',price:'$1,499',bestSellerRank:4}
+    ]},
+    'desk-lamp':{label:'Desk Lamps',type:'desk_lamp',products:[
+      {handle:'dell-desk-lamp',title:'Dell Desk Lamp',image:'',price:'$149',bestSellerRank:1},
+      {handle:'elm-desk-lamp',title:'Elm Desk Lamp',image:'',price:'$129',bestSellerRank:2},
+      {handle:'nook-desk-lamp',title:'Nook Desk Lamp',image:'',price:'$169',bestSellerRank:3},
+      {handle:'slim-desk-lamp',title:'Slim Desk Lamp',image:'',price:'$99',bestSellerRank:4}
+    ]}
+  };
+  collectionsLoaded=true;
+  renderCollections();
 }
 
-function renderCuratedBrowser(){
-  var tabsEl=document.getElementById('curated-type-tabs');
-  var gridEl=document.getElementById('curated-product-grid');
+function renderCollections(){
+  var container=document.getElementById('sel-collections');
+  container.innerHTML='';
+  var order=['pendant-lights','floor-table-lamps','indoor-wall-lights','chandeliers','desk-lamp'];
+  order.forEach(function(handle){
+    var col=collectionProducts[handle];
+    if(!col)return;
+    var prods=(col.products||[]).slice(0,4);
+    if(prods.length===0)return;
 
-  // Get unique types
-  var types=['all'];
-  var typeLabels={'all':'All','pendant':'Pendants','floor_lamp':'Floor Lamps','table_lamp':'Table Lamps',
-    'wall_sconce':'Wall Sconces','chandelier':'Chandeliers','ceiling_light':'Ceiling Lights','desk_lamp':'Desk Lamps','other':'Other'};
-  curatedProducts.forEach(function(p){
-    var t=p.type||'other';
-    if(types.indexOf(t)<0)types.push(t);
+    var section=document.createElement('div');
+    section.className='sel-collection';
+
+    var label=document.createElement('div');
+    label.className='sel-collection-label';
+    label.textContent=col.label;
+    section.appendChild(label);
+
+    var row=document.createElement('div');
+    row.className='sel-collection-row';
+    prods.forEach(function(p){
+      var card=document.createElement('div');
+      var isSelected=selectedProducts.indexOf(p.handle)>=0;
+      card.className='sel-product'+(isSelected?' selected':'');
+      var imgHtml=p.image
+        ?'<img src="'+p.image+'" alt="'+p.title+'" loading="lazy">'
+        :'';
+      card.innerHTML='<div class="sel-product-check"><span class="material-symbols-outlined">check</span></div>'
+        +'<div class="sel-product-img">'+imgHtml+'</div>'
+        +'<div class="sel-product-info">'
+        +'<div class="sel-product-name">'+p.title+'</div>'
+        +'<div class="sel-product-price">'+p.price+'</div>'
+        +'</div>';
+      card.addEventListener('click',function(){toggleProduct(p.handle)});
+      row.appendChild(card);
+    });
+    section.appendChild(row);
+    container.appendChild(section);
   });
-
-  // Render tabs
-  tabsEl.innerHTML='';
-  types.forEach(function(t){
-    var tab=document.createElement('div');
-    tab.className='curated-tab'+(t===activeType?' active':'');
-    tab.textContent=typeLabels[t]||t;
-    tab.addEventListener('click',function(){activeType=t;renderCuratedBrowser()});
-    tabsEl.appendChild(tab);
-  });
-
-  // Filter + render products
-  var filtered=activeType==='all'?curatedProducts:curatedProducts.filter(function(p){return(p.type||'other')===activeType});
-  gridEl.innerHTML='';
-  filtered.forEach(function(p){
-    var card=document.createElement('div');
-    var isSelected=selectedProducts.indexOf(p.handle)>=0;
-    card.className='curated-product'+(isSelected?' selected':'');
-    var imgHtml=p.image
-      ?'<img src="'+p.image+'" alt="'+p.title+'">'
-      :'';
-    var scorePct=Math.round((p.score||0)*100);
-    card.innerHTML='<div class="curated-product-check"><span class="material-symbols-outlined">check</span></div>'
-      +'<div class="curated-product-img">'+imgHtml+'</div>'
-      +'<div class="curated-product-info">'
-      +'<div class="curated-product-name">'+p.title+'</div>'
-      +'<div class="curated-product-type">'+(typeLabels[p.type]||p.type||'')+'</div>'
-      +(scorePct>0?'<div class="curated-product-score">'+scorePct+'% match</div>':'')
-      +'</div>';
-    card.addEventListener('click',function(){toggleProduct(p.handle)});
-    gridEl.appendChild(card);
-  });
-
-  updateSelectionCount();
 }
 
 function toggleProduct(handle){
   var idx=selectedProducts.indexOf(handle);
   if(idx>=0){selectedProducts.splice(idx,1)}
-  else if(selectedProducts.length<6){selectedProducts.push(handle)}
-  renderCuratedBrowser();
+  else if(selectedProducts.length<4){selectedProducts.push(handle)}
+  renderCollections();
+  updateSelectionBar();
 }
 
-function updateSelectionCount(){
-  var countEl=document.getElementById('curated-selection-count');
-  var btnEl=document.getElementById('curated-continue-btn');
+function updateSelectionBar(){
+  var bar=document.getElementById('sel-selection-bar');
+  var info=document.getElementById('sel-selection-info');
   if(selectedProducts.length===0){
-    countEl.innerHTML='Select up to <strong>6 fixtures</strong> for your room';
-    btnEl.style.opacity='.35';btnEl.style.pointerEvents='none';
+    bar.style.display='none';
   }else{
-    countEl.innerHTML='<strong>'+selectedProducts.length+'</strong> of 6 fixtures selected';
-    btnEl.style.opacity='1';btnEl.style.pointerEvents='auto';
+    bar.style.display='block';
+    info.innerHTML='<strong>'+selectedProducts.length+'</strong> of 4 fixtures selected';
   }
 }
 
-window.confirmProductSelection=function(){
+window.confirmProductSelection=function(mode){
+  selectionMode=mode||'ai';
   // Populate checkpoint screen
   var name=getProfileName();
   var desc=getProfileDesc();
@@ -1070,7 +1042,7 @@ function callRenderAPI(){
 function getStyleProducts(ctx){
   // If user selected specific products, use those
   if(selectedProducts&&selectedProducts.length>0){
-    return selectedProducts.slice(0,6);
+    return selectedProducts.slice(0,4);
   }
   var map={
     'golden-nook':['aven','cade','fenn','dell','ruvo','anka'],
