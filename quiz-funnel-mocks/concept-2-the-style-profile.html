@@ -160,8 +160,20 @@ input{font-family:inherit}
 .sel-selection-info{font-size:12px;color:var(--fg-muted);margin-bottom:12px}
 .sel-selection-info strong{color:var(--fg);font-weight:500}
 
+/* Skeleton loading for collections */
+.sel-skeleton{margin-bottom:28px}
+.sel-skeleton-label{width:100px;height:10px;background:var(--border);margin-bottom:12px}
+.sel-skeleton-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.sel-skeleton-card{background:var(--surface);border:1px solid var(--border);overflow:hidden}
+.sel-skeleton-img{aspect-ratio:1;width:100%;background:linear-gradient(90deg,var(--border) 25%,rgba(19,19,20,.04) 50%,var(--border) 75%);background-size:200% 100%;animation:skeletonShimmer 1.5s ease-in-out infinite}
+.sel-skeleton-text{padding:10px 10px 8px}
+.sel-skeleton-line{height:10px;background:var(--border);margin-bottom:6px}
+.sel-skeleton-line:last-child{width:50%;margin-bottom:0}
+@keyframes skeletonShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
 @media(max-width:600px){
   .sel-collection-row{grid-template-columns:repeat(2,1fr);gap:8px}
+  .sel-skeleton-row{grid-template-columns:repeat(2,1fr);gap:8px}
   .product-sel-inner{padding:56px 20px 72px}
 }
 
@@ -866,9 +878,30 @@ var selectedProducts=[];
 var collectionProducts={}; // {collectionLabel: [{handle,title,image,price},...]}
 var collectionsLoaded=false;
 
+// Show skeleton loading state
+function showCollectionSkeleton(){
+  var container=document.getElementById('sel-collections');
+  if(!container)return;
+  container.innerHTML='';
+  var labels=['Pendant Lights','Floor Lamps','Indoor Wall Lights','Chandeliers','Desk Lamps'];
+  labels.forEach(function(lbl){
+    var section=document.createElement('div');
+    section.className='sel-skeleton';
+    section.innerHTML='<div class="sel-skeleton-label"></div>'
+      +'<div class="sel-skeleton-row">'
+      +'<div class="sel-skeleton-card"><div class="sel-skeleton-img"></div><div class="sel-skeleton-text"><div class="sel-skeleton-line"></div><div class="sel-skeleton-line"></div></div></div>'
+      +'<div class="sel-skeleton-card"><div class="sel-skeleton-img"></div><div class="sel-skeleton-text"><div class="sel-skeleton-line"></div><div class="sel-skeleton-line"></div></div></div>'
+      +'<div class="sel-skeleton-card"><div class="sel-skeleton-img"></div><div class="sel-skeleton-text"><div class="sel-skeleton-line"></div><div class="sel-skeleton-line"></div></div></div>'
+      +'<div class="sel-skeleton-card"><div class="sel-skeleton-img"></div><div class="sel-skeleton-text"><div class="sel-skeleton-line"></div><div class="sel-skeleton-line"></div></div></div>'
+      +'</div>';
+    container.appendChild(section);
+  });
+}
+
 // Load collections on entering step 5
 function loadCollections(){
-  if(collectionsLoaded)return;
+  if(collectionsLoaded){renderCollections();return}
+  showCollectionSkeleton();
   var baseUrl=window.QUIZ_BACKEND||'';
   fetch(baseUrl+'/api/quiz/collections')
     .then(function(r){return r.json()})
@@ -1600,12 +1633,12 @@ QuizTracker.init({ concept: 'style-profile' });
     _origIntensity(el, val);
   };
   var _origConfirmProducts = window.confirmProductSelection;
-  window.confirmProductSelection = function() {
-    QuizTracker.answer('selectionMode', selectionMode || 'ai');
+  window.confirmProductSelection = function(mode) {
+    QuizTracker.answer('selectionMode', mode || selectionMode || 'ai');
     if (selectedProducts && selectedProducts.length > 0) {
       QuizTracker.answer('selectedProducts', selectedProducts.join(','));
     }
-    _origConfirmProducts();
+    _origConfirmProducts(mode);
     setTimeout(function() {
       var nameEl = document.getElementById('checkpoint-name');
       if (nameEl && nameEl.textContent) {
