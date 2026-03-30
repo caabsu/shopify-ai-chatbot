@@ -10,8 +10,8 @@ import { supabase } from '../config/supabase.js';
 export const quizRouter = Router();
 
 /**
- * Shopify Admin API returns MoneyV2.amount as cents (e.g. "46900" for $469.00).
- * This helper converts to dollars.
+ * Shopify Admin API MoneyV2.amount returns cents (e.g. "46900" for $469.00).
+ * ProductVariant.price returns dollars (e.g. "469.00") — use parseFloat directly for those.
  */
 function parseShopifyPrice(amountStr: string): number {
   const num = parseFloat(amountStr);
@@ -767,7 +767,7 @@ quizRouter.get('/catalog', async (req, res) => {
           variants: p.variants.edges.map((v) => ({
             id: v.node.id,
             title: v.node.title,
-            price: `$${parseShopifyPrice(v.node.price).toFixed(2)}`,
+            price: `$${parseFloat(v.node.price).toFixed(2)}`,
             available: v.node.availableForSale,
             image: v.node.image?.url || '',
           })),
