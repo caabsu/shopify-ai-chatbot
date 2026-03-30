@@ -247,7 +247,7 @@ input{font-family:inherit}
 .reveal-recap{font-size:14px;color:var(--fg-muted);line-height:1.7;max-width:480px;margin:0 auto 36px}
 
 /* ─── Slider ────────────────────────────────── */
-.slider-wrap{position:relative;width:100%;max-width:700px;margin:0 auto 44px;overflow:hidden;aspect-ratio:16/10;cursor:ew-resize;user-select:none;-webkit-user-select:none;touch-action:none;border:1px solid var(--border)}
+.slider-wrap{position:relative;width:100%;max-width:560px;margin:0 auto 44px;overflow:hidden;aspect-ratio:1;cursor:ew-resize;user-select:none;-webkit-user-select:none;touch-action:none;border:1px solid var(--border)}
 .slider-before,.slider-after{position:absolute;inset:0}
 .slider-before{z-index:1}
 .slider-after{z-index:2;clip-path:inset(0 50% 0 0)}
@@ -559,6 +559,20 @@ input{font-family:inherit}
   </div>
 </div>
 
+<!-- CHOOSE YOUR OWN (full-screen product selection, accessible from reveal) -->
+<div class="screen product-sel-screen" id="screen-choose-own">
+  <div class="product-sel-inner">
+    <div class="step-info">Choose your fixtures</div>
+    <h2 class="headline-sm">Pick your own</h2>
+    <p class="subhead">Select up to 4 fixtures — we'll regenerate the same scene with your choices.</p>
+    <div class="sel-collections" id="choose-own-collections"></div>
+    <div class="sel-selection-bar" id="choose-own-bar" style="display:none">
+      <div class="sel-selection-info" id="choose-own-count"></div>
+      <button class="btn-primary" onclick="confirmChooseOwn()">Regenerate with selected</button>
+    </div>
+  </div>
+</div>
+
 <!-- STEP 8: REVEAL -->
 <div class="screen reveal-screen" id="screen-reveal">
   <div class="reveal-inner">
@@ -569,37 +583,12 @@ input{font-family:inherit}
       <div class="slider-before"><div class="slider-before-img"></div><span class="slider-label slider-label-before">Before</span></div>
       <div class="slider-after" id="slider-after"><div class="slider-after-img"></div><span class="slider-label slider-label-after">After</span></div>
       <div class="slider-handle" id="slider-handle"><div class="slider-handle-circle"><span class="material-symbols-outlined">drag_handle</span></div></div>
-      <div class="regen-overlay" id="regen-overlay">
-        <div class="regen-spinner"></div>
-        <div class="regen-overlay-text">Regenerating with new fixtures…</div>
-      </div>
     </div>
     <div class="matched-label">Matched to your profile</div>
     <div class="product-grid" id="product-grid">
-      <div class="product-card">
-        <div class="product-card-img prod-grad-1"></div>
-        <div class="product-card-body">
-          <div class="product-card-name">Aven Floor Lamp</div>
-          <div class="product-card-price">$289</div>
-          <button class="btn-atc" onclick="addToCart(this)">Add to cart</button>
-        </div>
-      </div>
-      <div class="product-card">
-        <div class="product-card-img prod-grad-2"></div>
-        <div class="product-card-body">
-          <div class="product-card-name">Mira Pendant</div>
-          <div class="product-card-price">$199</div>
-          <button class="btn-atc" onclick="addToCart(this)">Add to cart</button>
-        </div>
-      </div>
-      <div class="product-card">
-        <div class="product-card-img prod-grad-3"></div>
-        <div class="product-card-body">
-          <div class="product-card-name">Luma Table Lamp</div>
-          <div class="product-card-price">$149</div>
-          <button class="btn-atc" onclick="addToCart(this)">Add to cart</button>
-        </div>
-      </div>
+      <div class="product-card"><div class="sel-skeleton-img"></div><div class="product-card-body"><div style="height:14px;width:70%;background:var(--border);margin-bottom:8px"></div><div style="height:12px;width:40%;background:var(--border)"></div></div></div>
+      <div class="product-card"><div class="sel-skeleton-img"></div><div class="product-card-body"><div style="height:14px;width:60%;background:var(--border);margin-bottom:8px"></div><div style="height:12px;width:35%;background:var(--border)"></div></div></div>
+      <div class="product-card"><div class="sel-skeleton-img"></div><div class="product-card-body"><div style="height:14px;width:65%;background:var(--border);margin-bottom:8px"></div><div style="height:12px;width:45%;background:var(--border)"></div></div></div>
     </div>
     <div class="ts-section">
       <div class="ts-label">From the community</div>
@@ -654,26 +643,8 @@ input{font-family:inherit}
           Choose my own
         </button>
       </div>
-      <div class="shuffle-preview" id="shuffle-preview"></div>
     </div>
 
-    <!-- Choose-own overlay (slide-up collection picker) -->
-    <div id="choose-own-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45)">
-      <div id="choose-own-panel" style="position:absolute;bottom:0;left:0;right:0;max-height:85vh;background:var(--bg);overflow-y:auto;transform:translateY(100%);transition:transform .4s var(--ease-out)">
-        <div style="position:sticky;top:0;z-index:2;background:var(--bg);padding:20px 24px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-family:'Newsreader',serif;font-weight:200;font-size:1.1rem;color:var(--fg);font-variation-settings:'opsz' 72">Choose your fixtures</div>
-            <div style="font-size:11px;color:var(--fg-muted);margin-top:2px">Select up to 4 — replaces current fixtures, same scene</div>
-          </div>
-          <button onclick="closeChooseOwn()" style="background:none;border:none;cursor:pointer;color:var(--fg-muted);padding:4px"><span class="material-symbols-outlined">close</span></button>
-        </div>
-        <div id="choose-own-collections" style="padding:20px 24px 100px"></div>
-        <div style="position:sticky;bottom:0;left:0;right:0;padding:16px 24px;background:linear-gradient(to top,var(--bg) 80%,transparent);text-align:center">
-          <div id="choose-own-count" style="font-size:12px;color:var(--fg-muted);margin-bottom:10px"></div>
-          <button class="btn-primary" id="choose-own-confirm" onclick="confirmChooseOwn()" style="opacity:.35;pointer-events:none">Regenerate with selected</button>
-        </div>
-      </div>
-    </div>
     <div class="email-section">
       <h3 id="email-title">Save your lookbook</h3>
       <form class="email-form" onsubmit="handleEmail(event)">
@@ -698,7 +669,7 @@ input{font-family:inherit}
 var state={track:'',vibe:'',intensity:'',who:''};
 var currentScreen='screen-landing';
 var navHistory=['screen-landing'];
-var screenOrder=['screen-landing','screen-step1','screen-step2','screen-step3','screen-step4','screen-step5-products','screen-checkpoint','screen-loading','screen-reveal'];
+var screenOrder=['screen-landing','screen-step1','screen-step2','screen-step3','screen-step4','screen-step5-products','screen-checkpoint','screen-loading','screen-choose-own','screen-reveal'];
 
 var vibes={
   soft:[
@@ -798,7 +769,7 @@ function goToScreen(id){
   if(qi>=0){pb.classList.add('visible');pf.style.width=((qi+1)/6*100)+'%'}
   else{pb.classList.remove('visible')}
 
-  var showBack=['screen-step1','screen-step2','screen-step3','screen-step4','screen-step5-products','screen-checkpoint'];
+  var showBack=['screen-step1','screen-step2','screen-step3','screen-step4','screen-step5-products','screen-checkpoint','screen-choose-own'];
   if(showBack.indexOf(id)>=0){bb.classList.add('visible')}else{bb.classList.remove('visible')}
 
   var showTag=['screen-step3','screen-step4','screen-step5-products','screen-checkpoint'];
@@ -810,7 +781,7 @@ function goToScreen(id){
     window.scrollTo(0,0);
     if(navHistory[navHistory.length-1]!==id)navHistory.push(id);
     // Load collections when entering step 5
-    if(id==='screen-step5-products')loadCollections();
+    if(id==='screen-step5-products'||id==='screen-choose-own')loadCollections();
   },220);
 }
 window.goToScreen=goToScreen;
@@ -1028,12 +999,10 @@ window.confirmProductSelection=function(mode){
   goToScreen('screen-checkpoint');
 };
 
-// ── Shuffle & Regenerate (on reveal screen) ──
-var usedProductHandles=[]; // tracks all handles already shown (to exclude from shuffle)
-var isRegenerating=false;
+// ── Shuffle & Choose Own (navigate to loading screen) ──
+var usedProductHandles=[];
 var chooseOwnSelections=[];
 
-// Get all available products from loaded collections, grouped by collection
 function getAllCollectionProducts(){
   var result={};
   var order=['pendant-lights','floor-table-lamps','indoor-wall-lights','chandeliers','desk-lamp'];
@@ -1046,7 +1015,6 @@ function getAllCollectionProducts(){
   return result;
 }
 
-// Pick random items from array, excluding specific handles
 function pickRandom(arr,count,exclude){
   var pool=arr.filter(function(p){return exclude.indexOf(p.handle)<0});
   var result=[];
@@ -1059,25 +1027,17 @@ function pickRandom(arr,count,exclude){
   return result;
 }
 
-// Shuffle: pick 3 random products (always 1 floor lamp + 2 from other collections)
+// Shuffle: pick random products, go to loading screen
 window.shuffleAndRegenerate=function(){
-  if(isRegenerating)return;
-
-  // Ensure collections are loaded
   if(!collectionsLoaded){loadCollections();return}
 
   var allCols=getAllCollectionProducts();
   var floorCol=allCols['floor-table-lamps'];
   var otherKeys=['pendant-lights','indoor-wall-lights','chandeliers','desk-lamp'];
 
-  // Always pick 1 floor lamp
   var floorPick=floorCol?pickRandom(floorCol.products,1,usedProductHandles):[];
-  if(floorPick.length===0&&floorCol){
-    // If all floor lamps used, reset exclusions for floor lamps only
-    floorPick=pickRandom(floorCol.products,1,[]);
-  }
+  if(floorPick.length===0&&floorCol)floorPick=pickRandom(floorCol.products,1,[]);
 
-  // Pick 2 from other collections (spread across different collections)
   var otherPicks=[];
   var shuffledKeys=otherKeys.slice().sort(function(){return Math.random()-.5});
   for(var k=0;k<shuffledKeys.length&&otherPicks.length<2;k++){
@@ -1090,160 +1050,30 @@ window.shuffleAndRegenerate=function(){
 
   var newProducts=floorPick.concat(otherPicks);
   if(newProducts.length<3){
-    // Fallback: pick from any collection
     var allProds=[];
     Object.keys(allCols).forEach(function(k){allCols[k].products.forEach(function(p){allProds.push(p)})});
     var extra=pickRandom(allProds,3-newProducts.length,usedProductHandles.concat(newProducts.map(function(p){return p.handle})));
     newProducts=newProducts.concat(extra);
   }
 
-  // Track used handles
   newProducts.forEach(function(p){if(usedProductHandles.indexOf(p.handle)<0)usedProductHandles.push(p.handle)});
 
-  // Animate shuffle preview
-  animateShufflePreview(newProducts,function(){
-    // Set these as selected and regenerate
-    selectedProducts=newProducts.map(function(p){return p.handle});
-    selectionMode='curated';
-    regenerateWithProducts(newProducts);
-  });
+  selectedProducts=newProducts.map(function(p){return p.handle});
+  selectionMode='curated';
+
+  // Go through the full loading flow
+  goToScreen('screen-loading');
+  startLoading();
 };
 
-function animateShufflePreview(products,callback){
-  var preview=document.getElementById('shuffle-preview');
-  var btn=document.getElementById('shuffle-regen-btn');
-  btn.classList.add('shuffling');
-
-  // Exit existing cards
-  var existing=preview.querySelectorAll('.shuffle-preview-card');
-  existing.forEach(function(c){c.classList.add('exit')});
-
-  setTimeout(function(){
-    preview.innerHTML='';
-    products.forEach(function(p,i){
-      var card=document.createElement('div');
-      card.className='shuffle-preview-card';
-      card.style.animationDelay=(i*100)+'ms';
-      var img=p.image?'<img src="'+p.image+'" alt="'+p.title+'">':'';
-      card.innerHTML=img+'<div class="sp-name">'+p.title+'</div>';
-      preview.appendChild(card);
-      // Trigger enter animation
-      requestAnimationFrame(function(){
-        requestAnimationFrame(function(){card.classList.add('enter','visible')});
-      });
-    });
-
-    // Wait for animation then callback
-    setTimeout(function(){
-      btn.classList.remove('shuffling');
-      if(callback)callback();
-    },800);
-  },350);
-}
-
-function regenerateWithProducts(products){
-  isRegenerating=true;
-
-  // Show regen overlay on image
-  var overlay=document.getElementById('regen-overlay');
-  overlay.classList.add('visible');
-
-  // Disable shuffle buttons
-  document.getElementById('shuffle-regen-btn').style.opacity='.5';
-  document.getElementById('shuffle-regen-btn').style.pointerEvents='none';
-  document.getElementById('shuffle-choose-btn').style.opacity='.5';
-  document.getElementById('shuffle-choose-btn').style.pointerEvents='none';
-
-  var ctx={
-    concept:'style-profile',
-    who:state.who,
-    track:state.track,
-    vibe:state.vibe,
-    intensity:state.intensity,
-    profileName:getProfileName(),
-    selectionMode:'curated',
-    selectedProducts:products.map(function(p){return p.handle})
-  };
-
-  // Use original uploaded photo for regeneration (same scene)
-  var body={
-    image_base64:uploadedPhoto.base64,
-    mime_type:uploadedPhoto.mimeType,
-    context:ctx
-  };
-
-  // Render API call
-  fetch('/api/quiz/render',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)
-  })
-  .then(function(r){return r.json()})
-  .then(function(data){
-    if(data.error){
-      console.error('[shuffle] Render error:',data.error);
-      showToast('Failed to regenerate — please try again');
-    }else{
-      renderResult=data;
-      // Update the after image
-      var afterImg=document.querySelector('.slider-after-img');
-      if(afterImg&&data.render&&data.render.imageBase64){
-        afterImg.style.background='none';
-        afterImg.innerHTML='<img src="data:'+data.render.mimeType+';base64,'+data.render.imageBase64+'" style="width:100%;height:100%;object-fit:cover" alt="Regenerated">';
-      }
-    }
-    finishRegenerate();
-  })
-  .catch(function(err){
-    console.error('[shuffle] Render API error:',err);
-    showToast('Connection error — please try again');
-    finishRegenerate();
-  });
-
-  // Also fetch product details for the grid
-  fetch('/api/quiz/products',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({handles:products.map(function(p){return p.handle})})
-  })
-  .then(function(r){return r.json()})
-  .then(function(data){
-    if(data.products&&data.products.length)populateProducts(data.products);
-  })
-  .catch(function(err){console.error('[shuffle] Products API error:',err)});
-}
-
-function finishRegenerate(){
-  isRegenerating=false;
-  var overlay=document.getElementById('regen-overlay');
-  overlay.classList.remove('visible');
-  document.getElementById('shuffle-regen-btn').style.opacity='';
-  document.getElementById('shuffle-regen-btn').style.pointerEvents='';
-  document.getElementById('shuffle-choose-btn').style.opacity='';
-  document.getElementById('shuffle-choose-btn').style.pointerEvents='';
-}
-
-// ── Choose My Own (collection picker overlay) ──
+// ── Choose My Own (full-screen product selection) ──
 
 window.openChooseOwn=function(){
   if(!collectionsLoaded)loadCollections();
   chooseOwnSelections=[];
-  var overlay=document.getElementById('choose-own-overlay');
-  var panel=document.getElementById('choose-own-panel');
-  overlay.style.display='block';
   renderChooseOwnCollections();
   updateChooseOwnCount();
-  requestAnimationFrame(function(){
-    requestAnimationFrame(function(){panel.style.transform='translateY(0)'});
-  });
-  // Close on backdrop click
-  overlay.onclick=function(e){if(e.target===overlay)closeChooseOwn()};
-};
-
-window.closeChooseOwn=function(){
-  var panel=document.getElementById('choose-own-panel');
-  panel.style.transform='translateY(100%)';
-  setTimeout(function(){document.getElementById('choose-own-overlay').style.display='none'},400);
+  goToScreen('screen-choose-own');
 };
 
 function renderChooseOwnCollections(){
@@ -1253,24 +1083,22 @@ function renderChooseOwnCollections(){
   order.forEach(function(handle){
     var col=collectionProducts[handle];
     if(!col)return;
-    var prods=(col.products||[]).slice(0,8); // show up to 8 per collection
+    var prods=(col.products||[]).slice(0,8);
 
     var section=document.createElement('div');
-    section.style.cssText='margin-bottom:24px';
+    section.className='sel-collection';
 
     var label=document.createElement('div');
-    label.style.cssText='font-size:.5rem;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:'+('var(--fg-muted)')+';margin-bottom:10px';
+    label.className='sel-collection-label';
     label.textContent=col.label;
     section.appendChild(label);
 
     var row=document.createElement('div');
-    row.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px';
+    row.className='sel-collection-row';
     prods.forEach(function(p){
       var isSelected=chooseOwnSelections.indexOf(p.handle)>=0;
-      var isExcluded=usedProductHandles.indexOf(p.handle)>=0&&!isSelected;
       var card=document.createElement('div');
       card.className='sel-product'+(isSelected?' selected':'');
-      card.style.cssText=isExcluded?'opacity:.4':'';
       var imgHtml=p.image?'<img src="'+p.image+'" alt="'+p.title+'" loading="lazy">':'';
       card.innerHTML='<div class="sel-product-check"><span class="material-symbols-outlined">check</span></div>'
         +'<div class="sel-product-img">'+imgHtml+'</div>'
@@ -1293,47 +1121,33 @@ function renderChooseOwnCollections(){
 }
 
 function updateChooseOwnCount(){
+  var bar=document.getElementById('choose-own-bar');
   var countEl=document.getElementById('choose-own-count');
-  var btn=document.getElementById('choose-own-confirm');
   if(chooseOwnSelections.length===0){
-    countEl.innerHTML='Select up to <strong>4 fixtures</strong>';
-    btn.style.opacity='.35';btn.style.pointerEvents='none';
+    bar.style.display='none';
   }else{
-    countEl.innerHTML='<strong>'+chooseOwnSelections.length+'</strong> of 4 selected';
-    btn.style.opacity='1';btn.style.pointerEvents='auto';
+    bar.style.display='block';
+    countEl.innerHTML='<strong>'+chooseOwnSelections.length+'</strong> of 4 fixtures selected';
   }
 }
 
 window.confirmChooseOwn=function(){
-  closeChooseOwn();
-
-  // Build product objects from collections
-  var productObjs=[];
-  chooseOwnSelections.forEach(function(handle){
-    Object.keys(collectionProducts).forEach(function(k){
-      (collectionProducts[k].products||[]).forEach(function(p){
-        if(p.handle===handle)productObjs.push(p);
-      });
-    });
-  });
-
   // Track used
-  productObjs.forEach(function(p){if(usedProductHandles.indexOf(p.handle)<0)usedProductHandles.push(p.handle)});
+  chooseOwnSelections.forEach(function(h){if(usedProductHandles.indexOf(h)<0)usedProductHandles.push(h)});
 
-  // Set selections and regenerate
   selectedProducts=chooseOwnSelections.slice();
   selectionMode='curated';
 
-  // Show preview strip then regenerate
-  animateShufflePreview(productObjs,function(){
-    regenerateWithProducts(productObjs);
-  });
+  // Go through the full loading flow
+  goToScreen('screen-loading');
+  startLoading();
 };
 
 // ── Real photo upload + AI processing ──
 var uploadedPhoto={base64:'',mimeType:'image/jpeg'};
 var renderResult=null;
 var renderError=null;
+var renderPhase='idle'; // idle | sent | done | error
 
 // Drag and drop on upload zone
 (function(){
@@ -1403,6 +1217,7 @@ function callRenderAPI(){
   };
   renderResult=null;
   renderError=null;
+  renderPhase='sent';
 
   fetch('/api/quiz/render',{
     method:'POST',
@@ -1411,25 +1226,28 @@ function callRenderAPI(){
   })
   .then(function(r){return r.json()})
   .then(function(data){
-    if(data.error){renderError=data.error;return}
+    if(data.error){renderError=data.error;renderPhase='error';return}
     renderResult=data;
+    renderPhase='done';
     populateRevealScreen(data);
+
+    // Fetch product details using handles from the render response
+    var handles=data.suggestedProducts||getStyleProducts(ctx);
+    return fetch('/api/quiz/products',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({handles:handles.slice(0,4)})
+    });
+  })
+  .then(function(r){if(r)return r.json()})
+  .then(function(data){
+    if(data&&data.products&&data.products.length)populateProducts(data.products);
   })
   .catch(function(err){
     renderError=err.message||'Failed to process';
+    renderPhase='error';
     console.error('[quiz] Render API error:',err);
   });
-
-  fetch('/api/quiz/products',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({handles:getStyleProducts(ctx)})
-  })
-  .then(function(r){return r.json()})
-  .then(function(data){
-    if(data.products&&data.products.length)populateProducts(data.products);
-  })
-  .catch(function(err){console.error('[quiz] Products API error:',err)});
 }
 
 function getStyleProducts(ctx){
@@ -1486,14 +1304,14 @@ function populateProducts(products){
   if(!grid||!products.length)return;
   grid.innerHTML='';
   products.forEach(function(p){
-    // Track shown products for shuffle exclusion
     if(p.handle&&usedProductHandles.indexOf(p.handle)<0)usedProductHandles.push(p.handle);
     var card=document.createElement('div');
     card.className='product-card';
-    var imgStyle=p.image
-      ?'background:url('+p.image+') center/cover no-repeat'
-      :'background:linear-gradient(135deg,#e8d4a8,#c8a858)';
-    card.innerHTML='<div class="product-card-img" style="'+imgStyle+'"></div>'
+    var imgHtml=p.image
+      ?'<img src="'+p.image+'" alt="'+p.title+'" style="width:100%;height:100%;object-fit:cover">'
+      :'';
+    var linkUrl=p.url||'/products/'+p.handle;
+    card.innerHTML='<a href="'+linkUrl+'" target="_blank" rel="noopener" class="product-card-img">'+imgHtml+'</a>'
       +'<div class="product-card-body">'
       +'<div class="product-card-name">'+p.title+'</div>'
       +'<div class="product-card-price">'+p.price+'</div>'
@@ -1518,14 +1336,13 @@ document.querySelectorAll('.screen').forEach(function(s){
   observer.observe(s,{attributes:true,attributeFilter:['class']});
 });
 
-// Loading
+// Loading — progress bar reflects actual API state
 function startLoading(){
   var name=getProfileName();
   document.getElementById('loading-headline').textContent='Applying your '+name+' profile\u2026';
   document.getElementById('lc-2').textContent='Placing '+state.vibe+' fixtures\u2026';
   document.getElementById('lc-3').textContent='Calibrating warmth to your '+name+' profile\u2026';
 
-  // Pre-load collections for shuffle on reveal screen
   if(!collectionsLoaded)loadCollections();
 
   callRenderAPI();
@@ -1553,28 +1370,43 @@ function startLoading(){
     }
   },2600);
 
-  var animDone=false;
-  var minDur=8000;
+  // Two-phase progress: Phase 1 (0-65%) smooth 5s ramp, Phase 2 (65-90%) slow crawl while waiting for API, Phase 3 snap to 100% on done
   var start=performance.now();
-  function ease(t){if(t<.7)return t;if(t<.92){var l=(t-.7)/.22;return .7+l*.18*(1-Math.pow(1-l,3))}var l2=(t-.92)/.08;return .88+l2*.12}
+  var currentPct=0;
 
-  function tryFinish(){
-    if(!animDone)return;
-    if(renderResult||renderError){
+  function animate(){
+    var elapsed=performance.now()-start;
+    var targetPct;
+
+    if(renderPhase==='done'||renderResult){
+      // Snap to 100%
+      targetPct=100;
+    }else if(renderPhase==='error'||renderError){
+      targetPct=100;
+    }else if(elapsed<5000){
+      // Phase 1: smooth ramp to 65% in 5s
+      targetPct=(elapsed/5000)*65;
+    }else{
+      // Phase 2: slow crawl from 65% → 90% (takes ~60s to reach 90%)
+      var extra=Math.min((elapsed-5000)/60000,1);
+      targetPct=65+extra*25;
+    }
+
+    // Smooth interpolation
+    currentPct+=(targetPct-currentPct)*0.08;
+    bf.style.transition='none';bf.style.width=Math.min(currentPct,100)+'%';
+
+    if(currentPct>=60&&!bg.classList.contains('visible'))bg.classList.add('visible');
+
+    if(currentPct>=99.5){
+      // Done — transition to reveal
+      bf.style.width='100%';
       clearInterval(ci);
       clearInterval(tickerInterval);
       setTimeout(function(){goToScreen('screen-reveal')},450);
     }else{
-      setTimeout(tryFinish,500);
+      requestAnimationFrame(animate);
     }
-  }
-
-  function animate(){
-    var t=Math.min((performance.now()-start)/minDur,1);
-    bf.style.transition='none';bf.style.width=(ease(t)*100)+'%';
-    if(t>=.7&&!bg.classList.contains('visible'))bg.classList.add('visible');
-    if(t<1){requestAnimationFrame(animate)}
-    else{animDone=true;tryFinish()}
   }
   requestAnimationFrame(animate);
 }

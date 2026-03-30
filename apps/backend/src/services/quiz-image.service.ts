@@ -317,7 +317,7 @@ function buildReviewPrompt(ctx: QuizContext, productImages?: ProductImage[]): st
 
 Mood: "${vibeLabel}" — ${moodLine}
 
-Analyze this room photo and suggest 2-3 placements from this product catalog. Each product's type is listed in parentheses — you MUST use that exact type in your response. Do not reclassify products.
+Analyze this room photo and suggest placements for ALL products in this catalog. Each product's type is listed — you MUST use that exact type in your response. Do not reclassify products. Do not skip any product.
 
 Catalog:
 ${productList}
@@ -345,7 +345,8 @@ Return ONLY valid JSON in this format:
 }
 
 Rules:
-- 2-3 placements max. x/y are image percentages (0-100).
+- You MUST place ALL products from the catalog — one placement per product. Do not skip any.
+- x/y are image percentages (0-100).
 - Use ONLY products from the catalog above.
 - The productType for each product MUST match what is listed in the catalog (e.g. if it says "floor_lamp", use "floor_lamp").
 - Place products in sensible locations for their type (floor lamps on floor, pendants from ceiling, table lamps on surfaces, wall sconces on walls).`;
@@ -377,17 +378,27 @@ function buildRenderPrompt(review: RoomReview, ctx: QuizContext, productImages?:
     atmosParagraph = `Set the overall lighting mood to "${vibeLabel}" — color temperature around ${atmo.colorTemp.split('—')[0].trim()}. ${atmo.renderDirective}`;
   }
 
-  return `You are editing a photo of a ${review.roomType}. Your job is to add Outlight lighting fixtures into this room and adjust the scene's lighting to match the "${vibeLabel}" mood.
+  const numFixtures = review.placements.length;
 
-Here is where to place each fixture:
+  return `You are editing a photo of a ${review.roomType}. Your job is to transform this room's lighting using Outlight fixtures to achieve a "${vibeLabel}" mood.
+
+STEP 1 — REMOVE ALL EXISTING LIGHT SOURCES:
+Before adding anything new, remove every existing light source from the room — all lamps (floor, table, desk), all overhead/ceiling lights, all pendants, chandeliers, wall sconces, and any visible light fixtures. The room should have no lighting except what you add below.
+
+STEP 2 — ADD THESE ${numFixtures} OUTLIGHT FIXTURES:
 
 ${placementLines}
 
-${atmosParagraph}
+You MUST place ALL ${numFixtures} fixtures listed above. Every single one must be clearly visible in the final image. Do not omit any.
 
+STEP 3 — SET THE MOOD:
+${atmosParagraph}
 Each fixture must emit realistic warm light — visible pools on nearby walls, floors, and surfaces, with soft ambient glow and natural shadows.
 
-CRITICAL: Maintain the exact same shape, size, color, and design of every light fixture as shown in its reference image. Do not invent a generic lamp — copy the reference exactly. The original room scene must remain mostly unchanged except for the addition of the new lights and the adjusted lighting mood. Keep all furniture, walls, objects, and perspective exactly as they are.`;
+PRODUCT FIDELITY (CRITICAL):
+Study each reference image carefully. Every fixture you place MUST have the EXACT same silhouette, shade shape, arm geometry, base form, material finish, and color as its reference image. Do not simplify or approximate — if a reference shows a conical linen shade, use that exact shade, not a generic dome. Do not invent any fixture design.
+
+Keep all furniture, walls, objects, and the room's perspective exactly as they are. The only changes should be: existing lights removed, new Outlight fixtures added, and the overall lighting mood transformed.`;
 }
 
 // ── Build generation-from-scratch prompt (for sample rooms) ─────────────────
@@ -414,17 +425,22 @@ function buildGeneratePrompt(ctx: QuizContext, productImages?: ProductImage[]): 
     atmosParagraph = `The lighting mood is "${vibeLabel}" — color temperature around ${atmo.colorTemp.split('—')[0].trim()}. ${atmo.renderDirective}`;
   }
 
-  return `Generate a photorealistic interior photograph of a beautiful living room featuring Outlight lighting fixtures. This should look like a professional interior design photo — aspirational but believable.
+  const numFixtures = productImages?.length || 3;
 
-Include these fixtures from the Outlight brand:
+  return `Generate a photorealistic, square (1:1 aspect ratio) interior photograph of a beautiful living room featuring Outlight lighting fixtures. This should look like a professional interior design photo — aspirational but believable. The room should have NO lighting except the Outlight fixtures below.
+
+Include ALL ${numFixtures} of these fixtures from the Outlight brand:
 
 ${productSection}
+
+Every single fixture listed above MUST be clearly visible in the generated image. Do not omit any.
 
 ${atmosParagraph}
 
 Each fixture must emit realistic warm light with visible pools on nearby walls and surfaces, soft ambient glow, and natural shadows.
 
-CRITICAL: Every fixture must match its reference image exactly — same shape, size, color, materials, and finish. Do not invent generic lamps. Copy the reference designs precisely.`;
+PRODUCT FIDELITY (CRITICAL):
+Study each reference image carefully. Every fixture MUST have the EXACT same silhouette, shade shape, arm geometry, base form, material finish, and color as its reference. Do not simplify or approximate. Do not invent any fixture design.`;
 }
 
 // ── Review (Analyze Room Photo) ──────────────────────────────────────────────
@@ -498,7 +514,7 @@ export async function renderVisualization(
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — this is a ${pi.productType}. When placing this fixture in the room, copy this exact design — same shape, size, color, materials, and proportions.]` });
+      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — this is a ${pi.productType}. STUDY THIS IMAGE CAREFULLY. You MUST reproduce this EXACT fixture design — identical silhouette, shade shape, arm geometry, base form, materials, and color. Do NOT substitute a generic fixture.]` });
     }
   }
 
@@ -507,7 +523,7 @@ export async function renderVisualization(
   const response = await client.models.generateContent({
     model: config.gemini.imageModel,
     contents: [{ role: 'user', parts }],
-    config: { responseModalities: ['IMAGE', 'TEXT'] },
+    config: { responseModalities: ['IMAGE', 'TEXT'], imageConfig: { aspectRatio: '1:1' } },
   });
 
   const candidates = response.candidates ?? [];
@@ -541,7 +557,7 @@ export async function generateFromScratch(ctx: QuizContext, productImages?: Prod
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — this is a ${pi.productType}. When placing this fixture in the room, copy this exact design — same shape, size, color, materials, and proportions.]` });
+      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — this is a ${pi.productType}. STUDY THIS IMAGE CAREFULLY. You MUST reproduce this EXACT fixture design — identical silhouette, shade shape, arm geometry, base form, materials, and color. Do NOT substitute a generic fixture.]` });
     }
   }
 
@@ -550,7 +566,7 @@ export async function generateFromScratch(ctx: QuizContext, productImages?: Prod
   const response = await client.models.generateContent({
     model: config.gemini.imageModel,
     contents: [{ role: 'user', parts }],
-    config: { responseModalities: ['IMAGE', 'TEXT'] },
+    config: { responseModalities: ['IMAGE', 'TEXT'], imageConfig: { aspectRatio: '1:1' } },
   });
 
   const candidates = response.candidates ?? [];
@@ -577,7 +593,7 @@ export async function processRoomPhoto(
   mimeType: string,
   ctx: QuizContext,
 ): Promise<{ review: RoomReview; render: RenderResult }> {
-  const productHandles = getSuggestedProducts(ctx).slice(0, 3);
+  const productHandles = getSuggestedProducts(ctx).slice(0, 4);
   let productImages: ProductImage[] = [];
   try {
     console.log(`[quiz-image] Fetching product reference images for: ${productHandles.join(', ')}`);
