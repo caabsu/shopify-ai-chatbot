@@ -377,8 +377,15 @@ quizRouter.post('/render-debug', async (req, res) => {
       image: config.gemini.imageModel,
     };
 
-    // Fetch product reference images from Shopify
-    const productHandles = quizImage.getProductSuggestions(context).slice(0, 3);
+    // Product selection: user-curated OR mood-matched best sellers (same as main render)
+    let productHandles: string[];
+    if (context.selectedProducts?.length) {
+      productHandles = context.selectedProducts.slice(0, 4);
+      debug.agentTrace.push(`[PRODUCTS] User selected ${productHandles.length} products: ${productHandles.join(', ')}.`);
+    } else {
+      productHandles = await quizImage.selectMoodBestSellers(context);
+      debug.agentTrace.push(`[PRODUCTS] Mood-matched best sellers: ${productHandles.join(', ')}.`);
+    }
     let productImages: quizImage.ProductImage[] = [];
     debug.agentTrace.push(`[PRODUCTS] Fetching reference images from Shopify for: ${productHandles.join(', ')}...`);
     const imgFetchStart = Date.now();
@@ -386,6 +393,10 @@ quizRouter.post('/render-debug', async (req, res) => {
       productImages = await quizImage.fetchProductImages(productHandles);
       debug.timings.productImageFetchMs = Date.now() - imgFetchStart;
       debug.productImages = productImages.map(pi => ({ handle: pi.handle, title: pi.title, imageUrl: pi.imageUrl }));
+      // Rebuild review prompt now that we have product images (includes types + ref image numbers)
+      const debugPrompts = quizImage.getDebugPrompts(context, productImages);
+      debug.reviewPrompt = debugPrompts.reviewPrompt;
+      debug.generatePrompt = debugPrompts.generatePrompt;
       debug.agentTrace.push(`[PRODUCTS] Fetched ${productImages.length}/${productHandles.length} product images in ${debug.timings.productImageFetchMs}ms.`);
     } catch (err) {
       debug.timings.productImageFetchMs = Date.now() - imgFetchStart;
@@ -427,8 +438,9 @@ quizRouter.post('/render-debug', async (req, res) => {
       debug.review = review;
       debug.agentTrace.push(`[EXEC] Review complete in ${debug.timings.reviewMs}ms — room: ${review.roomType}, ${review.placements?.length || 0} placements, furniture: [${review.furniture?.slice(0, 3).join(', ')}].`);
 
-      // Build the actual render prompt using review results
-      const actualRenderPrompt = debugInfo.renderPromptBuilder(review);
+      // Build the actual render prompt using review results (use debugPrompts which has product images)
+      const promptBuilder = productImages.length > 0 ? quizImage.getDebugPrompts(context, productImages).renderPromptBuilder : debugInfo.renderPromptBuilder;
+      const actualRenderPrompt = promptBuilder(review);
       debug.renderPrompt = actualRenderPrompt;
 
       debug.agentTrace.push(`[EXEC] Step 2: Calling ${config.gemini.imageModel} with render prompt (${actualRenderPrompt.length} chars) + room photo + ${productImages.length} product ref images...`);
@@ -449,7 +461,7 @@ quizRouter.post('/render-debug', async (req, res) => {
         imageBase64: result.render.imageBase64,
         mimeType: result.render.mimeType,
       },
-      suggestedProducts: quizImage.getProductSuggestions(context),
+      suggestedProducts: productHandles,
       debug,
     });
   } catch (err) {
@@ -494,7 +506,7 @@ quizRouter.post('/render', async (req, res) => {
         imageBase64: result.render.imageBase64,
         mimeType: result.render.mimeType,
       },
-      suggestedProducts: quizImage.getProductSuggestions(context),
+      suggestedProducts: result.usedProducts || quizImage.getProductSuggestions(context),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -562,39 +574,31 @@ quizRouter.post('/products', async (req, res) => {
 
     const brandId = await resolveBrandId(req);
 
-    // Fetch product details from Shopify MCP
-    const { searchProducts } = await import('../services/shopify-mcp.service.js');
+    // Use Admin API GraphQL productByHandle for reliable product data
+    const { graphql } = await import('../services/shopify-admin.service.js');
+    const cleanHandles = handles.slice(0, 6).map((h: string) => h.replace(/"/g, ''));
+    const fragments = cleanHandles.map((h: string, i: number) =>
+      `p${i}: productByHandle(handle: "${h}") { title handle featuredImage { url } priceRange { minVariantPrice { amount currencyCode } } onlineStoreUrl }`
+    ).join('\n');
+
+    const query = `{ ${fragments} }`;
+    const data: Record<string, { title: string; handle: string; featuredImage: { url: string } | null; priceRange: { minVariantPrice: { amount: string; currencyCode: string } }; onlineStoreUrl: string | null } | null> = await graphql(query, {}, brandId);
+
     const products: Array<{ handle: string; title: string; price: string; image: string; url: string }> = [];
+    for (const key of Object.keys(data)) {
+      const product = data[key];
+      if (!product) continue;
 
-    // Search for each product by handle
-    for (const handle of handles.slice(0, 6)) {
-      try {
-        const result = await searchProducts(
-          handle,
-          `Looking up product with handle "${handle}" for quiz funnel recommendation`,
-          { limit: 1 },
-          brandId,
-        );
-        // Parse MCP result to extract product info
-        const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
-        // Extract product data from MCP response
-        const titleMatch = resultStr.match(/\*\*([^*]+)\*\*/);
-        const priceMatch = resultStr.match(/\$[\d,.]+/);
-        const imageMatch = resultStr.match(/https:\/\/cdn\.shopify\.com[^\s"')]+/);
-        const urlMatch = resultStr.match(/https:\/\/[^\s"']*\/products\/[^\s"')]+/);
+      const priceAmount = product.priceRange?.minVariantPrice?.amount;
+      const price = priceAmount ? `$${parseShopifyPrice(priceAmount).toFixed(2)}` : '';
 
-        if (titleMatch) {
-          products.push({
-            handle,
-            title: titleMatch[1],
-            price: priceMatch ? priceMatch[0] : '',
-            image: imageMatch ? imageMatch[0] : '',
-            url: urlMatch ? urlMatch[0] : `/products/${handle}`,
-          });
-        }
-      } catch (err) {
-        console.error(`[quiz.controller] Failed to fetch product "${handle}":`, err instanceof Error ? err.message : err);
-      }
+      products.push({
+        handle: product.handle,
+        title: product.title,
+        price,
+        image: product.featuredImage?.url || '',
+        url: product.onlineStoreUrl || `/products/${product.handle}`,
+      });
     }
 
     res.json({ products });

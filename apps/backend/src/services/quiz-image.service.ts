@@ -34,6 +34,15 @@ const PRODUCT_TYPE_LABELS: Record<string, string> = {
   ceiling_light: 'ceiling light',
 };
 
+function getDefaultLocation(productType: string): string {
+  if (productType.includes('floor')) return 'beside the main seating area, on the floor';
+  if (productType.includes('table') || productType.includes('desk')) return 'on a side table or console';
+  if (productType.includes('pendant')) return 'hanging from ceiling above the central area';
+  if (productType.includes('sconce')) return 'mounted on the wall at eye level';
+  if (productType.includes('chandelier')) return 'hanging from ceiling as a centerpiece';
+  return 'placed naturally in the room';
+}
+
 /** Fetch product images from Shopify Admin API by handles, then download as base64.
  *  Also looks up AI-classified product type from mood tags. */
 export async function fetchProductImages(handles: string[], brandId?: string): Promise<ProductImage[]> {
@@ -98,54 +107,98 @@ export async function fetchProductImages(handles: string[], brandId?: string): P
 }
 
 /**
- * Select 1-3 products for AI placement following strict rules:
- * - ALWAYS include a floor lamp (from floor-table-lamps collection)
- * - If 2: floor lamp + desk/table lamp
- * - If 3: floor lamp + desk/table lamp + pendant or chandelier
- * - NEVER two products from the same collection
- *
- * For AI-mode: picks 3 products. User-curated mode uses user's selection.
+ * Deterministic best-seller selection: #1 best seller from floor lamps, desk lamps, and pendants.
+ * No AI involvement — pure business logic. Queries Shopify collections sorted by BEST_SELLING.
  */
-function selectProductsForRender(allHandles: string[], typeByHandle: Map<string, string>): string[] {
-  // Categorize available handles by type
-  const floorLamps: string[] = [];
-  const deskTableLamps: string[] = [];
-  const overheadLights: string[] = []; // pendants, chandeliers, ceiling
+export async function selectBestSellers(brandId?: string): Promise<string[]> {
+  const { graphql } = await import('./shopify-admin.service.js');
 
-  for (const handle of allHandles) {
-    const ptype = typeByHandle.get(handle) || '';
-    if (ptype === 'floor_lamp') floorLamps.push(handle);
-    else if (ptype === 'desk_lamp' || ptype === 'table_lamp') deskTableLamps.push(handle);
-    else if (ptype === 'pendant' || ptype === 'chandelier' || ptype === 'ceiling_light') overheadLights.push(handle);
+  try {
+    const data: Record<string, { products: { edges: Array<{ node: { handle: string; status: string } }> } } | null> = await graphql(`{
+      floor: collectionByHandle(handle: "floor-table-lamps") {
+        products(first: 3, sortKey: BEST_SELLING) {
+          edges { node { handle status } }
+        }
+      }
+      desk: collectionByHandle(handle: "desk-lamp") {
+        products(first: 3, sortKey: BEST_SELLING) {
+          edges { node { handle status } }
+        }
+      }
+      pendant: collectionByHandle(handle: "pendant-lights") {
+        products(first: 3, sortKey: BEST_SELLING) {
+          edges { node { handle status } }
+        }
+      }
+    }`, {}, brandId);
+
+    const handles: string[] = [];
+    for (const key of ['floor', 'desk', 'pendant']) {
+      const col = data[key];
+      if (!col?.products?.edges) continue;
+      const active = col.products.edges.find(e => e.node.status === 'ACTIVE');
+      if (active) handles.push(active.node.handle);
+    }
+
+    console.log(`[quiz-image] Best sellers selected: ${handles.join(', ')}`);
+    return handles.length > 0 ? handles : ['aven', 'blair', 'cloud'];
+  } catch (err) {
+    console.error('[quiz-image] Failed to fetch best sellers:', err instanceof Error ? err.message : err);
+    return ['aven', 'blair', 'cloud'];
   }
+}
 
-  const selected: string[] = [];
+/**
+ * Mood-aware best-seller selection: picks the highest mood-scored product per category
+ * (floor lamp, table/desk lamp, pendant) for the user's current style/mood.
+ * Falls back to generic best sellers if mood tags are unavailable.
+ */
+export async function selectMoodBestSellers(ctx: QuizContext, brandId?: string): Promise<string[]> {
+  const { supabase } = await import('../config/supabase.js');
+  const moodKey = getStyleKey(ctx);
 
-  // 1. Always pick a floor lamp
-  if (floorLamps.length > 0) {
-    selected.push(floorLamps[Math.floor(Math.random() * floorLamps.length)]);
-  } else if (allHandles.length > 0) {
-    // Fallback: just pick the first handle
-    selected.push(allHandles[0]);
+  try {
+    const { data: tags } = await supabase
+      .from('product_mood_tags')
+      .select('product_handle, product_type, mood_scores')
+      .in('product_type', ['floor_lamp', 'table_lamp', 'desk_lamp', 'pendant']);
+
+    if (!tags || tags.length === 0) {
+      console.log('[quiz-image] No mood tags found, falling back to collection best sellers');
+      return selectBestSellers(brandId);
+    }
+
+    // Score each product for the current mood and sort
+    const scored = tags.map(t => ({
+      handle: t.product_handle,
+      type: t.product_type as string,
+      score: (t.mood_scores as Record<string, number>)?.[moodKey] ?? 0,
+    })).sort((a, b) => b.score - a.score);
+
+    // Pick the top-scoring product per category
+    const picks: string[] = [];
+    const categories: Array<{ types: string[] }> = [
+      { types: ['floor_lamp'] },
+      { types: ['table_lamp', 'desk_lamp'] },
+      { types: ['pendant'] },
+    ];
+
+    for (const cat of categories) {
+      const match = scored.find(s => cat.types.includes(s.type) && !picks.includes(s.handle) && s.score > 0.1);
+      if (match) picks.push(match.handle);
+    }
+
+    if (picks.length === 0) {
+      console.log('[quiz-image] No mood-matched products, falling back to collection best sellers');
+      return selectBestSellers(brandId);
+    }
+
+    console.log(`[quiz-image] Mood "${moodKey}" picks: ${picks.join(', ')} (scores: ${picks.map(h => scored.find(s => s.handle === h)?.score.toFixed(2)).join(', ')})`);
+    return picks;
+  } catch (err) {
+    console.error('[quiz-image] Mood selection failed:', err instanceof Error ? err.message : err);
+    return selectBestSellers(brandId);
   }
-
-  // 2. Add desk/table lamp if available
-  if (deskTableLamps.length > 0) {
-    selected.push(deskTableLamps[Math.floor(Math.random() * deskTableLamps.length)]);
-  }
-
-  // 3. Add pendant or chandelier if available
-  if (overheadLights.length > 0) {
-    selected.push(overheadLights[Math.floor(Math.random() * overheadLights.length)]);
-  }
-
-  // If we still only have 1 and there are more products, try to add any non-duplicate
-  if (selected.length === 1 && allHandles.length > 1) {
-    const remaining = allHandles.filter(h => !selected.includes(h));
-    if (remaining.length > 0) selected.push(remaining[0]);
-  }
-
-  return selected.slice(0, 3);
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -168,15 +221,16 @@ export interface RoomReview {
   furniture: string[];
   colorPalette: string[];
   placements: Array<{
-    productType: 'pendant' | 'floor_lamp' | 'table_lamp' | 'wall_sconce' | 'chandelier' | 'ceiling_light';
-    suggestedProduct: string;
+    fixture?: number; // 1-indexed, maps to productImages[fixture-1]
+    productType?: string;
+    suggestedProduct?: string;
     location: string;
     x: number;
     y: number;
-    reasoning: string;
+    reasoning?: string;
   }>;
   ambiance: string;
-  tips: string[];
+  tips?: string[];
 }
 
 export interface RenderResult {
@@ -344,119 +398,58 @@ export const MOOD_KEY_LABELS: Record<string, { label: string; track: 'soft' | 'd
 // ── Build context-aware review prompt ────────────────────────────────────────
 
 function buildReviewPrompt(ctx: QuizContext, productImages?: ProductImage[]): string {
-  const products = getSuggestedProducts(ctx);
-  const key = getStyleKey(ctx);
-  const atmo = MOOD_ATMOSPHERES[key];
-
-  // Build product list with explicit types from DB so the review AI can't misclassify
-  let productList: string;
-  if (productImages && productImages.length > 0) {
-    // Use the raw DB type key (e.g., "floor_lamp") so it maps directly to the JSON productType enum
-    productList = productImages.map(p => {
-      // Find the raw key that maps to this label, for the JSON enum
-      const rawKey = Object.entries(PRODUCT_TYPE_LABELS).find(([, v]) => v === p.productType)?.[0] || p.productType.replace(/ /g, '_');
-      return `- ${p.handle} → type: "${rawKey}" (${p.productType})`;
-    }).join('\n');
-  } else {
-    productList = products.slice(0, 6).map(h => `- ${h}`).join('\n');
+  if (!productImages || productImages.length === 0) {
+    return `Analyze this room. Return JSON: {"roomType":"","currentLighting":"","furniture":[],"placements":[],"ambiance":""}`;
   }
 
-  const vibeLabel = ctx.vibe || 'Soft Modern';
-  const moodLine = atmo ? `${atmo.colorTemp.split('—')[0].trim()} warmth. ${atmo.emotionalTone.split('.')[0]}.` : '';
+  const n = productImages.length;
+  const fixtureList = productImages.map((p, i) =>
+    `${i + 1}. ${p.productType.toUpperCase()} — "${p.title}"`
+  ).join('\n');
 
-  const numProducts = productImages?.length || products.slice(0, 3).length;
+  return `Analyze this room for lighting placement. I have exactly ${n} fixtures:
 
-  return `You are a professional interior lighting designer working for Outlight, a premium warm modern lighting brand. Your job is to analyze this room photo like a real designer would — studying the architecture, ceiling height, furniture layout, natural light sources, and spatial flow — then recommend exactly where to place each Outlight fixture for maximum aesthetic and functional impact.
+${fixtureList}
 
-Mood: "${vibeLabel}" — ${moodLine}
+Return JSON with exactly ${n} placements (one per fixture, use fixture numbers 1–${n}).
+List all existing light sources to be removed.
+Rules: floor lamp → floor beside seating, table lamp → on a surface, pendant → ceiling above table/seating. Spread across the room.
 
-Here are the ${numProducts} Outlight fixtures to place. Each product's type is listed — you MUST use that exact type in your placement. Do not reclassify.
-
-${productList}
-
-DESIGN PRINCIPLES — think like a professional:
-- Floor lamps belong BESIDE seating (next to a sofa arm, beside an armchair, flanking a reading nook). They should be placed where someone would actually read or relax. Never in the middle of a room or blocking a walkway.
-- Table/desk lamps go ON a visible surface — a side table, console table, nightstand, or desk. Pick the most natural surface visible in the photo.
-- Pendants and chandeliers hang FROM THE CEILING — over a dining table, kitchen island, or as a room centerpiece. Consider the ceiling height.
-- Wall sconces mount on walls — flanking a mirror, beside a bed headboard, along a hallway, or beside artwork.
-- Study the room's spatial balance. Don't cluster all lights in one corner — distribute them to create layered lighting.
-- x/y coordinates are percentages of the image (0-100). Be PRECISE — place the fixture exactly where it should appear visually in the photograph.
-
-Return ONLY valid JSON:
-{
-  "roomType": "living"|"bedroom"|"office"|"dining"|"kitchen"|"hallway",
-  "dimensions": "e.g. 12x15ft, 9ft ceiling",
-  "description": "Brief room description",
-  "currentLighting": "Existing light sources in the photo",
-  "furniture": ["key furniture pieces visible"],
-  "colorPalette": ["dominant hex colors"],
-  "placements": [
-    {
-      "productType": "floor_lamp"|"table_lamp"|"wall_sconce"|"pendant"|"chandelier"|"ceiling_light"|"desk_lamp",
-      "suggestedProduct": "handle_name",
-      "location": "Very specific: e.g. 'to the right of the gray sofa arm, on the hardwood floor'",
-      "x": 25,
-      "y": 65,
-      "reasoning": "Why this location works (lighting balance, functionality, aesthetics)"
-    }
-  ],
-  "ambiance": "How these fixtures transform the room's mood",
-  "tips": ["1-2 pro lighting tips"]
-}
-
-Rules:
-- Place ALL ${numProducts} fixtures. Do not skip any.
-- Use ONLY products from the catalog. Each productType MUST match the catalog listing.
-- x/y must be PRECISE image coordinates where the fixture base/mount point would appear in the photo.`;
+{"roomType":"living","currentLighting":"all existing lights","furniture":["pieces"],"placements":[{"fixture":1,"location":"right of sofa on floor","x":72,"y":68}],"ambiance":"one sentence"}`;
 }
 
 // ── Build concise render prompt with clear ref image mapping ────────────────
 
 function buildRenderPrompt(review: RoomReview, ctx: QuizContext, productImages?: ProductImage[]): string {
-  const key = getStyleKey(ctx);
-  const atmo = MOOD_ATMOSPHERES[key];
-  const vibeLabel = ctx.vibe || 'Soft Modern';
-
-  // Build placement instructions using ACTUAL product type from DB, not review AI's guess
-  const placementLines = review.placements.map((p, i) => {
-    // Look up the real product type from our reference images (DB-sourced), not the review AI's classification
-    const refMatch = productImages?.find(pi => pi.handle === p.suggestedProduct);
-    const refIdx = refMatch ? productImages!.indexOf(refMatch) + 1 : null;
-    const actualType = refMatch?.productType || PRODUCT_TYPE_LABELS[p.productType] || p.productType.replace(/_/g, ' ');
-
-    if (refIdx) {
-      return `- Place Ref #${refIdx} ("${refMatch!.title}"), which is a ${actualType}, ${p.location}. Look at Ref Image #${refIdx} carefully — reproduce that exact fixture.`;
-    }
-    return `- Place "${p.suggestedProduct}" (${actualType}) ${p.location}.`;
-  }).join('\n');
-
-  // Build atmosphere paragraph
-  let atmosParagraph = '';
-  if (atmo) {
-    atmosParagraph = `Set the overall lighting mood to "${vibeLabel}" — color temperature around ${atmo.colorTemp.split('—')[0].trim()}. ${atmo.renderDirective}`;
+  if (!productImages || productImages.length === 0) {
+    return 'Edit this room: remove all light fixtures and add warm ambient lighting.';
   }
 
-  const numFixtures = review.placements.length;
+  const existingLights = review.currentLighting || 'all visible light fixtures';
+  const key = getStyleKey(ctx);
+  const atmo = MOOD_ATMOSPHERES[key];
+  const colorTemp = atmo ? atmo.colorTemp.split('—')[0].trim() : '2700K';
 
-  return `You are editing a photo of a ${review.roomType}. Your job is to transform this room's lighting using Outlight fixtures to achieve a "${vibeLabel}" mood.
+  // Map each product to a location from the review — by fixture number or index, never by handle
+  const placementLines = productImages.map((pi, i) => {
+    const fixtureNum = i + 1;
+    // Try to find placement by fixture number first, then fall back to index
+    const rp = review.placements?.find((p: any) => p.fixture === fixtureNum)
+      || (i < (review.placements?.length || 0) ? review.placements[i] : null);
+    const loc = rp?.location || getDefaultLocation(pi.productType);
+    return `- Ref #${fixtureNum} "${pi.title}" (${pi.productType}) → ${loc}`;
+  }).join('\n');
 
-STEP 1 — REMOVE ALL EXISTING LIGHT SOURCES:
-Before adding anything new, remove every existing light source from the room — all lamps (floor, table, desk), all overhead/ceiling lights, all pendants, chandeliers, wall sconces, and any visible light fixtures. The room should have no lighting except what you add below.
+  return `Edit this room photo. Add ONLY these ${productImages.length} fixtures — no others.
 
-STEP 2 — ADD THESE ${numFixtures} OUTLIGHT FIXTURES:
+1. REMOVE: ${existingLights}. Erase completely, fill with surrounding texture.
 
+2. ADD (match each reference image exactly — same silhouette, shape, materials, color):
 ${placementLines}
 
-You MUST place ALL ${numFixtures} fixtures listed above. Every single one must be clearly visible in the final image. Do not omit any.
+3. LIGHTING: ${colorTemp} warm glow. Visible warm light pools on nearby surfaces from each fixture.
 
-STEP 3 — SET THE MOOD:
-${atmosParagraph}
-Each fixture must emit realistic warm light — visible pools on nearby walls, floors, and surfaces, with soft ambient glow and natural shadows.
-
-PRODUCT FIDELITY (CRITICAL):
-Study each reference image carefully. Every fixture you place MUST have the EXACT same silhouette, shade shape, arm geometry, base form, material finish, and color as its reference image. Do not simplify or approximate — if a reference shows a conical linen shade, use that exact shade, not a generic dome. Do not invent any fixture design.
-
-Keep all furniture, walls, objects, and the room's perspective exactly as they are. The only changes should be: existing lights removed, new Outlight fixtures added, and the overall lighting mood transformed.`;
+Keep all furniture, walls, flooring, camera angle unchanged.`;
 }
 
 // ── Build generation-from-scratch prompt (for sample rooms) ─────────────────
@@ -572,7 +565,7 @@ export async function renderVisualization(
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — this is a ${pi.productType}. STUDY THIS IMAGE CAREFULLY. You MUST reproduce this EXACT fixture design — identical silhouette, shade shape, arm geometry, base form, materials, and color. Do NOT substitute a generic fixture.]` });
+      parts.push({ text: `[REF #${i + 1}: "${pi.title}" — ${pi.productType}. Reproduce this EXACT fixture: same silhouette, shape, materials, color.]` });
     }
   }
 
@@ -615,7 +608,7 @@ export async function generateFromScratch(ctx: QuizContext, productImages?: Prod
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[REF IMAGE #${i + 1}: "${pi.title}" — this is a ${pi.productType}. STUDY THIS IMAGE CAREFULLY. You MUST reproduce this EXACT fixture design — identical silhouette, shade shape, arm geometry, base form, materials, and color. Do NOT substitute a generic fixture.]` });
+      parts.push({ text: `[REF #${i + 1}: "${pi.title}" — ${pi.productType}. Reproduce this EXACT fixture: same silhouette, shape, materials, color.]` });
     }
   }
 
@@ -650,27 +643,14 @@ export async function processRoomPhoto(
   imageBase64: string,
   mimeType: string,
   ctx: QuizContext,
-): Promise<{ review: RoomReview; render: RenderResult }> {
-  const { supabase } = await import('../config/supabase.js');
-
-  // Get the full pool of suggested product handles
-  const allSuggested = getSuggestedProducts(ctx);
-
-  // For user-curated mode, use their exact selection (up to 4)
-  // For AI mode, apply the floor-lamp-first selection logic
+): Promise<{ review: RoomReview; render: RenderResult; usedProducts: string[] }> {
+  // Product selection: user-curated OR mood-matched best sellers
   let productHandles: string[];
   if (ctx.selectedProducts && ctx.selectedProducts.length > 0) {
     productHandles = ctx.selectedProducts.slice(0, 4);
+    console.log(`[quiz-image] User-selected products: ${productHandles.join(', ')}`);
   } else {
-    // Fetch types for the pool to make intelligent selection
-    const poolHandles = allSuggested.slice(0, 10);
-    const { data: poolTags } = await supabase
-      .from('product_mood_tags')
-      .select('product_handle, product_type')
-      .in('product_handle', poolHandles);
-    const poolTypes = new Map((poolTags || []).map(t => [t.product_handle, t.product_type]));
-    productHandles = selectProductsForRender(poolHandles, poolTypes);
-    console.log(`[quiz-image] AI product selection: ${productHandles.join(', ')} (from pool of ${poolHandles.length})`);
+    productHandles = await selectMoodBestSellers(ctx);
   }
 
   let productImages: ProductImage[] = [];
@@ -699,12 +679,13 @@ export async function processRoomPhoto(
         tips: [],
       },
       render,
+      usedProducts: productHandles,
     };
   }
 
   const review = await reviewRoomPhoto(imageBase64, mimeType, ctx, productImages);
   const render = await renderVisualization(imageBase64, mimeType, review, ctx, productImages);
-  return { review, render };
+  return { review, render, usedProducts: productHandles };
 }
 
 // ── Get product suggestions for a style ──────────────────────────────────────
@@ -720,11 +701,11 @@ export function getAtmosphereProfile(ctx: QuizContext): AtmosphereProfile | null
   return MOOD_ATMOSPHERES[key] || null;
 }
 
-export function getDebugPrompts(ctx: QuizContext): { reviewPrompt: string; generatePrompt: string; renderPromptBuilder: (review: RoomReview) => string; styleKey: string } {
+export function getDebugPrompts(ctx: QuizContext, productImages?: ProductImage[]): { reviewPrompt: string; generatePrompt: string; renderPromptBuilder: (review: RoomReview) => string; styleKey: string } {
   return {
-    reviewPrompt: buildReviewPrompt(ctx),
-    generatePrompt: buildGeneratePrompt(ctx),
-    renderPromptBuilder: (review: RoomReview) => buildRenderPrompt(review, ctx, undefined),
+    reviewPrompt: buildReviewPrompt(ctx, productImages),
+    generatePrompt: buildGeneratePrompt(ctx, productImages),
+    renderPromptBuilder: (review: RoomReview) => buildRenderPrompt(review, ctx, productImages),
     styleKey: getStyleKey(ctx),
   };
 }
