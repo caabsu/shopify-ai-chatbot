@@ -421,7 +421,11 @@ async function ensureMinimumCoverage(brandId: string): Promise<number> {
           .update({ mood_scores: updatedScores, updated_at: new Date().toISOString() })
           .eq('id', tag.id);
 
-        if (!updateErr) totalPromoted++;
+        if (!updateErr) {
+          // Update in-memory data so subsequent mood iterations don't overwrite this promotion
+          (tag.mood_scores as Record<string, number>)[moodKey] = PROMOTE_THRESHOLD;
+          totalPromoted++;
+        }
       }
 
       if (toPromote.length > 0) {
