@@ -214,23 +214,11 @@ export interface QuizContext {
 }
 
 export interface RoomReview {
-  roomType: string;
-  dimensions: string;
-  description: string;
-  currentLighting: string;
-  furniture: string[];
-  colorPalette: string[];
-  placements: Array<{
-    fixture?: number; // 1-indexed, maps to productImages[fixture-1]
-    productType?: string;
-    suggestedProduct?: string;
-    location: string;
-    x: number;
-    y: number;
-    reasoning?: string;
-  }>;
-  ambiance: string;
-  tips?: string[];
+  renderPrompt: string; // AI-generated editing instructions for the image model
+  roomType?: string;
+  currentLighting?: string;
+  furniture?: string[];
+  ambiance?: string;
 }
 
 export interface RenderResult {
@@ -395,30 +383,7 @@ export const MOOD_KEY_LABELS: Record<string, { label: string; track: 'soft' | 'd
   'midnight-warmth': { label: 'Midnight Warmth', track: 'dramatic' },
 };
 
-// ── Build context-aware review prompt ────────────────────────────────────────
-
-function buildReviewPrompt(ctx: QuizContext, productImages?: ProductImage[]): string {
-  if (!productImages || productImages.length === 0) {
-    return `Analyze this room. Return JSON: {"roomType":"","currentLighting":"","furniture":[],"placements":[],"ambiance":""}`;
-  }
-
-  const n = productImages.length;
-  const fixtureList = productImages.map((p, i) =>
-    `${i + 1}. ${p.productType.toUpperCase()} — "${p.title}"`
-  ).join('\n');
-
-  return `Analyze this room for lighting placement. I have exactly ${n} fixtures:
-
-${fixtureList}
-
-Return JSON with exactly ${n} placements (one per fixture, use fixture numbers 1–${n}).
-List all existing light sources to be removed.
-Rules: floor lamp → floor beside seating, table lamp → on a surface, pendant → ceiling above table/seating. Spread across the room.
-
-{"roomType":"living","currentLighting":"all existing lights","furniture":["pieces"],"placements":[{"fixture":1,"location":"right of sofa on floor","x":72,"y":68}],"ambiance":"one sentence"}`;
-}
-
-// ── Build natural-language render prompt ──────────────────────────────────────
+// ── Intensity directions ─────────────────────────────────────────────────────
 
 function getIntensityDirections(intensity?: string): string {
   switch ((intensity || 'balanced').toLowerCase()) {
@@ -434,27 +399,30 @@ function getIntensityDirections(intensity?: string): string {
   }
 }
 
-function buildRenderPrompt(review: RoomReview, ctx: QuizContext, productImages?: ProductImage[]): string {
+// ── Build review prompt — the review model GENERATES the render instructions ──
+
+function buildReviewPrompt(ctx: QuizContext, productImages?: ProductImage[]): string {
   if (!productImages || productImages.length === 0) {
-    return 'Edit this room: remove all light fixtures and add warm ambient lighting.';
+    return 'Describe this room briefly — room type, existing lighting, and furniture layout.';
   }
 
-  const existingLights = review.currentLighting || 'all visible light fixtures';
-
-  // Build natural placement descriptions: "floor lamp (attachment #2) is placed next to the sofa"
-  // Attachment #1 = room photo, #2 = first product, #3 = second product, etc.
-  const placementDescs = productImages.map((pi, i) => {
+  const n = productImages.length;
+  const fixtureList = productImages.map((p, i) => {
     const attachmentNum = i + 2; // room photo is attachment #1
-    const fixtureNum = i + 1;
-    const rp = review.placements?.find((p: any) => p.fixture === fixtureNum)
-      || (i < (review.placements?.length || 0) ? review.placements[i] : null);
-    const loc = rp?.location || getDefaultLocation(pi.productType);
-    return `${pi.productType} (attachment #${attachmentNum}) is placed ${loc}`;
-  }).join(', and ');
+    return `"${p.title}" which is a ${p.productType} (attachment #${attachmentNum})`;
+  }).join(', ');
 
   const intensityNote = getIntensityDirections(ctx.intensity);
 
-  return `Using the image of the space attached, make the following edits: Remove all existing light fixtures (${existingLights}). Then, place these ${productImages.length} lights according to the following: ${placementDescs}. Ensure the shape and design of each light fixture stays exactly as shown in its reference attachment — do not change or simplify them. The output should be realistic, well-placed, and properly illuminated. ${intensityNote}`;
+  return `Look at the room photo (attachment #1) and the ${n} light fixture reference images: ${fixtureList}.
+
+Write a single-paragraph editing instruction for an image-editing AI that will transform this room photo. Your instruction must:
+- Tell it to remove ALL existing light fixtures visible in the room (name them specifically based on what you see)
+- Tell it exactly where to place each of the ${n} fixtures — describe placement relative to specific furniture/walls you can see in the room
+- Reference each fixture as "attachment #N" so the image AI knows which reference image to match
+- End with: "${intensityNote}"
+
+Write ONLY the instruction paragraph. Start with "Using the image of the space attached, make the following edits:"`;
 }
 
 // ── Build generation-from-scratch prompt (for sample rooms) ─────────────────
@@ -485,41 +453,36 @@ export async function reviewRoomPhoto(
   const client = await getClient();
   const prompt = buildReviewPrompt(ctx, productImages);
 
-  console.log(`[quiz-image] Reviewing room photo — style: ${getStyleKey(ctx)}`);
+  console.log(`[quiz-image] Review: analyzing room + generating render instructions — style: ${getStyleKey(ctx)}`);
+
+  // Build parts: room photo (attachment #1), then product images (attachment #2, #3, ...), then instruction
+  const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [
+    { inlineData: { mimeType, data: imageBase64 } },
+  ];
+
+  if (productImages && productImages.length > 0) {
+    for (let i = 0; i < productImages.length; i++) {
+      const pi = productImages[i];
+      parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
+      parts.push({ text: `[Attachment #${i + 2}: "${pi.title}" — a ${pi.productType}]` });
+    }
+  }
+
+  parts.push({ text: prompt });
 
   const response = await client.models.generateContent({
     model: config.gemini.reviewModel,
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { inlineData: { mimeType, data: imageBase64 } },
-          { text: prompt },
-        ],
-      },
-    ],
+    contents: [{ role: 'user', parts }],
   });
 
-  const text = (response.text ?? '').trim();
-  try {
-    const cleaned = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    const parsed = JSON.parse(cleaned);
-    console.log(`[quiz-image] Review complete — ${parsed.placements?.length || 0} placements, room: ${parsed.roomType}`);
-    return parsed;
-  } catch {
-    console.error('[quiz-image] Failed to parse review JSON:', text.slice(0, 300));
-    return {
-      roomType: 'unknown',
-      dimensions: 'unknown',
-      description: 'Unable to analyze room',
-      currentLighting: 'unknown',
-      furniture: [],
-      colorPalette: [],
-      placements: [],
-      ambiance: '',
-      tips: [],
-    };
-  }
+  const renderPrompt = (response.text ?? '').trim();
+  console.log(`[quiz-image] Review complete — generated render prompt (${renderPrompt.length} chars)`);
+
+  return {
+    renderPrompt,
+    roomType: 'analyzed',
+    currentLighting: 'see render prompt',
+  };
 }
 
 // ── Render (Generate Visualization) ──────────────────────────────────────────
@@ -528,15 +491,17 @@ export async function renderVisualization(
   roomImageBase64: string,
   roomMimeType: string,
   review: RoomReview,
-  ctx: QuizContext,
   productImages?: ProductImage[],
 ): Promise<RenderResult> {
   const client = await getClient();
-  const prompt = buildRenderPrompt(review, ctx, productImages);
 
-  console.log(`[quiz-image] Generating visualization — ${productImages?.length || 0} products, style: ${getStyleKey(ctx)}`);
+  // Use the render prompt generated by the review model
+  const prompt = review.renderPrompt;
+  if (!prompt) throw new Error('No render prompt — review must generate it first');
 
-  // Build parts: room photo (attachment #1), then product images (attachment #2, #3, ...), then prompt
+  console.log(`[quiz-image] Rendering with review-generated prompt (${prompt.length} chars), ${productImages?.length || 0} product refs`);
+
+  // Build parts: room photo (attachment #1), then product images (attachment #2, #3, ...), then the review-generated prompt
   const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [
     { inlineData: { mimeType: roomMimeType, data: roomImageBase64 } },
   ];
@@ -648,15 +613,10 @@ export async function processRoomPhoto(
     const atmo = MOOD_ATMOSPHERES[key];
     return {
       review: {
+        renderPrompt: buildGeneratePrompt(ctx, productImages),
         roomType: 'living',
-        dimensions: 'Sample room',
-        description: 'AI-generated sample room',
         currentLighting: 'None — generated from scratch',
-        furniture: [],
-        colorPalette: [],
-        placements: [],
         ambiance: atmo?.emotionalTone || 'A beautifully lit space tailored to your style.',
-        tips: [],
       },
       render,
       usedProducts: productHandles,
@@ -664,7 +624,7 @@ export async function processRoomPhoto(
   }
 
   const review = await reviewRoomPhoto(imageBase64, mimeType, ctx, productImages);
-  const render = await renderVisualization(imageBase64, mimeType, review, ctx, productImages);
+  const render = await renderVisualization(imageBase64, mimeType, review, productImages);
   return { review, render, usedProducts: productHandles };
 }
 
@@ -681,11 +641,10 @@ export function getAtmosphereProfile(ctx: QuizContext): AtmosphereProfile | null
   return MOOD_ATMOSPHERES[key] || null;
 }
 
-export function getDebugPrompts(ctx: QuizContext, productImages?: ProductImage[]): { reviewPrompt: string; generatePrompt: string; renderPromptBuilder: (review: RoomReview) => string; styleKey: string } {
+export function getDebugPrompts(ctx: QuizContext, productImages?: ProductImage[]): { reviewPrompt: string; generatePrompt: string; styleKey: string } {
   return {
     reviewPrompt: buildReviewPrompt(ctx, productImages),
     generatePrompt: buildGeneratePrompt(ctx, productImages),
-    renderPromptBuilder: (review: RoomReview) => buildRenderPrompt(review, ctx, productImages),
     styleKey: getStyleKey(ctx),
   };
 }
@@ -716,17 +675,11 @@ export function buildAgentTrace(ctx: QuizContext, hasPhoto: boolean): string[] {
   trace.push(`[PRODUCTS] Top picks for prompts: ${products.slice(0, 6).join(', ')}.`);
 
   if (hasPhoto) {
-    trace.push(`[PIPELINE] Photo provided → two-step pipeline: Review (analyze room) → Render (transform image).`);
-    trace.push(`[PIPELINE] Step 1: Send photo + review prompt to review model. AI will analyze room layout, furniture, lighting, and suggest product placements.`);
-    trace.push(`[PIPELINE] Step 2: Send photo + render prompt (including review results) to image model. AI will generate transformed room with fixtures + mood lighting.`);
+    trace.push(`[PIPELINE] Photo provided → two-step pipeline.`);
+    trace.push(`[PIPELINE] Step 1: Review model sees room photo + product images → WRITES the render instructions (natural language).`);
+    trace.push(`[PIPELINE] Step 2: Image model receives room photo + product images + the review-generated instructions → produces edited image.`);
   } else {
-    trace.push(`[PIPELINE] No photo provided → single-step: Generate sample room from scratch.`);
-    trace.push(`[PIPELINE] AI will create a photorealistic room image with fixtures placed and mood lighting applied, purely from text description.`);
-  }
-
-  if (atmo) {
-    trace.push(`[PROMPT] Injecting full atmosphere block into prompt: colorTemp, lightQuality, shadowStyle, materialTones, emotionalTone, renderDirective.`);
-    trace.push(`[PROMPT] Render directive emphasis: "${atmo.renderDirective.slice(0, 100)}..."`);
+    trace.push(`[PIPELINE] No photo → single-step: Generate sample room from scratch with product fixtures.`);
   }
 
   trace.push(`[MODELS] Review model: ${config.gemini.reviewModel} (text analysis).`);

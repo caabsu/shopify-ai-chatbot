@@ -416,36 +416,27 @@ quizRouter.post('/render-debug', async (req, res) => {
 
       result = {
         review: {
+          renderPrompt: debug.generatePrompt,
           roomType: 'living',
-          dimensions: 'Sample room',
-          description: 'AI-generated sample room',
           currentLighting: 'None — generated from scratch',
-          furniture: [],
-          colorPalette: [],
-          placements: [],
           ambiance: (debug.atmosphere as any)?.emotionalTone || 'A beautifully lit space.',
-          tips: [],
         },
         render,
       };
       debug.review = result.review;
     } else {
-      // Real photo — review then render
-      debug.agentTrace.push(`[EXEC] Step 1: Calling ${config.gemini.reviewModel} with review prompt (${debug.reviewPrompt.length} chars) + room photo...`);
+      // Real photo — review generates render prompt, then render uses it
+      debug.agentTrace.push(`[EXEC] Step 1: Calling ${config.gemini.reviewModel} with room photo + ${productImages.length} product images — AI will write the render instructions...`);
       const reviewStart = Date.now();
-      const review = await quizImage.reviewRoomPhoto(image_base64, mime_type || 'image/jpeg', context);
+      const review = await quizImage.reviewRoomPhoto(image_base64, mime_type || 'image/jpeg', context, productImages);
       debug.timings.reviewMs = Date.now() - reviewStart;
       debug.review = review;
-      debug.agentTrace.push(`[EXEC] Review complete in ${debug.timings.reviewMs}ms — room: ${review.roomType}, ${review.placements?.length || 0} placements, furniture: [${review.furniture?.slice(0, 3).join(', ')}].`);
+      debug.renderPrompt = review.renderPrompt || '';
+      debug.agentTrace.push(`[EXEC] Review complete in ${debug.timings.reviewMs}ms — generated render prompt (${review.renderPrompt?.length || 0} chars).`);
 
-      // Build the actual render prompt using review results (use debugPrompts which has product images)
-      const promptBuilder = productImages.length > 0 ? quizImage.getDebugPrompts(context, productImages).renderPromptBuilder : debugInfo.renderPromptBuilder;
-      const actualRenderPrompt = promptBuilder(review);
-      debug.renderPrompt = actualRenderPrompt;
-
-      debug.agentTrace.push(`[EXEC] Step 2: Calling ${config.gemini.imageModel} with render prompt (${actualRenderPrompt.length} chars) + room photo + ${productImages.length} product ref images...`);
+      debug.agentTrace.push(`[EXEC] Step 2: Calling ${config.gemini.imageModel} with review-generated prompt + room photo + ${productImages.length} product ref images...`);
       const renderStart = Date.now();
-      const render = await quizImage.renderVisualization(image_base64, mime_type || 'image/jpeg', review, context, productImages);
+      const render = await quizImage.renderVisualization(image_base64, mime_type || 'image/jpeg', review, productImages);
       debug.timings.renderMs = Date.now() - renderStart;
       debug.agentTrace.push(`[EXEC] Image rendered in ${debug.timings.renderMs}ms.`);
 
@@ -536,15 +527,10 @@ quizRouter.post('/review', async (req, res) => {
       const suggestedProducts = quizImage.getProductSuggestions(context);
       res.json({
         review: {
+          renderPrompt: '',
           roomType: 'living',
-          dimensions: 'Sample room',
-          description: 'AI-generated sample room',
           currentLighting: 'None — sample',
-          furniture: [],
-          colorPalette: [],
-          placements: [],
           ambiance: 'A beautifully lit space tailored to your style.',
-          tips: [],
         },
         suggestedProducts,
       });
