@@ -168,16 +168,18 @@ export default function ProductPoolsPage() {
 
   useEffect(() => { fetchMoodTags(); }, [fetchMoodTags]);
 
-  const fetchCollections = useCallback(async () => {
+  const fetchCollections = useCallback(async (forceRefresh = false) => {
     setCollectionsLoading(true);
     try {
-      const cached = localStorage.getItem('quiz_collections');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed.synced_at && Date.now() - new Date(parsed.synced_at).getTime() < 3600000) {
-          setCollections(parsed.collections || {});
-          setCollectionsLoading(false);
-          return;
+      if (!forceRefresh) {
+        const cached = localStorage.getItem('quiz_collections');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.synced_at && Date.now() - new Date(parsed.synced_at).getTime() < 300000) {
+            setCollections(parsed.collections || {});
+            setCollectionsLoading(false);
+            return;
+          }
         }
       }
       const res = await fetch(`${BASE}/api/quiz/collections`);
@@ -308,7 +310,7 @@ export default function ProductPoolsPage() {
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <button
-            onClick={() => { localStorage.removeItem('quiz_collections'); fetchCollections(); }}
+            onClick={() => { localStorage.removeItem('quiz_collections'); localStorage.removeItem('quiz_catalog'); fetchCollections(true); syncCatalog(); }}
             disabled={collectionsLoading}
             style={{
               display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px',
@@ -439,7 +441,7 @@ export default function ProductPoolsPage() {
           <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)', margin: '0 0 4px' }}>No products loaded</p>
           <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', margin: '0 0 14px' }}>Sync your Shopify collections to get started</p>
           <button
-            onClick={() => { localStorage.removeItem('quiz_collections'); fetchCollections(); }}
+            onClick={() => { localStorage.removeItem('quiz_collections'); localStorage.removeItem('quiz_catalog'); fetchCollections(true); syncCatalog(); }}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 18px',
               fontSize: '13px', fontWeight: 500, color: '#fff', backgroundColor: ACCENT,
