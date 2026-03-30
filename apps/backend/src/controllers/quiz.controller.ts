@@ -739,6 +739,7 @@ quizRouter.get('/catalog', async (req, res) => {
 
       for (const edge of data.products.edges) {
         const p = edge.node;
+        if (p.status !== 'ACTIVE') continue; // Skip draft/archived products
         const minPrice = parseFloat(p.priceRange.minVariantPrice.amount);
         const maxPrice = parseFloat(p.priceRange.maxVariantPrice.amount);
 
@@ -750,13 +751,13 @@ quizRouter.get('/catalog', async (req, res) => {
           productType: p.productType,
           tags: p.tags,
           image: p.featuredImage?.url || '',
-          price: `$${minPrice % 1 === 0 ? minPrice.toFixed(0) : minPrice.toFixed(2)}`,
-          maxPrice: `$${maxPrice % 1 === 0 ? maxPrice.toFixed(0) : maxPrice.toFixed(2)}`,
+          price: `$${minPrice.toFixed(2)}`,
+          maxPrice: `$${maxPrice.toFixed(2)}`,
           currency: p.priceRange.minVariantPrice.currencyCode,
           variants: p.variants.edges.map((v) => ({
             id: v.node.id,
             title: v.node.title,
-            price: `$${parseFloat(v.node.price) % 1 === 0 ? parseFloat(v.node.price).toFixed(0) : parseFloat(v.node.price).toFixed(2)}`,
+            price: `$${parseFloat(v.node.price).toFixed(2)}`,
             available: v.node.availableForSale,
             image: v.node.image?.url || '',
           })),
@@ -818,6 +819,7 @@ quizRouter.get('/collections', async (req, res) => {
                 node: {
                   title: string;
                   handle: string;
+                  status: string;
                   featuredImage: { url: string } | null;
                   priceRange: { minVariantPrice: { amount: string; currencyCode: string } };
                 };
@@ -833,6 +835,7 @@ quizRouter.get('/collections', async (req, res) => {
                   node {
                     title
                     handle
+                    status
                     featuredImage { url }
                     priceRange { minVariantPrice { amount currencyCode } }
                   }
@@ -849,13 +852,14 @@ quizRouter.get('/collections', async (req, res) => {
 
         for (const edge of data.collectionByHandle.products.edges) {
           const n = edge.node;
+          if (n.status !== 'ACTIVE') continue; // Skip draft/archived products
           const amt = parseFloat(n.priceRange.minVariantPrice.amount);
           const cur = n.priceRange.minVariantPrice.currencyCode;
           allProducts.push({
             handle: n.handle,
             title: n.title,
             image: n.featuredImage?.url || '',
-            price: `${cur === 'USD' ? '$' : cur + ' '}${amt % 1 === 0 ? amt.toFixed(0) : amt.toFixed(2)}`,
+            price: `${cur === 'USD' ? '$' : cur + ' '}${amt.toFixed(2)}`,
           });
         }
 

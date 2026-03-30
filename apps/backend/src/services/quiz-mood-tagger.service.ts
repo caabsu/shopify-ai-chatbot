@@ -224,7 +224,7 @@ export async function batchTagAllProducts(
         query Products($cursor: String) {
           products(first: 50, after: $cursor, sortKey: TITLE) {
             edges {
-              node { title handle featuredImage { url } }
+              node { title handle status featuredImage { url } }
             }
             pageInfo { hasNextPage endCursor }
           }
@@ -233,13 +233,13 @@ export async function batchTagAllProducts(
 
       const data: {
         products: {
-          edges: Array<{ node: { title: string; handle: string; featuredImage: { url: string } | null } }>;
+          edges: Array<{ node: { title: string; handle: string; status: string; featuredImage: { url: string } | null } }>;
           pageInfo: { hasNextPage: boolean; endCursor: string | null };
         };
       } = await graphql(query, { cursor }, brandId);
 
       for (const edge of data.products.edges) {
-        if (edge.node.featuredImage?.url) {
+        if (edge.node.status === 'ACTIVE' && edge.node.featuredImage?.url) {
           products.push({
             handle: edge.node.handle,
             title: edge.node.title,
@@ -320,13 +320,14 @@ export async function batchTagAllProducts(
   }
 }
 
-// ── Post-processing: ensure minimum products per mood ────────────────────
+// ── Post-processing: ensure minimum products per mood × product type ─────
 
-const MIN_PER_MOOD = 20; // Minimum products total per mood (across all collections)
-const PROMOTE_THRESHOLD = 0.50; // Score to promote to
+const MIN_PER_MOOD_TYPE = 4; // Minimum products per mood per product type
+const PROMOTE_THRESHOLD = 0.50;
+
+const COLLECTION_PRODUCT_TYPES = ['pendant', 'floor_lamp', 'desk_lamp', 'wall_sconce', 'chandelier'];
 
 async function ensureMinimumCoverage(brandId: string): Promise<number> {
-  // Load all tagged products
   const { data: allTags, error } = await supabase
     .from('product_mood_tags')
     .select('*')
@@ -337,42 +338,48 @@ async function ensureMinimumCoverage(brandId: string): Promise<number> {
   let totalPromoted = 0;
 
   for (const moodKey of ALL_MOOD_KEYS) {
-    // Count how many products currently have score >= 0.5 for this mood
-    const currentlyTagged = allTags.filter(
-      (t) => ((t.mood_scores as Record<string, number>)?.[moodKey] ?? 0) >= PROMOTE_THRESHOLD,
-    );
+    for (const productType of COLLECTION_PRODUCT_TYPES) {
+      // Products of this type
+      const typeProducts = allTags.filter((t) => t.product_type === productType);
+      if (typeProducts.length === 0) continue;
 
-    if (currentlyTagged.length >= MIN_PER_MOOD) continue;
+      // Already tagged for this mood
+      const tagged = typeProducts.filter(
+        (t) => ((t.mood_scores as Record<string, number>)?.[moodKey] ?? 0) >= PROMOTE_THRESHOLD,
+      );
 
-    // Need more products for this mood — find untagged products sorted by their score for this mood (highest first)
-    const candidates = allTags
-      .filter((t) => {
-        const score = (t.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
-        return score < PROMOTE_THRESHOLD && score > 0; // Has some score but below threshold
-      })
-      .sort((a, b) => {
-        const sa = (a.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
-        const sb = (b.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
-        return sb - sa; // Highest first
-      });
+      if (tagged.length >= MIN_PER_MOOD_TYPE) continue;
 
-    const needed = MIN_PER_MOOD - currentlyTagged.length;
-    const toPromote = candidates.slice(0, needed);
+      // Promote candidates: same type, below threshold, sorted by score desc
+      const candidates = typeProducts
+        .filter((t) => {
+          const score = (t.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
+          return score < PROMOTE_THRESHOLD;
+        })
+        .sort((a, b) => {
+          const sa = (a.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
+          const sb = (b.mood_scores as Record<string, number>)?.[moodKey] ?? 0;
+          return sb - sa;
+        });
 
-    for (const tag of toPromote) {
-      const updatedScores = { ...(tag.mood_scores as Record<string, number>) };
-      updatedScores[moodKey] = PROMOTE_THRESHOLD;
+      const needed = MIN_PER_MOOD_TYPE - tagged.length;
+      const toPromote = candidates.slice(0, needed);
 
-      const { error: updateErr } = await supabase
-        .from('product_mood_tags')
-        .update({ mood_scores: updatedScores, updated_at: new Date().toISOString() })
-        .eq('id', tag.id);
+      for (const tag of toPromote) {
+        const updatedScores = { ...(tag.mood_scores as Record<string, number>) };
+        updatedScores[moodKey] = PROMOTE_THRESHOLD;
 
-      if (!updateErr) totalPromoted++;
-    }
+        const { error: updateErr } = await supabase
+          .from('product_mood_tags')
+          .update({ mood_scores: updatedScores, updated_at: new Date().toISOString() })
+          .eq('id', tag.id);
 
-    if (toPromote.length > 0) {
-      console.log(`[mood-tagger] ${moodKey}: promoted ${toPromote.length} products (had ${currentlyTagged.length}, target ${MIN_PER_MOOD})`);
+        if (!updateErr) totalPromoted++;
+      }
+
+      if (toPromote.length > 0) {
+        console.log(`[mood-tagger] ${moodKey}×${productType}: promoted ${toPromote.length} (had ${tagged.length}, need ${MIN_PER_MOOD_TYPE})`);
+      }
     }
   }
 
