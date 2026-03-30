@@ -74,15 +74,13 @@ export async function fetchProductImages(handles: string[], brandId?: string): P
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface QuizContext {
-  concept: 'reveal' | 'style-profile';
-  // Concept 1: The Reveal
-  mood?: string; // e.g. "Cozy & Warm", "Moody & Dramatic"
-  // Concept 2: The Style Profile
+  concept: 'style-profile'; // Focused on style-profile; A/B framework kept for future concepts
   who?: string;       // "Just me", "My partner & I", etc.
   track?: string;     // "soft" or "dramatic"
-  vibe?: string;      // "Rustic Warm", "Art Deco Warm", etc.
+  vibe?: string;      // "Golden Nook", "Layered Warmth", "Soft Modern", etc.
   intensity?: string; // "Understated", "Balanced", "Expressive", "Statement"
-  profileName?: string; // Combined: "Soft · Modern Cozy · Balanced"
+  profileName?: string; // Combined: "Soft · Soft Modern · Balanced"
+  selectedProducts?: string[]; // User-selected products from the selection step
 }
 
 export interface RoomReview {
@@ -109,45 +107,59 @@ export interface RenderResult {
   mimeType: string;
 }
 
-// ── Style profile → product mapping ─────────────────────────────────────────
+// ── Legacy key mapping ──────────────────────────────────────────────────────
+// Maps old mood/vibe keys to new warm-corridor vibe keys
+
+const LEGACY_KEY_MAP: Record<string, string> = {
+  // Old Reveal moods → closest Style Profile vibe
+  'cozy-warm': 'golden-nook',
+  'bright-open': 'soft-modern',
+  'moody-dramatic': 'deep-amber',
+  'soft-editorial': 'quiet-glow',
+  // Old Style Profile vibes → new keys
+  'rustic-warm': 'golden-nook',
+  'bohemian-layered': 'layered-warmth',
+  'modern-cozy': 'soft-modern',
+  'japandi-warm': 'quiet-glow',
+  'art-deco-warm': 'gilded-evening',
+  'dark-luxe': 'deep-amber',
+  'warm-industrial': 'foundry-glow',
+  'moody-maximalist': 'midnight-warmth',
+};
+
+// ── Style profile → product fallback mapping ────────────────────────────────
+// Used when DB-backed mood tags are not yet available
 
 const STYLE_PRODUCT_MAP: Record<string, string[]> = {
-  // Concept 1 moods
-  'cozy-warm': ['aven', 'cade', 'elm', 'fenn', 'anka', 'aura', 'jules', 'dell', 'isar', 'seren', 'ruvo', 'maren'],
-  'bright-open': ['cloud', 'saku', 'brio', 'knoll', 'azura', 'cala', 'sterling', 'blair', 'thorne', 'alba', 'talon', 'gray'],
-  'moody-dramatic': ['soren', 'nyra', 'zael', 'slate', 'delos', 'blane', 'aria', 'calix', 'xara', 'york', 'ode', 'vireo'],
-  'soft-editorial': ['hollis', 'fable', 'zola', 'galen', 'pallas', 'rowan', 'orin', 'fara', 'olin', 'ostra', 'lane', 'vale'],
+  // ── Soft Track ──
+  'golden-nook': ['aven', 'cade', 'fenn', 'dell', 'ruvo', 'anka', 'maren', 'rivor', 'vero', 'wren'],
+  'layered-warmth': ['anka', 'saku', 'cielo', 'iven', 'yaro', 'hue', 'caia', 'melo', 'verve', 'loom'],
+  'soft-modern': ['cloud', 'brio', 'knoll', 'azura', 'sterling', 'tava', 'sela', 'daxel', 'ayla', 'elan'],
+  'quiet-glow': ['hollis', 'jules', 'elm', 'cade', 'maren', 'ostra', 'olin', 'fable', 'thorne', 'glade'],
 
-  // Concept 2 soft vibes
-  'rustic-warm': ['aven', 'cade', 'fenn', 'dell', 'ruvo', 'anka', 'maren', 'rivor', 'vero', 'wren'],
-  'bohemian-layered': ['anka', 'saku', 'cielo', 'iven', 'yaro', 'hue', 'caia', 'melo', 'verve', 'loom'],
-  'modern-cozy': ['cloud', 'brio', 'knoll', 'azura', 'sterling', 'tava', 'sela', 'daxel', 'ayla', 'elan'],
-  'japandi-warm': ['hollis', 'jules', 'elm', 'cade', 'maren', 'ostra', 'olin', 'fable', 'thorne', 'glade'],
-
-  // Concept 2 dramatic vibes
-  'art-deco-warm': ['calix', 'cadence', 'zael', 'nyra', 'elys', 'ember', 'jora', 'loom', 'enzo', 'bliss'],
-  'dark-luxe': ['soren', 'slate', 'vireo', 'ode', 'xara', 'york', 'nivra', 'ziven', 'rove', 'phel'],
-  'warm-industrial': ['blane', 'arvo', 'saro', 'garek', 'vexa', 'sylos', 'kanne', 'haro', 'reed', 'arbor'],
-  'moody-maximalist': ['aria', 'delos', 'kismet', 'sia', 'niva', 'calen', 'eira', 'felio', 'aeris', 'lyra'],
+  // ── Dramatic Track ──
+  'gilded-evening': ['calix', 'cadence', 'zael', 'nyra', 'elys', 'ember', 'jora', 'loom', 'enzo', 'bliss'],
+  'deep-amber': ['soren', 'slate', 'vireo', 'ode', 'xara', 'york', 'nivra', 'ziven', 'rove', 'phel'],
+  'foundry-glow': ['blane', 'arvo', 'saro', 'garek', 'vexa', 'sylos', 'kanne', 'haro', 'reed', 'arbor'],
+  'midnight-warmth': ['aria', 'delos', 'kismet', 'sia', 'niva', 'calen', 'eira', 'felio', 'aeris', 'lyra'],
 };
 
 function getStyleKey(ctx: QuizContext): string {
-  if (ctx.concept === 'reveal' && ctx.mood) {
-    return ctx.mood.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
-  }
-  if (ctx.concept === 'style-profile' && ctx.vibe) {
-    return ctx.vibe.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
-  }
-  return 'modern-cozy';
+  const raw = (ctx.vibe || '').toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
+  // Check legacy mapping first, then use raw key
+  return LEGACY_KEY_MAP[raw] || (STYLE_PRODUCT_MAP[raw] ? raw : 'soft-modern');
 }
 
 function getSuggestedProducts(ctx: QuizContext): string[] {
+  // If user manually selected products, use those
+  if (ctx.selectedProducts && ctx.selectedProducts.length > 0) return ctx.selectedProducts;
   const key = getStyleKey(ctx);
-  return STYLE_PRODUCT_MAP[key] || STYLE_PRODUCT_MAP['modern-cozy'];
+  return STYLE_PRODUCT_MAP[key] || STYLE_PRODUCT_MAP['soft-modern'];
 }
 
-// ── Deep mood/style atmosphere definitions ──────────────────────────────────
-// These are the core differentiation layer — they make each mood VISIBLY different
+// ── Atmosphere profiles ─────────────────────────────────────────────────────
+// All profiles stay within Outlight's warm, clean, aesthetic corridor.
+// Differences are subtle: color temperature, shadow depth, light distribution.
 
 interface AtmosphereProfile {
   colorTemp: string;
@@ -159,107 +171,97 @@ interface AtmosphereProfile {
 }
 
 const MOOD_ATMOSPHERES: Record<string, AtmosphereProfile> = {
-  // ─── Concept 1: The Reveal moods ───
-  'cozy-warm': {
+  // ─── Soft Track ───
+
+  'golden-nook': {
     colorTemp: '2200K–2700K — deep amber, honey gold, candlelight warmth',
-    lightQuality: 'Soft, diffused, pooling. Light should gather in warm pockets — beside the sofa, under a pendant, around a reading nook. No harsh edges. Everything should feel like golden hour indoors.',
-    shadowStyle: 'Deep, soft-edged shadows with warm undertones. Shadows should feel enveloping, not dark — more like a gentle dimming. Shadow color: warm umber/sienna, never cool gray.',
-    materialTones: 'Favor brass, aged bronze, warm wood, cream linen shades, amber glass. Fixtures feel collected, organic, lived-in.',
-    emotionalTone: 'Intimate, nurturing, deeply comfortable. The room should feel like a hug. Think: rainy Sunday afternoon, candles lit, blanket wrapped.',
-    renderDirective: 'Make the entire room feel bathed in warm amber light. The color temperature should shift the whole scene toward golden tones. Walls should pick up warm reflections. Furniture should look more inviting. The air itself should almost glow. Reduce any blue/cool tones in the existing scene. Add visible warm light pools on floors and walls near each fixture. Light should feel like it\'s melting into the surfaces.',
-  },
-  'bright-open': {
-    colorTemp: '3500K–4500K — bright white with warm undertones, daylight-balanced, clean',
-    lightQuality: 'Crisp, even, expansive. Light should fill the room uniformly, eliminating dark corners. Think architectural lighting — clean, purposeful, making the space feel larger and airier. Some fixtures provide directed task light.',
-    shadowStyle: 'Minimal, sharp-edged shadows. Where shadows exist, they should be crisp and geometric. Shadow color: neutral/light gray. The overall impression is brightness and openness.',
-    materialTones: 'Favor brushed nickel, matte white, clear glass, polished chrome, light oak. Fixtures should feel sleek, minimal, almost invisible — letting the room breathe.',
-    emotionalTone: 'Energizing, clear-headed, optimistic. The room should feel like a bright spring morning. Think: fresh air, productivity, clean surfaces catching light.',
-    renderDirective: 'Brighten the entire scene significantly. The room should feel flooded with clean, natural-feeling light. Reduce all dark corners — light reaches everywhere. The color palette should shift slightly cooler and brighter. White surfaces should glow. The space should feel 30% larger due to the light. Add visible brightness on walls, ceiling bounce light, and make windows appear to let in more light. The overall feel is AIRY and SPACIOUS.',
-  },
-  'moody-dramatic': {
-    colorTemp: '1800K–2500K — deep amber to warm tungsten, mixed with focused spots',
-    lightQuality: 'Theatrical, directional, high-contrast. Light should sculpt the room — dramatic downlights creating focused pools, uplights casting wall washes, statement pendants drawing the eye. Some areas purposefully left in rich shadow.',
-    shadowStyle: 'Bold, deep, intentional shadows. Strong contrast between lit and unlit areas. Shadow color: rich charcoal/deep umber with warmth. Shadows are a design element — they create depth, mystery, and drama.',
-    materialTones: 'Favor dark brass, matte black, smoked glass, dark marble, blackened steel. Fixtures should be sculptural, commanding — objects of desire.',
-    emotionalTone: 'Powerful, seductive, atmospheric. The room should feel like a boutique hotel bar or a private gallery. Think: late evening, cocktails, low music, deliberate luxury.',
-    renderDirective: 'DARKEN the overall scene significantly — this is moody lighting. Create strong contrast pools: bright focused light surrounded by deep shadow. Specific areas get dramatically lit while others fall into rich darkness. Add warm downlight cones from pendants, focused spots highlighting art or features. The room should feel like NIGHT — even if the original photo was daytime, shift the entire mood to evening. Make metals gleam. Make glass catch light. Every shadow should feel intentional.',
-  },
-  'soft-editorial': {
-    colorTemp: '2800K–3200K — neutral warm, gallery-quality, precise',
-    lightQuality: 'Refined, precise, considered. Every light source has a purpose. Soft diffused ambient from ceiling, targeted accent light for features. Nothing is overlighting — there\'s restraint. The quality of light itself should feel expensive.',
-    shadowStyle: 'Subtle, graduated shadows with neutral tones. Shadows create gentle depth without drama. Shadow transitions are smooth and sophisticated. Think: museum lighting — controlled, flattering, intentional.',
-    materialTones: 'Favor matte brass, opaline glass, natural stone, linen, matte ceramics. Fixtures should feel curated, gallery-worthy — beautiful objects that happen to be functional.',
-    emotionalTone: 'Elevated, serene, intellectual. The room should feel like a design magazine spread — every element considered, nothing accidental. Think: quiet Sunday morning at a beautiful home, coffee in hand, perfectly composed.',
-    renderDirective: 'Create refined, even lighting with subtle warmth. The scene should look like a professional interior photography shoot — perfect exposure, no harsh spots, flattering light on every surface. Add gentle ambient glow that makes textures visible. Walls should have smooth, even illumination. The overall palette should feel muted and sophisticated — not dramatic, not bright, but PERFECTLY balanced. Add subtle light/shadow gradients on walls. Make fabrics and surfaces look tactile.',
+    lightQuality: 'Soft, diffused, pooling. Light gathers in warm pockets — beside the sofa, under a pendant, around a reading nook. No harsh edges. Everything feels like golden hour indoors.',
+    shadowStyle: 'Deep, soft-edged shadows with warm undertones. Shadows feel enveloping, not dark — more like a gentle dimming. Shadow color: warm umber/sienna, never cool gray.',
+    materialTones: 'Brass, aged bronze, warm wood, cream linen shades, amber glass. Fixtures feel collected, organic, lived-in.',
+    emotionalTone: 'Intimate, nurturing, deeply comfortable. The room feels like a hug. Think: rainy Sunday afternoon, candles lit, blanket wrapped.',
+    renderDirective: 'Bathe the entire room in warm amber light. Shift the whole scene toward golden tones. Walls pick up warm reflections. Add visible warm light pools on floors and walls near each fixture. Reduce any blue/cool tones. Light should feel like it\'s melting into the surfaces. The air itself should almost glow.',
   },
 
-  // ─── Concept 2: Soft Track vibes ───
-  'rustic-warm': {
-    colorTemp: '2200K–2700K — deep honey amber, firelight',
-    lightQuality: 'Organic, uneven, natural. Light should feel like it comes from lived-in sources — a well-worn lamp, a pendant over the dining table. Warmth should radiate outward in soft halos.',
-    shadowStyle: 'Soft, warm-toned shadows that create a sense of age and texture. Think: late afternoon light through old windows.',
-    materialTones: 'Weathered brass, reclaimed wood, aged iron, linen, woven textures. Nothing should look new — everything should feel found, collected.',
-    emotionalTone: 'Grounded, authentic, nostalgic. A farmhouse kitchen, a cottage reading corner.',
-    renderDirective: 'Shift the scene to warm amber tones throughout. Add texture-enhancing light that shows wood grain, fabric weave, surface imperfections as beautiful. Light should pool warmly near fixtures. The overall image should feel like a warm vintage photograph — not filtered, but genuinely warm-lit.',
+  'layered-warmth': {
+    colorTemp: '2400K–3000K — warm with richly varied pools of light',
+    lightQuality: 'Layered, abundant, textured. Multiple light sources at different heights creating a rich tapestry of warm illumination. Some pooling, some ambient, some accent — the interplay creates depth.',
+    shadowStyle: 'Complex, overlapping shadows from multiple warm sources. Creates visual richness and dimension. All shadow tones stay warm — no cool grays.',
+    materialTones: 'Mixed warm materials: rattan, tinted glass, textured ceramics, mixed metals (brass + copper), linen. Fixtures feel collected, each one adding its own character.',
+    emotionalTone: 'Warm abundance, creative, inviting. A space that feels richly lived-in and full of personality. Think: a well-curated home full of warmth and character.',
+    renderDirective: 'Add MULTIPLE warm light sources creating overlapping pools. Each fixture casts its own distinct warm glow. Some areas brighter, some dimmer, all warm. Show light interacting with different textures and surfaces. The effect is ABUNDANCE of warm light with dimension, not uniformity.',
   },
-  'bohemian-layered': {
-    colorTemp: '2400K–3000K — warm with pockets of varied color temperature',
-    lightQuality: 'Layered, eclectic, abundant. Multiple light sources at different heights creating a rich tapestry of illumination. Some pooling, some ambient, some accent — nothing matches perfectly and that\'s the point.',
-    shadowStyle: 'Complex, overlapping shadows from multiple sources. Creates depth and visual richness. Warm undertones.',
-    materialTones: 'Mixed materials: rattan, colored glass, macramé, mixed metals, ceramic. Fixtures should feel collected from travels — each one unique.',
-    emotionalTone: 'Free-spirited, artistic, warm chaos. Think: a well-traveled creative\'s studio apartment.',
-    renderDirective: 'Add MULTIPLE light sources creating overlapping warm pools. Each fixture should cast its own distinct glow. The scene should feel richly layered — some areas brighter, some dimmer, all warm. Show light interacting with different textures and surfaces. The overall effect is ABUNDANCE of warm light, not uniformity.',
+
+  'soft-modern': {
+    colorTemp: '2700K–3200K — warm white, clean but never cold',
+    lightQuality: 'Clean, deliberate warmth. Modern fixtures providing warm but defined light. Ambient + task layering. No clutter, but still inviting. Every light has a purpose.',
+    shadowStyle: 'Clean, defined shadows with warm edges. Geometric where possible. Refined but not severe. Shadows add structure without drama.',
+    materialTones: 'Matte white, brushed brass, frosted glass, light walnut, concrete. Fixtures are modern with organic touches — clean lines softened by warm materials.',
+    emotionalTone: 'Approachable luxury. A well-designed Scandinavian-influenced home that still feels warm and lived-in. Modern ease meets honest warmth.',
+    renderDirective: 'Add clean, warm light that modernizes the space. Balance bright functionality with warm comfort. Show defined light zones — a reading light, a pendant over a surface, ambient from a floor lamp. Everything intentional but comfortable. The palette stays warm but clean. No cool tones.',
   },
-  'modern-cozy': {
-    colorTemp: '2700K–3200K — warm white, clean but not cold',
-    lightQuality: 'Clean, deliberate warmth. Modern fixtures providing warm but defined light. Ambient + task layering. No clutter, but still inviting.',
-    shadowStyle: 'Clean, defined shadows with warm edges. Geometric where possible. Refined but not severe.',
-    materialTones: 'Matte white, brushed brass, frosted glass, light walnut, concrete. Fixtures are modern with organic touches.',
-    emotionalTone: 'Approachable luxury. Think: a well-designed Scandinavian-influenced home that still feels warm and lived-in.',
-    renderDirective: 'Add clean, warm light that modernizes the space. Balance between bright functionality and warm comfort. Show defined light zones — a reading light, a pendant over a surface, ambient from a floor lamp. Everything should feel intentional but comfortable. The palette stays warm but clean.',
-  },
-  'japandi-warm': {
+
+  'quiet-glow': {
     colorTemp: '2700K–3000K — soft neutral warm, like natural daylight filtered through rice paper',
-    lightQuality: 'Minimal, diffused, zen-like. Light should feel filtered, indirect, gentle. Think: paper lanterns, diffused pendants, light that seems to float.',
-    shadowStyle: 'Very soft, almost imperceptible gradients. No hard lines. Shadow and light blend gently like watercolor.',
-    materialTones: 'Light wood, paper, linen, matte ceramic, simple brass. Fixtures should be minimal, sculptural, art-objects with restraint.',
-    emotionalTone: 'Serene, meditative, perfectly balanced. Think: a Japanese tea room meets Scandinavian cabin.',
-    renderDirective: 'Create the most SUBTLE, refined lighting. Everything should feel soft and diffused — as if light is passing through rice paper. No harsh pools or bright spots. The entire room should glow gently and evenly with warm undertones. Reduce contrast. Make everything feel calm, quiet, and perfectly harmonious.',
+    lightQuality: 'Minimal, diffused, zen-like. Light feels filtered, indirect, gentle. Think: paper lanterns, diffused pendants, light that seems to float. Every source contributes to a calm, even glow.',
+    shadowStyle: 'Very soft, almost imperceptible warm gradients. No hard lines. Shadow and light blend gently like watercolor. Everything feels unified.',
+    materialTones: 'Light wood, paper, linen, matte ceramic, simple brass. Fixtures are minimal, sculptural — art objects with restraint.',
+    emotionalTone: 'Serene, meditative, perfectly balanced. A space designed for calm. Think: a Japanese tea room meets Scandinavian cabin.',
+    renderDirective: 'Create the most SUBTLE, refined warm lighting. Everything feels soft and diffused — as if light passes through rice paper. No harsh pools or bright spots. The entire room glows gently and evenly with warm undertones. Reduce contrast. Make everything feel calm, quiet, and harmonious.',
   },
 
-  // ─── Concept 2: Dramatic Track vibes ───
-  'art-deco-warm': {
-    colorTemp: '2500K–3000K — warm gold, champagne',
-    lightQuality: 'Geometric, glamorous, structured. Light should feel like it\'s at a 1930s cocktail party — warm metallics catching light, crystal refracting it, geometric patterns cast on walls.',
-    shadowStyle: 'Geometric shadow patterns from structured fixtures. Sharp lines mixed with warm pools. Drama through geometry.',
-    materialTones: 'Gold, polished brass, crystal, smoked mirror, lacquer, marble. Fixtures should feel LUXURIOUS — geometric, ornate, precious.',
-    emotionalTone: 'Glamorous, confident, celebrating. Think: a Manhattan penthouse, champagne on a gallery night.',
-    renderDirective: 'Add GOLDEN light with geometric quality. Show fixtures that create patterned shadows on walls. Metals should GLEAM — warm gold reflections on surfaces. The scene should feel richer, more luxurious. Add warm accent light highlighting architectural features. Everything should feel elevated and intentionally glamorous.',
+  // ─── Dramatic Track ───
+  // Still warm — just deeper, more contrast, more intentional shadow.
+
+  'gilded-evening': {
+    colorTemp: '2500K–3000K — warm gold, champagne, aged brass reflections',
+    lightQuality: 'Geometric, glamorous, structured. Light feels like a golden-hour cocktail party — warm metallics catching light, glass refracting it, patterns cast on walls. Precise but opulent.',
+    shadowStyle: 'Geometric shadow patterns from structured fixtures. Sharp warm lines mixed with golden pools. Drama through geometry, not darkness.',
+    materialTones: 'Gold, polished brass, crystal, smoked glass, lacquer, warm marble. Fixtures feel LUXURIOUS — geometric, ornate, precious.',
+    emotionalTone: 'Glamorous, confident, celebrating. A Manhattan penthouse, champagne on a gallery night. Warmth elevated to glamour.',
+    renderDirective: 'Add GOLDEN light with geometric quality. Show fixtures creating patterned warm shadows on walls. Metals GLEAM — warm gold reflections on surfaces. The scene feels richer, more luxurious. Add warm accent light highlighting architectural features. Everything elevated and intentionally glamorous. Still warm — never cold or clinical.',
   },
-  'dark-luxe': {
-    colorTemp: '1800K–2400K — ultra-warm amber, dimmed, intimate',
-    lightQuality: 'Minimal, focused, seductive. Very few light sources, each one creating an intimate island of warm light in surrounding darkness. Less is more — the darkness itself is the design.',
-    shadowStyle: 'DEEP, rich shadows. Most of the room should be in elegant shadow. Only key features are illuminated. Shadow color: deep charcoal/warm black.',
-    materialTones: 'Black brass, dark bronze, onyx, dark glass, black marble. Fixtures should be barely visible — dark objects that emit warm light.',
-    emotionalTone: 'Mysterious, intimate, powerfully quiet. Think: a members-only speakeasy, a luxury hotel room at midnight.',
-    renderDirective: 'SIGNIFICANTLY darken the entire scene. This is DARK luxe — most of the room should be in shadow. Only 20-30% of the space should be illuminated, and that illumination should be deep amber/gold. Create extreme contrast. Make dark surfaces look rich, not muddy. Add just a few warm focal points of light. The air should feel thick with atmosphere. This should look like NIGHT, candles, intimacy.',
+
+  'deep-amber': {
+    colorTemp: '2000K–2500K — ultra-warm amber, dimmed candlelight, intimate',
+    lightQuality: 'Minimal, focused, intimate. Few light sources, each creating an island of deep warm light. Less is more — shadow itself is a design element. What IS lit glows with rich amber.',
+    shadowStyle: 'Deep, warm shadows. Most of the room in elegant warm shadow. Only key features illuminated. Shadow color: warm charcoal/deep umber, never cool black.',
+    materialTones: 'Dark brass, aged bronze, amber glass, warm dark wood, dark marble. Fixtures barely visible — dark objects that emit deep warm light.',
+    emotionalTone: 'Intimate, powerful, quietly luxurious. A members-only lounge, a luxury hotel room at dusk. Warmth concentrated and precious.',
+    renderDirective: 'Darken the overall scene while keeping everything WARM. Most of the room should be in warm shadow. Only 30-40% illuminated, and that illumination should be deep amber/gold. Create contrast but keep shadow tones warm (never cool gray/blue). A few warm focal points of light. The air feels thick with warm atmosphere.',
   },
-  'warm-industrial': {
-    colorTemp: '2500K–3000K — warm with raw, slightly unfinished quality',
-    lightQuality: 'Functional, honest, warm. Light should feel purposeful — pendant over work surface, exposed bulb in socket, clip lamp on shelf. No pretense, but real warmth.',
-    shadowStyle: 'Hard-edged shadows from directional fixtures. Industrial character. Strong and honest like exposed brick and steel beams.',
-    materialTones: 'Raw steel, aged iron, copper patina, exposed filament bulbs, concrete, canvas. Fixtures should look like they were made in a workshop — functional beauty.',
-    emotionalTone: 'Authentic, hardworking, warm underneath. Think: a converted warehouse loft, a coffee roaster\'s studio.',
-    renderDirective: 'Add warm, directional light with industrial character. Show visible light sources — exposed bulbs, industrial pendants casting defined pools. Add warm light reflecting off metal and concrete surfaces. The scene should feel raw but inviting — warm light humanizing hard materials. Show hard shadows but with warm color.',
+
+  'foundry-glow': {
+    colorTemp: '2500K–3000K — warm with raw, honest, directional quality',
+    lightQuality: 'Functional, honest, warm. Light feels purposeful — pendant over work surface, visible filament, directional task light. No pretense, but genuine warmth beneath the rawness.',
+    shadowStyle: 'Hard-edged warm shadows from directional fixtures. Honest character. Strong and warm — like sunlight through industrial windows, not cold fluorescent.',
+    materialTones: 'Raw steel, aged iron, copper patina, exposed warm-filament bulbs, concrete, canvas. Fixtures look workshop-made — functional beauty with warm soul.',
+    emotionalTone: 'Authentic, hardworking, warm at core. A converted warehouse loft on a Sunday morning, warm coffee, honest light. Raw materials humanized by warmth.',
+    renderDirective: 'Add warm, directional light with honest character. Show visible light sources — exposed warm bulbs, industrial pendants casting defined warm pools. Warm light reflecting off metal and concrete. The scene feels raw but inviting — warm light humanizing hard materials. Hard shadows but always warm-toned.',
   },
-  'moody-maximalist': {
-    colorTemp: '2200K–2800K — rich warm, layered from many sources',
-    lightQuality: 'Abundant, layered, theatrical. Multiple dramatic fixtures all creating their own atmosphere. Light from every angle — pendants, sconces, floor lamps, table lamps — each one contributing to a rich, immersive experience.',
-    shadowStyle: 'Complex, dramatic, overlapping. Multiple light sources create intricate shadow play. Deep and theatrical.',
-    materialTones: 'Mixed: dark metals, colored glass, ornate detailing, velvet, jewel tones. Fixtures should be STATEMENT pieces — conversation starters, design objects.',
-    emotionalTone: 'Maximalist, immersive, electric. Think: a collector\'s living room, an art-filled salon, a Wes Anderson set.',
-    renderDirective: 'Add MULTIPLE dramatic fixtures creating a rich, layered lighting scene. Every corner should have something interesting happening with light. Show warm pools overlapping, fixtures reflecting in surfaces, dramatic shadows mixing. The scene should feel FULL of light and character — not bright, but richly saturated with warm illumination from many sources. More is more.',
+
+  'midnight-warmth': {
+    colorTemp: '2200K–2800K — rich warm, layered from many sources at varied heights',
+    lightQuality: 'Abundant, layered, theatrical. Multiple fixtures all creating their own warm atmosphere. Light from every angle — pendants, sconces, floor lamps, table lamps — each contributing to a rich, immersive warm experience.',
+    shadowStyle: 'Complex, overlapping warm shadows. Multiple warm light sources create intricate shadow play. Deep and theatrical but fundamentally warm throughout.',
+    materialTones: 'Mixed warm metals, tinted glass, ornate warm detailing, velvet, jewel tones warmed by amber light. Fixtures are STATEMENT pieces — conversation starters.',
+    emotionalTone: 'Immersive, expressive, warm maximalism. A collector\'s living room, an art-filled salon. Every corner alive with warm light and character.',
+    renderDirective: 'Add MULTIPLE warm fixtures creating a rich, layered lighting scene. Every corner should have something warm and interesting happening. Show warm pools overlapping, fixtures reflecting in surfaces, warm shadows mixing. The scene should feel FULL of warm light and character — richly saturated from many sources. More is more, but always warm.',
   },
+};
+
+// ── All mood keys (for batch tagging, admin UI, etc.) ────────────────────────
+
+export const ALL_MOOD_KEYS = Object.keys(MOOD_ATMOSPHERES);
+
+export const MOOD_KEY_LABELS: Record<string, { label: string; track: 'soft' | 'dramatic' }> = {
+  'golden-nook': { label: 'Golden Nook', track: 'soft' },
+  'layered-warmth': { label: 'Layered Warmth', track: 'soft' },
+  'soft-modern': { label: 'Soft Modern', track: 'soft' },
+  'quiet-glow': { label: 'Quiet Glow', track: 'soft' },
+  'gilded-evening': { label: 'Gilded Evening', track: 'dramatic' },
+  'deep-amber': { label: 'Deep Amber', track: 'dramatic' },
+  'foundry-glow': { label: 'Foundry Glow', track: 'dramatic' },
+  'midnight-warmth': { label: 'Midnight Warmth', track: 'dramatic' },
 };
 
 // ── Build context-aware review prompt ────────────────────────────────────────
@@ -270,14 +272,9 @@ function buildReviewPrompt(ctx: QuizContext): string {
   const key = getStyleKey(ctx);
   const atmo = MOOD_ATMOSPHERES[key];
 
-  let styleDesc = '';
-  if (ctx.concept === 'reveal') {
-    styleDesc = `Mood: "${ctx.mood || 'Modern'}"\n`;
-  } else {
-    const trackLabel = ctx.track === 'soft' ? 'Soft & Cozy' : 'Dramatic & Moody';
-    styleDesc = `Track: ${trackLabel}, Vibe: "${ctx.vibe || 'Modern'}", Intensity: ${ctx.intensity || 'Balanced'}\n`;
-    if (ctx.who) styleDesc += `Designing for: ${ctx.who}\n`;
-  }
+  const trackLabel = ctx.track === 'dramatic' ? 'Dramatic & Warm' : 'Soft & Cozy';
+  let styleDesc = `Track: ${trackLabel}, Vibe: "${ctx.vibe || 'Soft Modern'}", Intensity: ${ctx.intensity || 'Balanced'}\n`;
+  if (ctx.who) styleDesc += `Designing for: ${ctx.who}\n`;
 
   if (atmo) {
     styleDesc += `Color temperature: ${atmo.colorTemp}\n`;
@@ -286,7 +283,7 @@ function buildReviewPrompt(ctx: QuizContext): string {
     styleDesc += `Emotional tone: ${atmo.emotionalTone}`;
   }
 
-  return `You are an expert interior lighting designer for Outlight, a premium modern lighting brand.
+  return `You are an expert interior lighting designer for Outlight, a premium modern lighting brand with a warm, clean, aesthetic sensibility.
 
 STYLE DIRECTION:
 ${styleDesc}
@@ -340,14 +337,8 @@ function buildRenderPrompt(review: RoomReview, ctx: QuizContext): string {
     .map((p) => `- ${p.suggestedProduct} (${p.productType.replace(/_/g, ' ')}) at ${p.location} — ${p.reasoning}`)
     .join('\n');
 
-  let styleLabel = '';
-  if (ctx.concept === 'reveal') {
-    styleLabel = `"${ctx.mood || 'Modern'}" mood`;
-  } else {
-    styleLabel = `"${ctx.profileName || ctx.vibe || 'Modern'}" style (${ctx.intensity || 'Balanced'} intensity)`;
-  }
+  const styleLabel = `"${ctx.profileName || ctx.vibe || 'Soft Modern'}" style (${ctx.intensity || 'Balanced'} intensity)`;
 
-  // Build the atmosphere-specific rendering instructions
   let atmosphereBlock = '';
   if (atmo) {
     atmosphereBlock = `
@@ -397,12 +388,7 @@ function buildGeneratePrompt(ctx: QuizContext): string {
   const key = getStyleKey(ctx);
   const atmo = MOOD_ATMOSPHERES[key];
 
-  let styleLabel = '';
-  if (ctx.concept === 'reveal') {
-    styleLabel = `"${ctx.mood || 'Modern'}" mood`;
-  } else {
-    styleLabel = `"${ctx.profileName || ctx.vibe || 'Modern'}" style (${ctx.intensity || 'Balanced'} intensity)`;
-  }
+  const styleLabel = `"${ctx.profileName || ctx.vibe || 'Soft Modern'}" style (${ctx.intensity || 'Balanced'} intensity)`;
 
   let atmosphereBlock = '';
   if (atmo) {
@@ -446,7 +432,7 @@ export async function reviewRoomPhoto(
   const client = await getClient();
   const prompt = buildReviewPrompt(ctx);
 
-  console.log(`[quiz-image] Reviewing room photo — concept: ${ctx.concept}, style: ${getStyleKey(ctx)}`);
+  console.log(`[quiz-image] Reviewing room photo — style: ${getStyleKey(ctx)}`);
 
   const response = await client.models.generateContent({
     model: config.gemini.reviewModel,
@@ -502,7 +488,6 @@ export async function renderVisualization(
     { inlineData: { mimeType: roomMimeType, data: roomImageBase64 } },
   ];
 
-  // Add product reference images so Gemini can see the actual fixture designs
   if (productImages && productImages.length > 0) {
     for (const pi of productImages) {
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
@@ -514,22 +499,14 @@ export async function renderVisualization(
 
   const response = await client.models.generateContent({
     model: config.gemini.imageModel,
-    contents: [
-      {
-        role: 'user',
-        parts,
-      },
-    ],
-    config: {
-      responseModalities: ['IMAGE', 'TEXT'],
-    },
+    contents: [{ role: 'user', parts }],
+    config: { responseModalities: ['IMAGE', 'TEXT'] },
   });
 
-  // Extract image from response
   const candidates = response.candidates ?? [];
   for (const candidate of candidates) {
-    const parts = candidate.content?.parts ?? [];
-    for (const part of parts) {
+    const cParts = candidate.content?.parts ?? [];
+    for (const part of cParts) {
       if (part.inlineData) {
         console.log('[quiz-image] Visualization generated successfully');
         return {
@@ -551,10 +528,8 @@ export async function generateFromScratch(ctx: QuizContext, productImages?: Prod
 
   console.log(`[quiz-image] Generating sample room from scratch — style: ${getStyleKey(ctx)}, ${productImages?.length || 0} product ref images`);
 
-  // Build parts: product reference images first, then prompt text
   const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [];
 
-  // Add product reference images so Gemini can see the actual fixture designs
   if (productImages && productImages.length > 0) {
     for (const pi of productImages) {
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
@@ -566,21 +541,14 @@ export async function generateFromScratch(ctx: QuizContext, productImages?: Prod
 
   const response = await client.models.generateContent({
     model: config.gemini.imageModel,
-    contents: [
-      {
-        role: 'user',
-        parts,
-      },
-    ],
-    config: {
-      responseModalities: ['IMAGE', 'TEXT'],
-    },
+    contents: [{ role: 'user', parts }],
+    config: { responseModalities: ['IMAGE', 'TEXT'] },
   });
 
   const candidates = response.candidates ?? [];
   for (const candidate of candidates) {
-    const parts = candidate.content?.parts ?? [];
-    for (const part of parts) {
+    const cParts = candidate.content?.parts ?? [];
+    for (const part of cParts) {
       if (part.inlineData) {
         console.log('[quiz-image] Sample room generated successfully');
         return {
@@ -601,7 +569,6 @@ export async function processRoomPhoto(
   mimeType: string,
   ctx: QuizContext,
 ): Promise<{ review: RoomReview; render: RenderResult }> {
-  // Fetch product reference images from Shopify
   const productHandles = getSuggestedProducts(ctx).slice(0, 3);
   let productImages: ProductImage[] = [];
   try {
@@ -611,7 +578,6 @@ export async function processRoomPhoto(
     console.error('[quiz-image] Failed to fetch product images (continuing without):', err instanceof Error ? err.message : err);
   }
 
-  // If no photo provided, generate from scratch
   if (!imageBase64) {
     console.log('[quiz-image] No photo provided — generating sample room from scratch');
     const render = await generateFromScratch(ctx, productImages);
@@ -633,7 +599,6 @@ export async function processRoomPhoto(
     };
   }
 
-  // Normal flow: Review + Render
   const review = await reviewRoomPhoto(imageBase64, mimeType, ctx);
   const render = await renderVisualization(imageBase64, mimeType, review, ctx, productImages);
   return { review, render };
@@ -668,30 +633,24 @@ export function buildAgentTrace(ctx: QuizContext, hasPhoto: boolean): string[] {
   const atmo = MOOD_ATMOSPHERES[key];
   const products = getSuggestedProducts(ctx);
 
-  // Step 1: Context interpretation
-  if (ctx.concept === 'reveal') {
-    trace.push(`[CONTEXT] User selected concept "The Reveal" with mood "${ctx.mood || 'unknown'}".`);
-  } else {
-    trace.push(`[CONTEXT] User selected concept "The Style Profile".`);
-    trace.push(`[CONTEXT] Track: ${ctx.track === 'soft' ? 'Soft & Cozy' : 'Dramatic & Moody'}, Vibe: "${ctx.vibe}", Intensity: ${ctx.intensity}.`);
-    if (ctx.who) trace.push(`[CONTEXT] Designing for: ${ctx.who}.`);
-    if (ctx.profileName) trace.push(`[CONTEXT] Combined profile name: "${ctx.profileName}".`);
-  }
+  trace.push(`[CONTEXT] Style Profile quiz.`);
+  trace.push(`[CONTEXT] Track: ${ctx.track === 'dramatic' ? 'Dramatic & Warm' : 'Soft & Cozy'}, Vibe: "${ctx.vibe}", Intensity: ${ctx.intensity}.`);
+  if (ctx.who) trace.push(`[CONTEXT] Designing for: ${ctx.who}.`);
+  if (ctx.profileName) trace.push(`[CONTEXT] Combined profile name: "${ctx.profileName}".`);
+  if (ctx.selectedProducts?.length) trace.push(`[CONTEXT] User selected ${ctx.selectedProducts.length} specific products.`);
 
-  // Step 2: Style key resolution
-  trace.push(`[RESOLVE] Input "${ctx.mood || ctx.vibe || ''}" → style key "${key}".`);
+  trace.push(`[RESOLVE] Input "${ctx.vibe || ''}" → style key "${key}".`);
   if (atmo) {
     trace.push(`[ATMOSPHERE] Matched atmosphere profile. Color temp: ${atmo.colorTemp.split('—')[0].trim()}, emotional tone: "${atmo.emotionalTone.split('.')[0]}".`);
   } else {
     trace.push(`[ATMOSPHERE] WARNING: No atmosphere profile found for key "${key}" — using defaults.`);
   }
 
-  // Step 3: Product pool selection
-  const poolHit = STYLE_PRODUCT_MAP[key] ? 'direct match' : 'fallback to modern-cozy';
-  trace.push(`[PRODUCTS] Pool lookup: "${key}" → ${poolHit}. ${products.length} products available.`);
+  const poolHit = STYLE_PRODUCT_MAP[key] ? 'direct match' : 'fallback to soft-modern';
+  const productSource = ctx.selectedProducts?.length ? 'user-selected' : poolHit;
+  trace.push(`[PRODUCTS] Source: ${productSource}. ${products.length} products available.`);
   trace.push(`[PRODUCTS] Top picks for prompts: ${products.slice(0, 6).join(', ')}.`);
 
-  // Step 4: Pipeline decision
   if (hasPhoto) {
     trace.push(`[PIPELINE] Photo provided → two-step pipeline: Review (analyze room) → Render (transform image).`);
     trace.push(`[PIPELINE] Step 1: Send photo + review prompt to review model. AI will analyze room layout, furniture, lighting, and suggest product placements.`);
@@ -701,13 +660,11 @@ export function buildAgentTrace(ctx: QuizContext, hasPhoto: boolean): string[] {
     trace.push(`[PIPELINE] AI will create a photorealistic room image with fixtures placed and mood lighting applied, purely from text description.`);
   }
 
-  // Step 5: Prompt strategy
   if (atmo) {
     trace.push(`[PROMPT] Injecting full atmosphere block into prompt: colorTemp, lightQuality, shadowStyle, materialTones, emotionalTone, renderDirective.`);
     trace.push(`[PROMPT] Render directive emphasis: "${atmo.renderDirective.slice(0, 100)}..."`);
   }
 
-  // Step 6: Model selection
   trace.push(`[MODELS] Review model: ${config.gemini.reviewModel} (text analysis).`);
   trace.push(`[MODELS] Image model: ${config.gemini.imageModel} (image generation with responseModalities: IMAGE+TEXT).`);
 

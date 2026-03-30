@@ -4,6 +4,7 @@ import * as quizService from '../services/quiz.service.js';
 import * as quizAnalytics from '../services/quiz-analytics.service.js';
 import * as quizRecommendation from '../services/quiz-recommendation.service.js';
 import * as quizImage from '../services/quiz-image.service.js';
+import * as moodTagger from '../services/quiz-mood-tagger.service.js';
 import { supabase } from '../config/supabase.js';
 
 export const quizRouter = Router();
@@ -825,4 +826,125 @@ quizRouter.put('/config', async (req, res) => {
     console.error('[quiz.controller] PUT /config error:', message);
     res.status(500).json({ error: 'Failed to update quiz config' });
   }
+});
+
+// ── Mood Tagging ──────────────────────────────────────────────────────────────
+
+// POST /api/quiz/batch-tag — Start batch mood tagging of all products
+quizRouter.post('/batch-tag', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { force } = req.body;
+
+    // Start tagging in background, return immediately
+    moodTagger.batchTagAllProducts(brandId, { force: !!force }).catch((err) => {
+      console.error('[quiz.controller] Background batch-tag error:', err instanceof Error ? err.message : err);
+    });
+
+    res.json({ started: true, message: 'Batch tagging started in background' });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] POST /batch-tag error:', message);
+    res.status(500).json({ error: 'Failed to start batch tagging' });
+  }
+});
+
+// GET /api/quiz/batch-tag/status — Get tagging status
+quizRouter.get('/batch-tag/status', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const status = await moodTagger.getTaggingStatus(brandId);
+    const progress = moodTagger.getBatchProgress();
+    res.json({ ...status, progress });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] GET /batch-tag/status error:', message);
+    res.status(500).json({ error: 'Failed to get tagging status' });
+  }
+});
+
+// POST /api/quiz/tag-product/:handle — Re-tag a single product
+quizRouter.post('/tag-product/:handle', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { handle } = req.params;
+    const { title, image_url } = req.body;
+
+    if (!title || !image_url) {
+      res.status(400).json({ error: 'title and image_url are required' });
+      return;
+    }
+
+    const result = await moodTagger.tagSingleProduct(brandId, handle, title, image_url);
+    if (!result) {
+      res.status(500).json({ error: 'Failed to tag product' });
+      return;
+    }
+
+    res.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] POST /tag-product error:', message);
+    res.status(500).json({ error: 'Failed to tag product' });
+  }
+});
+
+// GET /api/quiz/mood-products/:moodKey — Get products ranked by mood score
+quizRouter.get('/mood-products/:moodKey', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { moodKey } = req.params;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 12;
+    const minScore = req.query.min_score ? parseFloat(req.query.min_score as string) : 0.3;
+
+    const products = await moodTagger.getProductsByMood(brandId, moodKey, limit, minScore);
+    res.json({ products, moodKey });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] GET /mood-products error:', message);
+    res.status(500).json({ error: 'Failed to get mood products' });
+  }
+});
+
+// GET /api/quiz/mood-products/:moodKey/by-type — Get products grouped by type
+quizRouter.get('/mood-products/:moodKey/by-type', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { moodKey } = req.params;
+    const perType = req.query.per_type ? parseInt(req.query.per_type as string) : 4;
+
+    const grouped = await moodTagger.getProductsByMoodGrouped(brandId, moodKey, perType);
+    res.json({ grouped, moodKey });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] GET /mood-products/by-type error:', message);
+    res.status(500).json({ error: 'Failed to get grouped products' });
+  }
+});
+
+// GET /api/quiz/mood-tags — Get all tagged products
+quizRouter.get('/mood-tags', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { data, error } = await supabase
+      .from('product_mood_tags')
+      .select('*')
+      .eq('brand_id', brandId)
+      .order('product_title', { ascending: true });
+
+    if (error) throw error;
+    res.json({ tags: data ?? [] });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[quiz.controller] GET /mood-tags error:', message);
+    res.status(500).json({ error: 'Failed to get mood tags' });
+  }
+});
+
+// GET /api/quiz/mood-keys — Get all available mood keys with labels
+quizRouter.get('/mood-keys', async (_req, res) => {
+  res.json({
+    keys: quizImage.ALL_MOOD_KEYS,
+    labels: quizImage.MOOD_KEY_LABELS,
+  });
 });

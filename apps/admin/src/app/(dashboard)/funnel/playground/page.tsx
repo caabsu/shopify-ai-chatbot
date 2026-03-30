@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   FlaskConical,
   Play,
@@ -28,25 +28,18 @@ import {
 const ACCENT = '#10b981';
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
-const REVEAL_MOODS = [
-  { key: 'Cozy & Warm', color: '#d4a853' },
-  { key: 'Bright & Open', color: '#7cb9e8' },
-  { key: 'Moody & Dramatic', color: '#4a3520' },
-  { key: 'Soft & Editorial', color: '#b8a090' },
-];
-
 const STYLE_PROFILE_VIBES = {
   soft: [
-    { key: 'Rustic Warm', color: '#c8a060' },
-    { key: 'Bohemian Layered', color: '#d4956a' },
-    { key: 'Modern Cozy', color: '#8cb4c0' },
-    { key: 'Japandi Warm', color: '#c4b8a0' },
+    { key: 'Golden Nook', color: '#c8a060' },
+    { key: 'Layered Warmth', color: '#d4956a' },
+    { key: 'Soft Modern', color: '#8cb4c0' },
+    { key: 'Quiet Glow', color: '#c4b8a0' },
   ],
   dramatic: [
-    { key: 'Art Deco Warm', color: '#c8a040' },
-    { key: 'Dark Luxe', color: '#2a1f18' },
-    { key: 'Warm Industrial', color: '#8a7060' },
-    { key: 'Moody Maximalist', color: '#6a3040' },
+    { key: 'Gilded Evening', color: '#c8a040' },
+    { key: 'Deep Amber', color: '#7a5530' },
+    { key: 'Foundry Glow', color: '#8a7060' },
+    { key: 'Midnight Warmth', color: '#6a3040' },
   ],
 };
 
@@ -77,11 +70,9 @@ type Phase = 'idle' | 'uploading' | 'calling-api' | 'reviewing' | 'rendering' | 
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function FunnelPlaygroundPage() {
-  // Concept selection
-  const [concept, setConcept] = useState<'reveal' | 'style-profile'>('reveal');
-  const [mood, setMood] = useState('Cozy & Warm');
+  // Style profile selection
   const [track, setTrack] = useState<'soft' | 'dramatic'>('soft');
-  const [vibe, setVibe] = useState('Modern Cozy');
+  const [vibe, setVibe] = useState('Soft Modern');
   const [intensity, setIntensity] = useState('Balanced');
 
   // Photo
@@ -169,9 +160,6 @@ export default function FunnelPlaygroundPage() {
   // ── Build context ──
 
   function buildContext() {
-    if (concept === 'reveal') {
-      return { concept: 'reveal' as const, mood };
-    }
     const profileName = `${track === 'soft' ? 'Soft' : 'Dramatic'} ${vibe} ${intensity}`;
     return {
       concept: 'style-profile' as const,
@@ -299,144 +287,87 @@ export default function FunnelPlaygroundPage() {
               padding: '20px',
             }}
           >
-            {/* Concept Tabs */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px', padding: '3px' }}>
-              {[
-                { key: 'reveal' as const, label: 'The Reveal' },
-                { key: 'style-profile' as const, label: 'The Style Profile' },
-              ].map((c) => (
-                <button
-                  key={c.key}
-                  onClick={() => setConcept(c.key)}
-                  disabled={isGenerating}
-                  style={{
-                    flex: 1,
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    fontWeight: concept === c.key ? 600 : 400,
-                    color: concept === c.key ? '#fff' : 'var(--text-secondary)',
-                    backgroundColor: concept === c.key ? ACCENT : 'transparent',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: isGenerating ? 'not-allowed' : 'pointer',
-                    transition: 'all 150ms',
-                  }}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Concept-specific options */}
-            {concept === 'reveal' ? (
+            {/* Style Profile Options */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Track */}
               <div>
-                <label style={labelStyle}>Mood</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                  {REVEAL_MOODS.map((m) => (
+                <label style={labelStyle}>Track</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {(['soft', 'dramatic'] as const).map((t) => (
                     <button
-                      key={m.key}
-                      onClick={() => setMood(m.key)}
+                      key={t}
+                      onClick={() => { setTrack(t); setVibe(STYLE_PROFILE_VIBES[t][0].key); }}
                       disabled={isGenerating}
                       style={{
-                        padding: '12px 8px',
-                        fontSize: '12px',
-                        fontWeight: mood === m.key ? 600 : 400,
-                        color: mood === m.key ? '#fff' : 'var(--text-secondary)',
-                        backgroundColor: mood === m.key ? m.color : 'var(--bg-secondary)',
-                        border: mood === m.key ? `2px solid ${m.color}` : '1px solid var(--border-primary)',
+                        flex: 1,
+                        padding: '10px',
+                        fontSize: '13px',
+                        fontWeight: track === t ? 600 : 400,
+                        color: track === t ? '#fff' : 'var(--text-secondary)',
+                        backgroundColor: track === t ? ACCENT : 'var(--bg-secondary)',
+                        border: track === t ? `2px solid ${ACCENT}` : '1px solid var(--border-primary)',
                         borderRadius: '8px',
                         cursor: isGenerating ? 'not-allowed' : 'pointer',
-                        transition: 'all 150ms',
-                        textShadow: mood === m.key ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
+                        textTransform: 'capitalize',
                       }}
                     >
-                      {m.key}
+                      {t === 'soft' ? 'Soft & Cozy' : 'Dramatic & Moody'}
                     </button>
                   ))}
                 </div>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* Track */}
-                <div>
-                  <label style={labelStyle}>Track</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {(['soft', 'dramatic'] as const).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => { setTrack(t); setVibe(STYLE_PROFILE_VIBES[t][0].key); }}
-                        disabled={isGenerating}
-                        style={{
-                          flex: 1,
-                          padding: '10px',
-                          fontSize: '13px',
-                          fontWeight: track === t ? 600 : 400,
-                          color: track === t ? '#fff' : 'var(--text-secondary)',
-                          backgroundColor: track === t ? ACCENT : 'var(--bg-secondary)',
-                          border: track === t ? `2px solid ${ACCENT}` : '1px solid var(--border-primary)',
-                          borderRadius: '8px',
-                          cursor: isGenerating ? 'not-allowed' : 'pointer',
-                          textTransform: 'capitalize',
-                        }}
-                      >
-                        {t === 'soft' ? 'Soft & Cozy' : 'Dramatic & Moody'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Vibe */}
-                <div>
-                  <label style={labelStyle}>Vibe</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                    {STYLE_PROFILE_VIBES[track].map((v) => (
-                      <button
-                        key={v.key}
-                        onClick={() => setVibe(v.key)}
-                        disabled={isGenerating}
-                        style={{
-                          padding: '10px 8px',
-                          fontSize: '11px',
-                          fontWeight: vibe === v.key ? 600 : 400,
-                          color: vibe === v.key ? '#fff' : 'var(--text-secondary)',
-                          backgroundColor: vibe === v.key ? v.color : 'var(--bg-secondary)',
-                          border: vibe === v.key ? `2px solid ${v.color}` : '1px solid var(--border-primary)',
-                          borderRadius: '8px',
-                          cursor: isGenerating ? 'not-allowed' : 'pointer',
-                          textShadow: vibe === v.key ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
-                        }}
-                      >
-                        {v.key}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Intensity */}
-                <div>
-                  <label style={labelStyle}>Intensity</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                    {INTENSITIES.map((i) => (
-                      <button
-                        key={i}
-                        onClick={() => setIntensity(i)}
-                        disabled={isGenerating}
-                        style={{
-                          padding: '8px',
-                          fontSize: '12px',
-                          fontWeight: intensity === i ? 600 : 400,
-                          color: intensity === i ? ACCENT : 'var(--text-secondary)',
-                          backgroundColor: intensity === i ? `${ACCENT}14` : 'var(--bg-secondary)',
-                          border: intensity === i ? `2px solid ${ACCENT}` : '1px solid var(--border-primary)',
-                          borderRadius: '8px',
-                          cursor: isGenerating ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        {i}
-                      </button>
-                    ))}
-                  </div>
+              {/* Vibe */}
+              <div>
+                <label style={labelStyle}>Vibe</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                  {STYLE_PROFILE_VIBES[track].map((v) => (
+                    <button
+                      key={v.key}
+                      onClick={() => setVibe(v.key)}
+                      disabled={isGenerating}
+                      style={{
+                        padding: '10px 8px',
+                        fontSize: '11px',
+                        fontWeight: vibe === v.key ? 600 : 400,
+                        color: vibe === v.key ? '#fff' : 'var(--text-secondary)',
+                        backgroundColor: vibe === v.key ? v.color : 'var(--bg-secondary)',
+                        border: vibe === v.key ? `2px solid ${v.color}` : '1px solid var(--border-primary)',
+                        borderRadius: '8px',
+                        cursor: isGenerating ? 'not-allowed' : 'pointer',
+                        textShadow: vibe === v.key ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
+                      }}
+                    >
+                      {v.key}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
+              {/* Intensity */}
+              <div>
+                <label style={labelStyle}>Intensity</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                  {INTENSITIES.map((i) => (
+                    <button
+                      key={i}
+                      onClick={() => setIntensity(i)}
+                      disabled={isGenerating}
+                      style={{
+                        padding: '8px',
+                        fontSize: '12px',
+                        fontWeight: intensity === i ? 600 : 400,
+                        color: intensity === i ? ACCENT : 'var(--text-secondary)',
+                        backgroundColor: intensity === i ? `${ACCENT}14` : 'var(--bg-secondary)',
+                        border: intensity === i ? `2px solid ${ACCENT}` : '1px solid var(--border-primary)',
+                        borderRadius: '8px',
+                        cursor: isGenerating ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {i}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             {/* Photo Upload */}
             <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border-primary)' }}>

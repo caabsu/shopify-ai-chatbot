@@ -63,38 +63,47 @@ const BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 const VARIATION_GROUPS = [
   {
-    group: 'The Reveal',
-    subtitle: 'Mood-based recommendations',
-    keys: [
-      { key: 'cozy-warm', label: 'Cozy & Warm' },
-      { key: 'bright-open', label: 'Bright & Open' },
-      { key: 'moody-dramatic', label: 'Moody & Dramatic' },
-      { key: 'soft-editorial', label: 'Soft & Editorial' },
-    ],
-  },
-  {
     group: 'Style Profile — Soft Track',
-    subtitle: 'For users who chose Soft & Cozy',
+    subtitle: 'Warm, approachable, cozy variations',
     keys: [
-      { key: 'rustic-warm', label: 'Rustic Warm' },
-      { key: 'bohemian-layered', label: 'Bohemian Layered' },
-      { key: 'modern-cozy', label: 'Modern Cozy' },
-      { key: 'japandi-warm', label: 'Japandi Warm' },
+      { key: 'golden-nook', label: 'Golden Nook' },
+      { key: 'layered-warmth', label: 'Layered Warmth' },
+      { key: 'soft-modern', label: 'Soft Modern' },
+      { key: 'quiet-glow', label: 'Quiet Glow' },
     ],
   },
   {
     group: 'Style Profile — Dramatic Track',
-    subtitle: 'For users who chose Dramatic & Moody',
+    subtitle: 'Warm with more depth and contrast',
     keys: [
-      { key: 'art-deco-warm', label: 'Art Deco Warm' },
-      { key: 'dark-luxe', label: 'Dark Luxe' },
-      { key: 'warm-industrial', label: 'Warm Industrial' },
-      { key: 'moody-maximalist', label: 'Moody Maximalist' },
+      { key: 'gilded-evening', label: 'Gilded Evening' },
+      { key: 'deep-amber', label: 'Deep Amber' },
+      { key: 'foundry-glow', label: 'Foundry Glow' },
+      { key: 'midnight-warmth', label: 'Midnight Warmth' },
     ],
   },
 ];
 
 // ── Main Page ───────────────────────────────────────────────────────────────
+
+interface MoodTag {
+  id: string;
+  product_handle: string;
+  product_title: string;
+  product_image_url: string | null;
+  product_type: string | null;
+  mood_scores: Record<string, number>;
+  tagged_at: string;
+}
+
+interface TaggingStatus {
+  total: number;
+  tagged: number;
+  untagged: number;
+  lastTaggedAt: string | null;
+  inProgress: boolean;
+  progress?: { current: number; total: number; handle: string; title: string; status: string } | null;
+}
 
 export default function ProductPoolsPage() {
   const [tab, setTab] = useState<'catalog' | 'pools'>('catalog');
@@ -107,6 +116,11 @@ export default function ProductPoolsPage() {
   const [catalogSearch, setCatalogSearch] = useState('');
   const [catalogTypeFilter, setCatalogTypeFilter] = useState('');
   const [catalogView, setCatalogView] = useState<'grid' | 'list'>('grid');
+
+  // Mood tagging state
+  const [taggingStatus, setTaggingStatus] = useState<TaggingStatus | null>(null);
+  const [taggingStarting, setTaggingStarting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   // Pool state
   const [pools, setPools] = useState<ProductPool[]>([]);
@@ -185,6 +199,44 @@ export default function ProductPoolsPage() {
   }, []);
 
   useEffect(() => { loadPools(); }, [loadPools]);
+
+  // ── Mood tagging ──────────────────────────────────────────────────
+
+  const fetchTaggingStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`${BASE}/api/quiz/batch-tag/status`);
+      if (res.ok) setTaggingStatus(await res.json());
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { fetchTaggingStatus(); }, [fetchTaggingStatus]);
+
+  // Poll while tagging is in progress
+  useEffect(() => {
+    if (taggingStatus?.inProgress) {
+      pollRef.current = setInterval(fetchTaggingStatus, 2000);
+    } else {
+      if (pollRef.current) clearInterval(pollRef.current);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [taggingStatus?.inProgress, fetchTaggingStatus]);
+
+  async function startBatchTagging(force = false) {
+    setTaggingStarting(true);
+    try {
+      const res = await fetch(`${BASE}/api/quiz/batch-tag`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      });
+      if (!res.ok) throw new Error('Failed to start');
+      // Start polling
+      setTimeout(fetchTaggingStatus, 1000);
+    } catch (err) {
+      console.error('Failed to start batch tagging:', err);
+    }
+    setTaggingStarting(false);
+  }
 
   // ── Filtered catalog ──────────────────────────────────────────────
 
@@ -373,6 +425,103 @@ export default function ProductPoolsPage() {
           </button>
         ))}
       </div>
+
+      {/* ═══════ AI CATEGORIZATION CARD ═══════ */}
+      <div style={{
+        backgroundColor: 'var(--bg-primary)',
+        border: '1px solid var(--border-primary)',
+        borderRadius: '12px',
+        padding: '20px',
+        marginBottom: '16px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Tag size={18} style={{ color: ACCENT }} />
+            <div>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>AI Product Categorization</h3>
+              <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', margin: '2px 0 0' }}>
+                Analyze product images with AI to assign mood scores for each style vibe
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {taggingStatus?.tagged ? (
+              <button
+                onClick={() => startBatchTagging(true)}
+                disabled={taggingStatus?.inProgress || taggingStarting}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: 'var(--text-secondary)',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-primary)',
+                  borderRadius: '8px',
+                  cursor: taggingStatus?.inProgress ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Re-categorize All
+              </button>
+            ) : null}
+            <button
+              onClick={() => startBatchTagging(false)}
+              disabled={taggingStatus?.inProgress || taggingStarting}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 20px',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#fff',
+                backgroundColor: taggingStatus?.inProgress ? '#6b7280' : ACCENT,
+                border: 'none',
+                borderRadius: '8px',
+                cursor: taggingStatus?.inProgress ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {taggingStatus?.inProgress ? (
+                <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Categorizing...</>
+              ) : taggingStarting ? (
+                <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Starting...</>
+              ) : (
+                <>{taggingStatus?.tagged ? 'Categorize New' : 'Categorize All Products'}</>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Status bar */}
+        {taggingStatus && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              <span><strong style={{ color: 'var(--text-primary)' }}>{taggingStatus.tagged}</strong> / {taggingStatus.total} tagged</span>
+              {taggingStatus.lastTaggedAt && (
+                <span>Last run: {new Date(taggingStatus.lastTaggedAt).toLocaleDateString()}</span>
+              )}
+              {taggingStatus.inProgress && taggingStatus.progress && (
+                <span style={{ color: ACCENT }}>
+                  Processing {taggingStatus.progress.current}/{taggingStatus.progress.total}: {taggingStatus.progress.title}
+                </span>
+              )}
+            </div>
+            {taggingStatus.total > 0 && (
+              <div style={{ height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${taggingStatus.inProgress && taggingStatus.progress
+                    ? (taggingStatus.progress.current / taggingStatus.progress.total * 100)
+                    : (taggingStatus.tagged / taggingStatus.total * 100)}%`,
+                  backgroundColor: taggingStatus.inProgress ? '#f59e0b' : ACCENT,
+                  borderRadius: '2px',
+                  transition: 'width 500ms ease',
+                }} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
 
       {/* ═══════ CATALOG TAB ═══════ */}
       {tab === 'catalog' && (
