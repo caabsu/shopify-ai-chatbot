@@ -414,12 +414,13 @@ function buildReviewPrompt(ctx: QuizContext, productImages?: ProductImage[]): st
 
   const intensityNote = getIntensityDirections(ctx.intensity);
 
-  return `Look at the room photo (attachment #1) and the ${n} light fixture reference images: ${fixtureList}.
+  return `Look at the room photo (attachment #1) and the ${n} light fixture design references: ${fixtureList}.
 
-Write a single-paragraph editing instruction for an image-editing AI that will transform this room photo. Your instruction must:
+Write a single-paragraph editing instruction for an image-editing AI that will photorealistically edit this room photo. Your instruction must:
 - Tell it to remove ALL existing light fixtures visible in the room (name them specifically based on what you see)
-- Tell it exactly where to place each of the ${n} fixtures — describe placement relative to specific furniture/walls you can see in the room
-- Reference each fixture as "attachment #N" so the image AI knows which reference image to match
+- Tell it exactly where to place each of the ${n} fixtures — describe placement relative to specific furniture/walls you can see in the room, with correct scale and perspective for the room
+- Reference each fixture as "reference image #N" so the image AI knows which design to recreate
+- Emphasize that fixtures must be rendered INTO the scene naturally — correct perspective, proper shadows on walls/floors/surfaces, realistic scale relative to furniture, and light emanating from each fixture that interacts with the room (warm pools on nearby surfaces, soft ambient glow). The result must look like a real photograph, not a collage.
 - End with: "${intensityNote}"
 
 Write ONLY the instruction paragraph. Start with "Using the image of the space attached, make the following edits:"`;
@@ -464,7 +465,7 @@ export async function reviewRoomPhoto(
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[Attachment #${i + 2}: "${pi.title}" — a ${pi.productType}]` });
+      parts.push({ text: `[Design reference #${i + 2}: "${pi.title}" — a ${pi.productType}]` });
     }
   }
 
@@ -510,7 +511,7 @@ export async function renderVisualization(
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[Attachment #${i + 2}: "${pi.title}" — a ${pi.productType}]` });
+      parts.push({ text: `[Design reference #${i + 2}: "${pi.title}" — a ${pi.productType}. Use this as a DESIGN REFERENCE only — recreate this fixture's shape and style naturally within the room scene, with correct perspective, scale, shadows, and lighting. Do NOT copy-paste this image.]` });
     }
   }
 
@@ -553,7 +554,7 @@ export async function generateFromScratch(ctx: QuizContext, productImages?: Prod
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[Attachment #${i + 1}: "${pi.title}" — a ${pi.productType}]` });
+      parts.push({ text: `[Design reference #${i + 1}: "${pi.title}" — a ${pi.productType}. Recreate this fixture's design naturally in the scene.]` });
     }
   }
 
