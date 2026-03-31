@@ -43,6 +43,17 @@ function getDefaultLocation(productType: string): string {
   return 'placed naturally in the room';
 }
 
+/** Returns a physical description of how this type exists in a room — prevents the model from guessing based on image size */
+function getTypePhysicalContext(productType: string): string {
+  if (productType.includes('floor')) return 'This is a FLOOR-STANDING lamp (tall, stands on the ground next to furniture, typically 4-6 feet tall). It must be placed ON THE FLOOR, never on a table.';
+  if (productType.includes('table')) return 'This is a TABLE LAMP (sits on a surface like a side table, console, or nightstand). It must be placed ON a flat surface, not on the floor.';
+  if (productType.includes('desk')) return 'This is a DESK LAMP (sits on a desk or table surface). It must be placed ON a flat surface.';
+  if (productType.includes('pendant')) return 'This is a PENDANT LIGHT (hangs from the ceiling on a cord or chain). It must be SUSPENDED FROM THE CEILING, not sitting on any surface.';
+  if (productType.includes('sconce')) return 'This is a WALL SCONCE (mounted directly on a wall). It must be MOUNTED ON A WALL.';
+  if (productType.includes('chandelier')) return 'This is a CHANDELIER (hangs from the ceiling as a statement piece). It must be SUSPENDED FROM THE CEILING.';
+  return 'Place this fixture in an appropriate location.';
+}
+
 /** Fetch product images from Shopify Admin API by handles, then download as base64.
  *  Also looks up AI-classified product type from mood tags. */
 export async function fetchProductImages(handles: string[], brandId?: string): Promise<ProductImage[]> {
@@ -409,16 +420,18 @@ function buildReviewPrompt(ctx: QuizContext, productImages?: ProductImage[]): st
   const n = productImages.length;
   const fixtureList = productImages.map((p, i) => {
     const attachmentNum = i + 2; // room photo is attachment #1
-    return `"${p.title}" which is a ${p.productType} (attachment #${attachmentNum})`;
+    return `"${p.title}" which is a ${p.productType.toUpperCase()} (reference image #${attachmentNum})`;
   }).join(', ');
 
   const intensityNote = getIntensityDirections(ctx.intensity);
 
   return `Look at the room photo (attachment #1) and the ${n} light fixture design references: ${fixtureList}.
 
+IMPORTANT: Each fixture's type is defined by its Shopify collection, NOT by how it looks in the reference photo. A floor lamp is ALWAYS a tall floor-standing lamp placed on the ground — even if the product photo makes it look small. A pendant is ALWAYS ceiling-hung. Do NOT guess the type from the image — use the type I specified above.
+
 Write a single-paragraph editing instruction for an image-editing AI that will photorealistically edit this room photo. Your instruction must:
 - Tell it to remove ALL existing light fixtures visible in the room (name them specifically based on what you see)
-- Tell it exactly where to place each of the ${n} fixtures — describe placement relative to specific furniture/walls you can see in the room, with correct scale and perspective for the room
+- Tell it exactly where to place each of the ${n} fixtures — describe placement relative to specific furniture/walls you can see in the room. Place each fixture according to its stated type (floor lamp = on the ground, pendant = ceiling-hung, table lamp = on a surface)
 - Reference each fixture as "reference image #N" so the image AI knows which design to recreate
 - Emphasize that fixtures must be rendered INTO the scene naturally — correct perspective, proper shadows on walls/floors/surfaces, realistic scale relative to furniture, and light emanating from each fixture that interacts with the room (warm pools on nearby surfaces, soft ambient glow). The result must look like a real photograph, not a collage.
 - End with: "${intensityNote}"
@@ -465,7 +478,7 @@ export async function reviewRoomPhoto(
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[Design reference #${i + 2}: "${pi.title}" — a ${pi.productType}]` });
+      parts.push({ text: `[Design reference #${i + 2}: "${pi.title}" — a ${pi.productType}. ${getTypePhysicalContext(pi.productType)}]` });
     }
   }
 
@@ -511,7 +524,7 @@ export async function renderVisualization(
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[Design reference #${i + 2}: "${pi.title}" — a ${pi.productType}. Use this as a DESIGN REFERENCE only — recreate this fixture's shape and style naturally within the room scene, with correct perspective, scale, shadows, and lighting. Do NOT copy-paste this image.]` });
+      parts.push({ text: `[Design reference #${i + 2}: "${pi.title}" — a ${pi.productType}. ${getTypePhysicalContext(pi.productType)} Use this as a DESIGN REFERENCE only — recreate this fixture's shape and style naturally within the room scene, with correct perspective, scale, shadows, and lighting. Do NOT copy-paste this image.]` });
     }
   }
 
@@ -554,7 +567,7 @@ export async function generateFromScratch(ctx: QuizContext, productImages?: Prod
     for (let i = 0; i < productImages.length; i++) {
       const pi = productImages[i];
       parts.push({ inlineData: { mimeType: pi.mimeType, data: pi.base64 } });
-      parts.push({ text: `[Design reference #${i + 1}: "${pi.title}" — a ${pi.productType}. Recreate this fixture's design naturally in the scene.]` });
+      parts.push({ text: `[Design reference #${i + 1}: "${pi.title}" — a ${pi.productType}. ${getTypePhysicalContext(pi.productType)} Recreate this fixture's design naturally in the scene.]` });
     }
   }
 
