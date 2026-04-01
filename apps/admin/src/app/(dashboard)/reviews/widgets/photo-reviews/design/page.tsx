@@ -43,7 +43,7 @@ interface PhotoWidgetDesign {
 const DEFAULTS: PhotoWidgetDesign = {
   imageAspectRatio: '4:5',
   imageObjectFit: 'cover',
-  cardLayout: 'overlay',
+  cardLayout: 'below',
   columns: 3,
   gap: 'normal',
   showStars: true,
@@ -54,14 +54,14 @@ const DEFAULTS: PhotoWidgetDesign = {
   maxTextLines: 3,
   overlayPosition: 'bottom',
   overlayOpacity: 70,
-  borderRadius: 'medium',
+  borderRadius: 'none',
   accentColor: '#C5A059',
-  textColor: '#ffffff',
-  backgroundColor: '#F9F9FB',
+  textColor: '#2D3338',
+  backgroundColor: '#FEFDFB',
   cardBackground: '#ffffff',
   fontFamily: 'Manrope',
-  headerText: 'WHAT OUR CUSTOMERS SAY',
-  hoverEffect: 'zoom',
+  headerText: 'CUSTOMER REVIEWS',
+  hoverEffect: 'lift',
 };
 
 const COLOR_PRESETS = [
