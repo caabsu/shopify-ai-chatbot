@@ -131,6 +131,7 @@ const modules: Module[] = [
       { href: '/reviews/emails', label: 'Emails', icon: Mail },
     ],
     configItems: [
+      { href: '/reviews/widgets', label: 'Widgets', icon: Image },
       { href: '/reviews/playground', label: 'Widget Preview', icon: TestTube },
       { href: '/reviews/design', label: 'Widget Design', icon: Palette },
       { href: '/reviews/settings', label: 'Settings', icon: Settings },

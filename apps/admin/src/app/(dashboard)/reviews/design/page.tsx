@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Save, Check, RotateCcw, RefreshCw, Star } from 'lucide-react';
+import { Save, Check, RotateCcw, RefreshCw, Star, Code, Copy, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useBrand } from '@/components/brand-context';
 
 interface WidgetDesign {
@@ -95,6 +95,99 @@ function radiusValue(r: string): string {
   if (r === 'sharp') return '4px';
   if (r === 'pill') return '24px';
   return '12px';
+}
+
+function ShopifyInstallBlock({ backendUrl }: { backendUrl: string }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const productPageCode = `<!-- Product Reviews Widget by Outlight -->
+<div id="outlight-product-reviews"
+  data-product-handle="{{ product.handle }}"
+  data-shop="put1rp-iq">
+</div>
+<script src="${backendUrl}/widget/review-widget.js" defer></script>
+<link rel="stylesheet" href="${backendUrl}/widget/review-widget.css" />`;
+
+  const allReviewsCode = `<!-- All Reviews Widget by Outlight -->
+<div id="outlight-product-reviews"
+  data-shop="put1rp-iq">
+</div>
+<script src="${backendUrl}/widget/review-widget.js" defer></script>
+<link rel="stylesheet" href="${backendUrl}/widget/review-widget.css" />`;
+
+  function copyCode(code: string, id: string) {
+    navigator.clipboard.writeText(code);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{
+        backgroundColor: 'var(--bg-primary)',
+        border: '1px solid var(--border-primary)',
+      }}
+    >
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between p-5"
+      >
+        <div className="flex items-center gap-2">
+          <Code size={14} style={{ color: 'var(--color-accent)' }} />
+          <h3 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Shopify Installation
+          </h3>
+        </div>
+        {open ? <ChevronUp size={14} style={{ color: 'var(--text-tertiary)' }} /> : <ChevronDown size={14} style={{ color: 'var(--text-tertiary)' }} />}
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 space-y-4" style={{ borderTop: '1px solid var(--border-primary)' }}>
+          <p className="text-xs pt-4 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            Add this code to your Shopify product page template (<code className="font-mono text-[11px]" style={{ color: 'var(--color-accent)' }}>sections/product-template.liquid</code> or a custom section). The widget will automatically load reviews for the current product.
+          </p>
+
+          {/* Product Page Code */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>Product Page</span>
+              <button
+                onClick={() => copyCode(productPageCode, 'product')}
+                className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-colors"
+                style={{ color: copied === 'product' ? '#22c55e' : 'var(--text-tertiary)', border: '1px solid var(--border-primary)' }}
+              >
+                {copied === 'product' ? <><CheckCircle2 size={10} /> Copied</> : <><Copy size={10} /> Copy</>}
+              </button>
+            </div>
+            <pre
+              className="text-[11px] font-mono leading-relaxed rounded-lg p-4 overflow-x-auto"
+              style={{ backgroundColor: '#1e1e2e', color: '#cdd6f4' }}
+            >{productPageCode}</pre>
+          </div>
+
+          {/* All Reviews Page Code */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>All Reviews Page (standalone)</span>
+              <button
+                onClick={() => copyCode(allReviewsCode, 'all')}
+                className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-colors"
+                style={{ color: copied === 'all' ? '#22c55e' : 'var(--text-tertiary)', border: '1px solid var(--border-primary)' }}
+              >
+                {copied === 'all' ? <><CheckCircle2 size={10} /> Copied</> : <><Copy size={10} /> Copy</>}
+              </button>
+            </div>
+            <pre
+              className="text-[11px] font-mono leading-relaxed rounded-lg p-4 overflow-x-auto"
+              style={{ backgroundColor: '#1e1e2e', color: '#cdd6f4' }}
+            >{allReviewsCode}</pre>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ReviewWidgetDesignPage() {
@@ -650,6 +743,9 @@ export default function ReviewWidgetDesignPage() {
               onChange={(v) => setSettings({ ...settings, showPhotos: v })}
             />
           </div>
+
+          {/* Shopify Installation */}
+          <ShopifyInstallBlock backendUrl={backendUrl} />
         </div>
 
         {/* Right: Live Preview */}
