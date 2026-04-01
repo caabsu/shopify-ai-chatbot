@@ -89,6 +89,7 @@ export async function POST(
   const { id } = await params;
   const body = await req.json();
   const action = body.action as string;
+  const agentContext = (body.agentContext as string) || '';
 
   if (!['draft', 'summarize', 'suggest'].includes(action)) {
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
@@ -159,7 +160,7 @@ export async function POST(
 
   try {
     if (action === 'draft') {
-      return await handleDraft(ticket, fullConversation, customerContext, orderContext, customerProfile, kbContent);
+      return await handleDraft(ticket, fullConversation, customerContext, orderContext, customerProfile, kbContent, agentContext);
     } else if (action === 'summarize') {
       return await handleSummarize(ticket, fullConversation, customerContext, orderContext);
     } else {
@@ -177,13 +178,18 @@ async function handleDraft(
   customerContext: string,
   orderContext: string,
   customerProfile: CustomerProfile | null,
-  kbContent: string
+  kbContent: string,
+  agentContext: string = ''
 ) {
   const customerFirstName = customerProfile?.firstName
     || (ticket.customer_name as string)?.split(' ')[0]
     || 'there';
 
-  const systemPrompt = `You are a human customer support agent at Outlight, an outdoor lighting company. You are writing a real email reply to a customer.
+  const agentInstructions = agentContext
+    ? `\n\nAGENT INSTRUCTIONS (HIGHEST PRIORITY — follow these exactly, they override all other guidelines, presets, and knowledge base rules):\n${agentContext}\n`
+    : '';
+
+  const systemPrompt = `You are a human customer support agent at Outlight, an outdoor lighting company. You are writing a real email reply to a customer.${agentInstructions}
 
 VOICE & TONE:
 - Write like a real person, not an AI chatbot. Be genuine, sincere, and concise.

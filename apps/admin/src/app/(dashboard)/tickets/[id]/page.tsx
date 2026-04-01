@@ -189,6 +189,8 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiSteps, setAiSteps] = useState<string[] | null>(null);
+  const [agentContext, setAgentContext] = useState('');
+  const [showAgentContext, setShowAgentContext] = useState(false);
 
   // KB search
   const [kbQuery, setKbQuery] = useState('');
@@ -325,7 +327,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
       const res = await fetch(`/api/tickets/${id}/ai`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...(action === 'draft' && agentContext.trim() ? { agentContext: agentContext.trim() } : {}) }),
       });
       const result = await res.json();
 
@@ -979,9 +981,52 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               />
             </div>
 
-            {/* Actions */}
+            {/* Agent Context + Actions */}
+            {showAgentContext && (
+              <div className="px-4 pb-2">
+                <div
+                  className="rounded-lg p-2.5"
+                  style={{
+                    backgroundColor: 'rgba(168,85,247,0.06)',
+                    border: '1px solid rgba(168,85,247,0.2)',
+                  }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Cpu size={11} style={{ color: '#a855f7' }} />
+                    <span className="text-[11px] font-semibold" style={{ color: '#a855f7' }}>Agent Instructions</span>
+                    <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>— overrides presets & KB</span>
+                  </div>
+                  <textarea
+                    value={agentContext}
+                    onChange={(e) => setAgentContext(e.target.value)}
+                    rows={2}
+                    placeholder='e.g. "I will call them in 15 min. Ask for their phone number. My name is Vance."'
+                    className="w-full text-xs rounded-md px-2.5 py-1.5 resize-y focus:outline-none focus:ring-1"
+                    style={{
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid rgba(168,85,247,0.15)',
+                      color: 'var(--text-primary)',
+                      '--tw-ring-color': 'rgba(168,85,247,0.5)',
+                    } as React.CSSProperties}
+                  />
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between px-4 pb-4">
               <div className="flex items-center gap-2">
+                {/* Agent Context toggle */}
+                <button
+                  onClick={() => setShowAgentContext(!showAgentContext)}
+                  className="text-xs px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-1.5"
+                  style={{
+                    backgroundColor: showAgentContext ? 'rgba(168,85,247,0.15)' : 'var(--bg-tertiary)',
+                    color: showAgentContext ? '#a855f7' : 'var(--text-secondary)',
+                    border: `1px solid ${showAgentContext ? 'rgba(168,85,247,0.3)' : 'var(--border-primary)'}`,
+                  }}
+                >
+                  <Cpu size={12} />
+                  {showAgentContext ? 'Hide Instructions' : 'Add Instructions'}
+                </button>
                 {/* AI Generate Reply — primary CTA */}
                 <button
                   onClick={() => handleAiTool('draft')}
