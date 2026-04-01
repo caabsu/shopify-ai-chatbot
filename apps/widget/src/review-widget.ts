@@ -1318,6 +1318,11 @@ function createReviewWidget(
       }
 
       state.loading = false;
+
+      // Expose reviews data for V20 carousel section
+      (window as any).outlightReviews = { reviews: state.reviews, summary: state.summary };
+      window.dispatchEvent(new CustomEvent('outlight-reviews-loaded'));
+
       render();
     } catch {
       state.loading = false;
