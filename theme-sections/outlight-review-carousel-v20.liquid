@@ -1,42 +1,51 @@
 {% comment %}
   Outlight V20 — Full-Bleed Photo Review Carousel
   Consumes window.outlightReviews from review-widget.js
+  Design matches the admin playground exactly.
 {% endcomment %}
 
-{{ 'https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200;0,6..72,300;0,6..72,400;1,6..72,200;1,6..72,300&family=Manrope:wght@200;300;400;500&display=swap' | stylesheet_tag }}
+{{ 'https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200;0,6..72,300;0,6..72,400;0,6..72,700;1,6..72,200;1,6..72,300&family=Manrope:wght@200;300;400;500;600&display=swap' | stylesheet_tag }}
 
 {% style %}
   .v20-section {
     --fg: #131314;
-    --bg: #F9F9FB;
+    --bg: #FEFDFB;
     --accent: {{ section.settings.star_color | default: '#C5A059' }};
     --body-color: #2d3338;
     --warm: {{ section.settings.no_photo_bg | default: '#f4f0eb' }};
     --border: rgba(19,19,20,0.08);
-    padding: {{ section.settings.padding_top }}px 0 {{ section.settings.padding_bottom }}px;
+    padding: 48px 40px 60px;
     background: var(--bg);
     font-family: 'Manrope', sans-serif;
     -webkit-font-smoothing: antialiased;
     overflow: hidden;
   }
 
-  /* Rating header */
-  .v20-rh { text-align: center; padding: 0 44px; margin-bottom: 24px; }
-  .v20-rh-stars { display: inline-flex; gap: 2px; margin-bottom: 6px; }
-  .v20-rh-stars svg { width: 16px; height: 16px; }
-  .v20-rh-num { font-family: 'Newsreader', serif; font-weight: 200; font-size: 1.8rem; color: var(--fg); line-height: 1; }
-  .v20-rh-sub { font-size: .7rem; font-weight: 300; color: rgba(45,51,56,.38); margin-top: 4px; }
-
-  /* Heading */
-  .v20-heading { text-align: center; margin-bottom: 8px; }
-  .v20-heading h2 {
-    font-family: 'Newsreader', serif;
-    font-weight: 200;
-    font-size: 1.6rem;
-    color: var(--fg);
-    letter-spacing: -0.02em;
-    margin: 0;
+  /* Header — left-aligned, matches playground exactly */
+  .v20-header { margin-bottom: 28px; }
+  .v20-header-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
   }
+  .v20-header-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .v20-header-num {
+    font-family: 'Newsreader', 'Georgia', serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--fg);
+    line-height: 1;
+  }
+  .v20-header-stars { display: inline-flex; gap: 3px; align-items: center; }
+  .v20-header-stars svg { width: 16px; height: 16px; }
+  .v20-header-count { font-size: 13px; color: #888; }
 
   /* Carousel wrapper (for arrow positioning) */
   .v20-carousel-wrap { position: relative; }
@@ -47,14 +56,14 @@
     overflow-x: auto;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
-    padding: 0 44px 12px;
+    padding-bottom: 12px;
     gap: 14px;
   }
   .v20-carousel::-webkit-scrollbar { height: 3px; }
   .v20-carousel::-webkit-scrollbar-thumb { background: rgba(197,160,89,.35); border-radius: 2px; }
   .v20-carousel::-webkit-scrollbar-track { background: rgba(19,19,20,.04); }
 
-  /* Nav arrows */
+  /* Nav arrows — desktop only */
   .v20-arrow {
     position: absolute;
     top: 50%;
@@ -82,8 +91,8 @@
     pointer-events: none;
   }
   .v20-arrow svg { width: 18px; height: 18px; stroke-width: 2; }
-  .v20-arrow--prev { left: 8px; }
-  .v20-arrow--next { right: 8px; }
+  .v20-arrow--prev { left: -8px; }
+  .v20-arrow--next { right: -8px; }
 
   /* Card — portrait ratio */
   .v20-card {
@@ -209,39 +218,43 @@
   }
   .v20-lightbox-close:hover { background: rgba(255,255,255,0.2); }
 
-  /* Hide arrows on mobile */
+  /* ═══ MOBILE ═══ */
   @media (max-width: 749px) {
-    .v20-arrow { display: none; }
+    .v20-section { padding: 28px 20px 40px; }
+    .v20-arrow { display: none !important; }
     .v20-carousel {
-      padding: 0 20px 10px; gap: 12px;
+      gap: 12px;
       scroll-snap-type: x mandatory;
       scroll-behavior: auto;
     }
     .v20-card {
-      flex: 0 0 calc(100vw - 48px); height: 480px;
+      flex: 0 0 calc(100vw - 48px);
+      height: 480px;
       scroll-snap-align: start;
     }
     .v20-card-content { padding: 20px; }
-    .v20-rh { padding: 0 20px; }
-    .v20-rh-num { font-size: 1.4rem; }
+    .v20-header-num { font-size: 28px; }
+    .v20-header-stars svg { width: 14px; height: 14px; }
+    .v20-header-count { font-size: 12px; }
+    /* Disable hover expand on touch — show snippet only */
+    .v20-card-full { display: none !important; }
   }
 {% endstyle %}
 
 <div class="v20-section" id="outlight-v20-carousel" data-section-id="{{ section.id }}">
-  {%- if section.settings.heading != blank -%}
-    <div class="v20-heading">
-      <h2>{{ section.settings.heading }}</h2>
+  <!-- Header — left-aligned, matches playground -->
+  <div class="v20-header">
+    {%- if section.settings.heading != blank -%}
+      <div class="v20-header-label">{{ section.settings.heading }}</div>
+    {%- endif -%}
+    <div class="v20-header-row">
+      <span class="v20-header-num" id="v20-num-{{ section.id }}">--</span>
+      <span class="v20-header-stars" id="v20-stars-{{ section.id }}"></span>
+      <span class="v20-header-count" id="v20-count-{{ section.id }}"></span>
     </div>
-  {%- endif -%}
-
-  <!-- Rating header — filled by JS -->
-  <div class="v20-rh" id="v20-rh-{{ section.id }}">
-    <div class="v20-rh-stars" id="v20-stars-{{ section.id }}"></div>
-    <div class="v20-rh-num" id="v20-num-{{ section.id }}">--</div>
-    <div class="v20-rh-sub" id="v20-sub-{{ section.id }}">Loading reviews...</div>
   </div>
 
-  <!-- Carousel with nav arrows -->
+  <!-- Carousel with nav arrows (desktop only) -->
   <div class="v20-carousel-wrap">
     <button class="v20-arrow v20-arrow--prev" id="v20-prev-{{ section.id }}" disabled aria-label="Previous">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -268,25 +281,29 @@
 (function() {
   var SECTION_ID = {{ section.id | json }};
   var ACCENT = {{ section.settings.star_color | default: '#C5A059' | json }};
-  var NO_PHOTO_BG = {{ section.settings.no_photo_bg | default: '#f4f0eb' | json }};
   var MAX_CARDS = {{ section.settings.max_cards | default: 12 }};
-  var PHOTOS_FIRST = {{ section.settings.photos_first | json }};
 
   function starSVG(filled, color) {
     var fill = filled ? color : 'none';
     var opacity = filled ? '1' : '0.35';
     var stroke = filled ? color : (color || '#fff');
-    return '<svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1" opacity="' + opacity + '"/></svg>';
+    return '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1" opacity="' + opacity + '"/></svg>';
   }
 
-  function starsHTML(rating, color, size) {
+  function cardStarSVG(filled, color) {
+    var fill = filled ? color : 'none';
+    var opacity = filled ? '1' : '0.35';
+    var stroke = filled ? color : (color || '#fff');
+    return '<svg viewBox="0 0 24 24" width="11" height="11"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1" opacity="' + opacity + '"/></svg>';
+  }
+
+  function starsHTML(rating, color, forCard) {
+    var fn = forCard ? cardStarSVG : starSVG;
     var full = Math.floor(rating);
     var extra = (rating - full >= 0.75) ? 1 : 0;
     var total = full + extra;
     var h = '';
-    for (var i = 0; i < 5; i++) {
-      h += starSVG(i < total, color);
-    }
+    for (var i = 0; i < 5; i++) h += fn(i < total, color);
     return h;
   }
 
@@ -306,7 +323,6 @@
     var reviews = [];
     var summary = null;
 
-    /* Normalize — support multiple response shapes */
     if (data && data.reviews) {
       reviews = data.reviews;
       summary = data.summary || null;
@@ -329,10 +345,10 @@
 
     reviews = reviews.slice(0, MAX_CARDS);
 
-    /* Summary header */
-    var starsEl = document.getElementById('v20-stars-' + SECTION_ID);
+    /* Header — matches playground: "4.9 ★★★★★ 218 reviews" */
     var numEl = document.getElementById('v20-num-' + SECTION_ID);
-    var subEl = document.getElementById('v20-sub-' + SECTION_ID);
+    var starsEl = document.getElementById('v20-stars-' + SECTION_ID);
+    var countEl = document.getElementById('v20-count-' + SECTION_ID);
 
     var avgRating = 0;
     var totalCount = reviews.length;
@@ -345,9 +361,9 @@
       avgRating = reviews.length ? (sum / reviews.length) : 0;
     }
 
-    if (starsEl) starsEl.innerHTML = starsHTML(avgRating, ACCENT);
     if (numEl) numEl.textContent = avgRating.toFixed(1);
-    if (subEl) subEl.textContent = 'Based on ' + totalCount + ' verified review' + (totalCount !== 1 ? 's' : '');
+    if (starsEl) starsEl.innerHTML = starsHTML(avgRating, ACCENT, false);
+    if (countEl) countEl.textContent = totalCount + ' reviews';
 
     /* Build cards */
     var track = document.getElementById('v20-track-' + SECTION_ID);
@@ -366,20 +382,18 @@
       var variant = r.variant_title || r.variant || '';
       var helpful = r.helpful_count || r.helpful || 0;
 
-      /* Get first image URL */
       var imgUrl = '';
       var mediaArr = r.media || r.images || r.photos || [];
       if (mediaArr.length > 0) {
         var first = mediaArr[0];
         imgUrl = (typeof first === 'string') ? first : (first.url || first.src || first.image || '');
-        /* Only use image media */
         if (first.media_type && first.media_type !== 'image') imgUrl = '';
       }
 
       var hasPhoto = !!imgUrl;
       var cardClass = 'v20-card' + (hasPhoto ? '' : ' v20-no-photo');
 
-      html += '<div class="' + cardClass + '"' + (!hasPhoto ? ' style="height:480px"' : '') + (hasPhoto ? ' data-img="' + escapeHTML(imgUrl) + '"' : '') + '>';
+      html += '<div class="' + cardClass + '"' + (hasPhoto ? ' data-img="' + escapeHTML(imgUrl) + '"' : '') + '>';
 
       if (hasPhoto) {
         html += '<div class="v20-card-bg"><img src="' + imgUrl + '" alt="" loading="lazy"></div>';
@@ -387,14 +401,13 @@
       }
 
       html += '<div class="v20-card-content">';
-      html += '<div class="v20-stars">' + starsHTML(rating, hasPhoto ? '#fff' : ACCENT) + '</div>';
+      html += '<div class="v20-stars">' + starsHTML(rating, hasPhoto ? '#fff' : ACCENT, true) + '</div>';
       html += '<div class="v20-card-name">' + escapeHTML(name);
       if (verified) html += ' <span class="v20-vf">verified</span>';
       html += '</div>';
       if (date) html += '<div class="v20-card-date">' + formatDate(date) + '</div>';
       html += '<p class="v20-card-snippet">' + escapeHTML(body) + '</p>';
 
-      /* Expandable footer */
       html += '<div class="v20-card-full">';
       html += '<div class="v20-card-full-foot">';
       if (variant) html += '<span class="v20-card-full-item">' + escapeHTML(variant) + '</span>';
@@ -407,13 +420,12 @@
 
     track.innerHTML = html;
 
-    /* Attach click-to-lightbox on photo cards */
+    /* Lightbox on photo card click */
     var cards = track.querySelectorAll('.v20-card[data-img]');
     for (var c = 0; c < cards.length; c++) {
-      cards[c].addEventListener('click', function(e) {
+      cards[c].addEventListener('click', function() {
         var src = this.getAttribute('data-img');
-        if (!src) return;
-        openLightbox(src);
+        if (src) openLightbox(src);
       });
     }
 
@@ -423,8 +435,8 @@
     if (prevBtn && nextBtn) {
       function getScrollAmount() {
         var firstCard = track.querySelector('.v20-card');
-        if (!firstCard) return 374;
-        return firstCard.offsetWidth + 14; /* card width + gap */
+        if (!firstCard) return 334;
+        return firstCard.offsetWidth + 14;
       }
       function updateArrows() {
         var sl = track.scrollLeft;
@@ -469,7 +481,6 @@
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  /* Listen for data from review-widget.js */
   function tryRender() {
     if (window.outlightReviews) {
       renderCarousel(window.outlightReviews);
@@ -478,14 +489,8 @@
     return false;
   }
 
-  /* If data is already there, render now */
   if (!tryRender()) {
-    /* Otherwise wait for the event */
-    window.addEventListener('outlight-reviews-loaded', function() {
-      tryRender();
-    });
-
-    /* Fallback: poll a few times in case timing is tricky */
+    window.addEventListener('outlight-reviews-loaded', function() { tryRender(); });
     var attempts = 0;
     var poll = setInterval(function() {
       attempts++;
@@ -504,8 +509,8 @@
     {
       "type": "text",
       "id": "heading",
-      "label": "Heading",
-      "default": "Customer Reviews"
+      "label": "Product label (above rating)",
+      "default": "AVEN FLOOR LAMP"
     },
     {
       "type": "color",
@@ -527,32 +532,6 @@
       "max": 20,
       "step": 1,
       "default": 12
-    },
-    {
-      "type": "checkbox",
-      "id": "photos_first",
-      "label": "Show photo reviews first",
-      "default": true
-    },
-    {
-      "type": "range",
-      "id": "padding_top",
-      "label": "Top padding",
-      "min": 0,
-      "max": 100,
-      "step": 4,
-      "unit": "px",
-      "default": 40
-    },
-    {
-      "type": "range",
-      "id": "padding_bottom",
-      "label": "Bottom padding",
-      "min": 0,
-      "max": 100,
-      "step": 4,
-      "unit": "px",
-      "default": 40
     }
   ],
   "presets": [
