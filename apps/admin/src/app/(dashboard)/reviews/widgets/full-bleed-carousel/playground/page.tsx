@@ -915,8 +915,8 @@ export default function FullBleedCarouselPlaygroundPage() {
         </div>
         <BrowserFrame>
           <V20Carousel
-            cardWidth={360}
-            cardHeight={400}
+            cardWidth={320}
+            cardHeight={480}
             containerWidth={920}
             onImageClick={handleImageClick}
           />
@@ -958,7 +958,7 @@ export default function FullBleedCarouselPlaygroundPage() {
         <PhoneFrame>
           <V20Carousel
             cardWidth={280}
-            cardHeight={360}
+            cardHeight={480}
             containerWidth={375}
             onImageClick={handleImageClick}
           />

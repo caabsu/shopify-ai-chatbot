@@ -85,10 +85,10 @@
   .v20-arrow--prev { left: 8px; }
   .v20-arrow--next { right: 8px; }
 
-  /* Card */
+  /* Card — portrait ratio */
   .v20-card {
-    flex: 0 0 360px;
-    height: 400px;
+    flex: 0 0 320px;
+    height: 480px;
     scroll-snap-align: start;
     border-radius: 6px;
     overflow: hidden;
@@ -218,7 +218,7 @@
       scroll-behavior: auto;
     }
     .v20-card {
-      flex: 0 0 calc(100vw - 48px); height: 360px;
+      flex: 0 0 calc(100vw - 48px); height: 480px;
       scroll-snap-align: start;
     }
     .v20-card-content { padding: 20px; }
@@ -379,7 +379,7 @@
       var hasPhoto = !!imgUrl;
       var cardClass = 'v20-card' + (hasPhoto ? '' : ' v20-no-photo');
 
-      html += '<div class="' + cardClass + '"' + (!hasPhoto ? ' style="height:400px"' : '') + (hasPhoto ? ' data-img="' + escapeHTML(imgUrl) + '"' : '') + '>';
+      html += '<div class="' + cardClass + '"' + (!hasPhoto ? ' style="height:480px"' : '') + (hasPhoto ? ' data-img="' + escapeHTML(imgUrl) + '"' : '') + '>';
 
       if (hasPhoto) {
         html += '<div class="v20-card-bg"><img src="' + imgUrl + '" alt="" loading="lazy"></div>';
