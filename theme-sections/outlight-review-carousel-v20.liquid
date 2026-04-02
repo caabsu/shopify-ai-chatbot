@@ -38,11 +38,14 @@
     margin: 0;
   }
 
+  /* Carousel wrapper (for arrow positioning) */
+  .v20-carousel-wrap { position: relative; }
+
   /* Carousel track */
   .v20-carousel {
     display: flex;
     overflow-x: auto;
-    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
     padding: 0 44px 12px;
     gap: 14px;
@@ -50,6 +53,37 @@
   .v20-carousel::-webkit-scrollbar { height: 3px; }
   .v20-carousel::-webkit-scrollbar-thumb { background: rgba(197,160,89,.35); border-radius: 2px; }
   .v20-carousel::-webkit-scrollbar-track { background: rgba(19,19,20,.04); }
+
+  /* Nav arrows */
+  .v20-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.95);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--fg);
+    transition: all .2s;
+    backdrop-filter: blur(4px);
+  }
+  .v20-arrow:hover {
+    background: var(--fg);
+    color: var(--bg);
+    border-color: var(--fg);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+  .v20-arrow:disabled {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .v20-arrow svg { width: 18px; height: 18px; stroke-width: 2; }
+  .v20-arrow--prev { left: 8px; }
+  .v20-arrow--next { right: 8px; }
 
   /* Card */
   .v20-card {
@@ -175,17 +209,17 @@
   }
   .v20-lightbox-close:hover { background: rgba(255,255,255,0.2); }
 
-  /* Mobile */
+  /* Hide arrows on mobile */
   @media (max-width: 749px) {
+    .v20-arrow { display: none; }
     .v20-carousel {
-      padding: 0 20px 10px; gap: 10px;
+      padding: 0 20px 10px; gap: 12px;
       scroll-snap-type: x mandatory;
-      -webkit-overflow-scrolling: touch;
-      scroll-padding-left: 20px;
+      scroll-behavior: auto;
     }
     .v20-card {
       flex: 0 0 calc(100vw - 48px); height: 360px;
-      scroll-snap-align: center;
+      scroll-snap-align: start;
     }
     .v20-card-content { padding: 20px; }
     .v20-rh { padding: 0 20px; }
@@ -207,18 +241,26 @@
     <div class="v20-rh-sub" id="v20-sub-{{ section.id }}">Loading reviews...</div>
   </div>
 
-  <!-- Carousel — skeleton then real cards -->
-  <div class="v20-carousel v20-skeleton" id="v20-track-{{ section.id }}">
-    {%- for i in (1..5) -%}
-      <div class="v20-card">
-        <div class="v20-card-content">
-          <div class="v20-skel-bar w40"></div>
-          <div class="v20-skel-bar w60"></div>
-          <div class="v20-skel-bar w80"></div>
-          <div class="v20-skel-bar w40"></div>
+  <!-- Carousel with nav arrows -->
+  <div class="v20-carousel-wrap">
+    <button class="v20-arrow v20-arrow--prev" id="v20-prev-{{ section.id }}" disabled aria-label="Previous">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button class="v20-arrow v20-arrow--next" id="v20-next-{{ section.id }}" aria-label="Next">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+    <div class="v20-carousel v20-skeleton" id="v20-track-{{ section.id }}">
+      {%- for i in (1..5) -%}
+        <div class="v20-card">
+          <div class="v20-card-content">
+            <div class="v20-skel-bar w40"></div>
+            <div class="v20-skel-bar w60"></div>
+            <div class="v20-skel-bar w80"></div>
+            <div class="v20-skel-bar w40"></div>
+          </div>
         </div>
-      </div>
-    {%- endfor -%}
+      {%- endfor -%}
+    </div>
   </div>
 </div>
 
@@ -373,6 +415,31 @@
         if (!src) return;
         openLightbox(src);
       });
+    }
+
+    /* Arrow navigation */
+    var prevBtn = document.getElementById('v20-prev-' + SECTION_ID);
+    var nextBtn = document.getElementById('v20-next-' + SECTION_ID);
+    if (prevBtn && nextBtn) {
+      function getScrollAmount() {
+        var firstCard = track.querySelector('.v20-card');
+        if (!firstCard) return 374;
+        return firstCard.offsetWidth + 14; /* card width + gap */
+      }
+      function updateArrows() {
+        var sl = track.scrollLeft;
+        var maxScroll = track.scrollWidth - track.clientWidth;
+        prevBtn.disabled = sl <= 2;
+        nextBtn.disabled = sl >= maxScroll - 2;
+      }
+      prevBtn.addEventListener('click', function() {
+        track.scrollBy({ left: -getScrollAmount(), behavior: 'smooth' });
+      });
+      nextBtn.addEventListener('click', function() {
+        track.scrollBy({ left: getScrollAmount(), behavior: 'smooth' });
+      });
+      track.addEventListener('scroll', updateArrows);
+      updateArrows();
     }
   }
 

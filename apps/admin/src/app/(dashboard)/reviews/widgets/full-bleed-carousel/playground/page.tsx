@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Star, ArrowLeft, ThumbsUp, BadgeCheck, X } from 'lucide-react';
+import { useState, useCallback, useRef } from 'react';
+import { Star, ArrowLeft, ThumbsUp, BadgeCheck, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 /* ------------------------------------------------------------------ */
@@ -551,6 +551,48 @@ function V20Carousel({
   containerWidth: number;
   onImageClick?: (url: string) => void;
 }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const updateArrows = useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
+  }, []);
+
+  const scroll = useCallback((dir: 'left' | 'right') => {
+    const el = trackRef.current;
+    if (!el) return;
+    const firstCard = el.querySelector('div') as HTMLElement | null;
+    const amount = firstCard ? firstCard.offsetWidth + 14 : cardWidth + 14;
+    el.scrollBy({ left: dir === 'right' ? amount : -amount, behavior: 'smooth' });
+  }, [cardWidth]);
+
+  const arrowStyle = (side: 'left' | 'right', disabled: boolean): React.CSSProperties => ({
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    [side]: 6,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: '50%',
+    border: '1px solid rgba(19,19,20,0.08)',
+    background: 'rgba(255,255,255,0.95)',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+    cursor: disabled ? 'default' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: DARK,
+    opacity: disabled ? 0 : 1,
+    pointerEvents: disabled ? 'none' : 'auto',
+    transition: 'opacity 0.2s, background 0.2s, color 0.2s',
+    backdropFilter: 'blur(4px)',
+  });
+
   return (
     <div
       style={{
@@ -605,27 +647,50 @@ function V20Carousel({
         </div>
       </div>
 
-      {/* Scrollable carousel */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 14,
-          overflowX: 'auto',
-          scrollSnapType: 'x mandatory',
-          paddingBottom: 12,
-          scrollbarWidth: 'thin',
-          scrollbarColor: `${GOLD} transparent`,
-        }}
-      >
-        {MOCK_REVIEWS.map((review) => (
-          <V20Card
-            key={review.id}
-            review={review}
-            width={Math.min(cardWidth, containerWidth - 80)}
-            height={cardHeight}
-            onImageClick={onImageClick}
-          />
-        ))}
+      {/* Carousel with arrows */}
+      <div style={{ position: 'relative' }}>
+        <button
+          onClick={() => scroll('left')}
+          onMouseEnter={(e) => { e.currentTarget.style.background = DARK; e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; e.currentTarget.style.color = DARK; }}
+          style={arrowStyle('left', !canScrollLeft)}
+          aria-label="Previous"
+        >
+          <ChevronLeft size={20} strokeWidth={2} />
+        </button>
+        <button
+          onClick={() => scroll('right')}
+          onMouseEnter={(e) => { e.currentTarget.style.background = DARK; e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; e.currentTarget.style.color = DARK; }}
+          style={arrowStyle('right', !canScrollRight)}
+          aria-label="Next"
+        >
+          <ChevronRight size={20} strokeWidth={2} />
+        </button>
+
+        <div
+          ref={trackRef}
+          onScroll={updateArrows}
+          style={{
+            display: 'flex',
+            gap: 14,
+            overflowX: 'auto',
+            scrollBehavior: 'smooth',
+            paddingBottom: 12,
+            scrollbarWidth: 'thin',
+            scrollbarColor: `${GOLD} transparent`,
+          }}
+        >
+          {MOCK_REVIEWS.map((review) => (
+            <V20Card
+              key={review.id}
+              review={review}
+              width={Math.min(cardWidth, containerWidth - 80)}
+              height={cardHeight}
+              onImageClick={onImageClick}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
