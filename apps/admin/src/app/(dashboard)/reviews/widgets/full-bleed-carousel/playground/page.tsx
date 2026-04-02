@@ -558,13 +558,30 @@ function V20Carousel({
   const trackRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [activeDot, setActiveDot] = useState(0);
 
   const updateArrows = useCallback(() => {
     const el = trackRef.current;
     if (!el) return;
     setCanScrollLeft(el.scrollLeft > 2);
     setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
-  }, []);
+
+    // Update active dot
+    if (mobile) {
+      const cards = el.querySelectorAll('div[style]');
+      const trackRect = el.getBoundingClientRect();
+      const center = trackRect.left + trackRect.width / 2;
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      cards.forEach((card, idx) => {
+        const rect = card.getBoundingClientRect();
+        const cardCenter = rect.left + rect.width / 2;
+        const dist = Math.abs(cardCenter - center);
+        if (dist < closestDist) { closestDist = dist; closestIdx = idx; }
+      });
+      setActiveDot(closestIdx);
+    }
+  }, [mobile]);
 
   const scroll = useCallback((dir: 'left' | 'right') => {
     const el = trackRef.current;
@@ -701,6 +718,43 @@ function V20Carousel({
             />
           ))}
         </div>
+
+        {/* Scroll indicator dots — mobile only */}
+        {mobile && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, paddingTop: 12 }}>
+            {MOCK_REVIEWS.map((_, idx) => (
+              <span
+                key={idx}
+                style={{
+                  width: idx === activeDot ? 20 : 6,
+                  height: 6,
+                  borderRadius: idx === activeDot ? 3 : '50%',
+                  background: idx === activeDot ? GOLD : 'rgba(19,19,20,0.12)',
+                  transition: 'all 0.3s',
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* "Read all reviews" CTA */}
+      <div style={{ textAlign: 'center', paddingTop: 20 }}>
+        <button
+          style={{
+            background: 'none',
+            border: 'none',
+            fontFamily: FONT,
+            fontSize: '0.75rem',
+            fontWeight: 500,
+            color: GOLD,
+            cursor: 'pointer',
+            padding: '8px 16px',
+            letterSpacing: '0.04em',
+          }}
+        >
+          Read all reviews &darr;
+        </button>
       </div>
     </div>
   );
