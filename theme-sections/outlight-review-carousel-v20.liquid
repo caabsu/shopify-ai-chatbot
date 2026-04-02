@@ -4,7 +4,18 @@
   Changes deploy automatically via Railway, no need to re-paste code.
 {% endcomment %}
 
-{%- assign v20_collection = product.collections.first.title | default: product.type -%}
+{%- assign v20_skip = 'all,best-sellers,top-sellers,outdoor-lighting,new-arrivals' | split: ',' -%}
+{%- assign v20_collection = '' -%}
+{%- for col in product.collections -%}
+  {%- unless v20_skip contains col.handle -%}
+    {%- if v20_collection == '' -%}
+      {%- assign v20_collection = col.title -%}
+    {%- endif -%}
+  {%- endunless -%}
+{%- endfor -%}
+{%- if v20_collection == '' -%}
+  {%- assign v20_collection = product.type | default: 'Lighting' -%}
+{%- endif -%}
 {%- assign v20_heading = product.title | append: ' — ' | append: v20_collection -%}
 
 <div id="outlight-v20-carousel"
