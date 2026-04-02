@@ -4,14 +4,17 @@
   Changes deploy automatically via Railway, no need to re-paste code.
 {% endcomment %}
 
+{%- assign v20_collection = product.collections.first.title | default: product.type -%}
+{%- assign v20_heading = product.title | append: ' — ' | append: v20_collection -%}
+
 <div id="outlight-v20-carousel"
-  data-heading="{{ section.settings.heading }}"
+  data-heading="{{ v20_heading }}"
   data-accent="{{ section.settings.star_color | default: '#C5A059' }}"
   data-max-cards="{{ section.settings.max_cards | default: 12 }}"
   data-no-photo-bg="{{ section.settings.no_photo_bg | default: '#f4f0eb' }}">
 </div>
 
-<script src="https://shopify-ai-chatbot-production-9ab4.up.railway.app/widget/v20-carousel.js" defer></script>
+<script src="https://shopify-ai-chatbot-production-9ab4.up.railway.app/widget/v20-carousel.js?v=2" defer></script>
 
 {% schema %}
 {
@@ -19,12 +22,6 @@
   "tag": "section",
   "class": "section-v20-reviews",
   "settings": [
-    {
-      "type": "text",
-      "id": "heading",
-      "label": "Product label (above rating)",
-      "default": "AVEN FLOOR LAMP"
-    },
     {
       "type": "color",
       "id": "star_color",
@@ -51,6 +48,7 @@
     {
       "name": "Review Carousel V20"
     }
-  ]
+  ],
+  "templates": ["product"]
 }
 {% endschema %}

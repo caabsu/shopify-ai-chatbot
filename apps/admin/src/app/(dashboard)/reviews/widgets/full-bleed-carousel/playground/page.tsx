@@ -637,7 +637,7 @@ function V20Carousel({
             marginTop: 0,
           }}
         >
-          AVEN FLOOR LAMP
+          Aven — Floor Lamps
         </p>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 8 : 10, marginBottom: 4 }}>
           <span
