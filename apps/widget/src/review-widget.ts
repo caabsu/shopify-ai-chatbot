@@ -1173,15 +1173,21 @@ function createReviewWidget(
     // Apply client-side filters and sorting
     let displayReviews = [...state.reviews];
 
-    // Default: media-first, then newest — reviews with images/videos bubble to top
-    if (state.activeSort === 'newest') {
-      displayReviews.sort((a, b) => {
-        const aHas = a.media && a.media.length > 0 ? 1 : 0;
-        const bHas = b.media && b.media.length > 0 ? 1 : 0;
-        if (bHas !== aHas) return bHas - aHas;
-        return new Date(b.submitted_at || b.created_at).getTime() - new Date(a.submitted_at || a.created_at).getTime();
-      });
-    }
+    // Always sort media-first — reviews with images/videos bubble to top,
+    // then apply the active sort as a tiebreaker within each group
+    displayReviews.sort((a, b) => {
+      const aHas = a.media && a.media.length > 0 ? 1 : 0;
+      const bHas = b.media && b.media.length > 0 ? 1 : 0;
+      if (bHas !== aHas) return bHas - aHas;
+      if (state.activeSort === 'oldest') {
+        return new Date(a.submitted_at || a.created_at).getTime() - new Date(b.submitted_at || b.created_at).getTime();
+      }
+      if (state.activeSort === 'highest') return b.rating - a.rating;
+      if (state.activeSort === 'lowest') return a.rating - b.rating;
+      if (state.activeSort === 'most_helpful') return b.helpful_count - a.helpful_count;
+      // Default: newest
+      return new Date(b.submitted_at || b.created_at).getTime() - new Date(a.submitted_at || a.created_at).getTime();
+    });
 
     if (state.activeRatingFilters.size > 0) {
       displayReviews = displayReviews.filter(r => state.activeRatingFilters.has(r.rating));

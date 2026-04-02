@@ -26,94 +26,108 @@ interface Review {
   verified: boolean;
   variant: string;
   helpful: number;
-  gradient: string | null;
+  photoUrl: string | null;
   hasPhoto: boolean;
 }
 
 const MOCK_REVIEWS: Review[] = [
   {
     id: '1',
-    author: 'Sarah M.',
+    author: 'Eleanor C.',
     rating: 5,
-    date: 'Mar 15, 2026',
-    snippet: 'The Aven light transformed our outdoor space.',
+    date: 'Feb 26, 2026',
+    snippet: 'The style is so versatile, it can go with any room decor and look perfectly in style.',
     fullText:
-      'The Aven light transformed our outdoor space completely. The warm glow is perfect for evening dinners on the patio. Build quality is exceptional — feels genuinely premium.',
+      'The style is so versatile, it can go with any room decor and look perfectly in style. The warm glow creates such a calm atmosphere in our living room. Absolutely love it.',
     verified: true,
-    variant: 'Brass / Warm White',
-    helpful: 12,
-    gradient: 'linear-gradient(160deg, #C49A3C 0%, #7A6322 50%, #2D2A1F 100%)',
+    variant: 'Aven — Large (57.1")',
+    helpful: 3,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/6948aa41-6961-4a94-86ea-ed49220b1205/1774248104716-2a8f76.jpg',
     hasPhoto: true,
   },
   {
     id: '2',
-    author: 'James K.',
+    author: 'Cuong N.',
     rating: 5,
-    date: 'Feb 28, 2026',
-    snippet: 'Installed 8 of these along our walkway.',
+    date: 'Feb 23, 2026',
+    snippet: 'Beautiful floor lamp! Received within 4 days. Excellent service.',
     fullText:
-      'Installed 8 of these along our walkway. The brass finish is gorgeous and they survived a harsh winter without any issues. The light color is exactly right.',
+      'Beautiful floor lamp! Received within 4 days. Excellent service. Thank you. The packaging was flawless and the lamp exceeded expectations.',
     verified: true,
-    variant: 'Brass / Daylight',
-    helpful: 8,
-    gradient: 'linear-gradient(145deg, #D4A846 0%, #8B6914 45%, #342E1C 100%)',
+    variant: 'Aven — Large (57.1")',
+    helpful: 1,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/07aa8334-f620-4dea-990e-2946c98ee956/1774248104688-nbp3qp.jpg',
     hasPhoto: true,
   },
   {
     id: '3',
-    author: 'Rachel T.',
-    rating: 4,
-    date: 'Feb 10, 2026',
-    snippet: 'Love the minimalist design. Easy install.',
+    author: 'Marcia R.',
+    rating: 5,
+    date: 'Feb 20, 2026',
+    snippet: "I love my light in my MCM 1970 home. It's perfect.",
     fullText:
-      'Love the minimalist design. Took about 20 minutes to install each light. The finish matches our fixtures perfectly. Only wish the cable was a bit longer — had to buy an extension.',
+      "I love my light in my MCM 1970 home. It's perfect. The craftsmanship is beautiful and it creates the most wonderful ambiance in the evening.",
     verified: true,
-    variant: 'Black / Warm White',
+    variant: 'Aven — Small (44.1")',
     helpful: 5,
-    gradient: null,
-    hasPhoto: false,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/c5e166ed-93f4-4465-b0bc-8afb7027801a/1774248104693-3ohkwp.jpg',
+    hasPhoto: true,
   },
   {
     id: '4',
-    author: 'David L.',
+    author: 'Paola A.',
     rating: 5,
-    date: 'Jan 22, 2026',
-    snippet: 'These lights elevated our entire landscape design.',
+    date: 'Feb 18, 2026',
+    snippet: 'Love the lamp the service the people. 100% and 5 stars for everything.',
     fullText:
-      'These lights elevated our entire landscape design. The warm brass tone complements our home perfectly. Our landscape designer was impressed with the quality. Highly recommend.',
+      'Love the lamp the service the people. 100% and 5 stars for everything. Flawlessly execution and flawless customer service and countless compliments on our lamp.',
     verified: true,
-    variant: 'Brass / Warm White',
-    helpful: 15,
-    gradient: 'linear-gradient(155deg, #DDB94E 0%, #A58830 40%, #6E5922 70%, #2F2B20 100%)',
+    variant: 'Aven — Large (57.1")',
+    helpful: 0,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/2fea9c1c-d980-4e02-8744-4822adcd5284/1774248104691-tf4z3g.jpg',
     hasPhoto: true,
   },
   {
     id: '5',
-    author: 'Monica P.',
+    author: 'Rob B.',
     rating: 5,
-    date: 'Jan 5, 2026',
-    snippet: 'Six months in and they still look brand new.',
+    date: 'Feb 8, 2026',
+    snippet: 'Really beautiful statement piece. Packaged well.',
     fullText:
-      'Six months in and they still look brand new. The light output is perfect — not too bright, not too dim. Exactly what we wanted for our garden path. Weather resistance is excellent.',
+      'Really beautiful statement piece. Packaged well. The lamp arrived in perfect condition and looks stunning in our entryway. Gets compliments every time someone visits.',
     verified: true,
-    variant: 'Black / Daylight',
-    helpful: 7,
-    gradient: 'linear-gradient(140deg, #C9A445 0%, #957428 35%, #634E1E 65%, #2A261C 100%)',
+    variant: 'Aven — Large (57.1")',
+    helpful: 2,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/99db5084-00e0-4b87-9d33-dca06c0fed55/1774248104075-r9u75i.jpg',
     hasPhoto: true,
   },
   {
     id: '6',
-    author: 'Tom H.',
+    author: 'David L.',
     rating: 5,
-    date: 'Dec 18, 2025',
-    snippet: 'Every guest asks where we got our path lights.',
+    date: 'Mar 20, 2026',
+    snippet: 'Came fast. Perfect shape and ready to go out of the box.',
     fullText:
-      'Every time we have guests, someone asks where we got our path lights. The quality speaks for itself. Already ordered more for the front yard. The packaging was beautiful too — makes a great gift.',
+      'Came fast. Perfect shape and ready to go out of the box. Beautiful and adds ambiance to any room. Very happy with this purchase.',
     verified: true,
-    variant: 'Brass / Warm White',
-    helpful: 22,
-    gradient: 'linear-gradient(130deg, #CFAA4F 0%, #9A7B2C 45%, #5E4B20 75%, #28241C 100%)',
-    hasPhoto: true,
+    variant: 'Aven — Large (57.1")',
+    helpful: 0,
+    photoUrl: null,
+    hasPhoto: false,
+  },
+  {
+    id: '7',
+    author: 'Scott G.',
+    rating: 5,
+    date: 'Mar 13, 2026',
+    snippet: 'Very stylish. Get compliments.',
+    fullText:
+      'Very stylish. Get compliments from everyone who sees it. The build quality is excellent and the light output is perfect for our space.',
+    verified: true,
+    variant: 'Aven — Small (44.1")',
+    helpful: 0,
+    photoUrl: null,
+    hasPhoto: false,
   },
 ];
 
@@ -124,7 +138,7 @@ const MOCK_REVIEWS: Review[] = [
 function V20Card({ review, width, height }: { review: Review; width: number; height: number }) {
   const [hovered, setHovered] = useState(false);
   const [liked, setLiked] = useState(false);
-  const isPhoto = review.hasPhoto && review.gradient !== null;
+  const isPhoto = review.hasPhoto && review.photoUrl !== null;
   const br = 6;
 
   return (
@@ -150,9 +164,15 @@ function V20Card({ review, width, height }: { review: Review; width: number; hei
       onMouseLeave={() => setHovered(false)}
     >
       {/* Photo background */}
-      {isPhoto && review.gradient && (
+      {isPhoto && review.photoUrl && (
         <>
-          <div style={{ position: 'absolute', inset: 0, background: review.gradient }} />
+          <div style={{ position: 'absolute', inset: 0 }}>
+            <img
+              src={review.photoUrl}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          </div>
           {/* Gradient overlay */}
           <div
             style={{
@@ -190,7 +210,7 @@ function V20Card({ review, width, height }: { review: Review; width: number; hei
         {/* Author + verified */}
         <div
           style={{
-            fontSize: '0.8rem',
+            fontSize: '0.88rem',
             fontWeight: 400,
             color: isPhoto ? '#fff' : DARK,
             margin: '6px 0 4px',
@@ -214,7 +234,7 @@ function V20Card({ review, width, height }: { review: Review; width: number; hei
         {/* Date */}
         <div
           style={{
-            fontSize: '0.56rem',
+            fontSize: '0.62rem',
             fontWeight: 300,
             color: isPhoto ? 'rgba(255,255,255,0.4)' : 'rgba(45,51,56,0.3)',
           }}
@@ -225,7 +245,7 @@ function V20Card({ review, width, height }: { review: Review; width: number; hei
         {/* Snippet */}
         <div
           style={{
-            fontSize: '0.74rem',
+            fontSize: '0.82rem',
             fontWeight: 300,
             color: isPhoto ? 'rgba(255,255,255,0.65)' : 'rgba(45,51,56,0.55)',
             lineHeight: 1.6,
@@ -251,7 +271,7 @@ function V20Card({ review, width, height }: { review: Review; width: number; hei
           >
             <p
               style={{
-                fontSize: '0.74rem',
+                fontSize: '0.82rem',
                 fontWeight: 300,
                 color: 'rgba(255,255,255,0.6)',
                 lineHeight: 1.6,
@@ -270,7 +290,7 @@ function V20Card({ review, width, height }: { review: Review; width: number; hei
               }}
             >
               <span
-                style={{ fontSize: '0.54rem', fontWeight: 300, color: 'rgba(255,255,255,0.3)' }}
+                style={{ fontSize: '0.6rem', fontWeight: 300, color: 'rgba(255,255,255,0.3)' }}
               >
                 {review.variant}
               </span>
@@ -283,7 +303,7 @@ function V20Card({ review, width, height }: { review: Review; width: number; hei
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 4,
-                  fontSize: '0.54rem',
+                  fontSize: '0.6rem',
                   fontWeight: 400,
                   color: liked ? GOLD : 'rgba(255,255,255,0.5)',
                   background: 'none',
@@ -313,7 +333,7 @@ function V20Card({ review, width, height }: { review: Review; width: number; hei
             }}
           >
             <span
-              style={{ fontSize: '0.54rem', fontWeight: 300, color: 'rgba(45,51,56,0.28)' }}
+              style={{ fontSize: '0.6rem', fontWeight: 300, color: 'rgba(45,51,56,0.28)' }}
             >
               {review.variant}
             </span>
@@ -382,7 +402,7 @@ function V20Carousel({
             marginTop: 0,
           }}
         >
-          AVEN PATH LIGHT
+          AVEN FLOOR LAMP
         </p>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
           <span
@@ -394,21 +414,21 @@ function V20Carousel({
               lineHeight: 1,
             }}
           >
-            4.8
+            4.9
           </span>
           <div style={{ display: 'inline-flex', gap: 3 }}>
             {[1, 2, 3, 4, 5].map((i) => (
               <Star
                 key={i}
                 size={16}
-                fill={i <= 4 ? GOLD : 'transparent'}
-                stroke={i <= 4 ? GOLD : '#ddd'}
+                fill={i <= 5 ? GOLD : 'transparent'}
+                stroke={i <= 5 ? GOLD : '#ddd'}
                 strokeWidth={1.5}
               />
             ))}
           </div>
           <span style={{ fontSize: 13, color: '#888' }}>
-            {MOCK_REVIEWS.length} reviews
+            218 reviews
           </span>
         </div>
       </div>
@@ -489,7 +509,7 @@ function BrowserFrame({
             color: 'var(--text-tertiary, #999)',
           }}
         >
-          {url || 'outlight.co/products/aven-path-light'}
+          {url || 'outlight.us/products/aven'}
         </span>
       </div>
       {children}
