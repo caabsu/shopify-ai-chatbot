@@ -295,11 +295,13 @@ function V20Card({
   width,
   height,
   onImageClick,
+  mobile = false,
 }: {
   review: Review;
   width: number;
   height: number;
   onImageClick?: (url: string) => void;
+  mobile?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const [liked, setLiked] = useState(false);
@@ -311,7 +313,7 @@ function V20Card({
       style={{
         flex: `0 0 ${width}px`,
         height,
-        scrollSnapAlign: 'start',
+        scrollSnapAlign: mobile ? 'start' : undefined,
         borderRadius: br,
         overflow: 'hidden',
         position: 'relative',
@@ -429,8 +431,8 @@ function V20Card({
           {review.snippet}
         </div>
 
-        {/* Expanded content on hover (photo cards only) */}
-        {isPhoto && (
+        {/* Expanded content on hover (photo cards only, desktop) */}
+        {isPhoto && !mobile && (
           <div
             style={{
               maxHeight: hovered ? 200 : 0,
@@ -545,11 +547,13 @@ function V20Carousel({
   cardHeight,
   containerWidth,
   onImageClick,
+  mobile = false,
 }: {
   cardWidth: number;
   cardHeight: number;
   containerWidth: number;
   onImageClick?: (url: string) => void;
+  mobile?: boolean;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -596,7 +600,7 @@ function V20Carousel({
   return (
     <div
       style={{
-        padding: '48px 40px 60px',
+        padding: mobile ? '28px 20px 40px' : '48px 40px 60px',
         background: '#FEFDFB',
         fontFamily: FONT,
         width: '100%',
@@ -604,7 +608,7 @@ function V20Carousel({
       }}
     >
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: mobile ? 20 : 28 }}>
         <p
           style={{
             fontSize: 11,
@@ -618,11 +622,11 @@ function V20Carousel({
         >
           AVEN FLOOR LAMP
         </p>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 8 : 10, marginBottom: 4 }}>
           <span
             style={{
               fontFamily: "'Newsreader', 'Georgia', serif",
-              fontSize: 36,
+              fontSize: mobile ? 28 : 36,
               fontWeight: 700,
               color: DARK,
               lineHeight: 1,
@@ -634,48 +638,53 @@ function V20Carousel({
             {[1, 2, 3, 4, 5].map((i) => (
               <Star
                 key={i}
-                size={16}
+                size={mobile ? 14 : 16}
                 fill={i <= 5 ? GOLD : 'transparent'}
                 stroke={i <= 5 ? GOLD : '#ddd'}
                 strokeWidth={1.5}
               />
             ))}
           </div>
-          <span style={{ fontSize: 13, color: '#888' }}>
+          <span style={{ fontSize: mobile ? 12 : 13, color: '#888' }}>
             218 reviews
           </span>
         </div>
       </div>
 
-      {/* Carousel with arrows */}
+      {/* Carousel with arrows (desktop only) */}
       <div style={{ position: 'relative' }}>
-        <button
-          onClick={() => scroll('left')}
-          onMouseEnter={(e) => { e.currentTarget.style.background = DARK; e.currentTarget.style.color = '#fff'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; e.currentTarget.style.color = DARK; }}
-          style={arrowStyle('left', !canScrollLeft)}
-          aria-label="Previous"
-        >
-          <ChevronLeft size={20} strokeWidth={2} />
-        </button>
-        <button
-          onClick={() => scroll('right')}
-          onMouseEnter={(e) => { e.currentTarget.style.background = DARK; e.currentTarget.style.color = '#fff'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; e.currentTarget.style.color = DARK; }}
-          style={arrowStyle('right', !canScrollRight)}
-          aria-label="Next"
-        >
-          <ChevronRight size={20} strokeWidth={2} />
-        </button>
+        {!mobile && (
+          <>
+            <button
+              onClick={() => scroll('left')}
+              onMouseEnter={(e) => { e.currentTarget.style.background = DARK; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; e.currentTarget.style.color = DARK; }}
+              style={arrowStyle('left', !canScrollLeft)}
+              aria-label="Previous"
+            >
+              <ChevronLeft size={20} strokeWidth={2} />
+            </button>
+            <button
+              onClick={() => scroll('right')}
+              onMouseEnter={(e) => { e.currentTarget.style.background = DARK; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.95)'; e.currentTarget.style.color = DARK; }}
+              style={arrowStyle('right', !canScrollRight)}
+              aria-label="Next"
+            >
+              <ChevronRight size={20} strokeWidth={2} />
+            </button>
+          </>
+        )}
 
         <div
           ref={trackRef}
           onScroll={updateArrows}
           style={{
             display: 'flex',
-            gap: 14,
+            gap: mobile ? 12 : 14,
             overflowX: 'auto',
-            scrollBehavior: 'smooth',
+            scrollBehavior: mobile ? undefined : 'smooth',
+            scrollSnapType: mobile ? 'x mandatory' as const : undefined,
             paddingBottom: 12,
             scrollbarWidth: 'thin',
             scrollbarColor: `${GOLD} transparent`,
@@ -685,9 +694,10 @@ function V20Carousel({
             <V20Card
               key={review.id}
               review={review}
-              width={Math.min(cardWidth, containerWidth - 80)}
+              width={Math.min(cardWidth, containerWidth - (mobile ? 48 : 80))}
               height={cardHeight}
               onImageClick={onImageClick}
+              mobile={mobile}
             />
           ))}
         </div>
@@ -961,6 +971,7 @@ export default function FullBleedCarouselPlaygroundPage() {
             cardHeight={480}
             containerWidth={375}
             onImageClick={handleImageClick}
+            mobile
           />
         </PhoneFrame>
       </div>
