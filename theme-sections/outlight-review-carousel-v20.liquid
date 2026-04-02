@@ -148,10 +148,45 @@
   .v20-skel-bar.w40 { width: 40%; }
   @keyframes v20-pulse { 0%,100% { opacity: .6; } 50% { opacity: 1; } }
 
+  /* Lightbox */
+  .v20-lightbox {
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(0,0,0,0.88);
+    display: flex; align-items: center; justify-content: center;
+    cursor: zoom-out;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: v20-fade-in .2s ease;
+  }
+  @keyframes v20-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .v20-lightbox img {
+    max-width: 92vw; max-height: 92vh;
+    object-fit: contain; border-radius: 6px;
+    cursor: default;
+    box-shadow: 0 8px 60px rgba(0,0,0,0.5);
+  }
+  .v20-lightbox-close {
+    position: absolute; top: 16px; right: 16px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,0.1); border: none;
+    color: #fff; font-size: 24px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .2s;
+  }
+  .v20-lightbox-close:hover { background: rgba(255,255,255,0.2); }
+
   /* Mobile */
   @media (max-width: 749px) {
-    .v20-carousel { padding: 0 20px 10px; gap: 10px; }
-    .v20-card { flex: 0 0 310px; height: 360px; }
+    .v20-carousel {
+      padding: 0 20px 10px; gap: 10px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scroll-padding-left: 20px;
+    }
+    .v20-card {
+      flex: 0 0 calc(100vw - 48px); height: 360px;
+      scroll-snap-align: center;
+    }
     .v20-card-content { padding: 20px; }
     .v20-rh { padding: 0 20px; }
     .v20-rh-num { font-size: 1.4rem; }
@@ -302,7 +337,7 @@
       var hasPhoto = !!imgUrl;
       var cardClass = 'v20-card' + (hasPhoto ? '' : ' v20-no-photo');
 
-      html += '<div class="' + cardClass + '"' + (!hasPhoto ? ' style="height:400px"' : '') + '>';
+      html += '<div class="' + cardClass + '"' + (!hasPhoto ? ' style="height:400px"' : '') + (hasPhoto ? ' data-img="' + escapeHTML(imgUrl) + '"' : '') + '>';
 
       if (hasPhoto) {
         html += '<div class="v20-card-bg"><img src="' + imgUrl + '" alt="" loading="lazy"></div>';
@@ -329,6 +364,37 @@
     }
 
     track.innerHTML = html;
+
+    /* Attach click-to-lightbox on photo cards */
+    var cards = track.querySelectorAll('.v20-card[data-img]');
+    for (var c = 0; c < cards.length; c++) {
+      cards[c].addEventListener('click', function(e) {
+        var src = this.getAttribute('data-img');
+        if (!src) return;
+        openLightbox(src);
+      });
+    }
+  }
+
+  function openLightbox(src) {
+    var overlay = document.createElement('div');
+    overlay.className = 'v20-lightbox';
+    overlay.innerHTML = '<button class="v20-lightbox-close">&times;</button><img src="' + src + '" alt="Review photo">';
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay || e.target.classList.contains('v20-lightbox-close')) {
+        overlay.remove();
+      }
+    });
+    overlay.querySelector('.v20-lightbox-close').addEventListener('click', function() {
+      overlay.remove();
+    });
+    document.addEventListener('keydown', function handler(e) {
+      if (e.key === 'Escape') {
+        overlay.remove();
+        document.removeEventListener('keydown', handler);
+      }
+    });
+    document.body.appendChild(overlay);
   }
 
   function escapeHTML(str) {

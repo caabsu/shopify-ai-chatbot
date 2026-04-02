@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Star, ArrowLeft, ThumbsUp, BadgeCheck } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Star, ArrowLeft, ThumbsUp, BadgeCheck, X } from 'lucide-react';
 import Link from 'next/link';
 
 /* ------------------------------------------------------------------ */
@@ -13,7 +13,7 @@ const DARK = '#2D3338';
 const FONT = "'Manrope', system-ui, sans-serif";
 
 /* ------------------------------------------------------------------ */
-/*  Mock data                                                          */
+/*  Real Aven review data (media reviews first, then text-only)        */
 /* ------------------------------------------------------------------ */
 
 interface Review {
@@ -80,7 +80,7 @@ const MOCK_REVIEWS: Review[] = [
     date: 'Feb 18, 2026',
     snippet: 'Love the lamp the service the people. 100% and 5 stars for everything.',
     fullText:
-      'Love the lamp the service the people. 100% and 5 stars for everything. Flawlessly execution and flawless customer service and countless compliments on our lamp.',
+      'Love the lamp the service the people. 100% and 5 stars for everything. Flawless execution and flawless customer service and countless compliments on our lamp.',
     verified: true,
     variant: 'Aven — Large (57.1")',
     helpful: 0,
@@ -94,7 +94,7 @@ const MOCK_REVIEWS: Review[] = [
     date: 'Feb 8, 2026',
     snippet: 'Really beautiful statement piece. Packaged well.',
     fullText:
-      'Really beautiful statement piece. Packaged well. The lamp arrived in perfect condition and looks stunning in our entryway. Gets compliments every time someone visits.',
+      'Really beautiful statement piece. Packaged well. The lamp arrived in perfect condition and looks stunning in our entryway.',
     verified: true,
     variant: 'Aven — Large (57.1")',
     helpful: 2,
@@ -103,6 +103,104 @@ const MOCK_REVIEWS: Review[] = [
   },
   {
     id: '6',
+    author: 'Michael M.',
+    rating: 5,
+    date: 'Feb 5, 2026',
+    snippet: 'I saw the advertisement on Instagram and immediately ordered it.',
+    fullText:
+      'I saw the advertisement on Instagram and immediately ordered it. Set up took less than 5 minutes. The lamp is stunning — exactly what our living room needed.',
+    verified: true,
+    variant: 'Aven — Large (57.1")',
+    helpful: 4,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/cc006e9a-f45b-4bde-afe1-66362781af72/1774248104113-2bxxmf.jpg',
+    hasPhoto: true,
+  },
+  {
+    id: '7',
+    author: 'CARLINDA B.',
+    rating: 5,
+    date: 'Feb 3, 2026',
+    snippet: 'These 2 lamps add real beauty to that space.',
+    fullText:
+      'These 2 lamps add real beauty to that space, but I like to change my furniture around so they work everywhere. Beautiful craftsmanship.',
+    verified: true,
+    variant: 'Aven — Large (57.1")',
+    helpful: 1,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/77ef9da1-db36-48d3-aaba-0c5ef279e6f5/1774248104095-gnnpw1.jpg',
+    hasPhoto: true,
+  },
+  {
+    id: '8',
+    author: 'Jordan B.',
+    rating: 5,
+    date: 'Jan 26, 2026',
+    snippet: 'Love this lamp so much! Went with the large, which I highly recommend.',
+    fullText:
+      'Love this lamp so much! Went with the large, which I highly recommend, in fact ordered a second one. The quality is unmatched at this price point.',
+    verified: true,
+    variant: 'Aven — Large (57.1")',
+    helpful: 3,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/2f85904c-7ff5-4e8d-833e-6f8091982689/1774248104068-gmmgn7.jpg',
+    hasPhoto: true,
+  },
+  {
+    id: '9',
+    author: 'Carol B.',
+    rating: 5,
+    date: 'Jan 26, 2026',
+    snippet: 'I love the light. Beautiful and super easy to set up. So stylish and creative!',
+    fullText:
+      'I love the light. Beautiful and super easy to set up. So stylish and creative! It completely transforms our room in the evening.',
+    verified: true,
+    variant: 'Aven — Large (57.1")',
+    helpful: 2,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/df3fe9f2-a63d-4673-9f44-400fc878cb7c/1774248104097-n6uuxh.jpg',
+    hasPhoto: true,
+  },
+  {
+    id: '10',
+    author: 'Marco P.',
+    rating: 5,
+    date: 'Jan 12, 2026',
+    snippet: 'Great vibe.',
+    fullText:
+      'Great vibe. The lamp sets the perfect mood in any room. Minimal, elegant, and the light quality is incredible.',
+    verified: true,
+    variant: 'Aven — Large (57.1")',
+    helpful: 1,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/d52dc273-53e8-44d8-9c16-4a48bde5b79b/1774248103482-b679ni.jpg',
+    hasPhoto: true,
+  },
+  {
+    id: '11',
+    author: 'Wayne S.',
+    rating: 5,
+    date: 'Jan 7, 2026',
+    snippet: 'Looks so good in our space.',
+    fullText:
+      'Looks so good in our space. The warm glow creates the perfect atmosphere for our living room. Highly recommend.',
+    verified: true,
+    variant: 'Aven — Large (57.1")',
+    helpful: 0,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/61df4254-1c3e-4ff0-947e-717add1098aa/1774248103503-g678zi.jpg',
+    hasPhoto: true,
+  },
+  {
+    id: '12',
+    author: 'Karen F.',
+    rating: 5,
+    date: 'Dec 3, 2025',
+    snippet: 'I absolutely love this lamp! It is unique and modern.',
+    fullText:
+      'I absolutely love this lamp! It is unique and modern — and gives the most beautiful warm glow. It is truly a statement piece in our home.',
+    verified: true,
+    variant: 'Aven — Large (57.1")',
+    helpful: 6,
+    photoUrl: 'https://wwblkodkycjwmzlflncg.supabase.co/storage/v1/object/public/review-media/imports/89d74862-2060-4769-a60e-0ed31bf18d13/1774248102010-xzbbuo.jpg',
+    hasPhoto: true,
+  },
+  {
+    id: '13',
     author: 'David L.',
     rating: 5,
     date: 'Mar 20, 2026',
@@ -116,7 +214,7 @@ const MOCK_REVIEWS: Review[] = [
     hasPhoto: false,
   },
   {
-    id: '7',
+    id: '14',
     author: 'Scott G.',
     rating: 5,
     date: 'Mar 13, 2026',
@@ -132,10 +230,77 @@ const MOCK_REVIEWS: Review[] = [
 ];
 
 /* ------------------------------------------------------------------ */
+/*  Image Lightbox                                                     */
+/* ------------------------------------------------------------------ */
+
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 10000,
+        background: 'rgba(0,0,0,0.85)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'zoom-out',
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      <button
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          top: 20,
+          right: 20,
+          background: 'rgba(255,255,255,0.1)',
+          border: 'none',
+          borderRadius: '50%',
+          width: 40,
+          height: 40,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: '#fff',
+        }}
+      >
+        <X size={20} />
+      </button>
+      <img
+        src={src}
+        alt="Review photo"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          objectFit: 'contain',
+          borderRadius: 8,
+          cursor: 'default',
+          boxShadow: '0 8px 60px rgba(0,0,0,0.5)',
+        }}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  V20 Card component                                                 */
 /* ------------------------------------------------------------------ */
 
-function V20Card({ review, width, height }: { review: Review; width: number; height: number }) {
+function V20Card({
+  review,
+  width,
+  height,
+  onImageClick,
+}: {
+  review: Review;
+  width: number;
+  height: number;
+  onImageClick?: (url: string) => void;
+}) {
   const [hovered, setHovered] = useState(false);
   const [liked, setLiked] = useState(false);
   const isPhoto = review.hasPhoto && review.photoUrl !== null;
@@ -156,12 +321,17 @@ function V20Card({ review, width, height }: { review: Review; width: number; hei
           : '0 1px 2px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.04)',
         transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
         transition: 'box-shadow 0.3s, transform 0.3s',
-        cursor: 'pointer',
+        cursor: isPhoto ? 'pointer' : 'default',
         flexShrink: 0,
         fontFamily: FONT,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={() => {
+        if (isPhoto && review.photoUrl && onImageClick) {
+          onImageClick(review.photoUrl);
+        }
+      }}
     >
       {/* Photo background */}
       {isPhoto && review.photoUrl && (
@@ -346,7 +516,7 @@ function V20Card({ review, width, height }: { review: Review; width: number; hei
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 4,
-                fontSize: '0.54rem',
+                fontSize: '0.6rem',
                 fontWeight: 400,
                 color: liked ? GOLD : 'rgba(45,51,56,0.35)',
                 background: 'none',
@@ -374,10 +544,12 @@ function V20Carousel({
   cardWidth,
   cardHeight,
   containerWidth,
+  onImageClick,
 }: {
   cardWidth: number;
   cardHeight: number;
   containerWidth: number;
+  onImageClick?: (url: string) => void;
 }) {
   return (
     <div
@@ -441,7 +613,6 @@ function V20Carousel({
           overflowX: 'auto',
           scrollSnapType: 'x mandatory',
           paddingBottom: 12,
-          /* Styled scrollbar via inline CSS — scrollbar-width for Firefox */
           scrollbarWidth: 'thin',
           scrollbarColor: `${GOLD} transparent`,
         }}
@@ -452,6 +623,7 @@ function V20Carousel({
             review={review}
             width={Math.min(cardWidth, containerWidth - 80)}
             height={cardHeight}
+            onImageClick={onImageClick}
           />
         ))}
       </div>
@@ -566,7 +738,7 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
         >
           <span>9:41</span>
           <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            <span>●●●●</span>
+            <span style={{ fontSize: 9, letterSpacing: -1 }}>●●●●</span>
             <span>WiFi</span>
             <span>100%</span>
           </span>
@@ -597,8 +769,19 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
 /* ------------------------------------------------------------------ */
 
 export default function FullBleedCarouselPlaygroundPage() {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  const handleImageClick = useCallback((url: string) => {
+    setLightboxSrc(url);
+  }, []);
+
   return (
     <div style={{ padding: '0 0 80px' }}>
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
+
       {/* Page header */}
       <div style={{ marginBottom: 32 }}>
         <Link
@@ -629,7 +812,7 @@ export default function FullBleedCarouselPlaygroundPage() {
           Full-Bleed Carousel — Playground
         </h1>
         <p style={{ fontSize: 14, color: 'var(--text-tertiary, #888)', margin: 0 }}>
-          V20 cinematic design preview using Aven Path Light. Hover cards to expand.
+          V20 cinematic design with real Aven reviews. Click any photo card to open lightbox.
         </p>
       </div>
 
@@ -666,7 +849,12 @@ export default function FullBleedCarouselPlaygroundPage() {
           </span>
         </div>
         <BrowserFrame>
-          <V20Carousel cardWidth={360} cardHeight={400} containerWidth={920} />
+          <V20Carousel
+            cardWidth={360}
+            cardHeight={400}
+            containerWidth={920}
+            onImageClick={handleImageClick}
+          />
         </BrowserFrame>
       </div>
 
@@ -699,11 +887,16 @@ export default function FullBleedCarouselPlaygroundPage() {
             }}
           />
           <span style={{ fontSize: 11, color: 'var(--text-tertiary, #999)' }}>
-            375px iPhone frame
+            375px iPhone frame — swipe snaps to each card
           </span>
         </div>
         <PhoneFrame>
-          <V20Carousel cardWidth={280} cardHeight={360} containerWidth={375} />
+          <V20Carousel
+            cardWidth={280}
+            cardHeight={360}
+            containerWidth={375}
+            onImageClick={handleImageClick}
+          />
         </PhoneFrame>
       </div>
     </div>
