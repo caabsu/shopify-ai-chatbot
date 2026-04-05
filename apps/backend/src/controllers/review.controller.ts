@@ -714,8 +714,8 @@ reviewRouter.post('/webhooks/shopify/products', async (req, res) => {
   try {
     const hmac = req.headers['x-shopify-hmac-sha256'] as string;
     const topic = req.headers['x-shopify-topic'] as string;
-    const rawBody = (req as Record<string, unknown>).rawBody as string || JSON.stringify(req.body);
-    const hasRawBody = !!(req as Record<string, unknown>).rawBody;
+    const rawBody = (req as unknown as Record<string, unknown>).rawBody as string || JSON.stringify(req.body);
+    const hasRawBody = !!(req as unknown as Record<string, unknown>).rawBody;
 
     if (!hmac || !verifyShopifyHmac(rawBody, hmac, config.shopify.clientSecret)) {
       console.warn(`[webhook] Products HMAC failed — hasRawBody=${hasRawBody}, hmacPresent=${!!hmac}, bodyLen=${rawBody.length}`);
@@ -740,8 +740,8 @@ reviewRouter.post('/webhooks/shopify/products', async (req, res) => {
 reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
   try {
     const hmac = req.headers['x-shopify-hmac-sha256'] as string;
-    const rawBody = (req as Record<string, unknown>).rawBody as string || JSON.stringify(req.body);
-    const hasRawBody = !!(req as Record<string, unknown>).rawBody;
+    const rawBody = (req as unknown as Record<string, unknown>).rawBody as string || JSON.stringify(req.body);
+    const hasRawBody = !!(req as unknown as Record<string, unknown>).rawBody;
 
     if (!hmac || !verifyShopifyHmac(rawBody, hmac, config.shopify.clientSecret)) {
       console.warn(`[webhook] Orders HMAC failed — hasRawBody=${hasRawBody}, hmacPresent=${!!hmac}, bodyLen=${rawBody.length}`);
