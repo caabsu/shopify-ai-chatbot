@@ -30,7 +30,7 @@ export async function GET(_req: NextRequest) {
   // ── Review email stats (from review_requests) ──
   const { data: reviewRows } = await supabase
     .from('review_requests')
-    .select('id, status, scheduled_for, sent_at, reminder_sent_at, reminder_scheduled_for, customer_email, customer_name, shopify_order_id, created_at')
+    .select('id, status, scheduled_for, sent_at, reminder_sent_at, reminder_scheduled_for, customer_email, customer_name, shopify_order_id, product_ids, created_at, completed_at')
     .eq('brand_id', brandId)
     .order('created_at', { ascending: false });
 
@@ -126,6 +126,45 @@ export async function GET(_req: NextRequest) {
     ? ((reviewsFromEmails / reviewEmailsSent) * 100)
     : 0;
 
+  // ── Build full activity log from ALL review_requests ──
+  // Resolve product titles for display
+  const allProductIds = new Set<string>();
+  for (const row of reviewRows ?? []) {
+    const pids = row.product_ids as string[] | null;
+    if (pids) pids.forEach((pid: string) => allProductIds.add(pid));
+  }
+
+  const productTitleMap: Record<string, string> = {};
+  if (allProductIds.size > 0) {
+    const { data: productRows } = await supabase
+      .from('products')
+      .select('id, title')
+      .in('id', [...allProductIds].slice(0, 200));
+    if (productRows) {
+      for (const p of productRows) {
+        productTitleMap[p.id as string] = p.title as string;
+      }
+    }
+  }
+
+  const activityLog = (reviewRows ?? []).map((row) => {
+    const pids = (row.product_ids as string[] | null) ?? [];
+    const productTitles = pids.map((pid: string) => productTitleMap[pid] || 'Unknown product').join(', ');
+    return {
+      id: row.id,
+      status: row.status,
+      customer_email: row.customer_email,
+      customer_name: row.customer_name,
+      order_id: row.shopify_order_id,
+      product_titles: productTitles || null,
+      created_at: row.created_at,
+      scheduled_for: row.scheduled_for,
+      sent_at: row.sent_at,
+      reminder_scheduled_for: row.reminder_scheduled_for,
+      reminder_sent_at: row.reminder_sent_at,
+    };
+  });
+
   return NextResponse.json({
     returns: {
       totalRequests: returnCounts.total,
@@ -152,6 +191,7 @@ export async function GET(_req: NextRequest) {
         date,
         ...counts,
       })),
+      activityLog,
     },
   });
 }

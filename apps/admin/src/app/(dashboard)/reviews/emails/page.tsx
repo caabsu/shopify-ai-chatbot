@@ -30,6 +30,20 @@ interface QueuedEmail {
   type: 'request' | 'reminder';
 }
 
+interface ActivityLogEntry {
+  id: string;
+  status: string;
+  customer_email: string;
+  customer_name: string | null;
+  order_id: string;
+  product_titles: string | null;
+  created_at: string;
+  scheduled_for: string | null;
+  sent_at: string | null;
+  reminder_scheduled_for: string | null;
+  reminder_sent_at: string | null;
+}
+
 interface DailyActivity {
   date: string;
   sent: number;
@@ -49,6 +63,7 @@ interface ReviewEmailStats {
   conversionRate: number;
   queuedEmails: QueuedEmail[];
   dailyActivity: DailyActivity[];
+  activityLog: ActivityLogEntry[];
 }
 
 const TEMPLATE_INFO: Record<
@@ -164,13 +179,14 @@ export default function ReviewEmailsPage() {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [stats, setStats] = useState<ReviewEmailStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'schedule' | 'templates' | 'test'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'templates' | 'test'>('overview');
   const [products, setProducts] = useState<Array<{ title: string; handle: string }>>([]);
   const [testEmail, setTestEmail] = useState('');
   const [testCustomerName, setTestCustomerName] = useState('');
   const [testProduct, setTestProduct] = useState('');
   const [testSending, setTestSending] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
+  const [activityFilter, setActivityFilter] = useState<string>('all');
 
   useEffect(() => {
     Promise.all([
@@ -250,9 +266,10 @@ export default function ReviewEmailsPage() {
     );
   }
 
+  const activityCount = stats?.activityLog?.length ?? 0;
   const tabs = [
     { key: 'overview' as const, label: 'Analytics' },
-    { key: 'schedule' as const, label: `Schedule${stats?.queuedEmails?.length ? ` (${stats.queuedEmails.length})` : ''}` },
+    { key: 'activity' as const, label: `Activity${activityCount > 0 ? ` (${activityCount})` : ''}` },
     { key: 'templates' as const, label: 'Templates' },
     { key: 'test' as const, label: 'Send Test' },
   ];
@@ -478,76 +495,172 @@ export default function ReviewEmailsPage() {
         </div>
       )}
 
-      {activeTab === 'schedule' && (
+      {activeTab === 'activity' && (
         <div className="space-y-4">
-          {stats && stats.queuedEmails.length > 0 ? (
-            <Card>
-              <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                Upcoming Emails ({stats.queuedEmails.length})
-              </h3>
-              <div className="space-y-0">
-                {stats.queuedEmails.map((email, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 py-3 text-sm"
-                    style={{
-                      borderBottom: i < stats.queuedEmails.length - 1
-                        ? '1px solid var(--border-secondary)'
-                        : 'none',
-                    }}
-                  >
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{
-                        backgroundColor: email.type === 'request' ? '#3b82f6' : '#8b5cf6',
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-                          {email.customer_name || email.customer_email}
-                        </span>
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0"
-                          style={{
-                            backgroundColor: email.type === 'request' ? 'rgba(59,130,246,0.10)' : 'rgba(139,92,246,0.10)',
-                            color: email.type === 'request' ? '#3b82f6' : '#8b5cf6',
-                          }}
-                        >
-                          {email.type === 'request' ? 'Request' : 'Reminder'}
-                        </span>
-                      </div>
-                      {email.customer_name && (
-                        <p className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>
-                          {email.customer_email}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                        {formatDate(email.scheduled_for)}
-                      </p>
-                      <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                        {timeUntil(email.scheduled_for)}
-                      </p>
-                    </div>
+          {/* Filter bar */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'scheduled', label: 'Scheduled', color: '#f59e0b' },
+              { key: 'sent', label: 'Sent', color: '#3b82f6' },
+              { key: 'reminded', label: 'Reminded', color: '#8b5cf6' },
+              { key: 'completed', label: 'Completed', color: '#22c55e' },
+              { key: 'bounced', label: 'Bounced', color: '#ef4444' },
+              { key: 'expired', label: 'Expired', color: '#9ca3af' },
+            ].map((f) => {
+              const count = f.key === 'all'
+                ? (stats?.activityLog?.length ?? 0)
+                : (stats?.activityLog?.filter((e) => e.status === f.key).length ?? 0);
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => setActivityFilter(f.key)}
+                  className="text-[11px] font-medium px-3 py-1.5 rounded-full transition-colors"
+                  style={{
+                    backgroundColor: activityFilter === f.key
+                      ? (f.color ? `color-mix(in srgb, ${f.color} 15%, var(--bg-primary))` : 'var(--bg-tertiary)')
+                      : 'var(--bg-secondary)',
+                    color: activityFilter === f.key
+                      ? (f.color || 'var(--text-primary)')
+                      : 'var(--text-tertiary)',
+                    border: activityFilter === f.key
+                      ? `1px solid ${f.color || 'var(--border-primary)'}`
+                      : '1px solid var(--border-secondary)',
+                  }}
+                >
+                  {f.label}{count > 0 ? ` (${count})` : ''}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Activity table */}
+          {(() => {
+            const entries = (stats?.activityLog ?? []).filter(
+              (e) => activityFilter === 'all' || e.status === activityFilter,
+            );
+
+            const STATUS_STYLES: Record<string, { color: string; bg: string; label: string }> = {
+              scheduled: { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', label: 'Scheduled' },
+              sent: { color: '#3b82f6', bg: 'rgba(59,130,246,0.10)', label: 'Sent' },
+              reminded: { color: '#8b5cf6', bg: 'rgba(139,92,246,0.10)', label: 'Reminded' },
+              completed: { color: '#22c55e', bg: 'rgba(34,197,94,0.10)', label: 'Completed' },
+              bounced: { color: '#ef4444', bg: 'rgba(239,68,68,0.10)', label: 'Bounced' },
+              expired: { color: '#9ca3af', bg: 'rgba(156,163,175,0.10)', label: 'Expired' },
+              cancelled: { color: '#6b7280', bg: 'rgba(107,114,128,0.10)', label: 'Cancelled' },
+            };
+
+            if (entries.length === 0) {
+              return (
+                <Card>
+                  <div className="py-12 text-center">
+                    <CalendarClock size={32} style={{ color: 'var(--text-tertiary)', margin: '0 auto 8px' }} />
+                    <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                      {activityFilter === 'all' ? 'No review email activity yet' : `No ${activityFilter} requests`}
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      Review request emails are automatically scheduled when orders are fulfilled via Shopify webhook.
+                      <br />You can also send test emails from the Send Test tab.
+                    </p>
                   </div>
-                ))}
-              </div>
-            </Card>
-          ) : (
-            <Card>
-              <div className="py-12 text-center">
-                <CalendarClock size={32} style={{ color: 'var(--text-tertiary)', margin: '0 auto 8px' }} />
-                <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                  No emails scheduled
-                </p>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                  Review request emails are automatically scheduled when orders are fulfilled via Shopify webhook
-                </p>
-              </div>
-            </Card>
-          )}
+                </Card>
+              );
+            }
+
+            return (
+              <Card className="!p-0 overflow-hidden">
+                {/* Table header */}
+                <div
+                  className="grid gap-3 px-5 py-3 text-[11px] font-semibold uppercase tracking-wider"
+                  style={{
+                    color: 'var(--text-tertiary)',
+                    borderBottom: '1px solid var(--border-primary)',
+                    gridTemplateColumns: '1fr 1.2fr 1fr 100px 120px 120px',
+                  }}
+                >
+                  <span>Customer</span>
+                  <span>Product</span>
+                  <span>Order</span>
+                  <span>Status</span>
+                  <span>Scheduled</span>
+                  <span>Sent</span>
+                </div>
+                {/* Table rows */}
+                <div className="divide-y" style={{ borderColor: 'var(--border-secondary)' }}>
+                  {entries.map((entry) => {
+                    const st = STATUS_STYLES[entry.status] || STATUS_STYLES.expired;
+                    const isTest = entry.order_id?.startsWith('test-');
+                    return (
+                      <div
+                        key={entry.id}
+                        className="grid gap-3 px-5 py-3 items-center text-sm hover:bg-[var(--bg-secondary)] transition-colors"
+                        style={{
+                          gridTemplateColumns: '1fr 1.2fr 1fr 100px 120px 120px',
+                        }}
+                      >
+                        {/* Customer */}
+                        <div className="min-w-0">
+                          <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                            {entry.customer_name || '—'}
+                          </p>
+                          <p className="text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>
+                            {entry.customer_email}
+                          </p>
+                        </div>
+                        {/* Product */}
+                        <div className="min-w-0">
+                          <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                            {entry.product_titles || '—'}
+                          </p>
+                        </div>
+                        {/* Order */}
+                        <div className="min-w-0">
+                          <p className="text-xs truncate font-mono" style={{ color: 'var(--text-secondary)' }}>
+                            {isTest ? (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(245,158,11,0.10)', color: '#f59e0b' }}>TEST</span>
+                            ) : (
+                              `#${entry.order_id}`
+                            )}
+                          </p>
+                        </div>
+                        {/* Status */}
+                        <div>
+                          <span
+                            className="text-[10px] font-medium px-2 py-1 rounded-full inline-block"
+                            style={{ backgroundColor: st.bg, color: st.color }}
+                          >
+                            {st.label}
+                          </span>
+                        </div>
+                        {/* Scheduled */}
+                        <div>
+                          <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                            {entry.scheduled_for ? formatDate(entry.scheduled_for) : '—'}
+                          </p>
+                          {entry.status === 'scheduled' && entry.scheduled_for && (
+                            <p className="text-[10px]" style={{ color: '#f59e0b' }}>
+                              {timeUntil(entry.scheduled_for)}
+                            </p>
+                          )}
+                        </div>
+                        {/* Sent */}
+                        <div>
+                          <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                            {entry.sent_at ? formatDate(entry.sent_at) : '—'}
+                          </p>
+                          {entry.reminder_sent_at && (
+                            <p className="text-[10px]" style={{ color: '#8b5cf6' }}>
+                              Reminder: {formatDate(entry.reminder_sent_at)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            );
+          })()}
         </div>
       )}
 
