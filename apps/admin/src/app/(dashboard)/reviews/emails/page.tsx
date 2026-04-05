@@ -164,15 +164,24 @@ export default function ReviewEmailsPage() {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [stats, setStats] = useState<ReviewEmailStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'schedule' | 'templates'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'schedule' | 'templates' | 'test'>('overview');
+  const [products, setProducts] = useState<Array<{ title: string; handle: string }>>([]);
+  const [testEmail, setTestEmail] = useState('');
+  const [testProduct, setTestProduct] = useState('');
+  const [testSending, setTestSending] = useState<Record<string, boolean>>({});
+  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
 
   useEffect(() => {
     Promise.all([
       fetch('/api/reviews/emails').then((r) => r.json()).catch(() => ({ templates: [] })),
       fetch('/api/emails/stats').then((r) => r.json()).catch(() => null),
-    ]).then(([emailData, statsData]) => {
+      fetch('/api/reviews/products').then((r) => r.json()).catch(() => ({ items: [] })),
+    ]).then(([emailData, statsData, productsData]) => {
       setTemplates(emailData.templates ?? []);
       if (statsData?.reviews) setStats(statsData.reviews);
+      const items = (productsData?.items ?? []) as Array<{ title: string; handle: string }>;
+      setProducts(items);
+      if (items.length > 0) setTestProduct(items[0].title);
       setLoading(false);
     });
   }, []);
@@ -187,6 +196,43 @@ export default function ReviewEmailsPage() {
     setTemplates((prev) =>
       prev.map((t) => (t.id === template.id ? { ...t, enabled: updated } : t)),
     );
+  }
+
+  async function sendTestEmail(templateType: string) {
+    if (!testEmail.includes('@')) return;
+    setTestSending((prev) => ({ ...prev, [templateType]: true }));
+    setTestResults((prev) => {
+      const next = { ...prev };
+      delete next[templateType];
+      return next;
+    });
+    try {
+      const res = await fetch(`/api/reviews/emails/${templateType}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: testEmail, product_title: testProduct || undefined }),
+      });
+      const data = await res.json();
+      setTestResults((prev) => ({
+        ...prev,
+        [templateType]: data.success
+          ? { success: true, message: 'Sent' }
+          : { success: false, message: data.error || 'Failed' },
+      }));
+    } catch {
+      setTestResults((prev) => ({
+        ...prev,
+        [templateType]: { success: false, message: 'Network error' },
+      }));
+    }
+    setTestSending((prev) => ({ ...prev, [templateType]: false }));
+  }
+
+  async function sendAllTests() {
+    if (!testEmail.includes('@')) return;
+    for (const t of ['request', 'reminder', 'thank_you']) {
+      await sendTestEmail(t);
+    }
   }
 
   if (loading) {
@@ -207,6 +253,7 @@ export default function ReviewEmailsPage() {
     { key: 'overview' as const, label: 'Analytics' },
     { key: 'schedule' as const, label: `Schedule${stats?.queuedEmails?.length ? ` (${stats.queuedEmails.length})` : ''}` },
     { key: 'templates' as const, label: 'Templates' },
+    { key: 'test' as const, label: 'Send Test' },
   ];
 
   const types = ['request', 'reminder', 'thank_you'];
@@ -500,6 +547,139 @@ export default function ReviewEmailsPage() {
               </div>
             </Card>
           )}
+        </div>
+      )}
+
+      {activeTab === 'test' && (
+        <div className="space-y-4">
+          {/* Email + Product inputs */}
+          <Card>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <label className="text-[11px] font-medium mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                  Recipient Email
+                </label>
+                <input
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-primary)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-[11px] font-medium mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                  Product (for template preview)
+                </label>
+                <select
+                  value={testProduct}
+                  onChange={(e) => setTestProduct(e.target.value)}
+                  className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-primary)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {products.length === 0 && <option value="">No products found</option>}
+                  {products.map((p) => (
+                    <option key={p.handle} value={p.title}>{p.title}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </Card>
+
+          {/* Template test cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {types.map((type) => {
+              const info = TEMPLATE_INFO[type];
+              const Icon = info.icon;
+              const sending = testSending[type];
+              const result = testResults[type];
+
+              return (
+                <div
+                  key={type}
+                  className="rounded-xl p-5"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: info.bg }}
+                    >
+                      <Icon size={16} style={{ color: info.color }} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        {info.label}
+                      </h3>
+                      <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                        {info.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => sendTestEmail(type)}
+                    disabled={sending || !testEmail.includes('@')}
+                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: info.color }}
+                  >
+                    {sending ? (
+                      'Sending...'
+                    ) : result?.success ? (
+                      <><Check size={14} /> Sent</>
+                    ) : (
+                      <><Send size={14} /> Send Test</>
+                    )}
+                  </button>
+
+                  {result && !result.success && (
+                    <p className="text-[11px] mt-2 text-center" style={{ color: '#ef4444' }}>
+                      {result.message}
+                    </p>
+                  )}
+                  {result?.success && (
+                    <p className="text-[11px] mt-2 text-center" style={{ color: '#22c55e' }}>
+                      {result.message}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Send All */}
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Send All 3 Templates
+                </h4>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                  Send request, reminder, and thank you emails one after another
+                </p>
+              </div>
+              <button
+                onClick={sendAllTests}
+                disabled={Object.values(testSending).some(Boolean) || !testEmail.includes('@')}
+                className="flex items-center gap-1.5 px-5 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50"
+                style={{ backgroundColor: 'var(--color-accent)' }}
+              >
+                <Send size={14} /> Send All
+              </button>
+            </div>
+          </Card>
         </div>
       )}
 

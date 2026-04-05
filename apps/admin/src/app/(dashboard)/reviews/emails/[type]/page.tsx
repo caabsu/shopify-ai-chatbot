@@ -21,10 +21,10 @@ const TYPE_LABELS: Record<string, string> = {
 
 const AVAILABLE_VARIABLES = ['customer_name', 'product_title', 'review_link', 'brand_name'];
 
-const SAMPLE_VARS: Record<string, string> = {
+const DEFAULT_SAMPLE_VARS: Record<string, string> = {
   customer_name: 'Jane',
-  product_title: 'Classic Outdoor Tee',
-  review_link: 'https://example.com/review/abc123',
+  product_title: 'Aven',
+  review_link: 'https://example.com/review?token=abc123',
   brand_name: 'Outlight',
 };
 
@@ -48,29 +48,39 @@ export default function ReviewEmailTemplateEditorPage() {
   // Test email state
   const [showTestModal, setShowTestModal] = useState(false);
   const [testEmail, setTestEmail] = useState('');
+  const [testProductTitle, setTestProductTitle] = useState('');
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [products, setProducts] = useState<Array<{ title: string; handle: string }>>([]);
+  const [sendAllSending, setSendAllSending] = useState(false);
+  const [sendAllResults, setSendAllResults] = useState<Record<string, { success: boolean; message: string }>>({});
 
   useEffect(() => {
     if (!TYPE_LABELS[type]) {
       router.replace('/reviews/emails');
       return;
     }
-    fetch(`/api/reviews/emails/${type}`)
-      .then((r) => {
-        if (!r.ok) throw new Error('Not found');
-        return r.json();
-      })
-      .then((data) => {
+    Promise.all([
+      fetch(`/api/reviews/emails/${type}`)
+        .then((r) => { if (!r.ok) throw new Error('Not found'); return r.json(); })
+        .catch(() => null),
+      fetch('/api/reviews/products')
+        .then((r) => r.json())
+        .catch(() => ({ items: [] })),
+    ]).then(([data, productsData]) => {
+      if (data) {
         setEnabled(data.enabled ?? true);
         setSubject(data.subject ?? '');
         setBodyHtml(data.body_html ?? '');
         setOriginalEnabled(data.enabled ?? true);
         setOriginalSubject(data.subject ?? '');
         setOriginalBody(data.body_html ?? '');
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      }
+      const items = (productsData?.items ?? []) as Array<{ title: string; handle: string }>;
+      setProducts(items);
+      if (items.length > 0) setTestProductTitle(items[0].title);
+      setLoading(false);
+    });
   }, [type, router]);
 
   const hasChanges =
@@ -101,11 +111,11 @@ export default function ReviewEmailTemplateEditorPage() {
       const res = await fetch(`/api/reviews/emails/${type}/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: testEmail }),
+        body: JSON.stringify({ to: testEmail, product_title: testProductTitle || undefined }),
       });
       const data = await res.json();
       if (data.success) {
-        setTestResult({ success: true, message: `Test email sent to ${testEmail}` });
+        setTestResult({ success: true, message: `Sent to ${testEmail}` });
       } else {
         setTestResult({ success: false, message: data.error || 'Failed to send' });
       }
@@ -115,9 +125,45 @@ export default function ReviewEmailTemplateEditorPage() {
     setTestSending(false);
   }
 
+  const ALL_TYPES = ['request', 'reminder', 'thank_you'] as const;
+  const ALL_TYPE_LABELS: Record<string, string> = {
+    request: 'Request',
+    reminder: 'Reminder',
+    thank_you: 'Thank You',
+  };
+
+  async function handleSendAllTests() {
+    if (!testEmail.includes('@')) return;
+    setSendAllSending(true);
+    setSendAllResults({});
+    for (const t of ALL_TYPES) {
+      try {
+        const res = await fetch(`/api/reviews/emails/${t}/test`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: testEmail, product_title: testProductTitle || undefined }),
+        });
+        const data = await res.json();
+        setSendAllResults((prev) => ({
+          ...prev,
+          [t]: data.success
+            ? { success: true, message: `${ALL_TYPE_LABELS[t]} sent` }
+            : { success: false, message: data.error || 'Failed' },
+        }));
+      } catch {
+        setSendAllResults((prev) => ({
+          ...prev,
+          [t]: { success: false, message: 'Network error' },
+        }));
+      }
+    }
+    setSendAllSending(false);
+  }
+
   function renderPreview(html: string): string {
+    const vars = { ...DEFAULT_SAMPLE_VARS, product_title: testProductTitle || DEFAULT_SAMPLE_VARS.product_title };
     let rendered = html;
-    for (const [key, value] of Object.entries(SAMPLE_VARS)) {
+    for (const [key, value] of Object.entries(vars)) {
       rendered = rendered.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
     }
     return rendered;
@@ -192,54 +238,106 @@ export default function ReviewEmailTemplateEditorPage() {
         </div>
       </div>
 
-      {/* Test Email Bar */}
+      {/* Test Email Panel */}
       {showTestModal && (
         <div
-          className="rounded-xl p-4 flex items-center gap-3"
+          className="rounded-xl p-4 space-y-3"
           style={{
             backgroundColor: 'var(--bg-primary)',
             border: '1px solid var(--border-primary)',
             boxShadow: 'var(--shadow-sm)',
           }}
         >
-          <Send size={16} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
-          <input
-            type="email"
-            value={testEmail}
-            onChange={(e) => setTestEmail(e.target.value)}
-            placeholder="Enter email address..."
-            className="flex-1 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2"
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid var(--border-primary)',
-              color: 'var(--text-primary)',
-            }}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSendTest(); }}
-            autoFocus
-          />
-          <button
-            onClick={handleSendTest}
-            disabled={testSending || !testEmail.includes('@')}
-            className="px-4 py-1.5 text-sm font-medium text-white rounded-lg disabled:opacity-50"
-            style={{ backgroundColor: 'var(--color-accent)' }}
-          >
-            {testSending ? 'Sending...' : 'Send'}
-          </button>
-          <button
-            onClick={() => { setShowTestModal(false); setTestResult(null); }}
-            className="p-1"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            <X size={16} />
-          </button>
-          {testResult && (
-            <span
-              className="text-xs font-medium"
-              style={{ color: testResult.success ? '#22c55e' : '#ef4444' }}
+          {/* Row 1: Email + Product */}
+          <div className="flex items-center gap-3">
+            <Send size={16} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
+            <div className="flex-1 flex gap-3">
+              <input
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="Enter email address..."
+                className="flex-1 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-primary)',
+                  color: 'var(--text-primary)',
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSendTest(); }}
+                autoFocus
+              />
+              <select
+                value={testProductTitle}
+                onChange={(e) => setTestProductTitle(e.target.value)}
+                className="text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 flex-shrink-0"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-primary)',
+                  color: 'var(--text-primary)',
+                  minWidth: '180px',
+                  maxWidth: '260px',
+                }}
+              >
+                {products.length === 0 && <option value="">No products</option>}
+                {products.map((p) => (
+                  <option key={p.handle} value={p.title}>{p.title}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={() => { setShowTestModal(false); setTestResult(null); setSendAllResults({}); }}
+              className="p-1 flex-shrink-0"
+              style={{ color: 'var(--text-tertiary)' }}
             >
-              {testResult.message}
-            </span>
-          )}
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Row 2: Send buttons */}
+          <div className="flex items-center gap-2 pl-7">
+            <button
+              onClick={handleSendTest}
+              disabled={testSending || !testEmail.includes('@')}
+              className="px-4 py-1.5 text-sm font-medium text-white rounded-lg disabled:opacity-50 flex-shrink-0"
+              style={{ backgroundColor: 'var(--color-accent)' }}
+            >
+              {testSending ? 'Sending...' : `Send ${TYPE_LABELS[type]}`}
+            </button>
+            <button
+              onClick={handleSendAllTests}
+              disabled={sendAllSending || !testEmail.includes('@')}
+              className="px-4 py-1.5 text-sm font-medium rounded-lg disabled:opacity-50 flex-shrink-0 transition-colors"
+              style={{
+                backgroundColor: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-primary)',
+              }}
+            >
+              {sendAllSending ? 'Sending...' : 'Send All 3'}
+            </button>
+
+            {/* Status indicators */}
+            <div className="flex items-center gap-2 ml-2">
+              {testResult && (
+                <span
+                  className="text-xs font-medium"
+                  style={{ color: testResult.success ? '#22c55e' : '#ef4444' }}
+                >
+                  {testResult.message}
+                </span>
+              )}
+              {Object.entries(sendAllResults).map(([t, r]) => (
+                <span
+                  key={t}
+                  className="text-[11px] font-medium flex items-center gap-1"
+                  style={{ color: r.success ? '#22c55e' : '#ef4444' }}
+                >
+                  {r.success ? <Check size={10} /> : <X size={10} />}
+                  {ALL_TYPE_LABELS[t]}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
