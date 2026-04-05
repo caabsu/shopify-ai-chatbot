@@ -24,7 +24,7 @@ const AVAILABLE_VARIABLES = ['customer_name', 'product_title', 'review_link', 'b
 const DEFAULT_SAMPLE_VARS: Record<string, string> = {
   customer_name: 'Jane',
   product_title: 'Aven',
-  review_link: 'https://example.com/review?token=abc123',
+  review_link: 'https://shopify-ai-chatbot-production-9ab4.up.railway.app/review?token=preview',
   brand_name: 'Outlight',
 };
 
