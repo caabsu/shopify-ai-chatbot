@@ -334,6 +334,78 @@ export async function registerWebhooks(brandId?: string): Promise<void> {
   }
 }
 
+// ── List & Reset Webhooks ─────────────────────────────────────────────────
+
+interface WebhookSubscriptionNode {
+  id: string;
+  topic: string;
+  callbackUrl: string;
+  format: string;
+}
+
+export async function listWebhooks(brandId?: string): Promise<WebhookSubscriptionNode[]> {
+  const query = `
+    query {
+      webhookSubscriptions(first: 25) {
+        edges {
+          node { id topic callbackUrl format { ... on WebhookHttpEndpoint { callbackUrl } } }
+        }
+      }
+    }
+  `;
+  try {
+    const result = await shopifyGraphql<{
+      webhookSubscriptions: {
+        edges: Array<{ node: { id: string; topic: string; callbackUrl?: string; format?: { callbackUrl?: string } } }>;
+      };
+    }>(query, {}, brandId);
+
+    return result.webhookSubscriptions.edges.map((e) => ({
+      id: e.node.id,
+      topic: e.node.topic,
+      callbackUrl: e.node.callbackUrl || e.node.format?.callbackUrl || '',
+      format: 'JSON',
+    }));
+  } catch (err) {
+    console.error('[product-sync] listWebhooks failed:', err instanceof Error ? err.message : String(err));
+    return [];
+  }
+}
+
+export async function resetWebhooks(brandId?: string): Promise<{ deleted: number; registered: number }> {
+  // Delete all existing webhook subscriptions
+  const existing = await listWebhooks(brandId);
+  let deleted = 0;
+
+  for (const wh of existing) {
+    try {
+      const mutation = `
+        mutation webhookSubscriptionDelete($id: ID!) {
+          webhookSubscriptionDelete(id: $id) {
+            deletedWebhookSubscriptionId
+            userErrors { field message }
+          }
+        }
+      `;
+      await shopifyGraphql<{
+        webhookSubscriptionDelete: {
+          deletedWebhookSubscriptionId: string | null;
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>(mutation, { id: wh.id }, brandId);
+      deleted++;
+      console.log(`[product-sync] Deleted webhook ${wh.topic} (${wh.id})`);
+    } catch (err) {
+      console.error(`[product-sync] Failed to delete webhook ${wh.id}:`, err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  // Re-register all webhooks
+  await registerWebhooks(brandId);
+
+  return { deleted, registered: 4 };
+}
+
 export async function getProductByHandle(handle: string, brandId: string): Promise<Product | null> {
   try {
     const { data, error } = await supabase

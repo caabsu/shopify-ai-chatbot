@@ -817,3 +817,27 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
     res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
+
+// GET /webhooks/status — List registered Shopify webhooks
+reviewRouter.get('/webhooks/status', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const webhooks = await productSyncService.listWebhooks(brandId);
+    res.json({ webhooks, count: webhooks.length });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /webhooks/reset — Delete all webhooks and re-register them
+reviewRouter.post('/webhooks/reset', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const result = await productSyncService.resetWebhooks(brandId);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
+});
