@@ -9,6 +9,7 @@ import * as reviewEmailService from '../services/review-email.service.js';
 import * as reviewAnalyticsService from '../services/review-analytics.service.js';
 import * as reviewImportService from '../services/review-import.service.js';
 import * as productSyncService from '../services/product-sync.service.js';
+import { logEvent } from '../services/activity-log.service.js';
 
 export const reviewRouter = Router();
 
@@ -718,12 +719,13 @@ reviewRouter.post('/webhooks/shopify/products', async (req, res) => {
     const hasRawBody = !!(req as unknown as Record<string, unknown>).rawBody;
 
     if (!hmac || !verifyShopifyHmac(rawBody, hmac, config.shopify.clientSecret)) {
-      console.warn(`[webhook] Products HMAC failed — hasRawBody=${hasRawBody}, hmacPresent=${!!hmac}, bodyLen=${rawBody.length}`);
+      logEvent('webhook.products', 'error', `HMAC verification failed (topic: ${topic || 'unknown'})`, { hasRawBody, bodyLen: rawBody.length });
       res.status(401).json({ error: 'Invalid HMAC signature' });
       return;
     }
 
-    console.log(`[webhook] Products webhook verified: ${topic}`);
+    const productTitle = req.body?.title || req.body?.handle || `ID ${req.body?.id}`;
+    logEvent('webhook.products', 'success', `${topic}: ${productTitle}`, { topic, productId: req.body?.id, title: productTitle });
 
     const brandId = await resolveBrandId(req);
     await productSyncService.handleProductWebhook(topic, req.body, brandId);
@@ -731,7 +733,7 @@ reviewRouter.post('/webhooks/shopify/products', async (req, res) => {
     res.status(200).json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[review.controller] POST /webhooks/shopify/products error:', message);
+    logEvent('webhook.products', 'error', `Handler error: ${message}`);
     res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
@@ -744,25 +746,26 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
     const hasRawBody = !!(req as unknown as Record<string, unknown>).rawBody;
 
     if (!hmac || !verifyShopifyHmac(rawBody, hmac, config.shopify.clientSecret)) {
-      console.warn(`[webhook] Orders HMAC failed — hasRawBody=${hasRawBody}, hmacPresent=${!!hmac}, bodyLen=${rawBody.length}`);
+      logEvent('webhook.orders', 'error', 'HMAC verification failed for order webhook', { hasRawBody, bodyLen: rawBody.length });
       res.status(401).json({ error: 'Invalid HMAC signature' });
       return;
     }
 
-    console.log('[webhook] Orders webhook HMAC verified');
-
     const brandId = await resolveBrandId(req);
     const payload = req.body;
+    const orderId = payload.id || payload.order_number || 'unknown';
 
     // Only process fulfilled orders
     const fulfillmentStatus = payload.fulfillment_status;
     if (fulfillmentStatus !== 'fulfilled') {
+      logEvent('webhook.orders', 'info', `Order #${orderId} skipped (status: ${fulfillmentStatus || 'none'})`, { orderId, fulfillmentStatus });
       res.status(200).json({ ok: true, message: 'Order not fulfilled, skipping' });
       return;
     }
 
     const customerEmail = payload.email || payload.contact_email;
     if (!customerEmail) {
+      logEvent('webhook.orders', 'info', `Order #${orderId} skipped (no customer email)`, { orderId });
       res.status(200).json({ ok: true, message: 'No customer email, skipping' });
       return;
     }
@@ -791,6 +794,7 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
     }
 
     if (productIds.length === 0) {
+      logEvent('webhook.orders', 'info', `Order #${orderId} skipped (no matching products)`, { orderId, customerEmail });
       res.status(200).json({ ok: true, message: 'No matching products found, skipping' });
       return;
     }
@@ -810,10 +814,17 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
       brandId,
     );
 
+    logEvent('webhook.orders', 'success', `Order #${orderId} fulfilled → review request scheduled for ${customerEmail}`, {
+      orderId,
+      customerEmail,
+      customerName,
+      productCount: productIds.length,
+    });
+
     res.status(200).json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[review.controller] POST /webhooks/shopify/orders error:', message);
+    logEvent('webhook.orders', 'error', `Order webhook error: ${message}`, { orderId: req.body?.id });
     res.status(500).json({ error: 'Webhook processing failed' });
   }
 });

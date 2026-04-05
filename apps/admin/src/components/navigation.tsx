@@ -76,6 +76,13 @@ const modules: Module[] = [
     href: '/overview',
   },
   {
+    id: 'activity',
+    label: 'Activity',
+    icon: Activity,
+    color: '#10b981',
+    href: '/activity',
+  },
+  {
     id: 'support',
     label: 'Support',
     icon: Headphones,

@@ -4,6 +4,7 @@ import { getBrandSlug, getBrandName } from '../config/brand.js';
 import { getReviewSettings } from './review-settings.service.js';
 import type { ReviewEmailTemplate } from '../types/index.js';
 import { v4 as uuidv4 } from 'uuid';
+import { logEvent } from './activity-log.service.js';
 
 // ── Per-Brand Resend Client ───────────────────────────────────────────────
 
@@ -226,7 +227,7 @@ export async function processScheduledEmails(): Promise<{ sent: number; failed: 
           }
         }
 
-        const reviewLink = `https://${process.env.REVIEW_FORM_BASE_URL || 'localhost:3001'}/reviews/write?token=${req.token as string}`;
+        const reviewLink = `https://${process.env.REVIEW_FORM_BASE_URL || 'shopify-ai-chatbot-production-9ab4.up.railway.app'}/review?token=${req.token as string}`;
 
         const subject = replaceTemplateVars(template.subject, {
           customer_name: req.customer_name as string | undefined,
@@ -259,11 +260,18 @@ export async function processScheduledEmails(): Promise<{ sent: number; failed: 
           .eq('id', req.id);
 
         sent++;
+        logEvent('email.sent', 'success', `Review request email sent to ${req.customer_email} (order ${req.shopify_order_id})`, {
+          email: req.customer_email, orderId: req.shopify_order_id, type: 'request',
+        });
         console.log(`[review-email] Sent review request email to ${req.customer_email} for order ${req.shopify_order_id}`);
       } catch (err) {
         failed++;
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[review-email] Failed to send email for request ${(request as Record<string, unknown>).id}:`, message);
+
+        logEvent('email.failed', 'error', `Failed to send request email to ${(request as Record<string, unknown>).customer_email}: ${message}`, {
+          email: (request as Record<string, unknown>).customer_email, type: 'request',
+        });
 
         await supabase
           .from('review_requests')
@@ -331,7 +339,7 @@ export async function processScheduledReminders(): Promise<{ sent: number; faile
           }
         }
 
-        const reviewLink = `https://${process.env.REVIEW_FORM_BASE_URL || 'localhost:3001'}/reviews/write?token=${req.token as string}`;
+        const reviewLink = `https://${process.env.REVIEW_FORM_BASE_URL || 'shopify-ai-chatbot-production-9ab4.up.railway.app'}/review?token=${req.token as string}`;
 
         const subject = replaceTemplateVars(template.subject, {
           customer_name: req.customer_name as string | undefined,
@@ -364,6 +372,9 @@ export async function processScheduledReminders(): Promise<{ sent: number; faile
           .eq('id', req.id);
 
         sent++;
+        logEvent('email.sent', 'success', `Reminder email sent to ${req.customer_email}`, {
+          email: req.customer_email, type: 'reminder',
+        });
         console.log(`[review-email] Sent reminder email to ${req.customer_email}`);
       } catch (err) {
         failed++;

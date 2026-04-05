@@ -1651,6 +1651,18 @@ app.use('/api/rma', rmaRouter);
 // Quiz funnel routes
 app.use('/api/quiz', quizRouter);
 
+// Activity log endpoint
+import { getRecentEvents, getEventCounts } from './services/activity-log.service.js';
+app.get('/api/activity', (_req, res) => {
+  const type = (_req.query.type as string) || undefined;
+  const limit = parseInt(_req.query.limit as string, 10) || 100;
+  res.json({
+    events: getRecentEvents(limit, type),
+    counts: getEventCounts(),
+    serverUptime: Math.floor(process.uptime()),
+  });
+});
+
 // Widget config endpoint
 app.get('/api/widget/config', async (req, res) => {
   // Allow short browser caching to avoid repeated fetches on page loads
