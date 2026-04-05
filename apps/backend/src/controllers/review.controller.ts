@@ -709,7 +709,7 @@ reviewRouter.post('/webhooks/shopify/products', async (req, res) => {
   try {
     const hmac = req.headers['x-shopify-hmac-sha256'] as string;
     const topic = req.headers['x-shopify-topic'] as string;
-    const rawBody = JSON.stringify(req.body);
+    const rawBody = (req as Record<string, unknown>).rawBody as string || JSON.stringify(req.body);
 
     if (!hmac || !verifyShopifyHmac(rawBody, hmac, config.shopify.clientSecret)) {
       res.status(401).json({ error: 'Invalid HMAC signature' });
@@ -731,7 +731,7 @@ reviewRouter.post('/webhooks/shopify/products', async (req, res) => {
 reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
   try {
     const hmac = req.headers['x-shopify-hmac-sha256'] as string;
-    const rawBody = JSON.stringify(req.body);
+    const rawBody = (req as Record<string, unknown>).rawBody as string || JSON.stringify(req.body);
 
     if (!hmac || !verifyShopifyHmac(rawBody, hmac, config.shopify.clientSecret)) {
       res.status(401).json({ error: 'Invalid HMAC signature' });

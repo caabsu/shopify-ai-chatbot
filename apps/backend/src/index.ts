@@ -49,7 +49,15 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({
+  limit: '50mb',
+  verify: (req, _res, buf) => {
+    // Save raw body for Shopify webhook HMAC verification
+    if ((req as Record<string, unknown>).url?.toString().includes('/webhooks/shopify')) {
+      (req as Record<string, unknown>).rawBody = buf.toString('utf8');
+    }
+  },
+}));
 
 // Serve widget static files with short caching so browser doesn't re-download every time
 const widgetDir = path.resolve(process.cwd(), 'apps/widget/dist');
