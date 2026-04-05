@@ -53,9 +53,8 @@ app.use(express.json({
   limit: '50mb',
   verify: (req, _res, buf) => {
     // Save raw body for Shopify webhook HMAC verification
-    if ((req as Record<string, unknown>).url?.toString().includes('/webhooks/shopify')) {
-      (req as Record<string, unknown>).rawBody = buf.toString('utf8');
-    }
+    // Always save it — the overhead is negligible and avoids URL-matching issues
+    (req as Record<string, unknown>).rawBody = buf.toString('utf8');
   },
 }));
 

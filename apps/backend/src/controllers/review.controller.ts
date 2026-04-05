@@ -701,7 +701,12 @@ function verifyShopifyHmac(body: string, hmacHeader: string, secret: string): bo
     .createHmac('sha256', secret)
     .update(body, 'utf8')
     .digest('base64');
-  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hmacHeader));
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hmacHeader));
+  } catch {
+    // Buffer length mismatch
+    return false;
+  }
 }
 
 // POST /webhooks/shopify/products — Product create/update/delete
@@ -710,11 +715,15 @@ reviewRouter.post('/webhooks/shopify/products', async (req, res) => {
     const hmac = req.headers['x-shopify-hmac-sha256'] as string;
     const topic = req.headers['x-shopify-topic'] as string;
     const rawBody = (req as Record<string, unknown>).rawBody as string || JSON.stringify(req.body);
+    const hasRawBody = !!(req as Record<string, unknown>).rawBody;
 
     if (!hmac || !verifyShopifyHmac(rawBody, hmac, config.shopify.clientSecret)) {
+      console.warn(`[webhook] Products HMAC failed — hasRawBody=${hasRawBody}, hmacPresent=${!!hmac}, bodyLen=${rawBody.length}`);
       res.status(401).json({ error: 'Invalid HMAC signature' });
       return;
     }
+
+    console.log(`[webhook] Products webhook verified: ${topic}`);
 
     const brandId = await resolveBrandId(req);
     await productSyncService.handleProductWebhook(topic, req.body, brandId);
@@ -732,11 +741,15 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
   try {
     const hmac = req.headers['x-shopify-hmac-sha256'] as string;
     const rawBody = (req as Record<string, unknown>).rawBody as string || JSON.stringify(req.body);
+    const hasRawBody = !!(req as Record<string, unknown>).rawBody;
 
     if (!hmac || !verifyShopifyHmac(rawBody, hmac, config.shopify.clientSecret)) {
+      console.warn(`[webhook] Orders HMAC failed — hasRawBody=${hasRawBody}, hmacPresent=${!!hmac}, bodyLen=${rawBody.length}`);
       res.status(401).json({ error: 'Invalid HMAC signature' });
       return;
     }
+
+    console.log('[webhook] Orders webhook HMAC verified');
 
     const brandId = await resolveBrandId(req);
     const payload = req.body;
