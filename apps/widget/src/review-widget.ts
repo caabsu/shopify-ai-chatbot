@@ -924,9 +924,9 @@ function renderReviewForm(
         rating: state.formRating,
         title: titleVal || null,
         body: bodyVal,
-        author_name: nameVal,
-        author_email: emailVal,
-        photos: photoUrls,
+        customer_name: nameVal,
+        customer_email: emailVal,
+        media_urls: photoUrls,
       };
 
       if (token) {

@@ -49,7 +49,7 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // Serve widget static files with short caching so browser doesn't re-download every time
 const widgetDir = path.resolve(process.cwd(), 'apps/widget/dist');
@@ -501,23 +501,70 @@ app.get('/widget/preview-tracking', (req, res) => {
 });
 
 // Review submission page (from email links)
-app.get('/review', (req, res) => {
+app.get('/review', async (req, res) => {
   const token = req.query.token as string;
   if (!token) { res.status(400).send('Missing token'); return; }
+
+  // Look up the review request to get product handle
+  let productHandle = '';
+  let customerName = '';
+  let productTitle = '';
+  try {
+    const { data: request } = await supabase
+      .from('review_requests')
+      .select('customer_name, product_ids, status')
+      .eq('token', token)
+      .single();
+
+    if (request) {
+      const reqData = request as Record<string, unknown>;
+      const status = reqData.status as string;
+      customerName = (reqData.customer_name as string) || '';
+
+      if (!['scheduled', 'sent', 'reminded'].includes(status)) {
+        res.setHeader('Content-Type', 'text/html');
+        res.send(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Review</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;color:#333}
+.msg{text-align:center;padding:40px}.msg h2{margin-bottom:8px}.msg p{color:#666;font-size:14px}</style>
+</head><body><div class="msg"><h2>This review link has already been used or has expired.</h2><p>Thank you for your feedback!</p></div></body></html>`);
+        return;
+      }
+
+      const productIds = reqData.product_ids as string[];
+      if (productIds && productIds.length > 0) {
+        const { data: product } = await supabase
+          .from('products')
+          .select('handle, title')
+          .eq('id', productIds[0])
+          .single();
+        if (product) {
+          productHandle = (product as Record<string, unknown>).handle as string;
+          productTitle = (product as Record<string, unknown>).title as string;
+        }
+      }
+    }
+  } catch { /* proceed without product info */ }
+
+  const escapedHandle = productHandle.replace(/"/g, '&quot;');
+  const escapedName = customerName.replace(/"/g, '&quot;');
+  const escapedTitle = productTitle.replace(/"/g, '&quot;');
+
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Write a Review</title>
+  <title>Write a Review${productTitle ? ` for ${productTitle}` : ''}</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
   </style>
 </head>
 <body>
-  <div id="review-form-root" data-token="${token}"></div>
+  <div id="review-form-root" data-token="${token}" data-product-handle="${escapedHandle}" data-customer-name="${escapedName}" data-product-title="${escapedTitle}"></div>
   <script src="/widget/review-widget.js"></script>
 </body>
 </html>`);
