@@ -79,12 +79,65 @@ reviewRouter.get('/product/:handle/summary', async (req, res) => {
   }
 });
 
+// ── GET /request/:token — Look up review request by token ─────────────────
+
+reviewRouter.get('/request/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const { data: request, error } = await supabase
+      .from('review_requests')
+      .select('id, customer_email, customer_name, product_ids, status, brand_id')
+      .eq('token', token)
+      .single();
+
+    if (error || !request) {
+      res.status(404).json({ error: 'Review request not found or expired' });
+      return;
+    }
+
+    const req_data = request as Record<string, unknown>;
+    const status = req_data.status as string;
+
+    if (!['scheduled', 'sent', 'reminded'].includes(status)) {
+      res.status(410).json({ error: 'This review link has already been used or has expired' });
+      return;
+    }
+
+    // Look up product handles from product_ids
+    const productIds = req_data.product_ids as string[];
+    let products: Array<{ handle: string; title: string }> = [];
+
+    if (productIds && productIds.length > 0) {
+      const { data: productRows } = await supabase
+        .from('products')
+        .select('handle, title')
+        .in('id', productIds);
+
+      if (productRows) {
+        products = productRows as Array<{ handle: string; title: string }>;
+      }
+    }
+
+    res.json({
+      customer_email: req_data.customer_email,
+      customer_name: req_data.customer_name,
+      products,
+      brand_id: req_data.brand_id,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[review.controller] GET /request/:token error:', message);
+    res.status(500).json({ error: 'Failed to look up review request' });
+  }
+});
+
 // ── POST /submit — Submit a review ────────────────────────────────────────
 
 reviewRouter.post('/submit', async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
-    const {
+    let {
       product_handle,
       customer_email,
       customer_name,
@@ -97,9 +150,38 @@ reviewRouter.post('/submit', async (req, res) => {
       media_urls,
     } = req.body;
 
+    // If token is provided but product_handle is missing, resolve from review_request
+    if (!product_handle && token) {
+      const { data: request } = await supabase
+        .from('review_requests')
+        .select('product_ids, customer_email, customer_name')
+        .eq('token', token)
+        .single();
+      if (request) {
+        const reqData = request as Record<string, unknown>;
+        const productIds = reqData.product_ids as string[];
+        if (productIds?.length) {
+          const { data: product } = await supabase
+            .from('products')
+            .select('handle')
+            .eq('id', productIds[0])
+            .single();
+          if (product) product_handle = (product as Record<string, unknown>).handle as string;
+        }
+        if (!customer_email) customer_email = reqData.customer_email as string;
+        if (!customer_name) customer_name = reqData.customer_name as string;
+      }
+    }
+
     if (!product_handle || !customer_email || !customer_name || !rating || !body) {
+      const missing = [];
+      if (!product_handle) missing.push('product_handle');
+      if (!customer_email) missing.push('customer_email');
+      if (!customer_name) missing.push('customer_name');
+      if (!rating) missing.push('rating');
+      if (!body) missing.push('body');
       res.status(400).json({
-        error: 'product_handle, customer_email, customer_name, rating, and body are required',
+        error: `Missing required fields: ${missing.join(', ')}`,
       });
       return;
     }
