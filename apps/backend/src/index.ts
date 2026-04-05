@@ -508,11 +508,12 @@ app.get('/review', async (req, res) => {
   // Look up the review request to get product handle
   let productHandle = '';
   let customerName = '';
+  let customerEmail = '';
   let productTitle = '';
   try {
     const { data: request } = await supabase
       .from('review_requests')
-      .select('customer_name, product_ids, status')
+      .select('customer_name, customer_email, product_ids, status')
       .eq('token', token)
       .single();
 
@@ -520,6 +521,7 @@ app.get('/review', async (req, res) => {
       const reqData = request as Record<string, unknown>;
       const status = reqData.status as string;
       customerName = (reqData.customer_name as string) || '';
+      customerEmail = (reqData.customer_email as string) || '';
 
       if (!['scheduled', 'sent', 'reminded'].includes(status)) {
         res.setHeader('Content-Type', 'text/html');
@@ -547,9 +549,7 @@ app.get('/review', async (req, res) => {
     }
   } catch { /* proceed without product info */ }
 
-  const escapedHandle = productHandle.replace(/"/g, '&quot;');
-  const escapedName = customerName.replace(/"/g, '&quot;');
-  const escapedTitle = productTitle.replace(/"/g, '&quot;');
+  const esc = (s: string) => s.replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
@@ -564,7 +564,7 @@ app.get('/review', async (req, res) => {
   </style>
 </head>
 <body>
-  <div id="review-form-root" data-token="${token}" data-product-handle="${escapedHandle}" data-customer-name="${escapedName}" data-product-title="${escapedTitle}"></div>
+  <div id="review-form-root" data-token="${esc(token)}" data-product-handle="${esc(productHandle)}" data-customer-name="${esc(customerName)}" data-customer-email="${esc(customerEmail)}" data-product-title="${esc(productTitle)}"></div>
   <script src="/widget/review-widget.js"></script>
 </body>
 </html>`);

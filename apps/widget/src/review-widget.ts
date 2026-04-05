@@ -605,6 +605,7 @@ function renderReviewForm(
   onClose: () => void,
   onSuccess: () => void,
   token?: string,
+  prefill?: { name?: string; email?: string },
 ): HTMLElement {
   const brandParam = brandSlug ? `?brand=${brandSlug}` : '';
   const isInline = !!token;
@@ -811,32 +812,63 @@ function renderReviewForm(
 
   form.appendChild(photoField);
 
-  // Name + Email row
-  const nameEmailRow = createEl('div', 'orw-form-row');
+  // Name + Email — hidden when pre-filled from token
+  const hasPrefillName = !!(prefill?.name);
+  const hasPrefillEmail = !!(prefill?.email);
 
-  const nameField = createEl('div', 'orw-form-field');
-  const nameLabel = createEl('label', 'orw-form-label');
-  nameLabel.innerHTML = 'Your Name <span class="orw-form-required">*</span>';
-  nameField.appendChild(nameLabel);
   const nameInput = createEl('input', 'orw-form-input') as HTMLInputElement;
   nameInput.type = 'text';
-  nameInput.placeholder = 'John D.';
   nameInput.id = 'orw-form-name';
-  nameField.appendChild(nameInput);
-  nameEmailRow.appendChild(nameField);
+  if (hasPrefillName) {
+    nameInput.type = 'hidden';
+    nameInput.value = prefill!.name!;
+  } else {
+    nameInput.placeholder = 'John D.';
+  }
 
-  const emailField = createEl('div', 'orw-form-field');
-  const emailLabel = createEl('label', 'orw-form-label');
-  emailLabel.innerHTML = 'Email <span class="orw-form-required">*</span>';
-  emailField.appendChild(emailLabel);
   const emailInput = createEl('input', 'orw-form-input') as HTMLInputElement;
-  emailInput.type = 'email';
-  emailInput.placeholder = 'you@email.com';
   emailInput.id = 'orw-form-email';
-  emailField.appendChild(emailInput);
-  nameEmailRow.appendChild(emailField);
+  if (hasPrefillEmail) {
+    emailInput.type = 'hidden';
+    emailInput.value = prefill!.email!;
+  } else {
+    emailInput.type = 'email';
+    emailInput.placeholder = 'you@email.com';
+  }
 
-  form.appendChild(nameEmailRow);
+  if (hasPrefillName && hasPrefillEmail) {
+    // Both pre-filled — just add hidden inputs, no visible row
+    form.appendChild(nameInput);
+    form.appendChild(emailInput);
+  } else {
+    const nameEmailRow = createEl('div', 'orw-form-row');
+
+    if (!hasPrefillName) {
+      const nameField = createEl('div', 'orw-form-field');
+      const nameLabel = createEl('label', 'orw-form-label');
+      nameLabel.innerHTML = 'Your Name <span class="orw-form-required">*</span>';
+      nameField.appendChild(nameLabel);
+      nameField.appendChild(nameInput);
+      nameEmailRow.appendChild(nameField);
+    } else {
+      form.appendChild(nameInput);
+    }
+
+    if (!hasPrefillEmail) {
+      const emailField = createEl('div', 'orw-form-field');
+      const emailLabel = createEl('label', 'orw-form-label');
+      emailLabel.innerHTML = 'Email <span class="orw-form-required">*</span>';
+      emailField.appendChild(emailLabel);
+      emailField.appendChild(emailInput);
+      nameEmailRow.appendChild(emailField);
+    } else {
+      form.appendChild(emailInput);
+    }
+
+    if (nameEmailRow.children.length > 0) {
+      form.appendChild(nameEmailRow);
+    }
+  }
 
   // Error container for in-place error updates
   const errorContainer = createEl('div', 'orw-form-error');
@@ -982,7 +1014,7 @@ function renderReviewForm(
   function rerenderForm(): void {
     const parent = formContainer || wrapper.parentElement;
     if (!parent) return;
-    const newForm = renderReviewForm(handle, design, backendUrl, brandSlug, state, onClose, onSuccess, token);
+    const newForm = renderReviewForm(handle, design, backendUrl, brandSlug, state, onClose, onSuccess, token, prefill);
     // Preserve input values before swap
     const oldTitle = (wrapper.querySelector('#orw-form-title') as HTMLInputElement)?.value;
     const oldBody = (wrapper.querySelector('#orw-form-body') as HTMLTextAreaElement)?.value;
@@ -1454,6 +1486,7 @@ async function init(): Promise<void> {
     const token = formRoot.getAttribute('data-token') || '';
     const handle = formRoot.getAttribute('data-product-handle') || '';
     const prefillName = formRoot.getAttribute('data-customer-name') || '';
+    const prefillEmail = formRoot.getAttribute('data-customer-email') || '';
     const productTitle = formRoot.getAttribute('data-product-title') || '';
 
     let config: WidgetConfig = {};
@@ -1505,6 +1538,10 @@ async function init(): Promise<void> {
       filterDropdownOpen: false,
     };
 
+    const prefillData = (prefillName || prefillEmail)
+      ? { name: prefillName || undefined, email: prefillEmail || undefined }
+      : undefined;
+
     const formEl = renderReviewForm(
       handle,
       design,
@@ -1514,14 +1551,9 @@ async function init(): Promise<void> {
       () => {},
       () => {},
       token,
+      prefillData,
     );
     formRoot.appendChild(formEl);
-
-    // Pre-fill customer name from email link
-    if (prefillName) {
-      const nameInput = formRoot.querySelector('#orw-form-name') as HTMLInputElement;
-      if (nameInput) nameInput.value = prefillName;
-    }
 
     return;
   }
