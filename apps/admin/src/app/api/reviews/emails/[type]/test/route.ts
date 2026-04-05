@@ -118,7 +118,7 @@ export async function POST(
   const testToken = randomUUID();
   const { error: insertError } = await supabase.from('review_requests').insert({
     brand_id: session.brandId,
-    order_id: `test-${Date.now()}`,
+    shopify_order_id: `test-${Date.now()}`,
     customer_email: to,
     customer_name: customer_name || session.name || 'Test User',
     product_ids: productIds,

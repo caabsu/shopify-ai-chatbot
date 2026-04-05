@@ -167,6 +167,7 @@ export default function ReviewEmailsPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'schedule' | 'templates' | 'test'>('overview');
   const [products, setProducts] = useState<Array<{ title: string; handle: string }>>([]);
   const [testEmail, setTestEmail] = useState('');
+  const [testCustomerName, setTestCustomerName] = useState('');
   const [testProduct, setTestProduct] = useState('');
   const [testSending, setTestSending] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
@@ -210,7 +211,7 @@ export default function ReviewEmailsPage() {
       const res = await fetch(`/api/reviews/emails/${templateType}/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: testEmail, product_title: testProduct || undefined }),
+        body: JSON.stringify({ to: testEmail, product_title: testProduct || undefined, customer_name: testCustomerName || undefined }),
       });
       const data = await res.json();
       setTestResults((prev) => ({
@@ -564,6 +565,23 @@ export default function ReviewEmailsPage() {
                   value={testEmail}
                   onChange={(e) => setTestEmail(e.target.value)}
                   placeholder="you@example.com"
+                  className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-primary)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+              <div style={{ width: '200px', flexShrink: 0 }}>
+                <label className="text-[11px] font-medium mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                  Customer Name
+                </label>
+                <input
+                  type="text"
+                  value={testCustomerName}
+                  onChange={(e) => setTestCustomerName(e.target.value)}
+                  placeholder="Jane Doe"
                   className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
                   style={{
                     backgroundColor: 'var(--bg-secondary)',

@@ -48,6 +48,7 @@ export default function ReviewEmailTemplateEditorPage() {
   // Test email state
   const [showTestModal, setShowTestModal] = useState(false);
   const [testEmail, setTestEmail] = useState('');
+  const [testCustomerName, setTestCustomerName] = useState('');
   const [testProductTitle, setTestProductTitle] = useState('');
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -111,7 +112,7 @@ export default function ReviewEmailTemplateEditorPage() {
       const res = await fetch(`/api/reviews/emails/${type}/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: testEmail, product_title: testProductTitle || undefined }),
+        body: JSON.stringify({ to: testEmail, product_title: testProductTitle || undefined, customer_name: testCustomerName || undefined }),
       });
       const data = await res.json();
       if (data.success) {
@@ -141,7 +142,7 @@ export default function ReviewEmailTemplateEditorPage() {
         const res = await fetch(`/api/reviews/emails/${t}/test`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: testEmail, product_title: testProductTitle || undefined }),
+          body: JSON.stringify({ to: testEmail, product_title: testProductTitle || undefined, customer_name: testCustomerName || undefined }),
         });
         const data = await res.json();
         setSendAllResults((prev) => ({
@@ -265,6 +266,19 @@ export default function ReviewEmailTemplateEditorPage() {
                 }}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSendTest(); }}
                 autoFocus
+              />
+              <input
+                type="text"
+                value={testCustomerName}
+                onChange={(e) => setTestCustomerName(e.target.value)}
+                placeholder="Customer name..."
+                className="text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 flex-shrink-0"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-primary)',
+                  color: 'var(--text-primary)',
+                  width: '160px',
+                }}
               />
               <select
                 value={testProductTitle}
