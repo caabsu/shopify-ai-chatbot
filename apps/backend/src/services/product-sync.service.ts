@@ -348,7 +348,16 @@ export async function listWebhooks(brandId?: string): Promise<WebhookSubscriptio
     query {
       webhookSubscriptions(first: 25) {
         edges {
-          node { id topic callbackUrl format { ... on WebhookHttpEndpoint { callbackUrl } } }
+          node {
+            id
+            topic
+            endpoint {
+              __typename
+              ... on WebhookHttpEndpoint {
+                callbackUrl
+              }
+            }
+          }
         }
       }
     }
@@ -356,14 +365,14 @@ export async function listWebhooks(brandId?: string): Promise<WebhookSubscriptio
   try {
     const result = await shopifyGraphql<{
       webhookSubscriptions: {
-        edges: Array<{ node: { id: string; topic: string; callbackUrl?: string; format?: { callbackUrl?: string } } }>;
+        edges: Array<{ node: { id: string; topic: string; endpoint?: { callbackUrl?: string } } }>;
       };
     }>(query, {}, brandId);
 
     return result.webhookSubscriptions.edges.map((e) => ({
       id: e.node.id,
       topic: e.node.topic,
-      callbackUrl: e.node.callbackUrl || e.node.format?.callbackUrl || '',
+      callbackUrl: e.node.endpoint?.callbackUrl || '',
       format: 'JSON',
     }));
   } catch (err) {
