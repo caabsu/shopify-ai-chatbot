@@ -648,14 +648,7 @@ function renderReviewForm(
   const formTitle = createEl('div', 'orw-form-title', 'Write a Review');
   form.appendChild(formTitle);
 
-  // Error
-  if (state.formError) {
-    const errDiv = createEl('div', 'orw-form-error');
-    errDiv.textContent = state.formError;
-    form.appendChild(errDiv);
-  }
-
-  // Star rating picker
+  // Star rating picker — updates SVGs in-place, no DOM rebuild
   const starField = createEl('div', 'orw-form-field');
   const starLabel = createEl('label', 'orw-form-label');
   starLabel.innerHTML = 'Rating <span class="orw-form-required">*</span>';
@@ -663,22 +656,40 @@ function renderReviewForm(
 
   const starPicker = createEl('div', 'orw-star-picker');
   const starColor = design.starColor || '#C5A059';
+  const starBtns: HTMLElement[] = [];
+
+  function updateStarDisplay(): void {
+    const displayRating = state.formHoverRating || state.formRating;
+    starBtns.forEach((btn, idx) => {
+      const filled = idx + 1 <= displayRating;
+      const svg = btn.querySelector('svg');
+      if (svg) {
+        btn.replaceChild(createStarSvg(filled ? 'full' : 'empty', starColor, 28), svg);
+      }
+    });
+  }
+
   for (let i = 1; i <= 5; i++) {
     const starBtn = createEl('span', 'orw-star-picker-star');
+    starBtn.style.cursor = 'pointer';
     const displayRating = state.formHoverRating || state.formRating;
     starBtn.appendChild(createStarSvg(i <= displayRating ? 'full' : 'empty', starColor, 28));
-    starBtn.addEventListener('click', () => {
+    starBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       state.formRating = i;
-      rerenderForm();
+      state.formError = null;
+      updateStarDisplay();
     });
     starBtn.addEventListener('mouseenter', () => {
       state.formHoverRating = i;
-      rerenderForm();
+      updateStarDisplay();
     });
     starBtn.addEventListener('mouseleave', () => {
       state.formHoverRating = 0;
-      rerenderForm();
+      updateStarDisplay();
     });
+    starBtns.push(starBtn);
     starPicker.appendChild(starBtn);
   }
   starField.appendChild(starPicker);
@@ -827,6 +838,24 @@ function renderReviewForm(
 
   form.appendChild(nameEmailRow);
 
+  // Error container for in-place error updates
+  const errorContainer = createEl('div', 'orw-form-error');
+  errorContainer.style.display = state.formError ? '' : 'none';
+  errorContainer.textContent = state.formError || '';
+  form.insertBefore(errorContainer, form.querySelector('.orw-form-field'));
+
+  function showError(msg: string): void {
+    state.formError = msg;
+    errorContainer.textContent = msg;
+    errorContainer.style.display = '';
+  }
+
+  function clearError(): void {
+    state.formError = null;
+    errorContainer.style.display = 'none';
+    errorContainer.textContent = '';
+  }
+
   // Submit button
   const submitBtn = createEl('button', 'orw-form-submit');
   submitBtn.textContent = state.formSubmitting ? 'Submitting...' : 'Submit Review';
@@ -837,31 +866,28 @@ function renderReviewForm(
     const titleVal = (form.querySelector('#orw-form-title') as HTMLInputElement)?.value?.trim();
     const bodyVal = (form.querySelector('#orw-form-body') as HTMLTextAreaElement)?.value?.trim();
 
-    // Validation
+    // Validation — show errors in-place, no DOM rebuild
     if (!state.formRating) {
-      state.formError = 'Please select a star rating.';
-      rerenderForm();
+      showError('Please select a star rating.');
       return;
     }
     if (!bodyVal) {
-      state.formError = 'Please write your review.';
-      rerenderForm();
+      showError('Please write your review.');
       return;
     }
     if (!nameVal) {
-      state.formError = 'Please enter your name.';
-      rerenderForm();
+      showError('Please enter your name.');
       return;
     }
     if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
-      state.formError = 'Please enter a valid email address.';
-      rerenderForm();
+      showError('Please enter a valid email address.');
       return;
     }
 
-    state.formError = null;
+    clearError();
     state.formSubmitting = true;
-    rerenderForm();
+    submitBtn.textContent = 'Submitting...';
+    submitBtn.disabled = true;
 
     try {
       // Upload media first
@@ -915,9 +941,10 @@ function renderReviewForm(
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({ error: 'Submission failed' }));
-        state.formError = errData.error || 'Failed to submit review. Please try again.';
         state.formSubmitting = false;
-        rerenderForm();
+        submitBtn.textContent = 'Submit Review';
+        submitBtn.disabled = false;
+        showError(errData.error || 'Failed to submit review. Please try again.');
         return;
       }
 
@@ -932,9 +959,10 @@ function renderReviewForm(
       // Notify parent to refresh reviews
       setTimeout(onSuccess, 2000);
     } catch {
-      state.formError = 'Network error. Please check your connection and try again.';
       state.formSubmitting = false;
-      rerenderForm();
+      submitBtn.textContent = 'Submit Review';
+      submitBtn.disabled = false;
+      showError('Network error. Please check your connection and try again.');
     }
   });
 
@@ -1425,6 +1453,8 @@ async function init(): Promise<void> {
   if (formRoot) {
     const token = formRoot.getAttribute('data-token') || '';
     const handle = formRoot.getAttribute('data-product-handle') || '';
+    const prefillName = formRoot.getAttribute('data-customer-name') || '';
+    const productTitle = formRoot.getAttribute('data-product-title') || '';
 
     let config: WidgetConfig = {};
     try {
@@ -1441,6 +1471,14 @@ async function init(): Promise<void> {
     formRoot.style.setProperty('--orw-text', design.textColor || '#2D3338');
     formRoot.style.setProperty('--orw-heading', design.headingColor || '#C5A059');
     formRoot.style.setProperty('--orw-bg', design.backgroundColor || '#ffffff');
+
+    // Add product heading if available
+    if (productTitle) {
+      const heading = document.createElement('div');
+      heading.style.cssText = 'max-width:600px;margin:40px auto 0;padding:0 20px;text-align:center;';
+      heading.innerHTML = `<h1 style="font-family:${design.headingFontFamily || 'Manrope'},sans-serif;color:${design.headingColor || '#C5A059'};font-size:20px;font-weight:600;margin-bottom:4px;">How was your ${productTitle}?</h1><p style="color:${design.textColor || '#666'};font-size:14px;">We'd love to hear your thoughts</p>`;
+      formRoot.parentElement?.insertBefore(heading, formRoot);
+    }
 
     const state: WidgetState = {
       loading: false,
@@ -1478,6 +1516,13 @@ async function init(): Promise<void> {
       token,
     );
     formRoot.appendChild(formEl);
+
+    // Pre-fill customer name from email link
+    if (prefillName) {
+      const nameInput = formRoot.querySelector('#orw-form-name') as HTMLInputElement;
+      if (nameInput) nameInput.value = prefillName;
+    }
+
     return;
   }
 
