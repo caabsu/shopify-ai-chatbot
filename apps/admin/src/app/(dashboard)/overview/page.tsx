@@ -203,14 +203,13 @@ export default function OverviewPage() {
       fetch('/api/tickets/stats').then((r) => r.json()).catch(() => null),
       fetch('/api/analytics').then((r) => r.json()).catch(() => null),
       fetch('/api/reviews/stats').then((r) => r.json()).catch(() => null),
-      fetch('/api/returns/analytics').then((r) => r.json()).catch(() => null),
+      fetch('/api/returns/stats').then((r) => r.json()).catch(() => null),
       fetch('/api/trade/analytics').then((r) => r.json()).catch(() => null),
     ]).then(([tickets, chat, reviews, returns, trade]) => {
       setTicketStats(tickets);
       setChatStats(chat);
       setReviewStats(reviews);
-      if (returns?.stats) setReturnStats(returns.stats);
-      else if (returns && !returns.error) setReturnStats(returns);
+      if (returns && !returns.error) setReturnStats(returns);
       setTradeStats(trade);
       setLoading(false);
     });
@@ -243,7 +242,7 @@ export default function OverviewPage() {
   const slaCompliance = ticketStats?.slaCompliancePercent ?? 100;
 
   const pendingReturns = returnStats?.pending_review ?? 0;
-  const totalReturns = Object.values(returnStats ?? {}).reduce((a, b) => a + b, 0);
+  const totalReturns = returnStats?.all ?? 0;
   const pendingReviews = reviewStats?.pending ?? 0;
   const publishedReviews = reviewStats?.published ?? 0;
   const pendingApps = tradeStats?.pendingApplications ?? 0;

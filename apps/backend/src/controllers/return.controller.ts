@@ -81,7 +81,47 @@ returnRouter.post('/submit', async (req, res) => {
       return;
     }
 
+    // Validate each item has required fields
+    for (const item of items) {
+      if (!item.line_item_id || !item.product_title || !item.quantity || item.quantity < 1 || !item.reason) {
+        res.status(400).json({ error: 'Each item must have line_item_id, product_title, quantity (>0), and reason' });
+        return;
+      }
+    }
+
     const brandId = await resolveBrandId(req);
+
+    // Rate limit: max 3 return submissions per email per hour
+    const rateLimitKey = `return_submit:${customer_email}`;
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabase
+      .from('return_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('customer_email', customer_email)
+      .eq('brand_id', brandId)
+      .gte('created_at', oneHourAgo);
+
+    if ((recentCount ?? 0) >= 3) {
+      res.status(429).json({ error: 'Too many return requests. Please try again later.' });
+      return;
+    }
+
+    // Deduplication: prevent duplicate return for the same order
+    const { data: existingReturn } = await supabase
+      .from('return_requests')
+      .select('id, status')
+      .eq('order_id', order_id)
+      .eq('customer_email', customer_email)
+      .eq('brand_id', brandId)
+      .not('status', 'in', '("cancelled","closed","denied")')
+      .limit(1)
+      .maybeSingle();
+
+    if (existingReturn) {
+      res.status(409).json({ error: 'A return request already exists for this order', return_id: existingReturn.id });
+      return;
+    }
+
     const settings = await returnSettingsService.getReturnSettings(brandId);
 
     // 1. Create return request (include package_dimensions if provided)
