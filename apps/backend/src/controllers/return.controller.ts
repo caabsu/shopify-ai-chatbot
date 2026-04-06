@@ -16,8 +16,25 @@ import * as returnSettingsService from '../services/return-settings.service.js';
 import * as returnEmailTemplateService from '../services/return-email-template.service.js';
 import { supabase } from '../config/supabase.js';
 import * as shippoService from '../services/shippo.service.js';
+import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
 
 export const returnRouter = Router();
+
+// ── Ownership helper: verify return belongs to the agent's brand ──────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function verifyReturnOwnership(req: any, res: any) {
+  const id = req.params.id as string;
+  const current = await returnService.getReturnRequest(id);
+  if (!current) {
+    res.status(404).json({ error: 'Return request not found' });
+    return null;
+  }
+  if (req.agent?.brandId && current.brand_id !== req.agent.brandId) {
+    res.status(404).json({ error: 'Return request not found' });
+    return null;
+  }
+  return current;
+}
 
 // ── POST /upload — Upload Return Image ───────────────────────────────────
 returnRouter.post('/upload', async (req, res) => {
@@ -462,9 +479,9 @@ returnRouter.get('/lookup', async (req, res) => {
 
 // ── GET /stats — Return Stats by Status ──────────────────────────────────
 // NOTE: This route MUST be registered before /:id to avoid matching "stats" as an id
-returnRouter.get('/stats', async (req, res) => {
+returnRouter.get('/stats', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const stats = await returnService.getReturnStats(brandId);
     res.json(stats);
   } catch (err) {
@@ -475,9 +492,9 @@ returnRouter.get('/stats', async (req, res) => {
 });
 
 // ── GET /rules — List Rules for Brand ────────────────────────────────────
-returnRouter.get('/rules', async (req, res) => {
+returnRouter.get('/rules', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const rules = await returnRulesService.getRules(brandId);
     res.json(rules);
   } catch (err) {
@@ -488,7 +505,7 @@ returnRouter.get('/rules', async (req, res) => {
 });
 
 // ── POST /rules — Create Rule ────────────────────────────────────────────
-returnRouter.post('/rules', async (req, res) => {
+returnRouter.post('/rules', agentAuthMiddleware, async (req, res) => {
   try {
     const { name, enabled, priority, conditions, action, resolution_type } = req.body;
 
@@ -497,7 +514,7 @@ returnRouter.post('/rules', async (req, res) => {
       return;
     }
 
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const rule = await returnRulesService.createRule(brandId, {
       name,
       enabled,
@@ -516,7 +533,7 @@ returnRouter.post('/rules', async (req, res) => {
 });
 
 // ── PATCH /rules/:id — Update Rule ───────────────────────────────────────
-returnRouter.patch('/rules/:id', async (req, res) => {
+returnRouter.patch('/rules/:id', agentAuthMiddleware, async (req, res) => {
   try {
     const { name, enabled, priority, conditions, action, resolution_type } = req.body;
 
@@ -534,7 +551,7 @@ returnRouter.patch('/rules/:id', async (req, res) => {
     }
 
     const rule = await returnRulesService.updateRule(
-      req.params.id,
+      req.params.id as string,
       updates as Parameters<typeof returnRulesService.updateRule>[1],
     );
 
@@ -551,9 +568,9 @@ returnRouter.patch('/rules/:id', async (req, res) => {
 });
 
 // ── DELETE /rules/:id — Delete Rule ──────────────────────────────────────
-returnRouter.delete('/rules/:id', async (req, res) => {
+returnRouter.delete('/rules/:id', agentAuthMiddleware, async (req, res) => {
   try {
-    await returnRulesService.deleteRule(req.params.id);
+    await returnRulesService.deleteRule(req.params.id as string);
     res.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -563,9 +580,9 @@ returnRouter.delete('/rules/:id', async (req, res) => {
 });
 
 // ── GET /settings — Return Settings ─────────────────────────────────────
-returnRouter.get('/settings', async (req, res) => {
+returnRouter.get('/settings', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const settings = await returnSettingsService.getReturnSettings(brandId);
     res.json(settings);
   } catch (err) {
@@ -576,9 +593,9 @@ returnRouter.get('/settings', async (req, res) => {
 });
 
 // ── PUT /settings — Update Return Settings ──────────────────────────────
-returnRouter.put('/settings', async (req, res) => {
+returnRouter.put('/settings', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const updated = await returnSettingsService.updateReturnSettings(brandId, req.body);
     res.json(updated);
   } catch (err) {
@@ -589,9 +606,9 @@ returnRouter.put('/settings', async (req, res) => {
 });
 
 // ── GET /emails — List All Email Templates ──────────────────────────────
-returnRouter.get('/emails', async (req, res) => {
+returnRouter.get('/emails', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const templates = await returnEmailTemplateService.getTemplates(brandId);
     res.json({ templates });
   } catch (err) {
@@ -602,11 +619,11 @@ returnRouter.get('/emails', async (req, res) => {
 });
 
 // ── GET /emails/:type — Single Email Template ───────────────────────────
-returnRouter.get('/emails/:type', async (req, res) => {
+returnRouter.get('/emails/:type', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const validTypes = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
-    if (!validTypes.includes(req.params.type)) {
+    if (!validTypes.includes(req.params.type as string)) {
       res.status(400).json({ error: 'Invalid template type' });
       return;
     }
@@ -627,11 +644,11 @@ returnRouter.get('/emails/:type', async (req, res) => {
 });
 
 // ── PUT /emails/:type — Update Email Template ───────────────────────────
-returnRouter.put('/emails/:type', async (req, res) => {
+returnRouter.put('/emails/:type', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const validTypes = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
-    if (!validTypes.includes(req.params.type)) {
+    if (!validTypes.includes(req.params.type as string)) {
       res.status(400).json({ error: 'Invalid template type' });
       return;
     }
@@ -649,9 +666,9 @@ returnRouter.put('/emails/:type', async (req, res) => {
 });
 
 // ── GET /portal-design — Portal Design Config ───────────────────────────
-returnRouter.get('/portal-design', async (req, res) => {
+returnRouter.get('/portal-design', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const { data, error } = await supabase
       .from('ai_config')
       .select('value')
@@ -678,9 +695,9 @@ returnRouter.get('/portal-design', async (req, res) => {
 });
 
 // ── PUT /portal-design — Update Portal Design ───────────────────────────
-returnRouter.put('/portal-design', async (req, res) => {
+returnRouter.put('/portal-design', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const { error } = await supabase
       .from('ai_config')
       .upsert(
@@ -753,20 +770,17 @@ returnRouter.get('/portal-config', async (req, res) => {
 });
 
 // ── POST /:id/create-label — Create a return shipping label ──────────────
-returnRouter.post('/:id/create-label', async (req, res) => {
+returnRouter.post('/:id/create-label', agentAuthMiddleware, async (req, res) => {
   try {
-    const returnRequest = await returnService.getReturnRequest(req.params.id);
-    if (!returnRequest) {
-      res.status(404).json({ error: 'Return request not found' });
-      return;
-    }
+    const returnRequest = await verifyReturnOwnership(req, res);
+    if (!returnRequest) return;
 
     if (returnRequest.status !== 'approved' && returnRequest.status !== 'partially_approved') {
       res.status(400).json({ error: 'Return must be approved before creating a label' });
       return;
     }
 
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
 
     const { customer_address, package_dimensions } = req.body as {
       customer_address: {
@@ -854,7 +868,7 @@ returnRouter.post('/:id/create-label', async (req, res) => {
         return_shipping_cost: result.rate ?? null,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', req.params.id);
+      .eq('id', req.params.id as string);
 
     if (updateError) {
       console.error('[return.controller] Failed to store label info:', updateError.message);
@@ -875,19 +889,16 @@ returnRouter.post('/:id/create-label', async (req, res) => {
 });
 
 // ── POST /:id/approve — Approve Return (with shipping expected) ──────────
-returnRouter.post('/:id/approve', async (req, res) => {
+returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
   try {
-    const current = await returnService.getReturnRequest(req.params.id);
-    if (!current) {
-      res.status(404).json({ error: 'Return request not found' });
-      return;
-    }
+    const current = await verifyReturnOwnership(req, res);
+    if (!current) return;
 
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const settings = await returnSettingsService.getReturnSettings(brandId);
     const { resolution_type, refund_amount, admin_notes } = req.body;
 
-    const updated = await returnService.updateReturnRequest(req.params.id, {
+    const updated = await returnService.updateReturnRequest(req.params.id as string, {
       status: 'approved',
       resolution_type: resolution_type ?? 'refund',
       refund_amount: refund_amount ?? null,
@@ -947,7 +958,7 @@ returnRouter.post('/:id/approve', async (req, res) => {
             labelUrl = labelResult.labelUrl ?? null;
             labelTrackingNumber = labelResult.trackingNumber ?? null;
 
-            await returnService.updateReturnRequest(req.params.id, {
+            await returnService.updateReturnRequest(req.params.id as string, {
               return_label_url: labelUrl,
               return_tracking_number: labelTrackingNumber,
               return_carrier: labelResult.carrier ?? null,
@@ -986,15 +997,12 @@ returnRouter.post('/:id/approve', async (req, res) => {
 });
 
 // ── POST /:id/approve-no-return — Approve & Refund Only (no shipping) ───
-returnRouter.post('/:id/approve-no-return', async (req, res) => {
+returnRouter.post('/:id/approve-no-return', agentAuthMiddleware, async (req, res) => {
   try {
-    const current = await returnService.getReturnRequest(req.params.id);
-    if (!current) {
-      res.status(404).json({ error: 'Return request not found' });
-      return;
-    }
+    const current = await verifyReturnOwnership(req, res);
+    if (!current) return;
 
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const settings = await returnSettingsService.getReturnSettings(brandId);
 
     // Determine return reason from items for restocking fee exemption
@@ -1022,7 +1030,7 @@ returnRouter.post('/:id/approve-no-return', async (req, res) => {
 
     if (!refundResult.success) {
       // Still approve the request but don't mark as refunded
-      const updated = await returnService.updateReturnRequest(req.params.id, {
+      const updated = await returnService.updateReturnRequest(req.params.id as string, {
         status: 'approved',
         approved_no_return: true,
         resolution_type: 'refund',
@@ -1038,7 +1046,7 @@ returnRouter.post('/:id/approve-no-return', async (req, res) => {
     }
 
     // Refund succeeded — mark as refunded
-    const updated = await returnService.updateReturnRequest(req.params.id, {
+    const updated = await returnService.updateReturnRequest(req.params.id as string, {
       status: 'refunded',
       approved_no_return: true,
       resolution_type: 'refund',
@@ -1074,13 +1082,10 @@ returnRouter.post('/:id/approve-no-return', async (req, res) => {
 });
 
 // ── POST /:id/deny — Deny Return with Reason ─────────────────────────────
-returnRouter.post('/:id/deny', async (req, res) => {
+returnRouter.post('/:id/deny', agentAuthMiddleware, async (req, res) => {
   try {
-    const current = await returnService.getReturnRequest(req.params.id);
-    if (!current) {
-      res.status(404).json({ error: 'Return request not found' });
-      return;
-    }
+    const current = await verifyReturnOwnership(req, res);
+    if (!current) return;
 
     const { denial_reason, admin_notes } = req.body;
     if (!denial_reason) {
@@ -1088,9 +1093,9 @@ returnRouter.post('/:id/deny', async (req, res) => {
       return;
     }
 
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
 
-    const updated = await returnService.updateReturnRequest(req.params.id, {
+    const updated = await returnService.updateReturnRequest(req.params.id as string, {
       status: 'denied',
       denial_reason,
       admin_notes: admin_notes ?? current.admin_notes ?? null,
@@ -1121,10 +1126,10 @@ returnRouter.post('/:id/deny', async (req, res) => {
 });
 
 // ── GET / — List Return Requests ─────────────────────────────────────────
-returnRouter.get('/', async (req, res) => {
+returnRouter.get('/', agentAuthMiddleware, async (req, res) => {
   try {
     const { status, page, per_page, search } = req.query;
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
 
     const result = await returnService.getReturnRequests(brandId, {
       status: status as string | undefined,
@@ -1141,28 +1146,12 @@ returnRouter.get('/', async (req, res) => {
   }
 });
 
-// ── GET /:id — Get Single Return Request with Items ──────────────────────
-returnRouter.get('/:id', async (req, res) => {
-  try {
-    const returnRequest = await returnService.getReturnRequest(req.params.id);
-
-    if (!returnRequest) {
-      res.status(404).json({ error: 'Return request not found' });
-      return;
-    }
-
-    res.json(returnRequest);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[return.controller] GET /:id error:', message);
-    res.status(500).json({ error: 'Failed to get return request' });
-  }
-});
+// ── Label presets — MUST be registered before /:id to avoid route shadowing ──
 
 // ── GET /label-presets — List all label presets for the brand ────────────
-returnRouter.get('/label-presets', async (req, res) => {
+returnRouter.get('/label-presets', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const { data, error } = await supabase
       .from('label_presets')
       .select('*')
@@ -1183,7 +1172,7 @@ returnRouter.get('/label-presets', async (req, res) => {
 });
 
 // ── POST /label-presets — Create or update a label preset ────────────────
-returnRouter.post('/label-presets', async (req, res) => {
+returnRouter.post('/label-presets', agentAuthMiddleware, async (req, res) => {
   try {
     const { sku, product_title, length, width, height, weight, weight_unit, dimension_unit } = req.body;
 
@@ -1192,7 +1181,7 @@ returnRouter.post('/label-presets', async (req, res) => {
       return;
     }
 
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
 
     const { data, error } = await supabase
       .from('label_presets')
@@ -1227,14 +1216,14 @@ returnRouter.post('/label-presets', async (req, res) => {
 });
 
 // ── DELETE /label-presets/:sku — Delete a preset ─────────────────────────
-returnRouter.delete('/label-presets/:sku', async (req, res) => {
+returnRouter.delete('/label-presets/:sku', agentAuthMiddleware, async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    const brandId = req.agent!.brandId;
     const { error } = await supabase
       .from('label_presets')
       .delete()
       .eq('brand_id', brandId)
-      .eq('sku', req.params.sku);
+      .eq('sku', req.params.sku as string);
 
     if (error) {
       res.status(500).json({ error: error.message });
@@ -1249,17 +1238,31 @@ returnRouter.delete('/label-presets/:sku', async (req, res) => {
   }
 });
 
+// ── GET /:id — Get Single Return Request with Items ──────────────────────
+// NOTE: This route MUST be after all named routes to avoid matching them as :id
+returnRouter.get('/:id', agentAuthMiddleware, async (req, res) => {
+  try {
+    const returnRequest = await verifyReturnOwnership(req, res);
+    if (!returnRequest) return;
+
+    res.json(returnRequest);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] GET /:id error:', message);
+    res.status(500).json({ error: 'Failed to get return request' });
+  }
+});
+
 // ── PATCH /:id — Update Return Request ───────────────────────────────────
-returnRouter.patch('/:id', async (req, res) => {
+// NOTE: For approve/deny, use the dedicated POST endpoints instead.
+// This endpoint only sends emails for 'refunded' and 'shipped'/'received' transitions
+// to prevent double-emails when the dedicated endpoints already send them.
+returnRouter.patch('/:id', agentAuthMiddleware, async (req, res) => {
   try {
     const { status, resolution_type, refund_amount, admin_notes, denial_reason, decided_by, item_updates } = req.body;
 
-    // Get the current return request to check for status changes
-    const current = await returnService.getReturnRequest(req.params.id);
-    if (!current) {
-      res.status(404).json({ error: 'Return request not found' });
-      return;
-    }
+    const current = await verifyReturnOwnership(req, res);
+    if (!current) return;
 
     const updates: Record<string, unknown> = {};
     if (status !== undefined) updates.status = status;
@@ -1294,45 +1297,24 @@ returnRouter.patch('/:id', async (req, res) => {
 
     const updated = Object.keys(updates).length > 0
       ? await returnService.updateReturnRequest(
-          req.params.id,
+          req.params.id as string,
           updates as Parameters<typeof returnService.updateReturnRequest>[1],
         )
-      : await returnService.getReturnRequest(req.params.id);
+      : await returnService.getReturnRequest(req.params.id as string);
 
     if (!updated) {
       res.status(404).json({ error: 'Return request not found' });
       return;
     }
 
-    // Send status-change emails
+    // Only send emails for statuses NOT handled by dedicated endpoints
+    // (approved → POST /:id/approve, denied → POST /:id/deny, approve-no-return → POST /:id/approve-no-return)
+    // This prevents double-emails when status is changed via PATCH after using a dedicated endpoint.
     if (status && status !== current.status) {
-      const brandId = await resolveBrandId(req);
+      const brandId = req.agent!.brandId;
       const itemsSummary = (updated.items ?? [])
         .map((i) => `${i.product_title} (x${i.quantity})`)
         .join(', ');
-
-      if (status === 'approved') {
-        sendReturnApproved({
-          to: updated.customer_email,
-          customerName: updated.customer_name ?? undefined,
-          returnRequestId: updated.id,
-          orderNumber: updated.order_number,
-          items: itemsSummary,
-          brandId,
-        }).catch((err) => console.error('[return.controller] Approval email failed:', err));
-      }
-
-      if (status === 'denied') {
-        sendReturnDenied({
-          to: updated.customer_email,
-          customerName: updated.customer_name ?? undefined,
-          returnRequestId: updated.id,
-          orderNumber: updated.order_number,
-          items: itemsSummary,
-          reason: denial_reason ?? admin_notes ?? 'Your return request was not approved.',
-          brandId,
-        }).catch((err) => console.error('[return.controller] Denial email failed:', err));
-      }
 
       if (status === 'refunded') {
         sendReturnRefunded({

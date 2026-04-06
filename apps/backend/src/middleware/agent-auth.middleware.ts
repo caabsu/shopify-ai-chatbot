@@ -70,9 +70,9 @@ export async function agentAuthMiddleware(req: Request, res: Response, next: Nex
     const { payload } = await jose.jwtVerify(token, secret);
 
     req.agent = {
-      id: payload.id as string,
-      email: payload.email as string,
-      name: payload.name as string,
+      id: (payload.id ?? payload.userId ?? '') as string,
+      email: (payload.email ?? '') as string,
+      name: (payload.name ?? '') as string,
       role: payload.role as 'admin' | 'agent',
       brandId: payload.brandId as string,
     };

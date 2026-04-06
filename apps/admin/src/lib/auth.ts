@@ -40,4 +40,10 @@ export async function getSession(): Promise<JWTPayload | null> {
   return verifyToken(token);
 }
 
+/** Get the raw JWT token string for forwarding to the backend */
+export async function getToken(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get(COOKIE_NAME)?.value ?? null;
+}
+
 export { COOKIE_NAME };

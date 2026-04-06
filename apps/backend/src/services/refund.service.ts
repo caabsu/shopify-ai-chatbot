@@ -106,6 +106,7 @@ async function getOrderNumericId(
  * @param exemptReasons        Return reasons that are exempt from the restocking fee
  * @param returnReason         The reason for the return (to check fee exemption)
  * @param dryRun               If true, calculates but does not submit the refund
+ * @param lineItemGids         Optional list of Shopify line item GIDs to refund (if omitted, refunds ALL refundable items)
  */
 export async function processRefund(params: {
   orderNumber: string;
@@ -114,6 +115,7 @@ export async function processRefund(params: {
   exemptReasons?: string[];
   returnReason?: string;
   dryRun?: boolean;
+  lineItemGids?: string[];
 }): Promise<ProcessRefundResult> {
   const {
     orderNumber,
@@ -122,6 +124,7 @@ export async function processRefund(params: {
     exemptReasons = ['defective', 'wrong_item', 'not_as_described'],
     returnReason,
     dryRun = false,
+    lineItemGids,
   } = params;
 
   try {
@@ -131,10 +134,17 @@ export async function processRefund(params: {
       return { success: false, error: `Order ${orderNumber} not found in Shopify` };
     }
 
-    const { numericId, lineItems } = orderData;
+    const { numericId, lineItems: allLineItems } = orderData;
+
+    // Filter to specific line items if requested
+    const lineItems = lineItemGids
+      ? allLineItems.filter((item) => lineItemGids.includes(item.id))
+      : allLineItems;
 
     if (lineItems.length === 0) {
-      return { success: false, error: `No refundable line items found for order ${orderNumber}` };
+      return { success: false, error: lineItemGids
+        ? `None of the specified line items are refundable for order ${orderNumber}`
+        : `No refundable line items found for order ${orderNumber}` };
     }
 
     // 2. Calculate refund amount with restocking fee

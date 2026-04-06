@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getSession, getToken } from '@/lib/auth';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
@@ -10,6 +10,7 @@ export async function POST(
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const token = await getToken();
   const { id } = await params;
   const body = await req.json();
 
@@ -19,6 +20,7 @@ export async function POST(
       headers: {
         'Content-Type': 'application/json',
         'x-brand': session.brandId,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body),
     });
