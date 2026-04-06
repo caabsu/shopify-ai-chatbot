@@ -1092,3 +1092,123 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
     res.status(500).json({ error: 'Failed to backfill orders', details: message });
   }
 });
+
+// ── POST /enrich-line-items — Backfill line_items for existing requests missing them ──
+
+reviewRouter.post('/enrich-line-items', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+
+    // Find all review_requests missing line_items
+    const { data: rows } = await supabase
+      .from('review_requests')
+      .select('id, shopify_order_id')
+      .eq('brand_id', brandId)
+      .is('line_items', null);
+
+    if (!rows || rows.length === 0) {
+      res.json({ message: 'All requests already have line_items', updated: 0 });
+      return;
+    }
+
+    const ORDER_QUERY = `
+      query($id: ID!) {
+        order(id: $id) {
+          lineItems(first: 20) {
+            edges {
+              node {
+                title
+                quantity
+                sku
+                variant { id title }
+                product { id }
+                originalUnitPriceSet { shopMoney { amount } }
+                image { url }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    let updated = 0;
+    const errors: string[] = [];
+
+    for (const row of rows as Array<{ id: string; shopify_order_id: string }>) {
+      try {
+        const gid = `gid://shopify/Order/${row.shopify_order_id}`;
+        const data = await graphql<{
+          order: {
+            lineItems: {
+              edges: Array<{
+                node: {
+                  title: string;
+                  quantity: number;
+                  sku: string | null;
+                  variant: { id: string; title: string } | null;
+                  product: { id: string } | null;
+                  originalUnitPriceSet: { shopMoney: { amount: string } };
+                  image: { url: string } | null;
+                };
+              }>;
+            };
+          } | null;
+        }>(ORDER_QUERY, { id: gid }, brandId);
+
+        if (!data.order) {
+          errors.push(`Order ${row.shopify_order_id}: not found`);
+          continue;
+        }
+
+        const lineItems: ReviewRequestLineItem[] = [];
+        const productIds: string[] = [];
+
+        for (const liEdge of data.order.lineItems.edges) {
+          const li = liEdge.node;
+          if (!li.product?.id) continue;
+
+          const shopifyProductId = li.product.id.replace('gid://shopify/Product/', '');
+          const { data: product } = await supabase
+            .from('products')
+            .select('id, shopify_product_id, featured_image_url')
+            .eq('shopify_product_id', shopifyProductId)
+            .eq('brand_id', brandId)
+            .single();
+
+          if (product) {
+            const p = product as Record<string, unknown>;
+            lineItems.push({
+              product_id: p.id as string,
+              shopify_product_id: p.shopify_product_id as string,
+              shopify_variant_id: li.variant?.id ? li.variant.id.replace('gid://shopify/ProductVariant/', '') : '',
+              product_title: li.title,
+              variant_title: li.variant?.title ?? null,
+              sku: li.sku ?? null,
+              image_url: li.image?.url ?? (p.featured_image_url as string | null) ?? null,
+              quantity: li.quantity,
+              price: li.originalUnitPriceSet.shopMoney.amount,
+            });
+            productIds.push(p.id as string);
+          }
+        }
+
+        if (lineItems.length > 0) {
+          await supabase
+            .from('review_requests')
+            .update({ line_items: lineItems as unknown as Record<string, unknown>[], product_ids: productIds })
+            .eq('id', row.id);
+          updated++;
+        } else {
+          errors.push(`Order ${row.shopify_order_id}: no matching products`);
+        }
+      } catch (err) {
+        errors.push(`Order ${row.shopify_order_id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    res.json({ total: rows.length, updated, errors });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: 'Failed to enrich line items', details: message });
+  }
+});
