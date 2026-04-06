@@ -28,11 +28,28 @@ export async function GET(_req: NextRequest) {
     returnCounts.confirmation + returnCounts.approved + returnCounts.denied + returnCounts.refunded;
 
   // ── Review email stats (from review_requests) ──
+  // First fetch lightweight rows for stats (no line_items — too large for bulk fetch)
   const { data: reviewRows } = await supabase
     .from('review_requests')
-    .select('id, status, scheduled_for, sent_at, reminder_sent_at, reminder_scheduled_for, customer_email, customer_name, shopify_order_id, product_ids, line_items, created_at, completed_at')
+    .select('id, status, scheduled_for, sent_at, reminder_sent_at, reminder_scheduled_for, customer_email, customer_name, shopify_order_id, product_ids, created_at, completed_at')
     .eq('brand_id', brandId)
     .order('created_at', { ascending: false });
+
+  // Fetch line_items only for the most recent 200 entries (for activity log variant display)
+  const recentIds = (reviewRows ?? []).slice(0, 200).map((r) => r.id as string);
+  const lineItemsMap: Record<string, unknown[]> = {};
+  if (recentIds.length > 0) {
+    const { data: lineItemRows } = await supabase
+      .from('review_requests')
+      .select('id, line_items')
+      .in('id', recentIds)
+      .not('line_items', 'is', null);
+    if (lineItemRows) {
+      for (const r of lineItemRows) {
+        lineItemsMap[r.id as string] = r.line_items as unknown[];
+      }
+    }
+  }
 
   const reviewCounts = { total: 0, scheduled: 0, sent: 0, reminded: 0, bounced: 0, expired: 0 };
   const queuedEmails: Array<{
@@ -147,9 +164,10 @@ export async function GET(_req: NextRequest) {
     }
   }
 
-  const activityLog = (reviewRows ?? []).map((row) => {
+  // Build activity log for the most recent 200 entries
+  const activityLog = (reviewRows ?? []).slice(0, 200).map((row) => {
     // Prefer line_items for variant-aware titles, fall back to product_ids
-    const lineItems = row.line_items as Array<{ product_title?: string; variant_title?: string | null; sku?: string | null }> | null;
+    const lineItems = (lineItemsMap[row.id as string] ?? null) as Array<{ product_title?: string; variant_title?: string | null; sku?: string | null }> | null;
     let productTitles: string;
     if (lineItems && lineItems.length > 0) {
       productTitles = lineItems.map((li) => {
