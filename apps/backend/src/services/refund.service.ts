@@ -166,6 +166,21 @@ export async function processRefund(params: {
     const apiVersion = config.shopify.apiVersion;
     const url = `https://${brandConfig.shop}.myshopify.com/admin/api/${apiVersion}/orders/${numericId}/refunds.json`;
 
+    // Fetch primary inventory location for restocking
+    const locUrl = `https://${brandConfig.shop}.myshopify.com/admin/api/${apiVersion}/locations.json`;
+    const locRes = await fetch(locUrl, {
+      headers: { 'X-Shopify-Access-Token': token },
+    });
+    let locationId: string | undefined;
+    if (locRes.ok) {
+      const locData = (await locRes.json()) as { locations?: Array<{ id: number; active: boolean; legacy: boolean }> };
+      const primary = locData.locations?.find(l => l.active && !l.legacy) ?? locData.locations?.[0];
+      if (primary) locationId = String(primary.id);
+    }
+    if (!locationId) {
+      console.warn(`[refund] Could not find location for ${brandConfig.shop}, restocking without location`);
+    }
+
     const refundLineItems = lineItems.map((item) => {
       // Convert GID to numeric ID for REST API: gid://shopify/LineItem/123 -> 123
       const numericLineItemId = item.id.split('/').pop() ?? item.id;
@@ -173,6 +188,7 @@ export async function processRefund(params: {
         line_item_id: numericLineItemId,
         quantity: item.quantity,
         restock_type: 'return',
+        ...(locationId ? { location_id: locationId } : {}),
       };
     });
 
