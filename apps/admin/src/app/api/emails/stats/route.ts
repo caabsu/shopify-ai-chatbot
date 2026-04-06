@@ -30,7 +30,7 @@ export async function GET(_req: NextRequest) {
   // ── Review email stats (from review_requests) ──
   const { data: reviewRows } = await supabase
     .from('review_requests')
-    .select('id, status, scheduled_for, sent_at, reminder_sent_at, reminder_scheduled_for, customer_email, customer_name, shopify_order_id, product_ids, created_at, completed_at')
+    .select('id, status, scheduled_for, sent_at, reminder_sent_at, reminder_scheduled_for, customer_email, customer_name, shopify_order_id, product_ids, line_items, created_at, completed_at')
     .eq('brand_id', brandId)
     .order('created_at', { ascending: false });
 
@@ -148,8 +148,24 @@ export async function GET(_req: NextRequest) {
   }
 
   const activityLog = (reviewRows ?? []).map((row) => {
-    const pids = (row.product_ids as string[] | null) ?? [];
-    const productTitles = pids.map((pid: string) => productTitleMap[pid] || 'Unknown product').join(', ');
+    // Prefer line_items for variant-aware titles, fall back to product_ids
+    const lineItems = row.line_items as Array<{ product_title?: string; variant_title?: string | null; sku?: string | null }> | null;
+    let productTitles: string;
+    if (lineItems && lineItems.length > 0) {
+      productTitles = lineItems.map((li) => {
+        let name = li.product_title || 'Unknown';
+        if (li.variant_title && li.variant_title !== 'Default Title') {
+          name += ` — ${li.variant_title}`;
+        }
+        if (li.sku) {
+          name += ` (${li.sku})`;
+        }
+        return name;
+      }).join(', ');
+    } else {
+      const pids = (row.product_ids as string[] | null) ?? [];
+      productTitles = pids.map((pid: string) => productTitleMap[pid] || 'Unknown product').join(', ');
+    }
     return {
       id: row.id,
       status: row.status,

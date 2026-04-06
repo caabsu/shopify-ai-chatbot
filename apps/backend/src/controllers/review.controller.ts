@@ -883,13 +883,14 @@ reviewRouter.post('/webhooks/reset', async (req, res) => {
 reviewRouter.post('/backfill-orders', async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
-    const daysBack = parseInt(req.query.days as string, 10) || 3;
+    const daysBack = parseInt(req.body?.days as string, 10) || parseInt(req.query.days as string, 10) || 3;
 
     const sinceDate = new Date();
     sinceDate.setDate(sinceDate.getDate() - daysBack);
     const sinceDateStr = sinceDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
-    const queryFilter = `(fulfillment_status:shipped OR fulfillment_status:fulfilled) AND created_at:>${sinceDateStr}`;
+    // Use updated_at to catch orders placed earlier but fulfilled recently
+    const queryFilter = `(fulfillment_status:shipped OR fulfillment_status:fulfilled) AND updated_at:>=${sinceDateStr}`;
 
     const ORDERS_QUERY = `
       query($query: String!, $first: Int!, $after: String) {
@@ -952,8 +953,13 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
 
     let processed = 0;
     let skipped = 0;
+    let totalOrders = 0;
+    const processedOrders: string[] = [];
+    const skippedReasons: Array<{ order: string; reason: string }> = [];
     let hasNextPage = true;
     let afterCursor: string | null = null;
+
+    console.log(`[backfill] Starting backfill: query="${queryFilter}", daysBack=${daysBack}`);
 
     while (hasNextPage) {
       const variables: Record<string, unknown> = {
@@ -975,7 +981,11 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
         const shopifyOrderId = order.id.replace('gid://shopify/Order/', '');
         const customerEmail = order.email;
 
+        totalOrders++;
+
         if (!customerEmail) {
+          console.log(`[backfill] Skipped order ${order.name}: no email`);
+          skippedReasons.push({ order: order.name, reason: 'no email' });
           skipped++;
           continue;
         }
@@ -989,6 +999,8 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
           .single();
 
         if (existing) {
+          console.log(`[backfill] Skipped order ${order.name}: already exists`);
+          skippedReasons.push({ order: order.name, reason: 'already exists' });
           skipped++;
           continue;
         }
@@ -1028,6 +1040,9 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
         const productIds = reviewLineItems.map(li => li.product_id);
 
         if (productIds.length === 0) {
+          const lineItemTitles = order.lineItems.edges.map(e => e.node.title).join(', ');
+          console.log(`[backfill] Skipped order ${order.name}: no matching products in DB. Items: ${lineItemTitles}`);
+          skippedReasons.push({ order: order.name, reason: `no matching products: ${lineItemTitles}` });
           skipped++;
           continue;
         }
@@ -1051,14 +1066,15 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
           brandId,
         );
 
+        processedOrders.push(order.name);
         processed++;
       }
 
       hasNextPage = data.orders.pageInfo.hasNextPage;
     }
 
-    console.log(`[review.controller] Backfill complete: ${processed} processed, ${skipped} skipped`);
-    res.json({ processed, skipped });
+    console.log(`[backfill] Complete: ${totalOrders} total orders found, ${processed} processed, ${skipped} skipped`);
+    res.json({ totalOrders, processed, skipped, processedOrders, skippedReasons });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[review.controller] POST /backfill-orders error:', message);
