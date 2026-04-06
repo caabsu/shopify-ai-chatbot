@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 import { supabase } from '../config/supabase.js';
 import { getBrandSlug, getBrandName } from '../config/brand.js';
 import { getReviewSettings } from './review-settings.service.js';
-import type { ReviewEmailTemplate } from '../types/index.js';
+import type { ReviewEmailTemplate, ReviewRequestLineItem } from '../types/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { logEvent } from './activity-log.service.js';
 
@@ -110,6 +110,7 @@ interface OrderInfo {
   customer_email: string;
   customer_name?: string | null;
   product_ids: string[];
+  line_items?: ReviewRequestLineItem[];
 }
 
 export async function scheduleReviewRequest(
@@ -154,6 +155,7 @@ export async function scheduleReviewRequest(
         customer_email: order.customer_email,
         customer_name: order.customer_name ?? null,
         product_ids: order.product_ids,
+        line_items: order.line_items ?? null,
         status: 'scheduled',
         scheduled_for: scheduledFor.toISOString(),
         reminder_scheduled_for: reminderScheduledFor?.toISOString() ?? null,
@@ -212,10 +214,19 @@ export async function processScheduledEmails(): Promise<{ sent: number; failed: 
         const brandName = await getBrandName(brandId) ?? 'Our Store';
         const template = await getEffectiveTemplate(brandId, 'request');
 
-        // Build product title from product_ids
+        // Build product title from line_items (preferred) or fall back to product_ids lookup
+        const reqLineItems = req.line_items as ReviewRequestLineItem[] | null;
         const productIds = req.product_ids as string[];
         let productTitle = 'your purchase';
-        if (productIds.length > 0) {
+
+        if (reqLineItems && reqLineItems.length > 0) {
+          productTitle = reqLineItems.slice(0, 3).map((li) => {
+            if (li.variant_title && li.variant_title !== 'Default Title') {
+              return `${li.product_title} - ${li.variant_title}`;
+            }
+            return li.product_title;
+          }).join(', ');
+        } else if (productIds.length > 0) {
           const { data: products } = await supabase
             .from('products')
             .select('title')
@@ -325,9 +336,19 @@ export async function processScheduledReminders(): Promise<{ sent: number; faile
         const brandName = await getBrandName(brandId) ?? 'Our Store';
         const template = await getEffectiveTemplate(brandId, 'reminder');
 
+        // Build product title from line_items (preferred) or fall back to product_ids lookup
+        const reqLineItems = req.line_items as ReviewRequestLineItem[] | null;
         const productIds = req.product_ids as string[];
         let productTitle = 'your purchase';
-        if (productIds.length > 0) {
+
+        if (reqLineItems && reqLineItems.length > 0) {
+          productTitle = reqLineItems.slice(0, 3).map((li) => {
+            if (li.variant_title && li.variant_title !== 'Default Title') {
+              return `${li.product_title} - ${li.variant_title}`;
+            }
+            return li.product_title;
+          }).join(', ');
+        } else if (productIds.length > 0) {
           const { data: products } = await supabase
             .from('products')
             .select('title')

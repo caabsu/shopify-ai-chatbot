@@ -451,6 +451,8 @@ export interface Review {
   status: 'pending' | 'published' | 'rejected' | 'archived';
   verified_purchase: boolean;
   incentivized: boolean;
+  variant_id: string | null;
+  sku: string | null;
   variant_title: string | null;
   source: 'import' | 'email_request' | 'organic' | 'manual';
   import_source_id: string | null;
@@ -489,6 +491,18 @@ export interface ReviewReply {
   published: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface ReviewRequestLineItem {
+  product_id: string;
+  shopify_product_id: string;
+  shopify_variant_id: string;
+  product_title: string;
+  variant_title: string | null;
+  sku: string | null;
+  image_url: string | null;
+  quantity: number;
+  price: string;
 }
 
 export interface ReviewRequest {

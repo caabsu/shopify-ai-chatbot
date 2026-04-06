@@ -19,5 +19,8 @@
   },
   "dependencies": {
     "express-rate-limit": "^8.3.1"
+  },
+  "devDependencies": {
+    "postgres": "^3.4.9"
   }
 }

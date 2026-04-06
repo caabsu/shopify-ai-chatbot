@@ -161,6 +161,8 @@ interface SubmitReviewData {
   rating: number;
   title?: string;
   body: string;
+  variant_id?: string;
+  sku?: string;
   variant_title?: string;
   brand_id: string;
   token?: string; // review request token for verified purchase
@@ -204,24 +206,42 @@ export async function submitReview(data: SubmitReviewData): Promise<Review> {
     let source: 'email_request' | 'organic' = 'organic';
 
     if (data.token) {
+      // Look up the review request by token — match ANY status (including 'completed')
+      // so that multi-product orders can submit reviews for each product using the same token
       const { data: request, error: reqErr } = await supabase
         .from('review_requests')
         .select('*')
         .eq('token', data.token)
         .eq('brand_id', data.brand_id)
-        .in('status', ['sent', 'reminded'])
+        .in('status', ['sent', 'reminded', 'completed'])
         .single();
 
       if (!reqErr && request) {
-        verifiedPurchase = true;
-        shopifyOrderId = request.shopify_order_id;
-        source = 'email_request';
+        // Verify the product being reviewed is part of this review request
+        const requestProductIds = (request.product_ids ?? []) as string[];
+        const lineItems = (request.line_items ?? []) as Array<Record<string, unknown>>;
+        const productInRequest =
+          requestProductIds.includes(product.id) ||
+          requestProductIds.includes(product.shopify_product_id) ||
+          lineItems.some(
+            (li) =>
+              li.product_id === product.id ||
+              li.shopify_product_id === product.shopify_product_id,
+          );
 
-        // Mark request as completed
-        await supabase
-          .from('review_requests')
-          .update({ status: 'completed', completed_at: new Date().toISOString() })
-          .eq('id', request.id);
+        if (productInRequest) {
+          verifiedPurchase = true;
+          shopifyOrderId = request.shopify_order_id;
+          source = 'email_request';
+        }
+
+        // Only mark as completed if not already completed
+        if (request.status !== 'completed') {
+          await supabase
+            .from('review_requests')
+            .update({ status: 'completed', completed_at: new Date().toISOString() })
+            .eq('id', request.id);
+        }
       }
     }
 
@@ -254,6 +274,8 @@ export async function submitReview(data: SubmitReviewData): Promise<Review> {
       status,
       verified_purchase: verifiedPurchase,
       incentivized: false,
+      variant_id: data.variant_id ?? null,
+      sku: data.sku ?? null,
       variant_title: data.variant_title ?? null,
       source,
       import_source_id: null,

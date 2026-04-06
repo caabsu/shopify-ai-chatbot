@@ -15,6 +15,31 @@ import './styles/review-widget.css';
 
 // ── Types (matching actual API response format) ─────────────────────────────
 
+interface ReviewLineItem {
+  product_id: string;
+  shopify_product_id: string;
+  shopify_variant_id: string;
+  product_title: string;
+  variant_title: string | null;
+  sku: string | null;
+  image_url: string | null;
+  quantity: number;
+  price: string;
+  handle: string;
+}
+
+interface ItemReviewState {
+  rating: number;
+  hoverRating: number;
+  title: string;
+  body: string;
+  photos: { file: File; preview: string; isVideo: boolean }[];
+  expanded: boolean;
+  submitted: boolean;
+  submitting: boolean;
+  error: string | null;
+}
+
 interface RatingDistribution {
   stars: number;
   count: number;
@@ -1040,6 +1065,419 @@ function renderReviewForm(
   return wrapper;
 }
 
+// ── Multi-Item Review Form (for orders with multiple products/variants) ─────
+
+function renderMultiItemForm(
+  lineItems: ReviewLineItem[],
+  design: DesignConfig,
+  backendUrl: string,
+  brandSlug: string,
+  token: string,
+  prefill: { name?: string; email?: string },
+): HTMLElement {
+  const brandParam = brandSlug ? `?brand=${brandSlug}` : '';
+  const starColor = design.starColor || '#C5A059';
+
+  // Per-item state
+  const itemStates: ItemReviewState[] = lineItems.map((_, idx) => ({
+    rating: 0,
+    hoverRating: 0,
+    title: '',
+    body: '',
+    photos: [],
+    expanded: idx === 0,
+    submitted: false,
+    submitting: false,
+    error: null,
+  }));
+
+  let allDone = false;
+  let globalError: string | null = null;
+  let submittingAll = false;
+
+  const container = createEl('div', 'orw-multi-form');
+
+  function render(): void {
+    container.innerHTML = '';
+
+    // All-done success state
+    if (allDone) {
+      const success = createEl('div', 'orw-form-success');
+      const iconWrap = createEl('div', 'orw-form-success-icon');
+      iconWrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      success.appendChild(iconWrap);
+      success.appendChild(createEl('div', 'orw-form-success-title', 'Thank You!'));
+      success.appendChild(createEl('div', 'orw-form-success-text', 'Your reviews have been submitted and will appear shortly after moderation.'));
+      container.appendChild(success);
+      return;
+    }
+
+    const header = createEl('div', 'orw-multi-header');
+    const completedCount = itemStates.filter(s => s.submitted).length;
+    header.appendChild(createEl('div', 'orw-multi-title', `Review Your Order`));
+    header.appendChild(createEl('div', 'orw-multi-subtitle', `${completedCount} of ${lineItems.length} items reviewed`));
+
+    // Progress bar
+    const progressWrap = createEl('div', 'orw-multi-progress');
+    const progressBar = createEl('div', 'orw-multi-progress-bar');
+    progressBar.style.width = `${(completedCount / lineItems.length) * 100}%`;
+    progressWrap.appendChild(progressBar);
+    header.appendChild(progressWrap);
+    container.appendChild(header);
+
+    if (globalError) {
+      const errEl = createEl('div', 'orw-form-error', globalError);
+      errEl.style.display = '';
+      container.appendChild(errEl);
+    }
+
+    // Item cards
+    lineItems.forEach((item, idx) => {
+      const state = itemStates[idx];
+      const card = createEl('div', 'orw-item-card');
+      if (state.submitted) card.classList.add('orw-item-submitted');
+      if (state.expanded && !state.submitted) card.classList.add('orw-item-expanded');
+
+      // Card header — always visible, clickable to expand/collapse
+      const cardHeader = createEl('div', 'orw-item-header');
+      cardHeader.style.cursor = 'pointer';
+
+      // Product image
+      if (item.image_url) {
+        const img = createEl('img', 'orw-item-image');
+        img.src = item.image_url;
+        img.alt = item.product_title;
+        cardHeader.appendChild(img);
+      }
+
+      // Product info
+      const info = createEl('div', 'orw-item-info');
+      info.appendChild(createEl('div', 'orw-item-name', item.product_title));
+      if (item.variant_title && item.variant_title !== 'Default Title') {
+        info.appendChild(createEl('div', 'orw-item-variant', item.variant_title));
+      }
+      cardHeader.appendChild(info);
+
+      // Status indicator
+      if (state.submitted) {
+        const badge = createEl('div', 'orw-item-badge orw-item-badge-done');
+        badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Submitted';
+        cardHeader.appendChild(badge);
+      } else {
+        // Mini star display in collapsed state
+        const miniStars = createEl('div', 'orw-item-mini-stars');
+        for (let i = 1; i <= 5; i++) {
+          miniStars.appendChild(createStarSvg(i <= state.rating ? 'full' : 'empty', starColor, 16));
+        }
+        cardHeader.appendChild(miniStars);
+      }
+
+      cardHeader.addEventListener('click', () => {
+        if (state.submitted) return;
+        state.expanded = !state.expanded;
+        render();
+      });
+      card.appendChild(cardHeader);
+
+      // Expandable form body
+      if (state.expanded && !state.submitted) {
+        const body = createEl('div', 'orw-item-body');
+
+        // Error
+        if (state.error) {
+          const errEl = createEl('div', 'orw-form-error', state.error);
+          errEl.style.display = '';
+          body.appendChild(errEl);
+        }
+
+        // Star picker
+        const starField = createEl('div', 'orw-form-field');
+        const starLabel = createEl('label', 'orw-form-label');
+        starLabel.innerHTML = 'Rating <span class="orw-form-required">*</span>';
+        starField.appendChild(starLabel);
+
+        const starPicker = createEl('div', 'orw-star-picker');
+        const starBtns: HTMLElement[] = [];
+
+        function updateItemStars(): void {
+          const displayRating = state.hoverRating || state.rating;
+          starBtns.forEach((btn, si) => {
+            const svg = btn.querySelector('svg');
+            if (svg) btn.replaceChild(createStarSvg((si + 1) <= displayRating ? 'full' : 'empty', starColor, 28), svg);
+          });
+        }
+
+        for (let i = 1; i <= 5; i++) {
+          const starBtn = createEl('span', 'orw-star-picker-star');
+          starBtn.style.cursor = 'pointer';
+          const displayRating = state.hoverRating || state.rating;
+          starBtn.appendChild(createStarSvg(i <= displayRating ? 'full' : 'empty', starColor, 28));
+          starBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            state.rating = i;
+            state.error = null;
+            updateItemStars();
+          });
+          starBtn.addEventListener('mouseenter', () => { state.hoverRating = i; updateItemStars(); });
+          starBtn.addEventListener('mouseleave', () => { state.hoverRating = 0; updateItemStars(); });
+          starBtns.push(starBtn);
+          starPicker.appendChild(starBtn);
+        }
+        starField.appendChild(starPicker);
+        body.appendChild(starField);
+
+        // Title
+        const titleField = createEl('div', 'orw-form-field');
+        titleField.appendChild(createEl('label', 'orw-form-label', 'Review Title'));
+        const titleInput = createEl('input', 'orw-form-input') as HTMLInputElement;
+        titleInput.type = 'text';
+        titleInput.placeholder = 'Summarize your experience';
+        titleInput.value = state.title;
+        titleInput.addEventListener('input', () => { state.title = titleInput.value; });
+        titleField.appendChild(titleInput);
+        body.appendChild(titleField);
+
+        // Body
+        const bodyField = createEl('div', 'orw-form-field');
+        const bodyLabel = createEl('label', 'orw-form-label');
+        bodyLabel.innerHTML = 'Your Review <span class="orw-form-required">*</span>';
+        bodyField.appendChild(bodyLabel);
+        const bodyTextarea = createEl('textarea', 'orw-form-textarea') as HTMLTextAreaElement;
+        bodyTextarea.placeholder = 'Share your experience with this product...';
+        bodyTextarea.value = state.body;
+        bodyTextarea.addEventListener('input', () => { state.body = bodyTextarea.value; });
+        bodyField.appendChild(bodyTextarea);
+        body.appendChild(bodyField);
+
+        // Photo upload
+        const photoField = createEl('div', 'orw-form-field');
+        photoField.appendChild(createEl('label', 'orw-form-label', 'Photos & Videos (optional)'));
+
+        const uploadArea = createEl('div', 'orw-photo-upload');
+        uploadArea.innerHTML = `
+          <div class="orw-photo-upload-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="orw-photo-upload-text">Drop files here or click to upload</div>
+          <div class="orw-photo-upload-hint">Max 5 files — JPEG, PNG, WebP, or MP4</div>
+        `;
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime';
+        fileInput.multiple = true;
+        fileInput.style.display = 'none';
+
+        fileInput.addEventListener('change', () => {
+          if (fileInput.files) {
+            const remaining = 5 - state.photos.length;
+            const toAdd = Array.from(fileInput.files).slice(0, remaining);
+            for (const file of toAdd) {
+              if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
+              state.photos.push({ file, preview: URL.createObjectURL(file), isVideo: file.type.startsWith('video/') });
+            }
+            render();
+          }
+          fileInput.value = '';
+        });
+
+        uploadArea.addEventListener('click', () => { if (state.photos.length < 5) fileInput.click(); });
+        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('orw-drag-over'); });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('orw-drag-over'));
+        uploadArea.addEventListener('drop', (e) => {
+          e.preventDefault();
+          uploadArea.classList.remove('orw-drag-over');
+          if (e.dataTransfer?.files) {
+            const remaining = 5 - state.photos.length;
+            const toAdd = Array.from(e.dataTransfer.files).slice(0, remaining);
+            for (const file of toAdd) {
+              if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
+              state.photos.push({ file, preview: URL.createObjectURL(file), isVideo: file.type.startsWith('video/') });
+            }
+            render();
+          }
+        });
+
+        photoField.appendChild(uploadArea);
+
+        if (state.photos.length > 0) {
+          const previews = createEl('div', 'orw-photo-previews');
+          state.photos.forEach((photo, pi) => {
+            const pv = createEl('div', 'orw-photo-preview');
+            if (photo.isVideo) {
+              const vid = createEl('video');
+              vid.src = photo.preview;
+              vid.muted = true;
+              (vid as HTMLVideoElement).preload = 'metadata';
+              pv.appendChild(vid);
+            } else {
+              const img = createEl('img');
+              img.src = photo.preview;
+              img.alt = `Upload ${pi + 1}`;
+              pv.appendChild(img);
+            }
+            const removeBtn = createEl('button', 'orw-photo-preview-remove');
+            removeBtn.innerHTML = '&times;';
+            removeBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              URL.revokeObjectURL(photo.preview);
+              state.photos.splice(pi, 1);
+              render();
+            });
+            pv.appendChild(removeBtn);
+            previews.appendChild(pv);
+          });
+          photoField.appendChild(previews);
+        }
+
+        body.appendChild(photoField);
+        card.appendChild(body);
+      }
+
+      container.appendChild(card);
+    });
+
+    // Submit All button
+    const hasAnyFilled = itemStates.some(s => !s.submitted && s.rating > 0 && s.body.trim());
+    const allSubmitted = itemStates.every(s => s.submitted);
+    if (!allSubmitted) {
+      const actions = createEl('div', 'orw-multi-actions');
+      const submitAllBtn = createEl('button', 'orw-form-submit');
+      const filledCount = itemStates.filter(s => !s.submitted && s.rating > 0 && s.body.trim()).length;
+      submitAllBtn.textContent = submittingAll
+        ? 'Submitting...'
+        : filledCount > 1
+          ? `Submit ${filledCount} Reviews`
+          : 'Submit Review';
+      submitAllBtn.disabled = !hasAnyFilled || submittingAll;
+      submitAllBtn.addEventListener('click', () => submitAllReviews());
+      actions.appendChild(submitAllBtn);
+
+      const skipBtn = createEl('button', 'orw-multi-skip');
+      skipBtn.textContent = 'Skip remaining items';
+      skipBtn.addEventListener('click', () => {
+        allDone = true;
+        render();
+      });
+      if (completedCount > 0) actions.appendChild(skipBtn);
+      container.appendChild(actions);
+    }
+  }
+
+  async function submitAllReviews(): Promise<void> {
+    const toSubmit = itemStates
+      .map((s, i) => ({ state: s, item: lineItems[i], index: i }))
+      .filter(x => !x.state.submitted && x.state.rating > 0 && x.state.body.trim());
+
+    if (toSubmit.length === 0) return;
+
+    // Validate
+    for (const { state: s, index: i } of toSubmit) {
+      if (!s.rating) {
+        s.error = 'Please select a star rating.';
+        s.expanded = true;
+        render();
+        return;
+      }
+      if (!s.body.trim()) {
+        s.error = 'Please write your review.';
+        s.expanded = true;
+        render();
+        return;
+      }
+      s.error = null;
+    }
+
+    submittingAll = true;
+    globalError = null;
+    render();
+
+    for (const { state: s, item } of toSubmit) {
+      s.submitting = true;
+
+      try {
+        // Upload photos
+        const photoUrls: string[] = [];
+        for (const photo of s.photos) {
+          try {
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(photo.file);
+            });
+            const rawBase64 = base64.replace(/^data:[^;]+;base64,/, '');
+            const res = await fetch(`${backendUrl}/api/reviews/upload${brandParam}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ file: rawBase64, content_type: photo.file.type }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.url) photoUrls.push(data.url);
+            }
+          } catch { /* skip failed upload */ }
+        }
+
+        const payload: Record<string, unknown> = {
+          product_handle: item.handle,
+          rating: s.rating,
+          title: s.title.trim() || null,
+          body: s.body.trim(),
+          customer_name: prefill.name || '',
+          customer_email: prefill.email || '',
+          media_urls: photoUrls,
+          token,
+          variant_id: item.shopify_variant_id || null,
+          sku: item.sku || null,
+        };
+
+        const res = await fetch(`${backendUrl}/api/reviews/submit${brandParam}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: 'Submission failed' }));
+          s.error = errData.error || 'Failed to submit. Please try again.';
+          s.submitting = false;
+          submittingAll = false;
+          render();
+          return;
+        }
+
+        // Success for this item
+        s.photos.forEach(p => URL.revokeObjectURL(p.preview));
+        s.photos = [];
+        s.submitted = true;
+        s.submitting = false;
+      } catch {
+        s.error = 'Network error. Please try again.';
+        s.submitting = false;
+        submittingAll = false;
+        render();
+        return;
+      }
+    }
+
+    submittingAll = false;
+    // Check if all done
+    if (itemStates.every(s => s.submitted)) {
+      allDone = true;
+    }
+    render();
+  }
+
+  render();
+  return container;
+}
+
 // ── Main Widget ─────────────────────────────────────────────────────────────
 
 function createReviewWidget(
@@ -1505,7 +1943,28 @@ async function init(): Promise<void> {
     formRoot.style.setProperty('--orw-heading', design.headingColor || '#C5A059');
     formRoot.style.setProperty('--orw-bg', design.backgroundColor || '#ffffff');
 
-    // Add product heading if available
+    // Check for multi-item line_items data
+    const lineItemsRaw = formRoot.getAttribute('data-line-items');
+    let lineItems: ReviewLineItem[] = [];
+    try {
+      if (lineItemsRaw) lineItems = JSON.parse(lineItemsRaw);
+    } catch { /* ignore parse errors */ }
+
+    const prefillData = { name: prefillName || undefined, email: prefillEmail || undefined };
+
+    // Multi-item form when there are 2+ line items
+    if (lineItems.length > 1) {
+      const heading = document.createElement('div');
+      heading.style.cssText = 'max-width:700px;margin:40px auto 0;padding:0 20px;text-align:center;';
+      heading.innerHTML = `<h1 style="font-family:${design.headingFontFamily || 'Manrope'},sans-serif;color:${design.headingColor || '#C5A059'};font-size:20px;font-weight:600;margin-bottom:4px;">Review Your Order (${lineItems.length} items)</h1><p style="color:${design.textColor || '#666'};font-size:14px;">Review one or all of the items in your order</p>`;
+      formRoot.parentElement?.insertBefore(heading, formRoot);
+
+      const multiForm = renderMultiItemForm(lineItems, design, backendUrl, brandSlug, token, prefillData as { name?: string; email?: string });
+      formRoot.appendChild(multiForm);
+      return;
+    }
+
+    // Single-item form (original behavior)
     if (productTitle) {
       const heading = document.createElement('div');
       heading.style.cssText = 'max-width:600px;margin:40px auto 0;padding:0 20px;text-align:center;';
@@ -1538,12 +1997,12 @@ async function init(): Promise<void> {
       filterDropdownOpen: false,
     };
 
-    const prefillData = (prefillName || prefillEmail)
-      ? { name: prefillName || undefined, email: prefillEmail || undefined }
-      : undefined;
+    // For single-item with line_items data, pass variant info
+    const singleLineItem = lineItems.length === 1 ? lineItems[0] : null;
+    const effectiveHandle = singleLineItem?.handle || handle;
 
     const formEl = renderReviewForm(
-      handle,
+      effectiveHandle,
       design,
       backendUrl,
       brandSlug,
@@ -1551,7 +2010,7 @@ async function init(): Promise<void> {
       () => {},
       () => {},
       token,
-      prefillData,
+      prefillData as { name?: string; email?: string },
     );
     formRoot.appendChild(formEl);
 

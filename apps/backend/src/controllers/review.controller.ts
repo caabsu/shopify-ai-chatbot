@@ -10,6 +10,8 @@ import * as reviewAnalyticsService from '../services/review-analytics.service.js
 import * as reviewImportService from '../services/review-import.service.js';
 import * as productSyncService from '../services/product-sync.service.js';
 import { logEvent } from '../services/activity-log.service.js';
+import { graphql } from '../services/shopify-admin.service.js';
+import type { ReviewRequestLineItem } from '../types/index.js';
 
 export const reviewRouter = Router();
 
@@ -146,6 +148,8 @@ reviewRouter.post('/submit', async (req, res) => {
       rating,
       title,
       body,
+      variant_id,
+      sku,
       variant_title,
       token,
       media_urls,
@@ -195,6 +199,8 @@ reviewRouter.post('/submit', async (req, res) => {
       rating,
       title,
       body,
+      variant_id,
+      sku,
       variant_title,
       brand_id: brandId,
       token,
@@ -770,28 +776,41 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
       return;
     }
 
-    // Collect product IDs from line items
-    const lineItems = payload.line_items as Array<Record<string, unknown>> | undefined;
-    const productIds: string[] = [];
+    // Collect line items with full variant details
+    const shopifyLineItems = payload.line_items as Array<Record<string, unknown>> | undefined;
+    const reviewLineItems: ReviewRequestLineItem[] = [];
 
-    if (lineItems) {
-      for (const item of lineItems) {
-        const productId = String(item.product_id);
-        if (productId && productId !== 'null') {
-          // Find internal product ID
+    if (shopifyLineItems) {
+      for (const item of shopifyLineItems) {
+        const shopifyProductId = String(item.product_id);
+        if (shopifyProductId && shopifyProductId !== 'null') {
+          // Find internal product ID, shopify_product_id, and featured_image_url
           const { data: product } = await supabase
             .from('products')
-            .select('id')
-            .eq('shopify_product_id', productId)
+            .select('id, shopify_product_id, featured_image_url')
+            .eq('shopify_product_id', shopifyProductId)
             .eq('brand_id', brandId)
             .single();
 
           if (product) {
-            productIds.push((product as Record<string, unknown>).id as string);
+            const p = product as Record<string, unknown>;
+            reviewLineItems.push({
+              product_id: p.id as string,
+              shopify_product_id: p.shopify_product_id as string,
+              shopify_variant_id: String(item.variant_id ?? ''),
+              product_title: String(item.title ?? ''),
+              variant_title: item.variant_title ? String(item.variant_title) : null,
+              sku: item.sku ? String(item.sku) : null,
+              image_url: (p.featured_image_url as string | null) ?? null,
+              quantity: Number(item.quantity ?? 1),
+              price: String(item.price ?? '0'),
+            });
           }
         }
       }
     }
+
+    const productIds = reviewLineItems.map(li => li.product_id);
 
     if (productIds.length === 0) {
       logEvent('webhook.orders', 'info', `Order #${orderId} skipped (no matching products)`, { orderId, customerEmail });
@@ -810,8 +829,13 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
         customer_email: customerEmail,
         customer_name: customerName,
         product_ids: productIds,
+        line_items: reviewLineItems,
       },
       brandId,
+    );
+
+    const variantSummary = reviewLineItems.map(li =>
+      li.variant_title ? `${li.product_title} - ${li.variant_title}` : li.product_title
     );
 
     logEvent('webhook.orders', 'success', `Order #${orderId} fulfilled → review request scheduled for ${customerEmail}`, {
@@ -819,6 +843,7 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
       customerEmail,
       customerName,
       productCount: productIds.length,
+      lineItems: variantSummary,
     });
 
     res.status(200).json({ ok: true });
@@ -850,5 +875,193 @@ reviewRouter.post('/webhooks/reset', async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: message });
+  }
+});
+
+// ── POST /backfill-orders — Backfill review requests from recent fulfilled orders ──
+
+reviewRouter.post('/backfill-orders', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const daysBack = parseInt(req.query.days as string, 10) || 3;
+
+    const sinceDate = new Date();
+    sinceDate.setDate(sinceDate.getDate() - daysBack);
+    const sinceDateStr = sinceDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const queryFilter = `(fulfillment_status:shipped OR fulfillment_status:fulfilled) AND created_at:>${sinceDateStr}`;
+
+    const ORDERS_QUERY = `
+      query($query: String!, $first: Int!, $after: String) {
+        orders(first: $first, after: $after, query: $query) {
+          edges {
+            node {
+              id
+              name
+              email
+              customer { id firstName lastName }
+              displayFulfillmentStatus
+              lineItems(first: 20) {
+                edges {
+                  node {
+                    title
+                    quantity
+                    sku
+                    variant { id title }
+                    product { id }
+                    originalUnitPriceSet { shopMoney { amount } }
+                    image { url }
+                  }
+                }
+              }
+            }
+            cursor
+          }
+          pageInfo { hasNextPage }
+        }
+      }
+    `;
+
+    interface OrderNode {
+      id: string;
+      name: string;
+      email: string | null;
+      customer: { id: string; firstName: string | null; lastName: string | null } | null;
+      displayFulfillmentStatus: string;
+      lineItems: {
+        edges: Array<{
+          node: {
+            title: string;
+            quantity: number;
+            sku: string | null;
+            variant: { id: string; title: string } | null;
+            product: { id: string } | null;
+            originalUnitPriceSet: { shopMoney: { amount: string } };
+            image: { url: string } | null;
+          };
+        }>;
+      };
+    }
+
+    interface OrdersResponse {
+      orders: {
+        edges: Array<{ node: OrderNode; cursor: string }>;
+        pageInfo: { hasNextPage: boolean };
+      };
+    }
+
+    let processed = 0;
+    let skipped = 0;
+    let hasNextPage = true;
+    let afterCursor: string | null = null;
+
+    while (hasNextPage) {
+      const variables: Record<string, unknown> = {
+        query: queryFilter,
+        first: 50,
+      };
+      if (afterCursor) variables.after = afterCursor;
+
+      const data = await graphql<OrdersResponse>(ORDERS_QUERY, variables, brandId);
+      const edges = data.orders.edges;
+
+      if (edges.length === 0) break;
+
+      for (const edge of edges) {
+        const order = edge.node;
+        afterCursor = edge.cursor;
+
+        // Extract numeric Shopify order ID from the GID
+        const shopifyOrderId = order.id.replace('gid://shopify/Order/', '');
+        const customerEmail = order.email;
+
+        if (!customerEmail) {
+          skipped++;
+          continue;
+        }
+
+        // Check if review_request already exists for this order
+        const { data: existing } = await supabase
+          .from('review_requests')
+          .select('id')
+          .eq('shopify_order_id', shopifyOrderId)
+          .eq('brand_id', brandId)
+          .single();
+
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        // Map line items to internal product IDs
+        const reviewLineItems: ReviewRequestLineItem[] = [];
+
+        for (const liEdge of order.lineItems.edges) {
+          const li = liEdge.node;
+          if (!li.product?.id) continue;
+
+          const shopifyProductId = li.product.id.replace('gid://shopify/Product/', '');
+
+          const { data: product } = await supabase
+            .from('products')
+            .select('id, shopify_product_id, featured_image_url')
+            .eq('shopify_product_id', shopifyProductId)
+            .eq('brand_id', brandId)
+            .single();
+
+          if (product) {
+            const p = product as Record<string, unknown>;
+            reviewLineItems.push({
+              product_id: p.id as string,
+              shopify_product_id: p.shopify_product_id as string,
+              shopify_variant_id: li.variant?.id ? li.variant.id.replace('gid://shopify/ProductVariant/', '') : '',
+              product_title: li.title,
+              variant_title: li.variant?.title ?? null,
+              sku: li.sku ?? null,
+              image_url: li.image?.url ?? (p.featured_image_url as string | null) ?? null,
+              quantity: li.quantity,
+              price: li.originalUnitPriceSet.shopMoney.amount,
+            });
+          }
+        }
+
+        const productIds = reviewLineItems.map(li => li.product_id);
+
+        if (productIds.length === 0) {
+          skipped++;
+          continue;
+        }
+
+        const customerName = order.customer
+          ? `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim()
+          : null;
+        const shopifyCustomerId = order.customer?.id
+          ? order.customer.id.replace('gid://shopify/Customer/', '')
+          : null;
+
+        await reviewEmailService.scheduleReviewRequest(
+          {
+            shopify_order_id: shopifyOrderId,
+            shopify_customer_id: shopifyCustomerId,
+            customer_email: customerEmail,
+            customer_name: customerName,
+            product_ids: productIds,
+            line_items: reviewLineItems,
+          },
+          brandId,
+        );
+
+        processed++;
+      }
+
+      hasNextPage = data.orders.pageInfo.hasNextPage;
+    }
+
+    console.log(`[review.controller] Backfill complete: ${processed} processed, ${skipped} skipped`);
+    res.json({ processed, skipped });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[review.controller] POST /backfill-orders error:', message);
+    res.status(500).json({ error: 'Failed to backfill orders', details: message });
   }
 });

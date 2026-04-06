@@ -512,15 +512,16 @@ app.get('/review', async (req, res) => {
   const token = req.query.token as string;
   if (!token) { res.status(400).send('Missing token'); return; }
 
-  // Look up the review request to get product handle
+  // Look up the review request to get product handle + line items
   let productHandle = '';
   let customerName = '';
   let customerEmail = '';
   let productTitle = '';
+  let enrichedLineItems: Array<Record<string, unknown>> = [];
   try {
     const { data: request } = await supabase
       .from('review_requests')
-      .select('customer_name, customer_email, product_ids, status')
+      .select('customer_name, customer_email, product_ids, line_items, status')
       .eq('token', token)
       .single();
 
@@ -541,22 +542,77 @@ app.get('/review', async (req, res) => {
         return;
       }
 
-      const productIds = reqData.product_ids as string[];
-      if (productIds && productIds.length > 0) {
-        const { data: product } = await supabase
+      // If line_items exist, resolve handles for ALL products in the order
+      const rawLineItems = reqData.line_items as Array<Record<string, unknown>> | null;
+      if (rawLineItems && rawLineItems.length > 0) {
+        // Collect all unique product_ids from line items
+        const lineItemProductIds = rawLineItems
+          .map(li => li.product_id as string)
+          .filter(Boolean);
+        const uniqueProductIds = [...new Set(lineItemProductIds)];
+
+        // Batch query products table for handles by ID
+        const { data: productRows } = await supabase
           .from('products')
-          .select('handle, title')
-          .eq('id', productIds[0])
-          .single();
-        if (product) {
-          productHandle = (product as Record<string, unknown>).handle as string;
-          productTitle = (product as Record<string, unknown>).title as string;
+          .select('id, handle, title')
+          .in('id', uniqueProductIds);
+
+        const handleMap = new Map<string, { handle: string; title: string }>();
+        if (productRows) {
+          for (const p of productRows as Array<{ id: string; handle: string; title: string }>) {
+            handleMap.set(p.id, { handle: p.handle, title: p.title });
+          }
+        }
+
+        // Enrich each line item with its handle
+        enrichedLineItems = rawLineItems.map(li => {
+          const productInfo = handleMap.get(li.product_id as string);
+          return {
+            ...li,
+            handle: productInfo?.handle ?? '',
+          };
+        });
+
+        // Set first product as fallback for backward compat
+        if (enrichedLineItems.length > 0) {
+          const first = enrichedLineItems[0];
+          productHandle = (first.handle as string) || '';
+          productTitle = (first.product_title as string) || '';
+        }
+      } else {
+        // Fallback: resolve from product_ids (legacy requests without line_items)
+        const productIds = reqData.product_ids as string[];
+        if (productIds && productIds.length > 0) {
+          const { data: product } = await supabase
+            .from('products')
+            .select('handle, title')
+            .eq('id', productIds[0])
+            .single();
+          if (product) {
+            productHandle = (product as Record<string, unknown>).handle as string;
+            productTitle = (product as Record<string, unknown>).title as string;
+          }
         }
       }
     }
   } catch { /* proceed without product info */ }
 
   const esc = (s: string) => s.replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const escJson = (s: string) => s.replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/</g, '&lt;');
+
+  // Build page title based on item count
+  const itemCount = enrichedLineItems.length;
+  let pageTitle = 'Write a Review';
+  if (itemCount > 1) {
+    pageTitle = `Review Your Order (${itemCount} items)`;
+  } else if (productTitle) {
+    pageTitle = `Write a Review for ${productTitle}`;
+  }
+
+  // Build data attributes for the root div
+  const lineItemsAttr = enrichedLineItems.length > 0
+    ? ` data-line-items='${escJson(JSON.stringify(enrichedLineItems))}'`
+    : '';
 
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
@@ -564,14 +620,14 @@ app.get('/review', async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Write a Review${productTitle ? ` for ${productTitle}` : ''}</title>
+  <title>${esc(pageTitle)}</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
   </style>
 </head>
 <body>
-  <div id="review-form-root" data-token="${esc(token)}" data-product-handle="${esc(productHandle)}" data-customer-name="${esc(customerName)}" data-customer-email="${esc(customerEmail)}" data-product-title="${esc(productTitle)}"></div>
+  <div id="review-form-root" data-token="${esc(token)}" data-product-handle="${esc(productHandle)}" data-customer-name="${esc(customerName)}" data-customer-email="${esc(customerEmail)}" data-product-title="${esc(productTitle)}"${lineItemsAttr}></div>
   <script src="/widget/review-widget.js"></script>
 </body>
 </html>`);
@@ -1799,6 +1855,14 @@ app.listen(config.server.port, async () => {
   console.log(`[server] Running on port ${config.server.port}`);
   console.log(`[server] Environment: ${config.server.nodeEnv}`);
   await runStartupChecks();
+
+  // Run database migrations
+  try {
+    const { runMigrations } = await import('./config/migrate.js');
+    await runMigrations();
+  } catch (err) {
+    console.warn('[startup] Migration failed (non-fatal):', err instanceof Error ? err.message : err);
+  }
 
   // Register Shopify webhooks for product sync + review collection
   registerReviewWebhooks().catch(err =>
