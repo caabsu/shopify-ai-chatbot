@@ -993,13 +993,13 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
         // Check if review_request already exists for this order
         const { data: existing } = await supabase
           .from('review_requests')
-          .select('id')
+          .select('id, line_items')
           .eq('shopify_order_id', shopifyOrderId)
           .eq('brand_id', brandId)
           .single();
 
-        if (existing) {
-          console.log(`[backfill] Skipped order ${order.name}: already exists`);
+        if (existing && existing.line_items) {
+          // Already exists with line_items — fully up to date
           skippedReasons.push({ order: order.name, reason: 'already exists' });
           skipped++;
           continue;
@@ -1054,20 +1054,31 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
           ? order.customer.id.replace('gid://shopify/Customer/', '')
           : null;
 
-        await reviewEmailService.scheduleReviewRequest(
-          {
-            shopify_order_id: shopifyOrderId,
-            shopify_customer_id: shopifyCustomerId,
-            customer_email: customerEmail,
-            customer_name: customerName,
-            product_ids: productIds,
-            line_items: reviewLineItems,
-          },
-          brandId,
-        );
-
-        processedOrders.push(order.name);
-        processed++;
+        if (existing && !existing.line_items) {
+          // Existing request missing line_items — update it
+          await supabase
+            .from('review_requests')
+            .update({ line_items: reviewLineItems as unknown as Record<string, unknown>[], product_ids: productIds })
+            .eq('id', (existing as Record<string, unknown>).id);
+          console.log(`[backfill] Updated order ${order.name}: added line_items (${reviewLineItems.length} items)`);
+          processedOrders.push(`${order.name} (updated)`);
+          processed++;
+        } else {
+          // New request — schedule it
+          await reviewEmailService.scheduleReviewRequest(
+            {
+              shopify_order_id: shopifyOrderId,
+              shopify_customer_id: shopifyCustomerId,
+              customer_email: customerEmail,
+              customer_name: customerName,
+              product_ids: productIds,
+              line_items: reviewLineItems,
+            },
+            brandId,
+          );
+          processedOrders.push(order.name);
+          processed++;
+        }
       }
 
       hasNextPage = data.orders.pageInfo.hasNextPage;
