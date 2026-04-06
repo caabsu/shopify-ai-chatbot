@@ -13,6 +13,7 @@ import { reviewRouter } from './controllers/review.controller.js';
 import { trackingRouter } from './controllers/tracking.controller.js';
 import { rmaRouter } from './controllers/rma.controller.js';
 import { quizRouter } from './controllers/quiz.controller.js';
+import { contactFormSettingsRouter } from './controllers/contact-form-settings.controller.js';
 import { processScheduledEmails, processScheduledReminders, expireOldRequests } from './services/review-email.service.js';
 import { registerWebhooks as registerReviewWebhooks } from './services/product-sync.service.js';
 import { supabase } from './config/supabase.js';
@@ -1700,6 +1701,52 @@ app.use('/api/reviews', reviewRouter);
 
 // Tracking routes
 app.use('/api/tracking', trackingRouter);
+
+// Contact form settings routes
+app.use('/api/contact-form', contactFormSettingsRouter);
+
+// One-time migration: create contact_form_settings table
+app.post('/api/migrate/contact-form-settings', async (_req, res) => {
+  try {
+    const { error } = await supabase.rpc('exec_sql', {
+      query: `
+        CREATE TABLE IF NOT EXISTS contact_form_settings (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          brand_id uuid NOT NULL,
+          widget_design jsonb NOT NULL DEFAULT '{}'::jsonb,
+          form_config jsonb NOT NULL DEFAULT '{}'::jsonb,
+          created_at timestamptz DEFAULT now(),
+          updated_at timestamptz DEFAULT now(),
+          UNIQUE(brand_id)
+        );
+        ALTER TABLE contact_form_settings ENABLE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_policies WHERE tablename = 'contact_form_settings' AND policyname = 'service_role_full_access'
+          ) THEN
+            CREATE POLICY service_role_full_access ON contact_form_settings FOR ALL USING (true) WITH CHECK (true);
+          END IF;
+        END $$;
+      `,
+    });
+    if (error) {
+      // rpc might not exist — try direct table creation approach
+      console.warn('[migrate] rpc exec_sql failed, trying alternative:', error.message);
+      // Try to just insert/select to see if table exists
+      const { error: checkErr } = await supabase.from('contact_form_settings').select('id').limit(1);
+      if (checkErr && checkErr.code === '42P01') {
+        res.status(500).json({ error: 'Table does not exist and cannot auto-create. Please run SQL manually in Supabase dashboard.', details: error.message });
+        return;
+      }
+      res.json({ message: 'Table already exists (rpc not available but table accessible)', exists: true });
+      return;
+    }
+    res.json({ message: 'contact_form_settings table created successfully' });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
+});
 
 // RMA sync routes
 app.use('/api/rma', rmaRouter);

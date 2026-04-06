@@ -717,6 +717,65 @@ export interface QuizEvent {
   created_at: string;
 }
 
+// ── Contact Form Settings ──
+
+export interface ContactFormDesign {
+  // Colors
+  primaryColor: string;
+  backgroundColor: string;
+  inputBackground: string;
+  borderColor: string;
+  textColor: string;
+  labelColor: string;
+  placeholderColor: string;
+  accentColor: string;
+
+  // Typography
+  headingFontFamily: string;
+  bodyFontFamily: string;
+  headingFontSize: string;
+  labelFontSize: string;
+  inputFontSize: string;
+
+  // Border radius
+  cardBorderRadius: string;
+  inputBorderRadius: string;
+  buttonBorderRadius: string;
+
+  // Labels & Text
+  headerTitle: string;
+  headerIcon: string;
+  nameLabel: string;
+  namePlaceholder: string;
+  emailLabel: string;
+  emailPlaceholder: string;
+  subjectLabel: string;
+  subjectPlaceholder: string;
+  messageLabel: string;
+  messagePlaceholder: string;
+  buttonText: string;
+  buttonShowArrow: boolean;
+  successMessage: string;
+
+  // Layout
+  showSubjectField: boolean;
+  cardPadding: string;
+}
+
+export interface ContactFormConfig {
+  categories: string[];
+  defaultCategory: string;
+}
+
+export interface ContactFormSettings {
+  id: string;
+  brand_id: string;
+  widget_design: ContactFormDesign;
+  form_config: ContactFormConfig;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface QuizProductPool {
   id: string;
   brand_id: string;

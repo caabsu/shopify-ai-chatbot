@@ -128,6 +128,7 @@ const navGroups: NavGroup[] = [
       { href: '/reviews/playground', label: 'Review Widget', icon: TestTube },
       { href: '/reviews/design', label: 'Review Design', icon: Palette },
       { href: '/reviews/emails', label: 'Review Emails', icon: Mail },
+      { href: '/contact-form/design', label: 'Contact Form', icon: Palette },
       { href: '/tracking/playground', label: 'Tracking Widget', icon: TestTube },
       { href: '/tracking/design', label: 'Tracking Design', icon: Palette },
     ],
