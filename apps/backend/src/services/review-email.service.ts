@@ -111,6 +111,8 @@ interface OrderInfo {
   customer_name?: string | null;
   product_ids: string[];
   line_items?: ReviewRequestLineItem[];
+  /** The order's fulfillment date — used as the base for scheduling instead of now() */
+  fulfilled_at?: string | null;
 }
 
 export async function scheduleReviewRequest(
@@ -138,8 +140,16 @@ export async function scheduleReviewRequest(
       return;
     }
 
-    const scheduledFor = new Date();
+    // Use fulfillment date as base (for backfills), fall back to now for webhook-triggered
+    const baseDate = order.fulfilled_at ? new Date(order.fulfilled_at) : new Date();
+    const scheduledFor = new Date(baseDate);
     scheduledFor.setDate(scheduledFor.getDate() + settings.request_delay_days);
+
+    // If scheduled_for ended up in the past (old backfilled order), schedule for 1 hour from now
+    const now = new Date();
+    if (scheduledFor < now) {
+      scheduledFor.setTime(now.getTime() + 60 * 60 * 1000);
+    }
 
     const reminderScheduledFor = settings.reminder_enabled
       ? new Date(scheduledFor.getTime() + settings.reminder_delay_days * 24 * 60 * 60 * 1000)

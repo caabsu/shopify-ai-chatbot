@@ -889,8 +889,8 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
     sinceDate.setDate(sinceDate.getDate() - daysBack);
     const sinceDateStr = sinceDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
-    // Use updated_at to catch orders placed earlier but fulfilled recently
-    const queryFilter = `(fulfillment_status:shipped OR fulfillment_status:fulfilled) AND updated_at:>=${sinceDateStr}`;
+    // Use created_at to limit to orders placed within the window (updated_at is too broad)
+    const queryFilter = `(fulfillment_status:shipped OR fulfillment_status:fulfilled) AND created_at:>=${sinceDateStr}`;
 
     const ORDERS_QUERY = `
       query($query: String!, $first: Int!, $after: String) {
@@ -900,8 +900,10 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
               id
               name
               email
+              createdAt
               customer { id firstName lastName }
               displayFulfillmentStatus
+              fulfillments { createdAt }
               lineItems(first: 20) {
                 edges {
                   node {
@@ -927,8 +929,10 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
       id: string;
       name: string;
       email: string | null;
+      createdAt: string;
       customer: { id: string; firstName: string | null; lastName: string | null } | null;
       displayFulfillmentStatus: string;
+      fulfillments: Array<{ createdAt: string }>;
       lineItems: {
         edges: Array<{
           node: {
@@ -1054,6 +1058,11 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
           ? order.customer.id.replace('gid://shopify/Customer/', '')
           : null;
 
+        // Use the most recent fulfillment date, or fall back to order creation date
+        const fulfilledAt = order.fulfillments.length > 0
+          ? order.fulfillments[order.fulfillments.length - 1].createdAt
+          : order.createdAt;
+
         if (existing && !existing.line_items) {
           // Existing request missing line_items — update it
           await supabase
@@ -1064,7 +1073,7 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
           processedOrders.push(`${order.name} (updated)`);
           processed++;
         } else {
-          // New request — schedule it
+          // New request — schedule it using the fulfillment date
           await reviewEmailService.scheduleReviewRequest(
             {
               shopify_order_id: shopifyOrderId,
@@ -1073,6 +1082,7 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
               customer_name: customerName,
               product_ids: productIds,
               line_items: reviewLineItems,
+              fulfilled_at: fulfilledAt,
             },
             brandId,
           );
