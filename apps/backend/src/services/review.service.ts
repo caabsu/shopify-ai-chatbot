@@ -274,6 +274,8 @@ export async function submitReview(data: SubmitReviewData): Promise<Review> {
       status,
       verified_purchase: verifiedPurchase,
       incentivized: false,
+      variant_id: data.variant_id ?? null,
+      sku: data.sku ?? null,
       variant_title: data.variant_title ?? null,
       source,
       import_source_id: null,
