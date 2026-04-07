@@ -16,7 +16,8 @@ interface EmailTemplate {
 
 const TYPE_LABELS: Record<string, string> = {
   confirmation: 'Confirmation',
-  approved: 'Approved',
+  approved: 'Approved (with prepaid label)',
+  approved_no_label: 'Approved (self-ship)',
   approved_no_return: 'Approved (No Return)',
   denied: 'Denied',
   refunded: 'Refunded',
@@ -24,7 +25,8 @@ const TYPE_LABELS: Record<string, string> = {
 
 const AVAILABLE_VARIABLES: Record<string, string[]> = {
   confirmation: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name'],
-  approved: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name', 'label_section'],
+  approved: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name', 'label_section', 'label_url', 'tracking_number'],
+  approved_no_label: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name', 'warehouse_address'],
   approved_no_return: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name', 'refund_amount'],
   denied: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name', 'denial_reason'],
   refunded: ['greeting', 'ref_id', 'order_number', 'items', 'brand_name', 'refund_amount'],
@@ -36,7 +38,10 @@ const SAMPLE_VARS: Record<string, string> = {
   order_number: '#1042',
   items: 'Classic Tee (x1), Slim Joggers (x1)',
   brand_name: 'Outlight',
-  label_section: '<a href="#">Download Shipping Label</a> — Tracking: TEST123',
+  label_section: '<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;"><p style="margin:0 0 8px;font-weight:500;color:#131314;">Prepaid Return Label</p><a href="#" style="display:inline-block;padding:10px 24px;background:#C5A059;color:#131314;text-decoration:none;font-size:13px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Download Label</a><p style="margin:12px 0 0;font-size:12px;color:#71757a;">Tracking: TEST123456789</p></div>',
+  label_url: '#',
+  tracking_number: 'TEST123456789',
+  warehouse_address: 'Outlight - SWT1<br>Red Stag Fulfillment<br>500 Red Stag Way<br>Sweetwater, TN 37874',
   denial_reason: 'The item is outside the 30-day return window.',
   refund_amount: '$79.99',
 };

@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Resend } from 'resend';
 
-const VALID_TYPES = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
+const VALID_TYPES = ['confirmation', 'approved', 'approved_no_label', 'approved_no_return', 'denied', 'refunded'];
 
 const SAMPLE_VARS: Record<string, string> = {
   greeting: 'Hi Jane,',
@@ -12,7 +12,10 @@ const SAMPLE_VARS: Record<string, string> = {
   items: '<li>Classic Tee (Size M) &mdash; $49.99</li><li>Slim Joggers (Size L) &mdash; $59.99</li>',
   brand_name: 'Outlight',
   label_section:
-    '<p style="margin:16px 0;"><a href="https://example.com/label" style="display:inline-block;padding:10px 24px;background-color:#C5A059;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Download Shipping Label</a></p><p style="color:#888;font-size:13px;">Tracking: TEST123456789</p>',
+    '<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;"><p style="margin:0 0 8px;font-weight:500;color:#131314;">Prepaid Return Label</p><a href="https://example.com/label" style="display:inline-block;padding:10px 24px;background:#C5A059;color:#131314;text-decoration:none;font-size:13px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Download Label</a><p style="margin:12px 0 0;font-size:12px;color:#71757a;">Tracking: TEST123456789</p></div>',
+  label_url: 'https://example.com/label',
+  tracking_number: 'TEST123456789',
+  warehouse_address: 'Outlight - SWT1<br>Red Stag Fulfillment<br>500 Red Stag Way<br>Sweetwater, TN 37874',
   denial_reason: 'The item is outside the 30-day return window.',
   refund_amount: '$109.98',
 };

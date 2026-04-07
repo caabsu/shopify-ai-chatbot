@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Mail, Check, X, FileText, ThumbsUp, ThumbsDown, DollarSign, Gift,
-  Send, BarChart3, ArrowRight,
+  Send, BarChart3, ArrowRight, Package,
 } from 'lucide-react';
 
 interface EmailTemplate {
@@ -32,11 +32,18 @@ const TEMPLATE_INFO: Record<string, { label: string; icon: typeof Mail; descript
     bg: 'rgba(59,130,246,0.10)',
   },
   approved: {
-    label: 'Approved (with shipping)',
+    label: 'Approved (with prepaid label)',
     icon: ThumbsUp,
-    description: 'Sent when a return is approved and customer needs to ship items back',
+    description: 'Sent when a return is approved with a prepaid shipping label',
     color: '#22c55e',
     bg: 'rgba(34,197,94,0.10)',
+  },
+  approved_no_label: {
+    label: 'Approved (self-ship)',
+    icon: Package,
+    description: 'Sent when approved but customer ships at own expense. Shows warehouse address.',
+    color: '#f59e0b',
+    bg: 'rgba(245,158,11,0.10)',
   },
   approved_no_return: {
     label: 'Approved (refund only)',
@@ -107,7 +114,7 @@ export default function EmailTemplatesPage() {
     );
   }
 
-  const types = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
+  const types = ['confirmation', 'approved', 'approved_no_label', 'approved_no_return', 'denied', 'refunded'];
 
   return (
     <div className="space-y-6">

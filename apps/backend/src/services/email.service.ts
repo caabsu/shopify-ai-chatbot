@@ -299,31 +299,31 @@ ${brand} Team`;
   <p style="color: #aaa; font-size: 13px;">${escapeHtml(brand)} Team</p>
 </div>`;
 
-  // Try DB template
+  // Try DB template — use different template based on whether we have a prepaid label
   if (brandId) {
     try {
-      const tpl = await getTemplate(brandId, 'approved');
+      const templateType = hasLabel ? 'approved' : 'approved_no_label';
+      const tpl = await getTemplate(brandId, templateType);
       if (tpl) {
         if (!tpl.enabled) return { skipped: true };
-        let labelHtml: string;
-        if (hasLabel) {
-          labelHtml = `<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;"><p style="margin:0 0 8px;font-weight:500;color:#131314;">Prepaid Return Label</p><p style="margin:0 0 8px;font-size:14px;color:#2d3338;">A prepaid shipping label has been created for your return.</p><a href="${escapeHtml(labelUrl || '')}" style="display:inline-block;padding:10px 24px;background:#C5A059;color:#131314;text-decoration:none;font-size:13px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Download Label</a>${trackingNumber ? `<p style="margin:12px 0 0;font-size:12px;color:#71757a;">Tracking: ${escapeHtml(trackingNumber)}</p>` : ''}</div>`;
-        } else {
-          const warehouse = getWarehouseAddress(warehouseHint);
-          const addr = formatWarehouseAddress(warehouse);
-          labelHtml = `<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;border-radius:6px;"><p style="margin:0 0 8px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Ship your return to:</p><p style="margin:0;font-size:14px;color:#131314;line-height:1.6;">${addr.html}</p></div>`;
-        }
         const vars: Record<string, string> = {
           greeting: firstName ? `Hi ${firstName},` : 'Hi,',
           ref_id: refId,
           order_number: orderNumber,
           items,
           brand_name: brand,
-          label_section: labelHtml,
           label_url: labelUrl || '',
           tracking_number: trackingNumber || '',
-          refund_amount_section: '',
         };
+        if (hasLabel) {
+          // For with-label template: build {{label_section}} variable
+          vars.label_section = `<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;"><p style="margin:0 0 8px;font-weight:500;color:#131314;">Prepaid Return Label</p><p style="margin:0 0 8px;font-size:14px;color:#2d3338;">A prepaid shipping label has been created for your return.</p><a href="${escapeHtml(labelUrl || '')}" style="display:inline-block;padding:10px 24px;background:#C5A059;color:#131314;text-decoration:none;font-size:13px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Download Label</a>${trackingNumber ? `<p style="margin:12px 0 0;font-size:12px;color:#71757a;">Tracking: ${escapeHtml(trackingNumber)}</p>` : ''}</div>`;
+        } else {
+          // For no-label template: build {{warehouse_address}} variable
+          const warehouse = getWarehouseAddress(warehouseHint);
+          const addr = formatWarehouseAddress(warehouse);
+          vars.warehouse_address = addr.html;
+        }
         emailSubject = renderTemplate(tpl.subject, vars);
         htmlBody = renderTemplate(tpl.body_html, vars);
         textBody = renderTemplate(tpl.body_text, vars);

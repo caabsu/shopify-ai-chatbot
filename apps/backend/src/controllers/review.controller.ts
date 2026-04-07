@@ -1003,18 +1003,49 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
           continue;
         }
 
+        // Use the most recent fulfillment date, or fall back to order creation date
+        const fulfilledAt = order.fulfillments.length > 0
+          ? order.fulfillments[order.fulfillments.length - 1].createdAt
+          : order.createdAt;
+
         // Check if review_request already exists for this order
         const { data: existing } = await supabase
           .from('review_requests')
-          .select('id, line_items')
+          .select('id, line_items, status')
           .eq('shopify_order_id', shopifyOrderId)
           .eq('brand_id', brandId)
           .single();
 
         if (existing && existing.line_items) {
-          // Already exists with line_items — fully up to date
-          skippedReasons.push({ order: order.name, reason: 'already exists' });
-          skipped++;
+          // Already exists with line_items — update scheduled_for based on fulfillment date
+          // (fixes records that were synced before the fulfilled_at fix)
+          const existingRec = existing as Record<string, unknown>;
+          if (existingRec.status === 'scheduled' && fulfilledAt) {
+            const settings = await reviewSettingsService.getReviewSettings(brandId);
+            const baseDate = new Date(fulfilledAt);
+            const newScheduledFor = new Date(baseDate);
+            newScheduledFor.setDate(newScheduledFor.getDate() + settings.request_delay_days);
+            const now = new Date();
+            if (newScheduledFor < now) {
+              newScheduledFor.setTime(now.getTime() + 60 * 60 * 1000);
+            }
+            const newReminderScheduledFor = settings.reminder_enabled
+              ? new Date(newScheduledFor.getTime() + settings.reminder_delay_days * 24 * 60 * 60 * 1000)
+              : null;
+            await supabase
+              .from('review_requests')
+              .update({
+                scheduled_for: newScheduledFor.toISOString(),
+                reminder_scheduled_for: newReminderScheduledFor?.toISOString() ?? null,
+              })
+              .eq('id', existingRec.id);
+            console.log(`[backfill] Re-scheduled order ${order.name}: fulfilled ${fulfilledAt} → send ${newScheduledFor.toISOString()}`);
+            processedOrders.push(`${order.name} (rescheduled)`);
+            processed++;
+          } else {
+            skippedReasons.push({ order: order.name, reason: 'already exists' });
+            skipped++;
+          }
           continue;
         }
 
@@ -1067,11 +1098,6 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
           ? order.customer.id.replace('gid://shopify/Customer/', '')
           : null;
 
-        // Use the most recent fulfillment date, or fall back to order creation date
-        const fulfilledAt = order.fulfillments.length > 0
-          ? order.fulfillments[order.fulfillments.length - 1].createdAt
-          : order.createdAt;
-
         if (existing && !existing.line_items) {
           // Existing request missing line_items — update it
           await supabase
@@ -1113,6 +1139,118 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[review.controller] POST /backfill-orders error:', message);
     res.status(500).json({ error: 'Failed to backfill orders', details: message });
+  }
+});
+
+// ── POST /reschedule — Fix scheduled_for dates for ALL existing scheduled review requests ──
+// Looks up each order's fulfillment date from Shopify and recalculates the schedule.
+
+reviewRouter.post('/reschedule', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const settings = await reviewSettingsService.getReviewSettings(brandId);
+
+    // Fetch ALL review requests still in 'scheduled' status (not yet sent)
+    const { data: rows, error: fetchErr } = await supabase
+      .from('review_requests')
+      .select('id, shopify_order_id, scheduled_for, reminder_scheduled_for')
+      .eq('brand_id', brandId)
+      .eq('status', 'scheduled');
+
+    if (fetchErr) {
+      res.status(500).json({ error: fetchErr.message });
+      return;
+    }
+
+    if (!rows || rows.length === 0) {
+      res.json({ message: 'No scheduled review requests to reschedule', updated: 0, total: 0 });
+      return;
+    }
+
+    const ORDER_QUERY = `
+      query($id: ID!) {
+        order(id: $id) {
+          createdAt
+          fulfillments { createdAt }
+        }
+      }
+    `;
+
+    let updated = 0;
+    let skipped = 0;
+    const details: Array<{ id: string; orderId: string; oldSchedule: string; newSchedule: string; fulfilledAt: string }> = [];
+    const errors: string[] = [];
+
+    for (const row of rows as Array<{ id: string; shopify_order_id: string; scheduled_for: string; reminder_scheduled_for: string | null }>) {
+      try {
+        const gid = `gid://shopify/Order/${row.shopify_order_id}`;
+        const data = await graphql<{
+          order: {
+            createdAt: string;
+            fulfillments: Array<{ createdAt: string }>;
+          } | null;
+        }>(ORDER_QUERY, { id: gid }, brandId);
+
+        if (!data.order) {
+          errors.push(`Order ${row.shopify_order_id}: not found in Shopify`);
+          skipped++;
+          continue;
+        }
+
+        // Use most recent fulfillment date, fall back to order creation date
+        const fulfilledAt = data.order.fulfillments.length > 0
+          ? data.order.fulfillments[data.order.fulfillments.length - 1].createdAt
+          : data.order.createdAt;
+
+        const baseDate = new Date(fulfilledAt);
+        const newScheduledFor = new Date(baseDate);
+        newScheduledFor.setDate(newScheduledFor.getDate() + settings.request_delay_days);
+
+        // If scheduled_for ended up in the past, schedule for 1 hour from now
+        const now = new Date();
+        if (newScheduledFor < now) {
+          newScheduledFor.setTime(now.getTime() + 60 * 60 * 1000);
+        }
+
+        const newReminderScheduledFor = settings.reminder_enabled
+          ? new Date(newScheduledFor.getTime() + settings.reminder_delay_days * 24 * 60 * 60 * 1000)
+          : null;
+
+        await supabase
+          .from('review_requests')
+          .update({
+            scheduled_for: newScheduledFor.toISOString(),
+            reminder_scheduled_for: newReminderScheduledFor?.toISOString() ?? null,
+          })
+          .eq('id', row.id);
+
+        details.push({
+          id: row.id,
+          orderId: row.shopify_order_id,
+          oldSchedule: row.scheduled_for,
+          newSchedule: newScheduledFor.toISOString(),
+          fulfilledAt,
+        });
+        updated++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`Order ${row.shopify_order_id}: ${msg}`);
+        skipped++;
+      }
+    }
+
+    console.log(`[reschedule] Complete: ${updated} updated, ${skipped} skipped out of ${rows.length} total`);
+    res.json({
+      total: rows.length,
+      updated,
+      skipped,
+      details,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[review.controller] POST /reschedule error:', message);
+    res.status(500).json({ error: 'Failed to reschedule', details: message });
   }
 });
 

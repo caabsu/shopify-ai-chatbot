@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
-const VALID_TYPES = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
+const VALID_TYPES = ['confirmation', 'approved', 'approved_no_label', 'approved_no_return', 'denied', 'refunded'];
 
 export async function GET(
   _req: NextRequest,

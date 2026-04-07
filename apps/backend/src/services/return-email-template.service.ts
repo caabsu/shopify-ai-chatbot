@@ -3,7 +3,7 @@ import type { ReturnEmailTemplate } from '../types/index.js';
 
 type TemplateType = ReturnEmailTemplate['template_type'];
 
-const ALL_TEMPLATE_TYPES: TemplateType[] = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
+const ALL_TEMPLATE_TYPES: TemplateType[] = ['confirmation', 'approved', 'approved_no_label', 'approved_no_return', 'denied', 'refunded'];
 
 // ── Outlight Brand Email Wrapper ─────────────────────────────────────────
 function emailWrapper(content: string): string {
@@ -71,6 +71,30 @@ const DEFAULT_TEMPLATES: Record<TemplateType, { subject: string; body_html: stri
           <p style="margin:0;font-size:13px;color:#888;">Your refund will be processed within 5-7 business days of receiving your return.</p>
     `),
     body_text: `{{greeting}}\n\nGreat news! Your return for order #{{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\n{{label_section}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Write your order number #{{order_number}} on a piece of paper and include it inside the package.\n3. Attach the prepaid label and drop off at any carrier location, or ship to the address above.\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\nOutlight Team`,
+  },
+
+  approved_no_label: {
+    subject: 'Your return has been approved \u2014 Order #{{order_number}}',
+    body_html: emailWrapper(`
+          <p style="margin:0 0 16px;">{{greeting}}</p>
+          <p style="margin:0 0 16px;">Great news! Your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong> has been approved.</p>
+          <div style="background-color:#f4f0eb;padding:16px 20px;margin:0 0 20px;">
+            <p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Items approved for return</p>
+            <p style="margin:0;font-size:14px;color:#131314;">{{items}}</p>
+          </div>
+          <div style="background-color:#f4f0eb;padding:16px 20px;margin:0 0 20px;border-radius:6px;">
+            <p style="margin:0 0 8px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Ship your return to:</p>
+            <p style="margin:0;font-size:14px;color:#131314;line-height:1.6;">{{warehouse_address}}</p>
+          </div>
+          <p style="margin:0 0 12px;font-weight:600;color:#131314;">Next steps:</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+            <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">1.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Pack item(s) securely in their original packaging if possible.</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">2.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Write your order number <strong>#{{order_number}}</strong> on a piece of paper and include it inside the package.</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">3.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Ship the package to the address above using any carrier of your choice.</td></tr>
+          </table>
+          <p style="margin:0;font-size:13px;color:#888;">Your refund will be processed within 5-7 business days of receiving your return.</p>
+    `),
+    body_text: `{{greeting}}\n\nGreat news! Your return for order #{{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\nShip your return to:\n{{warehouse_address}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Write your order number #{{order_number}} on a piece of paper and include it inside the package.\n3. Ship the package to the address above using any carrier of your choice.\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\nOutlight Team`,
   },
 
   approved_no_return: {

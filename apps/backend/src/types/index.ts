@@ -298,7 +298,7 @@ export interface ReturnSettings {
 export interface ReturnEmailTemplate {
   id: string;
   brand_id: string;
-  template_type: 'confirmation' | 'approved' | 'approved_no_return' | 'denied' | 'refunded';
+  template_type: 'confirmation' | 'approved' | 'approved_no_label' | 'approved_no_return' | 'denied' | 'refunded';
   enabled: boolean;
   subject: string;
   body_html: string;
