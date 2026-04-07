@@ -48,6 +48,7 @@ export const DEFAULT_REVIEW_SETTINGS: Omit<ReviewSettings, 'id' | 'brand_id' | '
   show_verified_badge: true,
   show_incentivized_disclosure: true,
   incentivized_disclosure_text: 'This reviewer received a discount for leaving a review.',
+  excluded_skus: [],
 };
 
 export async function getReviewSettings(brandId: string): Promise<ReviewSettings> {

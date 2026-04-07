@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { DEFAULT_RETURN_EMAIL_TEMPLATES, ALL_RETURN_TEMPLATE_TYPES, type ReturnTemplateType } from '@/lib/return-email-defaults';
 
-const VALID_TYPES = ['confirmation', 'approved', 'approved_no_label', 'approved_no_return', 'denied', 'refunded'];
+const VALID_TYPES = ALL_RETURN_TEMPLATE_TYPES as readonly string[];
 
 export async function GET(
   _req: NextRequest,
@@ -24,6 +25,23 @@ export async function GET(
     .single();
 
   if (error && error.code === 'PGRST116') {
+    // Auto-seed this template from defaults
+    const defaults = DEFAULT_RETURN_EMAIL_TEMPLATES[type as ReturnTemplateType];
+    if (defaults) {
+      const { data: created, error: createErr } = await supabase
+        .from('return_email_templates')
+        .insert({
+          brand_id: session.brandId,
+          template_type: type,
+          subject: defaults.subject,
+          body_html: defaults.body_html,
+          body_text: defaults.body_text,
+        })
+        .select()
+        .single();
+
+      if (!createErr && created) return NextResponse.json(created);
+    }
     return NextResponse.json({ error: 'Template not found' }, { status: 404 });
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

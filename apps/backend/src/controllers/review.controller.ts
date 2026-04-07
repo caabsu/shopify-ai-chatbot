@@ -810,10 +810,17 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
       }
     }
 
-    const productIds = reviewLineItems.map(li => li.product_id);
+    // Filter out excluded SKUs (shipping protection, free gifts, etc.)
+    const webhookSettings = await reviewSettingsService.getReviewSettings(brandId);
+    const excludedSkus = new Set((webhookSettings.excluded_skus ?? []).map((s: string) => s.toUpperCase()));
+    const filteredLineItems = excludedSkus.size > 0
+      ? reviewLineItems.filter(li => !li.sku || !excludedSkus.has(li.sku.toUpperCase()))
+      : reviewLineItems;
+
+    const productIds = filteredLineItems.map(li => li.product_id);
 
     if (productIds.length === 0) {
-      logEvent('webhook.orders', 'info', `Order #${orderId} skipped (no matching products)`, { orderId, customerEmail });
+      logEvent('webhook.orders', 'info', `Order #${orderId} skipped (no matching products after SKU filter)`, { orderId, customerEmail });
       res.status(200).json({ ok: true, message: 'No matching products found, skipping' });
       return;
     }
@@ -837,13 +844,13 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
         customer_email: customerEmail,
         customer_name: customerName,
         product_ids: productIds,
-        line_items: reviewLineItems,
+        line_items: filteredLineItems,
         fulfilled_at: fulfilledAt ? String(fulfilledAt) : null,
       },
       brandId,
     );
 
-    const variantSummary = reviewLineItems.map(li =>
+    const variantSummary = filteredLineItems.map(li =>
       li.variant_title ? `${li.product_title} - ${li.variant_title}` : li.product_title
     );
 
@@ -1081,7 +1088,14 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
           }
         }
 
-        const productIds = reviewLineItems.map(li => li.product_id);
+        // Filter out excluded SKUs (shipping protection, free gifts, etc.)
+        const backfillSettings = await reviewSettingsService.getReviewSettings(brandId);
+        const backfillExcluded = new Set((backfillSettings.excluded_skus ?? []).map((s: string) => s.toUpperCase()));
+        const filteredBackfillItems = backfillExcluded.size > 0
+          ? reviewLineItems.filter(li => !li.sku || !backfillExcluded.has(li.sku.toUpperCase()))
+          : reviewLineItems;
+
+        const productIds = filteredBackfillItems.map(li => li.product_id);
 
         if (productIds.length === 0) {
           const lineItemTitles = order.lineItems.edges.map(e => e.node.title).join(', ');
@@ -1102,9 +1116,9 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
           // Existing request missing line_items — update it
           await supabase
             .from('review_requests')
-            .update({ line_items: reviewLineItems as unknown as Record<string, unknown>[], product_ids: productIds })
+            .update({ line_items: filteredBackfillItems as unknown as Record<string, unknown>[], product_ids: productIds })
             .eq('id', (existing as Record<string, unknown>).id);
-          console.log(`[backfill] Updated order ${order.name}: added line_items (${reviewLineItems.length} items)`);
+          console.log(`[backfill] Updated order ${order.name}: added line_items (${filteredBackfillItems.length} items)`);
           processedOrders.push(`${order.name} (updated)`);
           processed++;
         } else {
@@ -1120,7 +1134,7 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
               customer_email: customerEmail,
               customer_name: customerName,
               product_ids: productIds,
-              line_items: reviewLineItems,
+              line_items: filteredBackfillItems,
               fulfilled_at: fulfilledAt,
             },
             brandId,

@@ -547,6 +547,8 @@ export interface ReviewSettings {
   show_verified_badge: boolean;
   show_incentivized_disclosure: boolean;
   incentivized_disclosure_text: string;
+  /** SKUs to exclude from review email requests (e.g. shipping protection, free gifts) */
+  excluded_skus: string[];
   created_at: string;
   updated_at: string;
 }

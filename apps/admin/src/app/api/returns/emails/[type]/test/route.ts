@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { Resend } from 'resend';
+import { ALL_RETURN_TEMPLATE_TYPES } from '@/lib/return-email-defaults';
 
-const VALID_TYPES = ['confirmation', 'approved', 'approved_no_label', 'approved_no_return', 'denied', 'refunded'];
+const VALID_TYPES = ALL_RETURN_TEMPLATE_TYPES as readonly string[];
 
 const SAMPLE_VARS: Record<string, string> = {
   greeting: 'Hi Jane,',
