@@ -37,7 +37,7 @@ function emailWrapper(content: string): string {
 // ── Default Templates ────────────────────────────────────────────────────
 const DEFAULT_TEMPLATES: Record<TemplateType, { subject: string; body_html: string; body_text: string }> = {
   confirmation: {
-    subject: "We've received your return request \u2014 #{{ref_id}}",
+    subject: "We've received your return request \u2014 Order #{{order_number}}",
     body_html: emailWrapper(`
           <p style="margin:0 0 16px;">{{greeting}}</p>
           <p style="margin:0 0 16px;">We've received your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong>.</p>
@@ -53,7 +53,7 @@ const DEFAULT_TEMPLATES: Record<TemplateType, { subject: string; body_html: stri
   },
 
   approved: {
-    subject: 'Your return has been approved \u2014 #{{ref_id}}',
+    subject: 'Your return has been approved \u2014 Order #{{order_number}}',
     body_html: emailWrapper(`
           <p style="margin:0 0 16px;">{{greeting}}</p>
           <p style="margin:0 0 16px;">Great news! Your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong> has been approved.</p>
@@ -74,7 +74,7 @@ const DEFAULT_TEMPLATES: Record<TemplateType, { subject: string; body_html: stri
   },
 
   approved_no_return: {
-    subject: 'Your refund is being processed \u2014 #{{ref_id}}',
+    subject: 'Your refund is being processed \u2014 Order #{{order_number}}',
     body_html: emailWrapper(`
           <p style="margin:0 0 16px;">{{greeting}}</p>
           <p style="margin:0 0 16px;">We've reviewed your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong> and are processing your refund.</p>
@@ -94,7 +94,7 @@ const DEFAULT_TEMPLATES: Record<TemplateType, { subject: string; body_html: stri
   },
 
   denied: {
-    subject: 'Update on your return request \u2014 #{{ref_id}}',
+    subject: 'Update on your return request \u2014 Order #{{order_number}}',
     body_html: emailWrapper(`
           <p style="margin:0 0 16px;">{{greeting}}</p>
           <p style="margin:0 0 16px;">Thank you for reaching out about your return request <strong style="color:#C5A059;">#{{ref_id}}</strong> for order <strong>{{order_number}}</strong>.</p>
@@ -113,7 +113,7 @@ const DEFAULT_TEMPLATES: Record<TemplateType, { subject: string; body_html: stri
   },
 
   refunded: {
-    subject: 'Your refund has been processed \u2014 #{{ref_id}}',
+    subject: 'Your refund has been processed \u2014 Order #{{order_number}}',
     body_html: emailWrapper(`
           <p style="margin:0 0 16px;">{{greeting}}</p>
           <p style="margin:0 0 16px;">Your refund for return request <strong style="color:#C5A059;">#{{ref_id}}</strong> (order <strong>{{order_number}}</strong>) has been processed.</p>

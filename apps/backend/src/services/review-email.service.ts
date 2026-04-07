@@ -48,11 +48,11 @@ async function getBrandEmailConfig(brandId: string): Promise<BrandEmailConfig | 
 
 const DEFAULT_TEMPLATES: Record<string, { subject: string; body_html: string }> = {
   request: {
-    subject: 'How did you like your order #{{order_number}}? Leave a review!',
+    subject: 'How did you like your recent purchase? Leave a review!',
     body_html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #333;">Hi {{customer_name}},</h2>
-        <p>We hope you're enjoying your recent purchase of <strong>{{product_title}}</strong> (Order #{{order_number}})!</p>
+        <p>We hope you're enjoying your recent purchase of <strong>{{product_title}}</strong>{{order_ref}}!</p>
         <p>We'd love to hear what you think. Your feedback helps other shoppers and helps us improve.</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="{{review_link}}" style="background-color: #C4A265; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-size: 16px;">Write a Review</a>
@@ -62,11 +62,11 @@ const DEFAULT_TEMPLATES: Record<string, { subject: string; body_html: string }> 
     `,
   },
   reminder: {
-    subject: 'Quick reminder: We\'d love your feedback on order #{{order_number}}!',
+    subject: 'Quick reminder: We\'d love your feedback!',
     body_html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #333;">Hi {{customer_name}},</h2>
-        <p>Just a friendly reminder — we'd really appreciate your thoughts on <strong>{{product_title}}</strong> from order #{{order_number}}.</p>
+        <p>Just a friendly reminder — we'd really appreciate your thoughts on <strong>{{product_title}}</strong>{{order_ref}}.</p>
         <p>It only takes a minute and helps us a lot!</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="{{review_link}}" style="background-color: #C4A265; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-size: 16px;">Write a Review</a>
@@ -100,6 +100,8 @@ function replaceTemplateVars(
   result = result.replace(/\{\{review_link\}\}/g, vars.review_link ?? '#');
   result = result.replace(/\{\{brand_name\}\}/g, vars.brand_name ?? 'Our Store');
   result = result.replace(/\{\{order_number\}\}/g, vars.order_number ?? '');
+  // Conditional order reference — only shows " (Order #1234)" if order_number exists
+  result = result.replace(/\{\{order_ref\}\}/g, vars.order_number ? ` (Order #${vars.order_number})` : '');
   return result;
 }
 

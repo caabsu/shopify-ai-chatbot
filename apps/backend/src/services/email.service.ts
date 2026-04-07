@@ -161,7 +161,7 @@ export async function sendReturnConfirmation(opts: ReturnEmailOpts): Promise<{ m
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
   const refId = returnRequestId.slice(0, 8).toUpperCase();
 
-  let emailSubject = `We've received your return request — #${refId}`;
+  let emailSubject = `We've received your return request — Order #${escapeHtml(orderNumber)}`;
 
   let textBody = `${greeting}
 
@@ -367,7 +367,7 @@ export async function sendReturnDenied(opts: ReturnEmailOpts & { reason?: string
   const refId = returnRequestId.slice(0, 8).toUpperCase();
   const denialReason = reason || 'Your return request does not meet our return policy requirements.';
 
-  let emailSubject = `Update on your return request — #${refId}`;
+  let emailSubject = `Update on your return request — Order #${escapeHtml(orderNumber)}`;
 
   let textBody = `${greeting}
 
@@ -451,7 +451,7 @@ export async function sendReturnApprovedNoReturn(opts: ReturnEmailOpts & { refun
   const refId = returnRequestId.slice(0, 8).toUpperCase();
   const amountStr = refundAmount !== undefined ? `$${refundAmount.toFixed(2)}` : 'your refund';
 
-  let emailSubject = `Your refund is being processed — #${refId}`;
+  let emailSubject = `Your refund is being processed — Order #${escapeHtml(orderNumber)}`;
 
   let textBody = `${greeting}
 
@@ -537,7 +537,7 @@ export async function sendReturnRefunded(opts: ReturnEmailOpts & { refundAmount?
   const refId = returnRequestId.slice(0, 8).toUpperCase();
   const amountStr = refundAmount !== undefined ? `$${refundAmount.toFixed(2)}` : 'your refund';
 
-  let emailSubject = `Your refund has been processed — #${refId}`;
+  let emailSubject = `Your refund has been processed — Order #${escapeHtml(orderNumber)}`;
 
   let textBody = `${greeting}
 

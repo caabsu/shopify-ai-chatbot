@@ -232,17 +232,7 @@ returnRouter.post('/submit', async (req, res) => {
         decided_by: 'system_rule',
       });
 
-      // Send confirmation + approval emails (fire-and-forget)
-      sendReturnConfirmation({
-        to: customer_email,
-        customerName: customer_name,
-        returnRequestId: returnRequest.id,
-        orderNumber: order_number,
-        items: itemsSummary,
-        brandName: undefined,
-        brandId,
-      }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
-
+      // Send approval email only — no separate confirmation when decision is instant
       sendReturnApproved({
         to: customer_email,
         customerName: customer_name,
@@ -250,7 +240,7 @@ returnRouter.post('/submit', async (req, res) => {
         orderNumber: order_number,
         items: itemsSummary,
         brandId,
-        warehouseHint: (returnRequest.estimated_return_warehouse as string) ?? undefined,
+        warehouseHint: returnRequest.estimated_return_warehouse ?? undefined,
       }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
       res.status(201).json({ return_request: updated, status: 'approved' });
@@ -264,15 +254,7 @@ returnRouter.post('/submit', async (req, res) => {
         decided_by: 'system_rule',
       });
 
-      sendReturnConfirmation({
-        to: customer_email,
-        customerName: customer_name,
-        returnRequestId: returnRequest.id,
-        orderNumber: order_number,
-        items: itemsSummary,
-        brandId,
-      }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
-
+      // Send denial email only — no separate confirmation when decision is instant
       sendReturnDenied({
         to: customer_email,
         customerName: customer_name,
@@ -318,15 +300,7 @@ returnRouter.post('/submit', async (req, res) => {
 
         const updated = await returnService.updateReturnRequest(returnRequest.id, aiUpdatePayload);
 
-        sendReturnConfirmation({
-          to: customer_email,
-          customerName: customer_name,
-          returnRequestId: returnRequest.id,
-          orderNumber: order_number,
-          items: itemsSummary,
-          brandId,
-        }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
-
+        // Send approval email only — no separate confirmation when decision is instant
         sendReturnApproved({
           to: customer_email,
           customerName: customer_name,
@@ -334,7 +308,7 @@ returnRouter.post('/submit', async (req, res) => {
           orderNumber: order_number,
           items: itemsSummary,
           brandId,
-          warehouseHint: (returnRequest.estimated_return_warehouse as string) ?? undefined,
+          warehouseHint: returnRequest.estimated_return_warehouse ?? undefined,
         }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
         res.status(201).json({ return_request: updated, status: 'approved' });
@@ -348,15 +322,7 @@ returnRouter.post('/submit', async (req, res) => {
 
         const updated = await returnService.updateReturnRequest(returnRequest.id, aiUpdatePayload);
 
-        sendReturnConfirmation({
-          to: customer_email,
-          customerName: customer_name,
-          returnRequestId: returnRequest.id,
-          orderNumber: order_number,
-          items: itemsSummary,
-          brandId,
-        }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
-
+        // Send denial email only — no separate confirmation when decision is instant
         sendReturnDenied({
           to: customer_email,
           customerName: customer_name,
@@ -988,7 +954,7 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
       labelUrl: labelUrl ?? undefined,
       trackingNumber: labelTrackingNumber ?? undefined,
       brandId,
-      warehouseHint: (updated.estimated_return_warehouse as string) ?? undefined,
+      warehouseHint: updated.estimated_return_warehouse ?? undefined,
     }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
     res.json({ returnRequest: updated, label: labelUrl ? { url: labelUrl, trackingNumber: labelTrackingNumber } : null });
