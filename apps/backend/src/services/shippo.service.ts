@@ -3,7 +3,7 @@ import { supabase } from '../config/supabase.js';
 const SHIPPO_API = 'https://api.goshippo.com';
 
 // Two return warehouses — label goes to whichever is cheaper
-const RETURN_ADDRESSES = [
+export const RETURN_ADDRESSES = [
   {
     label: 'Outlight - SWT1 (Tennessee)',
     name: 'Outlight - SWT1',

@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { getTemplate, renderTemplate } from './return-email-template.service.js';
 import { getBrandSlug, getBrandName } from '../config/brand.js';
+import { RETURN_ADDRESSES } from './shippo.service.js';
 
 // ── Per-Brand Resend Client Resolution ───────────────────────────────────────
 // Each brand can have its own Resend API key and FROM address via env vars:
@@ -127,6 +128,27 @@ interface ReturnEmailOpts {
   items: string;
   brandName?: string;
   brandId?: string;
+  /** Which warehouse to direct the return to (e.g. "Tennessee" or "Utah"). Used when no prepaid label. */
+  warehouseHint?: string;
+}
+
+/** Pick the closest warehouse based on hint text (matches label like "Tennessee" or "Utah") */
+function getWarehouseAddress(hint?: string): typeof RETURN_ADDRESSES[0] {
+  if (hint) {
+    const lower = hint.toLowerCase();
+    const match = RETURN_ADDRESSES.find((w) => w.label.toLowerCase().includes(lower) || w.state.toLowerCase().includes(lower) || w.city.toLowerCase().includes(lower));
+    if (match) return match;
+  }
+  // Default to Tennessee (primary warehouse)
+  return RETURN_ADDRESSES[0];
+}
+
+function formatWarehouseAddress(w: typeof RETURN_ADDRESSES[0]): { text: string; html: string } {
+  const lines = [w.name, w.company, w.street1, w.street2, `${w.city}, ${w.state} ${w.zip}`].filter(Boolean);
+  return {
+    text: lines.join('\n'),
+    html: lines.map((l) => escapeHtml(l as string)).join('<br>'),
+  };
 }
 
 export async function sendReturnConfirmation(opts: ReturnEmailOpts): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
@@ -211,7 +233,7 @@ export async function sendReturnApproved(opts: ReturnEmailOpts): Promise<{ messa
   const config = await getBrandEmailConfig(opts.brandId);
   if (!config) return { error: 'Email not configured' };
 
-  const { to, customerName, returnRequestId, orderNumber, items, brandId, labelUrl, trackingNumber } = opts;
+  const { to, customerName, returnRequestId, orderNumber, items, brandId, labelUrl, trackingNumber, warehouseHint } = opts;
   const brand = opts.brandName || (brandId ? await getBrandName(brandId) : null) || 'Support';
   const firstName = customerName ? customerName.split(' ')[0] : '';
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
@@ -219,30 +241,41 @@ export async function sendReturnApproved(opts: ReturnEmailOpts): Promise<{ messa
 
   const hasLabel = !!labelUrl;
 
-  let emailSubject = `Your return has been approved — #${refId}`;
+  let emailSubject = `Your return has been approved — Order #${escapeHtml(orderNumber)}`;
 
-  const labelTextSection = hasLabel
-    ? `A prepaid return shipping label is attached to this email. You can also download it here: ${labelUrl}\n${trackingNumber ? `Return tracking number: ${trackingNumber}\n` : ''}`
-    : '';
-  const labelHtmlSection = hasLabel
-    ? `<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;">
+  // Build label or warehouse address section
+  let labelTextSection = '';
+  let labelHtmlSection = '';
+
+  if (hasLabel) {
+    labelTextSection = `A prepaid return shipping label is attached to this email. You can also download it here: ${labelUrl}\n${trackingNumber ? `Return tracking number: ${trackingNumber}\n` : ''}`;
+    labelHtmlSection = `<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;">
         <p style="margin:0 0 8px;font-weight:500;color:#131314;">Prepaid Return Label</p>
         <p style="margin:0 0 8px;font-size:14px;color:#2d3338;">A prepaid shipping label has been created for your return.</p>
         <a href="${escapeHtml(labelUrl || '')}" style="display:inline-block;padding:10px 24px;background:#C5A059;color:#131314;text-decoration:none;font-size:13px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Download Label</a>
         ${trackingNumber ? `<p style="margin:12px 0 0;font-size:12px;color:#71757a;">Tracking: ${escapeHtml(trackingNumber)}</p>` : ''}
-      </div>`
-    : '';
+      </div>`;
+  } else {
+    // No prepaid label — show the warehouse address
+    const warehouse = getWarehouseAddress(warehouseHint);
+    const addr = formatWarehouseAddress(warehouse);
+    labelTextSection = `Please ship your return to:\n${addr.text}\n`;
+    labelHtmlSection = `<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;border-radius:6px;">
+        <p style="margin:0 0 8px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Ship your return to:</p>
+        <p style="margin:0;font-size:14px;color:#131314;line-height:1.6;">${addr.html}</p>
+      </div>`;
+  }
 
   let textBody = `${greeting}
 
-Great news! Your return request #${refId} for order ${orderNumber} has been approved.
+Great news! Your return for order #${orderNumber} has been approved.
 
 Items: ${items}
 ${labelTextSection}
 Here's what to do next:
 1. Pack the item(s) securely in their original packaging if possible.
-2. Include your return reference number #${refId} inside the package.
-${hasLabel ? '3. Attach the prepaid return label to the outside of the package.\n4. Drop off the package at any carrier location.' : '3. Ship the package to our return center.'}
+2. Write your order number #${orderNumber} on a piece of paper and include it inside the package.
+${hasLabel ? '3. Attach the prepaid return label to the outside of the package.\n4. Drop off the package at any carrier location.' : '3. Ship the package to the address above using any carrier of your choice.'}
 
 Once we receive your return, we'll process your refund within 5-10 business days.
 
@@ -252,14 +285,14 @@ ${brand} Team`;
   let htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
   <p>${greeting}</p>
-  <p>Great news! Your return request <strong>#${escapeHtml(refId)}</strong> for order <strong>${escapeHtml(orderNumber)}</strong> has been approved.</p>
+  <p>Great news! Your return for order <strong>#${escapeHtml(orderNumber)}</strong> has been approved.</p>
   <p><strong>Items:</strong> ${escapeHtml(items)}</p>
   ${labelHtmlSection}
   <p><strong>Here's what to do next:</strong></p>
   <ol>
     <li>Pack the item(s) securely in their original packaging if possible.</li>
-    <li>Include your return reference number <strong>#${escapeHtml(refId)}</strong> inside the package.</li>
-    ${hasLabel ? '<li>Attach the prepaid return label to the outside of the package.</li><li>Drop off the package at any carrier location.</li>' : '<li>Ship the package to our return center.</li>'}
+    <li>Write your order number <strong>#${escapeHtml(orderNumber)}</strong> on a piece of paper and include it inside the package.</li>
+    ${hasLabel ? '<li>Attach the prepaid return label to the outside of the package.</li><li>Drop off the package at any carrier location.</li>' : '<li>Ship the package to the address above using any carrier of your choice.</li>'}
   </ol>
   <p>Once we receive your return, we'll process your refund within 5-10 business days.</p>
   <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
@@ -272,9 +305,14 @@ ${brand} Team`;
       const tpl = await getTemplate(brandId, 'approved');
       if (tpl) {
         if (!tpl.enabled) return { skipped: true };
-        const labelHtml = hasLabel
-          ? `<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;"><p style="margin:0 0 8px;font-weight:500;color:#131314;">Prepaid Return Label</p><p style="margin:0 0 8px;font-size:14px;color:#2d3338;">A prepaid shipping label has been created for your return.</p><a href="${escapeHtml(labelUrl || '')}" style="display:inline-block;padding:10px 24px;background:#C5A059;color:#131314;text-decoration:none;font-size:13px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Download Label</a>${trackingNumber ? `<p style="margin:12px 0 0;font-size:12px;color:#71757a;">Tracking: ${escapeHtml(trackingNumber)}</p>` : ''}</div>`
-          : '<p style="color:#71757a;font-size:13px;">A prepaid return label will be provided separately if applicable.</p>';
+        let labelHtml: string;
+        if (hasLabel) {
+          labelHtml = `<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;"><p style="margin:0 0 8px;font-weight:500;color:#131314;">Prepaid Return Label</p><p style="margin:0 0 8px;font-size:14px;color:#2d3338;">A prepaid shipping label has been created for your return.</p><a href="${escapeHtml(labelUrl || '')}" style="display:inline-block;padding:10px 24px;background:#C5A059;color:#131314;text-decoration:none;font-size:13px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;">Download Label</a>${trackingNumber ? `<p style="margin:12px 0 0;font-size:12px;color:#71757a;">Tracking: ${escapeHtml(trackingNumber)}</p>` : ''}</div>`;
+        } else {
+          const warehouse = getWarehouseAddress(warehouseHint);
+          const addr = formatWarehouseAddress(warehouse);
+          labelHtml = `<div style="background:#f4f0eb;padding:16px 20px;margin:16px 0;border-radius:6px;"><p style="margin:0 0 8px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:#888;">Ship your return to:</p><p style="margin:0;font-size:14px;color:#131314;line-height:1.6;">${addr.html}</p></div>`;
+        }
         const vars: Record<string, string> = {
           greeting: firstName ? `Hi ${firstName},` : 'Hi,',
           ref_id: refId,

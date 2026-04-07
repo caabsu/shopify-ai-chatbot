@@ -509,6 +509,7 @@ export interface ReviewRequest {
   id: string;
   shopify_order_id: string;
   shopify_customer_id: string | null;
+  order_number: string | null;
   customer_email: string;
   customer_name: string | null;
   product_ids: string[];

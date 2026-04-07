@@ -250,6 +250,7 @@ returnRouter.post('/submit', async (req, res) => {
         orderNumber: order_number,
         items: itemsSummary,
         brandId,
+        warehouseHint: (returnRequest.estimated_return_warehouse as string) ?? undefined,
       }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
       res.status(201).json({ return_request: updated, status: 'approved' });
@@ -333,6 +334,7 @@ returnRouter.post('/submit', async (req, res) => {
           orderNumber: order_number,
           items: itemsSummary,
           brandId,
+          warehouseHint: (returnRequest.estimated_return_warehouse as string) ?? undefined,
         }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
         res.status(201).json({ return_request: updated, status: 'approved' });
@@ -986,6 +988,7 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
       labelUrl: labelUrl ?? undefined,
       trackingNumber: labelTrackingNumber ?? undefined,
       brandId,
+      warehouseHint: (updated.estimated_return_warehouse as string) ?? undefined,
     }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
     res.json({ returnRequest: updated, label: labelUrl ? { url: labelUrl, trackingNumber: labelTrackingNumber } : null });

@@ -65,12 +65,12 @@ const DEFAULT_TEMPLATES: Record<TemplateType, { subject: string; body_html: stri
           <p style="margin:0 0 12px;font-weight:600;color:#131314;">Next steps:</p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
             <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">1.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Pack item(s) securely in their original packaging if possible.</td></tr>
-            <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">2.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Include your reference number <strong>#{{ref_id}}</strong> inside the package.</td></tr>
+            <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">2.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Write your order number <strong>#{{order_number}}</strong> on a piece of paper and include it inside the package.</td></tr>
             <tr><td style="padding:4px 12px 4px 0;vertical-align:top;color:#C5A059;font-weight:700;font-size:14px;">3.</td><td style="padding:4px 0;font-size:14px;color:#131314;">Attach the prepaid label and drop off at any carrier location.</td></tr>
           </table>
           <p style="margin:0;font-size:13px;color:#888;">Your refund will be processed within 5-7 business days of receiving your return.</p>
     `),
-    body_text: `{{greeting}}\n\nGreat news! Your return request #{{ref_id}} for order {{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\nA prepaid return label is included with this email. Download it here: {{label_url}}\nTracking: {{tracking_number}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Include your reference number #{{ref_id}} inside the package.\n3. Attach the prepaid label and drop off at any carrier location.\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\nOutlight Team`,
+    body_text: `{{greeting}}\n\nGreat news! Your return for order #{{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\n{{label_section}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Write your order number #{{order_number}} on a piece of paper and include it inside the package.\n3. Attach the prepaid label and drop off at any carrier location, or ship to the address above.\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\nOutlight Team`,
   },
 
   approved_no_return: {

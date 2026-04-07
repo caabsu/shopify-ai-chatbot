@@ -48,11 +48,11 @@ async function getBrandEmailConfig(brandId: string): Promise<BrandEmailConfig | 
 
 const DEFAULT_TEMPLATES: Record<string, { subject: string; body_html: string }> = {
   request: {
-    subject: 'How did you like your purchase? Leave a review!',
+    subject: 'How did you like your order #{{order_number}}? Leave a review!',
     body_html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #333;">Hi {{customer_name}},</h2>
-        <p>We hope you're enjoying your recent purchase of <strong>{{product_title}}</strong>!</p>
+        <p>We hope you're enjoying your recent purchase of <strong>{{product_title}}</strong> (Order #{{order_number}})!</p>
         <p>We'd love to hear what you think. Your feedback helps other shoppers and helps us improve.</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="{{review_link}}" style="background-color: #C4A265; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-size: 16px;">Write a Review</a>
@@ -62,11 +62,11 @@ const DEFAULT_TEMPLATES: Record<string, { subject: string; body_html: string }> 
     `,
   },
   reminder: {
-    subject: 'Quick reminder: We\'d love your feedback!',
+    subject: 'Quick reminder: We\'d love your feedback on order #{{order_number}}!',
     body_html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #333;">Hi {{customer_name}},</h2>
-        <p>Just a friendly reminder — we'd really appreciate your thoughts on <strong>{{product_title}}</strong>.</p>
+        <p>Just a friendly reminder — we'd really appreciate your thoughts on <strong>{{product_title}}</strong> from order #{{order_number}}.</p>
         <p>It only takes a minute and helps us a lot!</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="{{review_link}}" style="background-color: #C4A265; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-size: 16px;">Write a Review</a>
@@ -92,13 +92,14 @@ const DEFAULT_TEMPLATES: Record<string, { subject: string; body_html: string }> 
 
 function replaceTemplateVars(
   text: string,
-  vars: { customer_name?: string; product_title?: string; review_link?: string; brand_name?: string },
+  vars: { customer_name?: string; product_title?: string; review_link?: string; brand_name?: string; order_number?: string },
 ): string {
   let result = text;
   result = result.replace(/\{\{customer_name\}\}/g, vars.customer_name ?? 'Customer');
   result = result.replace(/\{\{product_title\}\}/g, vars.product_title ?? 'your purchase');
   result = result.replace(/\{\{review_link\}\}/g, vars.review_link ?? '#');
   result = result.replace(/\{\{brand_name\}\}/g, vars.brand_name ?? 'Our Store');
+  result = result.replace(/\{\{order_number\}\}/g, vars.order_number ?? '');
   return result;
 }
 
@@ -107,6 +108,7 @@ function replaceTemplateVars(
 interface OrderInfo {
   shopify_order_id: string;
   shopify_customer_id?: string | null;
+  order_number?: string | null;
   customer_email: string;
   customer_name?: string | null;
   product_ids: string[];
@@ -162,6 +164,7 @@ export async function scheduleReviewRequest(
       .insert({
         shopify_order_id: order.shopify_order_id,
         shopify_customer_id: order.shopify_customer_id ?? null,
+        order_number: order.order_number ?? null,
         customer_email: order.customer_email,
         customer_name: order.customer_name ?? null,
         product_ids: order.product_ids,
@@ -250,11 +253,14 @@ export async function processScheduledEmails(): Promise<{ sent: number; failed: 
 
         const reviewLink = `https://${process.env.REVIEW_FORM_BASE_URL || 'shopify-ai-chatbot-production-9ab4.up.railway.app'}/review?token=${req.token as string}`;
 
+        const orderNumber = (req.order_number as string) || '';
+
         const subject = replaceTemplateVars(template.subject, {
           customer_name: req.customer_name as string | undefined,
           product_title: productTitle,
           review_link: reviewLink,
           brand_name: brandName,
+          order_number: orderNumber,
         });
 
         const bodyHtml = replaceTemplateVars(template.body_html, {
@@ -262,6 +268,7 @@ export async function processScheduledEmails(): Promise<{ sent: number; failed: 
           product_title: productTitle,
           review_link: reviewLink,
           brand_name: brandName,
+          order_number: orderNumber,
         });
 
         const settings = await getReviewSettings(brandId);
@@ -281,10 +288,10 @@ export async function processScheduledEmails(): Promise<{ sent: number; failed: 
           .eq('id', req.id);
 
         sent++;
-        logEvent('email.sent', 'success', `Review request email sent to ${req.customer_email} (order ${req.shopify_order_id})`, {
+        logEvent('email.sent', 'success', `Review request email sent to ${req.customer_email} (order #${orderNumber || req.shopify_order_id})`, {
           email: req.customer_email, orderId: req.shopify_order_id, type: 'request',
         });
-        console.log(`[review-email] Sent review request email to ${req.customer_email} for order ${req.shopify_order_id}`);
+        console.log(`[review-email] Sent review request email to ${req.customer_email} for order #${orderNumber || req.shopify_order_id}`);
       } catch (err) {
         failed++;
         const message = err instanceof Error ? err.message : String(err);
@@ -371,12 +378,14 @@ export async function processScheduledReminders(): Promise<{ sent: number; faile
         }
 
         const reviewLink = `https://${process.env.REVIEW_FORM_BASE_URL || 'shopify-ai-chatbot-production-9ab4.up.railway.app'}/review?token=${req.token as string}`;
+        const orderNumber = (req.order_number as string) || '';
 
         const subject = replaceTemplateVars(template.subject, {
           customer_name: req.customer_name as string | undefined,
           product_title: productTitle,
           review_link: reviewLink,
           brand_name: brandName,
+          order_number: orderNumber,
         });
 
         const bodyHtml = replaceTemplateVars(template.body_html, {
@@ -384,6 +393,7 @@ export async function processScheduledReminders(): Promise<{ sent: number; faile
           product_title: productTitle,
           review_link: reviewLink,
           brand_name: brandName,
+          order_number: orderNumber,
         });
 
         const settings = await getReviewSettings(brandId);
@@ -403,10 +413,10 @@ export async function processScheduledReminders(): Promise<{ sent: number; faile
           .eq('id', req.id);
 
         sent++;
-        logEvent('email.sent', 'success', `Reminder email sent to ${req.customer_email}`, {
+        logEvent('email.sent', 'success', `Reminder email sent to ${req.customer_email} (order #${orderNumber})`, {
           email: req.customer_email, type: 'reminder',
         });
-        console.log(`[review-email] Sent reminder email to ${req.customer_email}`);
+        console.log(`[review-email] Sent reminder email to ${req.customer_email} for order #${orderNumber}`);
       } catch (err) {
         failed++;
         const message = err instanceof Error ? err.message : String(err);

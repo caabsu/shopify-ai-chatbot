@@ -822,14 +822,23 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
       ? `${(payload.customer as Record<string, unknown>).first_name ?? ''} ${(payload.customer as Record<string, unknown>).last_name ?? ''}`.trim()
       : null;
 
+    // Extract the 4-digit order number (e.g., "1234" from "#1234" or order_number field)
+    const orderName = payload.name || payload.order_number || '';
+    const orderNumberStr = String(orderName).replace(/^#/, '');
+
+    // Use fulfilled_at from the payload if available, otherwise created_at
+    const fulfilledAt = payload.fulfilled_at || payload.closed_at || payload.created_at || null;
+
     await reviewEmailService.scheduleReviewRequest(
       {
         shopify_order_id: String(payload.id),
         shopify_customer_id: payload.customer ? String((payload.customer as Record<string, unknown>).id) : null,
+        order_number: orderNumberStr || null,
         customer_email: customerEmail,
         customer_name: customerName,
         product_ids: productIds,
         line_items: reviewLineItems,
+        fulfilled_at: fulfilledAt ? String(fulfilledAt) : null,
       },
       brandId,
     );
@@ -1073,11 +1082,15 @@ reviewRouter.post('/backfill-orders', async (req, res) => {
           processedOrders.push(`${order.name} (updated)`);
           processed++;
         } else {
+          // Extract the 4-digit order number from the Shopify order name (e.g., "#1234" → "1234")
+          const orderNumberStr = order.name ? String(order.name).replace(/^#/, '') : null;
+
           // New request — schedule it using the fulfillment date
           await reviewEmailService.scheduleReviewRequest(
             {
               shopify_order_id: shopifyOrderId,
               shopify_customer_id: shopifyCustomerId,
+              order_number: orderNumberStr,
               customer_email: customerEmail,
               customer_name: customerName,
               product_ids: productIds,
