@@ -1693,6 +1693,70 @@ app.use('/api/agents', agentRouter);
 // Return portal routes
 app.use('/api/returns', returnRouter);
 
+// ── Test email endpoint — sends mock return emails for debugging ──
+import { sendReturnConfirmation, sendReturnApproved, sendReturnApprovedNoReturn, sendReturnDenied, sendReturnRefunded } from './services/email.service.js';
+import { v4 as genTestId } from 'uuid';
+
+app.post('/api/returns/test-email', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { type, to } = req.body;
+
+    if (!to || !type) {
+      res.status(400).json({ error: 'Missing "type" and "to" fields' });
+      return;
+    }
+
+    const mockOpts = {
+      to,
+      customerName: 'Jane Doe',
+      returnRequestId: genTestId(),
+      orderNumber: '1042',
+      items: 'Classic Tee (x1), Slim Joggers (x1)',
+      brandId,
+    };
+
+    let result;
+    switch (type) {
+      case 'confirmation':
+        result = await sendReturnConfirmation(mockOpts);
+        break;
+      case 'approved':
+        result = await sendReturnApproved({
+          ...mockOpts,
+          labelUrl: 'https://deliver.goshippo.com/sample-label.pdf',
+          trackingNumber: 'TEST1Z999AA10123456784',
+        });
+        break;
+      case 'approved_no_label':
+        result = await sendReturnApproved({
+          ...mockOpts,
+          // No labelUrl → triggers the no-label/warehouse-address template
+          warehouseHint: 'Tennessee',
+        });
+        break;
+      case 'approved_no_return':
+        result = await sendReturnApprovedNoReturn({ ...mockOpts, refundAmount: 109.98 });
+        break;
+      case 'denied':
+        result = await sendReturnDenied({ ...mockOpts, reason: 'The item is outside the 30-day return window.' });
+        break;
+      case 'refunded':
+        result = await sendReturnRefunded({ ...mockOpts, refundAmount: 109.98 });
+        break;
+      default:
+        res.status(400).json({ error: `Unknown type: ${type}. Valid: confirmation, approved, approved_no_label, approved_no_return, denied, refunded` });
+        return;
+    }
+
+    console.log(`[test-email] Sent ${type} to ${to}:`, result);
+    res.json({ type, to, result });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
+  }
+});
+
 // Trade program routes
 app.use('/api/trade', tradeRouter);
 
