@@ -5,27 +5,27 @@ const cache = new Map<string, { data: ContactFormSettings; expiresAt: number }>(
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export const DEFAULT_CONTACT_FORM_DESIGN: ContactFormDesign = {
-  // Colors
-  primaryColor: '#3C2415',
-  backgroundColor: '#FDFAF6',
-  inputBackground: '#FAF7F2',
-  borderColor: '#E8E0D5',
-  textColor: '#2C1810',
-  labelColor: '#2C1810',
-  placeholderColor: '#B5A898',
-  accentColor: '#C5A059',
+  // Colors — V03 Warm Split
+  primaryColor: '#a36b33',
+  backgroundColor: '#f5f0e6',
+  inputBackground: '#f5f0e6',
+  borderColor: '#d8d0c2',
+  textColor: '#352013',
+  labelColor: '#352013',
+  placeholderColor: '#a39a8e',
+  accentColor: '#a36b33',
 
-  // Typography
-  headingFontFamily: 'Georgia, serif',
-  bodyFontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  // Typography — V03 Warm Split
+  headingFontFamily: "'DM Serif Display', serif",
+  bodyFontFamily: "'Bricolage Grotesque', system-ui, sans-serif",
   headingFontSize: '22px',
   labelFontSize: '14px',
   inputFontSize: '15px',
 
   // Border radius
-  cardBorderRadius: '16px',
+  cardBorderRadius: '20px',
   inputBorderRadius: '12px',
-  buttonBorderRadius: '12px',
+  buttonBorderRadius: '14px',
 
   // Labels & Text
   headerTitle: 'Send a Message',
@@ -44,7 +44,7 @@ export const DEFAULT_CONTACT_FORM_DESIGN: ContactFormDesign = {
 
   // Layout
   showSubjectField: true,
-  cardPadding: '36px 32px',
+  cardPadding: '40px',
 };
 
 export const DEFAULT_CONTACT_FORM_CONFIG: ContactFormConfig = {

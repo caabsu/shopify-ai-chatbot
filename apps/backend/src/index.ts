@@ -1812,6 +1812,49 @@ app.post('/api/migrate/contact-form-settings', async (_req, res) => {
   }
 });
 
+// One-time: reset contact + tracking design to V03 Warm Split defaults
+app.post('/api/migrate/reset-design-v03', async (req, res) => {
+  try {
+    const brandSlug = (req.query.brand as string) || 'misu';
+    const brandId = await resolveBrandId(req);
+
+    // Import defaults
+    const { DEFAULT_CONTACT_FORM_DESIGN } = await import('./services/contact-form-settings.service.js');
+    const { DEFAULT_WIDGET_DESIGN: DEFAULT_TRACKING_DESIGN } = await import('./services/tracking-settings.service.js');
+
+    // Update contact form design
+    const { data: cfData, error: cfErr } = await supabase
+      .from('contact_form_settings')
+      .update({ widget_design: DEFAULT_CONTACT_FORM_DESIGN, updated_at: new Date().toISOString() })
+      .eq('brand_id', brandId)
+      .select('id')
+      .single();
+
+    // Update tracking design
+    const { data: tData, error: tErr } = await supabase
+      .from('tracking_settings')
+      .update({ widget_design: DEFAULT_TRACKING_DESIGN, updated_at: new Date().toISOString() })
+      .eq('brand_id', brandId)
+      .select('id')
+      .single();
+
+    // Invalidate caches
+    const contactSvc = await import('./services/contact-form-settings.service.js');
+    const trackingSvc = await import('./services/tracking-settings.service.js');
+    contactSvc.invalidateCache(brandId);
+    trackingSvc.invalidateCache(brandId);
+
+    res.json({
+      message: `Design reset to V03 Warm Split for brand "${brandSlug}"`,
+      contactForm: cfErr ? { error: cfErr.message } : { updated: true },
+      tracking: tErr ? { error: tErr.message } : { updated: true },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
+});
+
 // RMA sync routes
 app.use('/api/rma', rmaRouter);
 

@@ -1,0 +1,358 @@
+{% comment %}
+  product-ingredients.liquid — Horizontal infinite-scroll ingredient marquee.
+  Layout: Section header → horizontal scrolling ingredient circles → CTA.
+  Matches Outlight theme: heading-thin, font-body, font-label, #C5A059 accent.
+{% endcomment %}
+
+<style>
+  /* ── Horizontal marquee ─────────────────────────────────── */
+  .ing-marquee {
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+  }
+
+  /* Fade masks left & right */
+  .ing-marquee::before,
+  .ing-marquee::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 120px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .ing-marquee::before {
+    left: 0;
+    background: linear-gradient(to right, var(--ing-bg), transparent);
+  }
+  .ing-marquee::after {
+    right: 0;
+    background: linear-gradient(to left, var(--ing-bg), transparent);
+  }
+  @media (max-width: 767px) {
+    .ing-marquee::before,
+    .ing-marquee::after { width: 48px; }
+  }
+
+  .ing-marquee-track {
+    display: flex;
+    align-items: flex-start;
+    gap: 56px;
+    width: max-content;
+    will-change: transform;
+    animation: ing-scroll-left var(--ing-speed, 30s) linear infinite;
+  }
+  @media (max-width: 767px) {
+    .ing-marquee-track { gap: 36px; }
+  }
+
+  .ing-marquee-track:hover {
+    animation-play-state: paused;
+  }
+
+  @keyframes ing-scroll-left {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* ── Ingredient item ────────────────────────────────────── */
+  .ing-item {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    cursor: default;
+  }
+
+  .ing-item-circle {
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 1px solid rgba(19, 19, 20, 0.06);
+    background: rgba(19, 19, 20, 0.03);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .ing-item:hover .ing-item-circle {
+    transform: scale(1.05);
+    box-shadow: 0 12px 40px rgba(197, 160, 89, 0.14);
+  }
+
+  .ing-item-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Placeholder when no image */
+  .ing-item-placeholder {
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(145deg, rgba(197, 160, 89, 0.08), rgba(197, 160, 89, 0.02));
+    border: 1px solid rgba(197, 160, 89, 0.15);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .ing-item:hover .ing-item-placeholder {
+    transform: scale(1.05);
+    box-shadow: 0 12px 40px rgba(197, 160, 89, 0.14);
+  }
+  .ing-item-placeholder .material-symbols-outlined {
+    font-size: 48px;
+    color: #C5A059;
+    opacity: 0.4;
+  }
+
+  /* Dark scheme placeholder */
+  .ing-section--dark .ing-item-circle {
+    border-color: rgba(249, 249, 251, 0.06);
+    background: rgba(249, 249, 251, 0.03);
+  }
+  .ing-section--dark .ing-item-placeholder {
+    background: linear-gradient(145deg, rgba(197, 160, 89, 0.1), rgba(197, 160, 89, 0.03));
+    border-color: rgba(197, 160, 89, 0.12);
+  }
+
+  /* Mobile: still large but fit viewport */
+  @media (max-width: 767px) {
+    .ing-item-circle,
+    .ing-item-placeholder {
+      width: 180px;
+      height: 180px;
+    }
+    .ing-item { gap: 12px; }
+  }
+
+  /* ── CTA ────────────────────────────────────────────────── */
+  .ing-cta {
+    display: inline-block;
+    background-color: #C5A059;
+    color: #131314;
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .ing-cta:hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
+  }
+</style>
+
+{%- assign bg_color = '#F9F9FB' -%}
+{%- assign is_dark = false -%}
+{%- if section.settings.color_scheme == 'bg-[#131314]' -%}
+  {%- assign bg_color = '#131314' -%}
+  {%- assign is_dark = true -%}
+{%- endif -%}
+
+<section class="{{ section.settings.color_scheme | default: 'bg-[#F9F9FB]' }} {% if is_dark %}ing-section--dark{% endif %} py-16 md:py-28"
+  style="--ing-speed: {{ section.settings.scroll_speed | default: 30 }}s; --ing-bg: {{ bg_color }};">
+
+  {%- comment %} ── Header ── {%- endcomment %}
+  <div class="max-w-[1920px] mx-auto px-5 md:px-12">
+    <div class="max-w-3xl mx-auto text-center mb-12 md:mb-16">
+      {%- if section.settings.label != blank -%}
+        <span class="font-label text-[0.6rem] md:text-[0.65rem] uppercase tracking-[0.2em] text-[#C5A059] block mb-5">{{ section.settings.label }}</span>
+      {%- endif -%}
+      <h2 class="heading-thin text-3xl md:text-5xl {% if is_dark %}text-[#F9F9FB]{% else %}text-[#131314]{% endif %} tracking-tight leading-tight mb-5">{{ section.settings.heading | newline_to_br }}</h2>
+      {%- if section.settings.subheading != blank -%}
+        <p class="font-body text-[0.9rem] md:text-[1rem] font-light {% if is_dark %}text-[#F9F9FB]/35{% else %}text-[#2d3338]/55{% endif %} max-w-xl mx-auto leading-relaxed">{{ section.settings.subheading }}</p>
+      {%- endif -%}
+    </div>
+  </div>
+
+  {%- comment %} ── Horizontal marquee (full-width, no side padding) ── {%- endcomment %}
+  {%- if section.blocks.size > 0 -%}
+    <div class="ing-marquee mb-12 md:mb-16">
+      <div class="ing-marquee-track">
+        {%- comment %} First set {%- endcomment %}
+        {%- for block in section.blocks -%}
+          <div class="ing-item" {{ block.shopify_attributes }}>
+            {%- if block.settings.image != blank -%}
+              <div class="ing-item-circle">
+                <img
+                  src="{{ block.settings.image | image_url: width: 520 }}"
+                  alt="{{ block.settings.name | escape }}"
+                  loading="lazy"
+                  width="520"
+                  height="520"
+                >
+              </div>
+            {%- else -%}
+              <div class="ing-item-placeholder">
+                <span class="material-symbols-outlined">spa</span>
+              </div>
+            {%- endif -%}
+            <span class="font-label text-[0.6rem] md:text-[0.68rem] uppercase tracking-[0.15em] {% if is_dark %}text-[#F9F9FB]/45{% else %}text-[#131314]/45{% endif %} text-center whitespace-nowrap">{{ block.settings.name }}</span>
+          </div>
+        {%- endfor -%}
+        {%- comment %} Duplicate for seamless loop {%- endcomment %}
+        {%- for block in section.blocks -%}
+          <div class="ing-item" aria-hidden="true">
+            {%- if block.settings.image != blank -%}
+              <div class="ing-item-circle">
+                <img
+                  src="{{ block.settings.image | image_url: width: 520 }}"
+                  alt="{{ block.settings.name | escape }}"
+                  loading="lazy"
+                  width="520"
+                  height="520"
+                >
+              </div>
+            {%- else -%}
+              <div class="ing-item-placeholder">
+                <span class="material-symbols-outlined">spa</span>
+              </div>
+            {%- endif -%}
+            <span class="font-label text-[0.6rem] md:text-[0.68rem] uppercase tracking-[0.15em] {% if is_dark %}text-[#F9F9FB]/45{% else %}text-[#131314]/45{% endif %} text-center whitespace-nowrap">{{ block.settings.name }}</span>
+          </div>
+        {%- endfor -%}
+      </div>
+    </div>
+  {%- endif -%}
+
+  {%- comment %} ── CTA ── {%- endcomment %}
+  {%- if section.settings.button_label != blank -%}
+    <div class="max-w-[1920px] mx-auto px-5 md:px-12 text-center">
+      <a href="{{ section.settings.button_url }}" class="ing-cta font-label text-[0.7rem] md:text-[0.75rem] uppercase tracking-[0.2em] px-10 md:px-14 py-4 md:py-5 text-center inline-block">
+        {{ section.settings.button_label }}
+      </a>
+      {%- if section.settings.secondary_label != blank -%}
+        <div class="mt-5">
+          <a href="{{ section.settings.secondary_url }}" class="font-label text-[0.6rem] md:text-[0.65rem] uppercase tracking-[0.15em] {% if is_dark %}text-[#F9F9FB]/30 hover:text-[#F9F9FB]/60{% else %}text-[#2d3338]/35 hover:text-[#2d3338]/70{% endif %} transition-colors duration-300 border-b border-current pb-1">
+            {{ section.settings.secondary_label }}
+          </a>
+        </div>
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+
+</section>
+
+<script>
+  /* Pause marquee when out of viewport */
+  (function() {
+    var el = document.querySelector('.ing-marquee');
+    if (!el) return;
+    var track = el.querySelector('.ing-marquee-track');
+    if (!track) return;
+    var io = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        track.style.animationPlayState = e.isIntersecting ? 'running' : 'paused';
+      });
+    }, { threshold: 0.05 });
+    io.observe(el);
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Product Ingredients",
+  "tag": "section",
+  "class": "product-ingredients-section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "label",
+      "label": "Section label",
+      "default": "Key Ingredients"
+    },
+    {
+      "type": "textarea",
+      "id": "heading",
+      "label": "Heading",
+      "default": "What's Inside"
+    },
+    {
+      "type": "textarea",
+      "id": "subheading",
+      "label": "Subheading",
+      "default": "Clean, effective ingredients chosen with intention — nothing more, nothing less."
+    },
+    {
+      "type": "select",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "options": [
+        { "value": "bg-[#F9F9FB]", "label": "Light" },
+        { "value": "bg-[#131314]", "label": "Dark" }
+      ],
+      "default": "bg-[#F9F9FB]"
+    },
+    {
+      "type": "range",
+      "id": "scroll_speed",
+      "label": "Scroll speed (seconds per cycle)",
+      "min": 10,
+      "max": 60,
+      "step": 2,
+      "default": 30,
+      "unit": "s"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "See Full Ingredient List"
+    },
+    {
+      "type": "url",
+      "id": "button_url",
+      "label": "Button URL"
+    },
+    {
+      "type": "text",
+      "id": "secondary_label",
+      "label": "Secondary link label"
+    },
+    {
+      "type": "url",
+      "id": "secondary_url",
+      "label": "Secondary link URL"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "ingredient",
+      "name": "Ingredient",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "text",
+          "id": "name",
+          "label": "Name",
+          "default": "Ingredient"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Product Ingredients",
+      "blocks": [
+        { "type": "ingredient", "settings": { "name": "Hyaluronic Acid" } },
+        { "type": "ingredient", "settings": { "name": "Niacinamide" } },
+        { "type": "ingredient", "settings": { "name": "Vitamin C" } },
+        { "type": "ingredient", "settings": { "name": "Retinol" } },
+        { "type": "ingredient", "settings": { "name": "Ceramides" } },
+        { "type": "ingredient", "settings": { "name": "Squalane" } },
+        { "type": "ingredient", "settings": { "name": "Peptides" } },
+        { "type": "ingredient", "settings": { "name": "Green Tea" } },
+        { "type": "ingredient", "settings": { "name": "Aloe Vera" } },
+        { "type": "ingredient", "settings": { "name": "Jojoba Oil" } }
+      ]
+    }
+  ],
+  "max_blocks": 20
+}
+{% endschema %}
