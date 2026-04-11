@@ -292,8 +292,8 @@ export default function RmaPage() {
               </div>
               <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 {syncResult.summary.synced} synced &middot;{' '}
-                {(syncResult.summary as Record<string, number>).matched ?? 0} matched &middot;{' '}
-                {(syncResult.summary as Record<string, number>).unmatched ?? 0} unmatched &middot;{' '}
+                {(syncResult.summary as unknown as Record<string, number>).matched ?? 0} matched &middot;{' '}
+                {(syncResult.summary as unknown as Record<string, number>).unmatched ?? 0} unmatched &middot;{' '}
                 {syncResult.summary.refunded} refunded &middot;{' '}
                 {syncResult.summary.errors} errors
               </span>
