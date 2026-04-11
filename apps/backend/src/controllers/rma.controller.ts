@@ -12,7 +12,7 @@ export const rmaRouter = Router();
 rmaRouter.get('/sync-status', async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
-    const limit = Math.min(parseInt((req.query.limit as string) || '50', 10), 200);
+    const limit = Math.min(parseInt((req.query.limit as string) || '500', 10), 500);
     const entries = await getRecentSyncLog(brandId, limit);
     res.json({ entries, count: entries.length });
   } catch (err) {

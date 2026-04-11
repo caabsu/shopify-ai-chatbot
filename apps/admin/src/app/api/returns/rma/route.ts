@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Default: return recent sync log from Supabase directly
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
+  const limit = Math.min(parseInt(searchParams.get('limit') || '500', 10), 500);
 
   const { data, error } = await supabase
     .from('rma_sync_log')

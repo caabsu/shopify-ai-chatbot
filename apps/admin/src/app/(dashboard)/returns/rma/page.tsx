@@ -108,7 +108,7 @@ export default function RmaPage() {
 
   const loadEntries = useCallback(async () => {
     try {
-      const res = await fetch('/api/returns/rma?limit=100');
+      const res = await fetch('/api/returns/rma?limit=500');
       if (!res.ok) return;
       const data = await res.json() as { entries: RmaSyncLogEntry[] };
       setEntries(data.entries ?? []);
