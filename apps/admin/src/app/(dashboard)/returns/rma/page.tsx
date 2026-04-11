@@ -7,6 +7,7 @@ import { RefreshCw, Wifi, WifiOff, CheckCircle, XCircle, Clock, Package, Mail, E
 interface RmaSyncLogEntry {
   id: string;
   delivery_id: string;
+  increment_id: string | null;
   order_number: string | null;
   customer_name: string | null;
   customer_email: string | null;
@@ -15,13 +16,27 @@ interface RmaSyncLogEntry {
   fulfillment_status: string | null;
   shopify_order_id: string | null;
   status: string;
+  rma_state: string | null;
   processed_at: string | null;
   refund_amount: number | null;
   refund_processed: boolean;
   refund_processed_at: string | null;
   return_request_id: string | null;
   shopify_refund_id: string | null;
-  sku_details: Array<{ sku: string; qty: number; qty_received?: number; qty_processed?: number }> | null;
+  sku_details: Array<{ sku: string; qty: number; qty_expected?: number; qty_received?: number; qty_processed?: number; qty_shortage?: number; qty_overage?: number }> | null;
+  tracking_numbers: string[] | null;
+  carrier_name: string | null;
+  shopify_refund_status: string | null;
+  rma_created_at: string | null;
+  rma_delivered_at: string | null;
+  rma_completed_at: string | null;
+  warehouse_id: string | null;
+  exceptions: Array<{ reason: string; comment: string | null; status: string; qty: string; sku?: string }> | null;
+  status_history: Array<{ status: string; comment: string | null; created_at: string }> | null;
+  containers: Array<{ weight: string; weight_unit: string; damage_type: string; notes: string | null }> | null;
+  sender_ref_alt: string | null;
+  match_method: string | null;
+  weight_info: { total_weight: string; weight_unit: string } | null;
   error: string | null;
   brand_id: string;
   created_at: string;
@@ -38,7 +53,9 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   new: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' },
   accepting: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
   accepted: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
+  ready_to_process: { bg: 'rgba(14,165,233,0.12)', text: '#0ea5e9' },
   processing: { bg: 'rgba(99,102,241,0.12)', text: '#6366f1' },
+  processing_exception: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444' },
   processed: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
   putting_away: { bg: 'rgba(168,85,247,0.12)', text: '#a855f7' },
   put_away: { bg: 'rgba(168,85,247,0.12)', text: '#a855f7' },
@@ -275,8 +292,9 @@ export default function RmaPage() {
               </div>
               <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 {syncResult.summary.synced} synced &middot;{' '}
+                {(syncResult.summary as Record<string, number>).matched ?? 0} matched &middot;{' '}
+                {(syncResult.summary as Record<string, number>).unmatched ?? 0} unmatched &middot;{' '}
                 {syncResult.summary.refunded} refunded &middot;{' '}
-                {syncResult.summary.skipped} skipped &middot;{' '}
                 {syncResult.summary.errors} errors
               </span>
             </div>
@@ -310,7 +328,7 @@ export default function RmaPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-secondary)' }}>
-                  {['Order #', 'Customer', 'Email', 'Order Total', 'Fulfillment', 'RMA Status', 'Age', 'Refund', 'Status', 'Updated'].map((h) => (
+                  {['Order #', 'Customer', 'Email', 'Order Total', 'Fulfillment', 'RMA Status', 'Match', 'Age', 'Refund', 'Status', 'Updated'].map((h) => (
                     <th
                       key={h}
                       className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider"
@@ -327,7 +345,7 @@ export default function RmaPage() {
                   const fulfillmentColor = entry.fulfillment_status
                     ? FULFILLMENT_COLORS[entry.fulfillment_status] ?? { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' }
                     : null;
-                  const age = daysSince(entry.created_at);
+                  const age = daysSince(entry.rma_created_at || entry.created_at);
                   const isExpanded = expandedRow === entry.id;
 
                   return (
@@ -405,6 +423,25 @@ export default function RmaPage() {
                           </span>
                         </td>
 
+                        {/* Match Method */}
+                        <td className="px-4 py-3">
+                          {entry.match_method && entry.match_method !== 'none' ? (
+                            <span
+                              className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full"
+                              style={{
+                                backgroundColor: entry.match_method === 'order_number' ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)',
+                                color: entry.match_method === 'order_number' ? '#22c55e' : '#6366f1',
+                              }}
+                            >
+                              {entry.match_method.replace(/_/g, ' ')}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
+                              unmatched
+                            </span>
+                          )}
+                        </td>
+
                         {/* Age */}
                         <td className="px-4 py-3">
                           <span
@@ -459,7 +496,7 @@ export default function RmaPage() {
                       {/* Expanded row */}
                       {isExpanded && (
                         <tr key={`${entry.id}-expanded`} style={{ borderBottom: '1px solid var(--border-secondary)' }}>
-                          <td colSpan={10} className="px-4 py-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                          <td colSpan={11} className="px-4 py-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                             <div className="grid grid-cols-4 gap-4 text-xs">
                               {/* Order Info */}
                               <div>
@@ -467,6 +504,11 @@ export default function RmaPage() {
                                 <p className="font-mono font-medium" style={{ color: 'var(--text-primary)' }}>
                                   {entry.order_number ? `#${entry.order_number}` : '\u2014'}
                                 </p>
+                                {entry.sender_ref_alt && entry.sender_ref_alt !== entry.order_number && (
+                                  <p className="mt-0.5 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                                    Raw ref: {entry.sender_ref_alt}
+                                  </p>
+                                )}
                               </div>
                               <div>
                                 <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Customer</p>
@@ -482,26 +524,62 @@ export default function RmaPage() {
                                 </p>
                               </div>
                               <div>
-                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Fulfillment Status</p>
-                                <p style={{ color: 'var(--text-primary)' }}>
-                                  {entry.fulfillment_status?.replace(/_/g, ' ') || '\u2014'}
-                                </p>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Match Method</p>
+                                <span
+                                  className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full"
+                                  style={{
+                                    backgroundColor: !entry.match_method || entry.match_method === 'none'
+                                      ? 'rgba(239,68,68,0.12)' : entry.match_method === 'order_number'
+                                      ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)',
+                                    color: !entry.match_method || entry.match_method === 'none'
+                                      ? '#ef4444' : entry.match_method === 'order_number'
+                                      ? '#22c55e' : '#6366f1',
+                                  }}
+                                >
+                                  {entry.match_method?.replace(/_/g, ' ') || 'unmatched'}
+                                </span>
                               </div>
 
-                              {/* Delivery & Processing */}
+                              {/* Warehouse & Shipping */}
                               <div>
                                 <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Delivery ID</p>
                                 <p className="font-mono" style={{ color: 'var(--text-primary)' }}>{entry.delivery_id}</p>
+                                {entry.increment_id && (
+                                  <p className="mt-0.5 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Inc: {entry.increment_id}</p>
+                                )}
                               </div>
                               <div>
-                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>RMA Processed</p>
-                                <p style={{ color: 'var(--text-secondary)' }}>{formatDate(entry.processed_at)}</p>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Warehouse</p>
+                                <p style={{ color: 'var(--text-primary)' }}>{entry.warehouse_id ? `WH-${entry.warehouse_id}` : '\u2014'}</p>
+                                {entry.carrier_name && (
+                                  <p className="mt-0.5" style={{ color: 'var(--text-secondary)' }}>{entry.carrier_name}</p>
+                                )}
                               </div>
                               <div>
-                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Days Since Created</p>
-                                <p style={{ color: age > 7 ? '#ef4444' : age > 3 ? '#f59e0b' : 'var(--text-primary)' }}>
-                                  {age} day{age !== 1 ? 's' : ''}
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Tracking</p>
+                                {entry.tracking_numbers?.map((tn, i) => (
+                                  <p key={i} className="font-mono text-[10px]" style={{ color: 'var(--text-primary)' }}>{tn}</p>
+                                )) || <p style={{ color: 'var(--text-tertiary)' }}>{'\u2014'}</p>}
+                              </div>
+                              <div>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Weight</p>
+                                <p style={{ color: 'var(--text-primary)' }}>
+                                  {entry.weight_info ? `${entry.weight_info.total_weight} ${entry.weight_info.weight_unit}` : '\u2014'}
                                 </p>
+                              </div>
+
+                              {/* Timeline */}
+                              <div>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>RMA Created</p>
+                                <p style={{ color: 'var(--text-secondary)' }}>{formatDate(entry.rma_created_at)}</p>
+                              </div>
+                              <div>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Delivered to WH</p>
+                                <p style={{ color: 'var(--text-secondary)' }}>{formatDate(entry.rma_delivered_at)}</p>
+                              </div>
+                              <div>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Processed</p>
+                                <p style={{ color: 'var(--text-secondary)' }}>{formatDate(entry.processed_at)}</p>
                               </div>
                               <div>
                                 <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>RMA Status</p>
@@ -511,39 +589,93 @@ export default function RmaPage() {
                                 >
                                   {entry.status}
                                 </span>
+                                {entry.rma_state && entry.rma_state !== entry.status && (
+                                  <span className="ml-1 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>({entry.rma_state})</span>
+                                )}
                               </div>
 
                               {/* Line Items */}
                               <div className="col-span-4">
-                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Line Items</p>
+                                <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Shopify Line Items</p>
                                 <p style={{ color: 'var(--text-secondary)' }}>{entry.line_items_summary || '\u2014'}</p>
                               </div>
 
                               {/* SKU Details */}
                               {entry.sku_details && entry.sku_details.length > 0 && (
                                 <div className="col-span-4">
-                                  <p className="font-semibold mb-2 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Product SKUs (from Red Stag)</p>
+                                  <p className="font-semibold mb-2 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Warehouse SKU Details (Red Stag)</p>
                                   <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-primary)' }}>
                                     <table className="w-full text-xs">
                                       <thead>
                                         <tr style={{ backgroundColor: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-primary)' }}>
                                           <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>SKU</th>
-                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Qty Expected</th>
-                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Qty Received</th>
-                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Qty Processed</th>
+                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Expected</th>
+                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Received</th>
+                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Processed</th>
+                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Shortage</th>
+                                          <th className="text-left px-3 py-1.5 font-semibold" style={{ color: 'var(--text-tertiary)' }}>Overage</th>
                                         </tr>
                                       </thead>
                                       <tbody>
                                         {entry.sku_details.map((sku, idx) => (
                                           <tr key={idx} style={{ borderBottom: idx < entry.sku_details!.length - 1 ? '1px solid var(--border-secondary)' : 'none' }}>
                                             <td className="px-3 py-1.5 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{sku.sku || '\u2014'}</td>
-                                            <td className="px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>{sku.qty}</td>
+                                            <td className="px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>{sku.qty_expected ?? sku.qty}</td>
                                             <td className="px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>{sku.qty_received ?? '\u2014'}</td>
                                             <td className="px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>{sku.qty_processed ?? '\u2014'}</td>
+                                            <td className="px-3 py-1.5" style={{ color: (sku.qty_shortage ?? 0) > 0 ? '#ef4444' : 'var(--text-secondary)' }}>{sku.qty_shortage ?? '\u2014'}</td>
+                                            <td className="px-3 py-1.5" style={{ color: (sku.qty_overage ?? 0) > 0 ? '#f59e0b' : 'var(--text-secondary)' }}>{sku.qty_overage ?? '\u2014'}</td>
                                           </tr>
                                         ))}
                                       </tbody>
                                     </table>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Exceptions (damage reports, shortages) */}
+                              {entry.exceptions && entry.exceptions.length > 0 && (
+                                <div className="col-span-4">
+                                  <p className="font-semibold mb-2 uppercase tracking-wider text-[10px]" style={{ color: '#f59e0b' }}>Warehouse Exceptions</p>
+                                  <div className="space-y-1.5">
+                                    {entry.exceptions.map((exc, idx) => (
+                                      <div key={idx} className="rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium" style={{ color: '#f59e0b' }}>{exc.reason.replace(/_/g, ' ')}</span>
+                                          {exc.sku && <span className="font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{exc.sku}</span>}
+                                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: exc.status === 'approved' ? 'rgba(34,197,94,0.12)' : 'rgba(156,163,175,0.12)', color: exc.status === 'approved' ? '#22c55e' : '#9ca3af' }}>{exc.status}</span>
+                                          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>qty: {exc.qty}</span>
+                                        </div>
+                                        {exc.comment && <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>{exc.comment}</p>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Status Timeline */}
+                              {entry.status_history && entry.status_history.length > 0 && (
+                                <div className="col-span-4">
+                                  <p className="font-semibold mb-2 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Status Timeline</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {entry.status_history
+                                      .filter((h, i, arr) => i === 0 || h.status !== arr[i - 1].status)
+                                      .map((h, idx) => {
+                                        const sc = STATUS_COLORS[h.status] ?? { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' };
+                                        return (
+                                          <div key={idx} className="flex items-center gap-1">
+                                            <span className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.text }}>
+                                              {h.status.replace(/_/g, ' ')}
+                                            </span>
+                                            <span className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>
+                                              {new Date(h.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </span>
+                                            {idx < entry.status_history!.filter((h2, i2, a2) => i2 === 0 || h2.status !== a2[i2 - 1].status).length - 1 && (
+                                              <span style={{ color: 'var(--text-tertiary)' }}>{'\u2192'}</span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
                                   </div>
                                 </div>
                               )}

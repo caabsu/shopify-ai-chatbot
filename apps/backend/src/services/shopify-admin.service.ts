@@ -313,6 +313,126 @@ export async function lookupOrder(
   };
 }
 
+/**
+ * Search for orders by customer name. Returns up to `limit` matches.
+ * Used as a fallback when an RMA has no order number but has a sender name.
+ */
+export async function searchOrdersByCustomerName(
+  customerName: string,
+  brandId?: string,
+  limit = 5
+): Promise<Array<{ id: string; name: string; email: string | null; customerName: string | null; createdAt: string; totalPrice: string | null; lineItems: Array<{ sku: string | null; title: string }> }>> {
+  const query = `
+    query SearchByCustomer($queryStr: String!, $limit: Int!) {
+      orders(first: $limit, query: $queryStr, sortKey: CREATED_AT, reverse: true) {
+        edges {
+          node {
+            id
+            name
+            email
+            createdAt
+            customer {
+              displayName
+            }
+            totalPriceSet {
+              shopMoney {
+                amount
+              }
+            }
+            lineItems(first: 10) {
+              edges {
+                node {
+                  sku
+                  title
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await graphql<{
+    orders: {
+      edges: Array<{
+        node: {
+          id: string;
+          name: string;
+          email: string | null;
+          createdAt: string;
+          customer: { displayName: string } | null;
+          totalPriceSet: { shopMoney: { amount: string } } | null;
+          lineItems: { edges: Array<{ node: { sku: string | null; title: string } }> };
+        };
+      }>;
+    };
+  }>(query, { queryStr: customerName, limit }, brandId);
+
+  return data.orders.edges.map((e) => ({
+    id: e.node.id,
+    name: e.node.name,
+    email: e.node.email,
+    customerName: e.node.customer?.displayName ?? null,
+    createdAt: e.node.createdAt,
+    totalPrice: e.node.totalPriceSet?.shopMoney?.amount ?? null,
+    lineItems: e.node.lineItems.edges.map((li) => ({
+      sku: li.node.sku,
+      title: li.node.title,
+    })),
+  }));
+}
+
+/**
+ * Search for orders containing a specific SKU. Returns up to `limit` matches.
+ * Used to match RMA items back to their originating order.
+ */
+export async function searchOrdersBySku(
+  sku: string,
+  brandId?: string,
+  limit = 10
+): Promise<Array<{ id: string; name: string; email: string | null; customerName: string | null; createdAt: string }>> {
+  const query = `
+    query SearchBySku($queryStr: String!, $limit: Int!) {
+      orders(first: $limit, query: $queryStr, sortKey: CREATED_AT, reverse: true) {
+        edges {
+          node {
+            id
+            name
+            email
+            createdAt
+            customer {
+              displayName
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await graphql<{
+    orders: {
+      edges: Array<{
+        node: {
+          id: string;
+          name: string;
+          email: string | null;
+          createdAt: string;
+          customer: { displayName: string } | null;
+        };
+      }>;
+    };
+  }>(query, { queryStr: `sku:${sku}`, limit }, brandId);
+
+  return data.orders.edges.map((e) => ({
+    id: e.node.id,
+    name: e.node.name,
+    email: e.node.email,
+    customerName: e.node.customer?.displayName ?? null,
+    createdAt: e.node.createdAt,
+  }));
+}
+
 export interface ShopPolicy {
   type: string;
   title: string;

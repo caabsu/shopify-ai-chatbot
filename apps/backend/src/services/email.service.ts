@@ -132,12 +132,22 @@ interface ReturnEmailOpts {
   warehouseHint?: string;
 }
 
-/** Pick the closest warehouse based on hint text (matches label like "Tennessee" or "Utah") */
+// US states grouped by which Red Stag warehouse is closer
+const UTAH_CLOSER_STATES = new Set([
+  'wa', 'or', 'ca', 'nv', 'id', 'mt', 'wy', 'ut', 'co', 'az', 'nm',
+  'ak', 'hi', 'nd', 'sd', 'ne', 'ks', 'mn', 'ia',
+]);
+
+/** Pick the closest warehouse based on hint text or customer state */
 function getWarehouseAddress(hint?: string): typeof RETURN_ADDRESSES[0] {
   if (hint) {
     const lower = hint.toLowerCase();
     const match = RETURN_ADDRESSES.find((w) => w.label.toLowerCase().includes(lower) || w.state.toLowerCase().includes(lower) || w.city.toLowerCase().includes(lower));
     if (match) return match;
+    // If hint is a US state abbreviation, pick based on geography
+    if (lower.length === 2 && UTAH_CLOSER_STATES.has(lower)) {
+      return RETURN_ADDRESSES.find((w) => w.state === 'UT') ?? RETURN_ADDRESSES[0];
+    }
   }
   // Default to Tennessee (primary warehouse)
   return RETURN_ADDRESSES[0];

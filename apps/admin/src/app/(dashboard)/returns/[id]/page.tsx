@@ -529,7 +529,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                               Qty: {item.quantity} x ${item.price.toFixed(2)}
                             </span>
                             <span
-                              className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                              className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
                               style={{
                                 backgroundColor: reasonStyle.bg,
                                 color: reasonStyle.text,
@@ -540,9 +540,23 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                           </div>
 
                           {item.reason_details && (
-                            <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
-                              {item.reason_details}
-                            </p>
+                            <div
+                              className="mt-2 rounded-lg px-3 py-2.5"
+                              style={{
+                                backgroundColor: 'var(--bg-primary)',
+                                border: '1px solid var(--border-primary)',
+                              }}
+                            >
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <MessageSquare size={11} style={{ color: 'var(--text-tertiary)' }} />
+                                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                  Customer Comments
+                                </span>
+                              </div>
+                              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                                &ldquo;{item.reason_details}&rdquo;
+                              </p>
+                            </div>
                           )}
 
                           {/* Photos */}

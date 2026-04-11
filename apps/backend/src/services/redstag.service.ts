@@ -103,13 +103,80 @@ async function rpc(method: string, params: unknown[]): Promise<unknown> {
   return data.result;
 }
 
+export interface RMAItem {
+  delivery_item_id: string;
+  delivery_id: string;
+  product_id: string;
+  sku: string;
+  qty: string;
+  qty_expected: string;
+  qty_received: string;
+  qty_shortage: string;
+  qty_overage: string;
+  qty_processed: string;
+  qty_putaway: string;
+  qty_committed: string;
+  item_ref: string | null;
+}
+
+export interface RMAException {
+  delivery_exception_id: string;
+  delivery_id: string;
+  delivery_item_id: string;
+  container_id: string;
+  status: string;
+  sign: string;
+  reason: string;
+  comment: string | null;
+  qty: string;
+}
+
+export interface RMAStatusHistory {
+  status: string;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface RMAContainer {
+  container_id: string;
+  container_type_id: string;
+  damage_type: string;
+  weight_discrepancy: string;
+  tare_weight: string;
+  weight: string;
+  weight_unit: string;
+  notes: string | null;
+}
+
 export interface RMARecord {
   delivery_id: string | number;
-  sender_ref_alt: string | null;
+  increment_id: string | null;
+  delivery_type: string;
+  state: string;
   status: string;
-  customer_name: string | null;
-  updated_at: string | null;
+  sender_name: string | null;
+  sender_ref: string | null;
+  sender_ref_alt: string | null;
+  carrier_name: string | null;
+  warehouse_id: string | null;
+  expected_delivery: string | null;
+  delivered_at: string | null;
+  processed_at: string | null;
+  putaway_at: string | null;
+  completed_at: string | null;
   created_at: string | null;
+  updated_at: string | null;
+  ready_to_process_at: string | null;
+  comments: string | null;
+  merchant_ref: string | null;
+  merchant_status: string | null;
+  total_skus: string | null;
+  num_containers: string | null;
+  items: RMAItem[];
+  containers: RMAContainer[];
+  exceptions: RMAException[];
+  status_history: RMAStatusHistory[];
+  tracking_numbers: string[];
   [key: string]: unknown;
 }
 
@@ -119,14 +186,13 @@ export interface RMARecord {
  */
 export async function searchRMAs(
   filters: Record<string, unknown> = {},
-  fields?: string[],
+  fields?: string[] | null,
   limit = 100
 ): Promise<RMARecord[]> {
   const mergedFilters = { delivery_type: { eq: 'rma' }, ...filters };
 
   const params: unknown[] = [mergedFilters];
-  if (fields) params.push(fields);
-  else params.push(null);
+  params.push(fields ?? null);
   params.push(limit);
 
   const result = await rpc('delivery.search', params) as { results?: RMARecord[] } | RMARecord[];
@@ -146,6 +212,40 @@ export async function getRMADetail(deliveryId: string | number): Promise<RMAReco
 }
 
 /**
+ * Get all RMAs across ALL statuses — paginates through all pages using delivery_id cursor.
+ * Returns full detail including items, exceptions, history.
+ * Optionally filters to records updated after `since`.
+ */
+export async function getAllRMAs(since?: Date): Promise<RMARecord[]> {
+  const baseFilters: Record<string, unknown> = {};
+
+  if (since) {
+    baseFilters.updated_at = { from: since.toISOString().slice(0, 19).replace('T', ' ') };
+  }
+
+  const allResults: RMARecord[] = [];
+  let lastDeliveryId: string | null = null;
+  const PAGE_SIZE = 50;
+  const MAX_PAGES = 20; // Safety limit
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const filters = { ...baseFilters };
+    if (lastDeliveryId) {
+      filters.delivery_id = { gt: lastDeliveryId };
+    }
+
+    const batch = await searchRMAs(filters, null, PAGE_SIZE);
+    allResults.push(...batch);
+
+    if (batch.length < PAGE_SIZE) break; // No more pages
+
+    lastDeliveryId = String(batch[batch.length - 1].delivery_id);
+  }
+
+  return allResults;
+}
+
+/**
  * Get all RMAs with status "processed" or "complete".
  * Optionally filters to records updated after `since`.
  */
@@ -158,12 +258,7 @@ export async function getProcessedRMAs(since?: Date): Promise<RMARecord[]> {
     filters.updated_at = { from: since.toISOString().slice(0, 19).replace('T', ' ') };
   }
 
-  return searchRMAs(filters, [
-    'delivery_id', 'status', 'sender_ref_alt', 'sender_name',
-    'processed_at', 'completed_at', 'created_at', 'updated_at',
-    'merchant_ref', 'merchant_status', 'items',
-    'tracking_numbers', 'carrier_name', 'delivered_at',
-  ], 200);
+  return searchRMAs(filters, null, 200);
 }
 
 /**

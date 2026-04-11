@@ -945,6 +945,21 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
       }
     }
 
+    // Pick closest warehouse based on customer's shipping state
+    let warehouseHint = updated.estimated_return_warehouse ?? undefined;
+    if (!warehouseHint && !labelUrl) {
+      try {
+        const orderResult = await lookupOrder(updated.order_number, undefined, undefined, brandId, true);
+        if (orderResult.found && orderResult.order?.shippingProvince) {
+          // Use 2-letter state code for geo-based warehouse selection
+          const state = orderResult.order.shippingProvince;
+          warehouseHint = state.length <= 3 ? state : undefined;
+        }
+      } catch {
+        // Fall through to default warehouse
+      }
+    }
+
     sendReturnApproved({
       to: updated.customer_email,
       customerName: updated.customer_name ?? undefined,
@@ -954,7 +969,7 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
       labelUrl: labelUrl ?? undefined,
       trackingNumber: labelTrackingNumber ?? undefined,
       brandId,
-      warehouseHint: updated.estimated_return_warehouse ?? undefined,
+      warehouseHint,
     }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
     res.json({ returnRequest: updated, label: labelUrl ? { url: labelUrl, trackingNumber: labelTrackingNumber } : null });
