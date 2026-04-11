@@ -262,6 +262,65 @@ export async function getProcessedRMAs(since?: Date): Promise<RMARecord[]> {
 }
 
 /**
+ * Get live inventory levels for all SKUs.
+ */
+export async function getInventory(): Promise<Array<{
+  sku: string;
+  qty: number;
+  qty_expected: number;
+  qty_available: number;
+  qty_allocated: number;
+  qty_on_hand: number;
+  qty_backordered: number;
+  qty_picked: number;
+  qty_reserved: number;
+  qty_processed: number;
+  qty_putaway: number;
+  qty_advertised: number;
+}>> {
+  const result = await rpc('inventory.list', []) as Array<Record<string, string>>;
+  return (Array.isArray(result) ? result : []).map((item) => ({
+    sku: item.sku ?? '',
+    qty: parseFloat(item.qty ?? '0'),
+    qty_expected: parseFloat(item.qty_expected ?? '0'),
+    qty_available: parseFloat(item.qty_available ?? '0'),
+    qty_allocated: parseFloat(item.qty_allocated ?? '0'),
+    qty_on_hand: parseFloat(item.qty_on_hand ?? '0'),
+    qty_backordered: parseFloat(item.qty_backordered ?? '0'),
+    qty_picked: parseFloat(item.qty_picked ?? '0'),
+    qty_reserved: parseFloat(item.qty_reserved ?? '0'),
+    qty_processed: parseFloat(item.qty_processed ?? '0'),
+    qty_putaway: parseFloat(item.qty_putaway ?? '0'),
+    qty_advertised: parseFloat(item.qty_advertised ?? '0'),
+  }));
+}
+
+/**
+ * Get warehouse list with addresses.
+ */
+export async function getWarehouses(): Promise<Array<{
+  warehouse_id: number;
+  name: string;
+  is_active: number;
+  address: { street1: string; street2: string; city: string; country: string; region: string; postcode: string };
+}>> {
+  const result = await rpc('warehouse.list', []);
+  return (Array.isArray(result) ? result : []) as Array<{
+    warehouse_id: number;
+    name: string;
+    is_active: number;
+    address: { street1: string; street2: string; city: string; country: string; region: string; postcode: string };
+  }>;
+}
+
+/**
+ * Get inbound ASN (Advanced Shipping Notice) deliveries.
+ */
+export async function getInboundShipments(limit = 50): Promise<RMARecord[]> {
+  return searchRMAs({ delivery_type: { eq: 'asn' } }, null, limit);
+}
+
+/**
  * Test the Red Stag connection by performing a login.
  * Returns true on success, false on failure.
  */

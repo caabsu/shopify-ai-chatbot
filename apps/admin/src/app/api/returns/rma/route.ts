@@ -11,6 +11,19 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const action = searchParams.get('action');
 
+  // Proxy to backend for special actions
+  if (action === 'inventory' || action === 'warehouses' || action === 'inbound' || action === 'analytics') {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/rma/${action}`, {
+        headers: { 'x-brand': session.brandId },
+      });
+      const data = await res.json() as Record<string, unknown>;
+      return NextResponse.json(data, { status: res.status });
+    } catch {
+      return NextResponse.json({ error: 'Backend unreachable' }, { status: 503 });
+    }
+  }
+
   // Test connection
   if (action === 'test-connection') {
     try {
