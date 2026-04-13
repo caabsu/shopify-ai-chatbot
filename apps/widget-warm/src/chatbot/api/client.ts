@@ -1,0 +1,95 @@
+let baseUrl = '';
+const BRAND_SLUG = 'warm-by-design';
+
+export function initBaseUrl(): void {
+  const scripts = document.querySelectorAll('script[src*="chatbot.js"]');
+  if (scripts.length > 0) {
+    const src = (scripts[scripts.length - 1] as HTMLScriptElement).src;
+    try {
+      baseUrl = new URL(src).origin;
+    } catch {
+      baseUrl = '';
+    }
+  }
+  if (!baseUrl) {
+    baseUrl = 'http://localhost:3001';
+  }
+}
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const url = `${baseUrl}${path}`;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Brand': BRAND_SLUG,
+    ...options?.headers as Record<string, string>,
+  };
+
+  const res = await fetch(url, { ...options, headers });
+
+  if (res.status === 429) {
+    throw new Error('Too many messages. Please wait a moment.');
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error || `Request failed (${res.status})`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+export interface SessionResponse {
+  sessionId: string;
+  conversationId: string;
+  greeting: string;
+  presetActions: Array<{ id: string; label: string; icon: string; prompt: string; description?: string }>;
+  messages?: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>;
+}
+
+export interface MessageResponse {
+  response: string;
+  navigationButtons: Array<{ url: string; label: string }>;
+  productCards: Array<{
+    id: string;
+    title: string;
+    description: string;
+    price: string;
+    currency: string;
+    imageUrl: string;
+    productUrl: string;
+    available: boolean;
+  }>;
+  cartData: {
+    cartId: string;
+    checkoutUrl: string;
+    totalAmount: string;
+    currency: string;
+    lineItems: Array<{ id: string; title: string; quantity: number; price: string }>;
+  } | null;
+  toolsUsed: string[];
+  conversationStatus: string;
+}
+
+export async function createSession(data: {
+  sessionId?: string;
+  customerEmail?: string;
+  customerName?: string;
+  pageUrl?: string;
+}): Promise<SessionResponse> {
+  return request<SessionResponse>('/api/chat/session', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function sendMessage(data: {
+  sessionId: string;
+  conversationId: string;
+  message?: string;
+  presetActionId?: string;
+}): Promise<MessageResponse> {
+  return request<MessageResponse>('/api/chat/message', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}

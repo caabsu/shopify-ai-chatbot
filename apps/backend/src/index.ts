@@ -66,6 +66,13 @@ app.use('/widget', express.static(widgetDir, {
   etag: true,
 }));
 
+// Serve Warm by Design widget static files
+const widgetWarmDir = path.resolve(process.cwd(), 'apps/widget-warm/dist');
+app.use('/widget/warm', express.static(widgetWarmDir, {
+  maxAge: config.server.nodeEnv === 'production' ? '5m' : '1m',
+  etag: true,
+}));
+
 // Serve quiz funnel mock files
 const quizMocksDir = path.resolve(process.cwd(), 'quiz-funnel-mocks');
 app.use('/quiz-assets', express.static(quizMocksDir, {
@@ -1392,6 +1399,233 @@ app.get('/widget/playground-returns', async (req, res) => {
     }
   </script>
   <script src="/widget/returns-portal.js"${dataBrandAttr}></script>
+</body>
+</html>`);
+});
+
+// ── Warm by Design Playground ──
+app.get('/widget/warm/playground', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warm by Design — Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@200;300;400;500&family=Outfit:wght@200;300;400;500&family=Syne:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #131313;
+    font-family: 'Outfit', sans-serif;
+    color: rgba(240,237,232,0.6);
+    min-height: 100vh;
+  }
+
+  /* ── Nav Bar ── */
+  .wbd-pg-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(19,19,19,0.9);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid rgba(245,188,112,0.1);
+    padding: 0 48px;
+    display: flex;
+    align-items: center;
+    height: 56px;
+    gap: 32px;
+  }
+  .wbd-pg-nav__brand {
+    font-family: 'Bricolage Grotesque', serif;
+    font-size: 16px;
+    font-weight: 300;
+    letter-spacing: -0.025em;
+    color: #F0EDE8;
+  }
+  .wbd-pg-nav__tabs {
+    display: flex;
+    gap: 0;
+    margin-left: auto;
+  }
+  .wbd-pg-tab {
+    padding: 16px 20px;
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: rgba(240,237,232,0.35);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s;
+  }
+  .wbd-pg-tab:hover { color: rgba(240,237,232,0.6); }
+  .wbd-pg-tab--active {
+    color: #f5bc70;
+    border-bottom-color: #f5bc70;
+  }
+
+  /* ── Hero ── */
+  .wbd-pg-hero {
+    padding: 96px 48px 64px;
+    text-align: center;
+    position: relative;
+  }
+  .wbd-pg-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 400px;
+    height: 200px;
+    background: radial-gradient(ellipse, rgba(245,188,112,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .wbd-pg-hero__label {
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: rgba(245,188,112,0.6);
+    margin-bottom: 16px;
+  }
+  .wbd-pg-hero__title {
+    font-family: 'Bricolage Grotesque', serif;
+    font-size: 40px;
+    font-weight: 200;
+    letter-spacing: -0.03em;
+    color: #F0EDE8;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .wbd-pg-hero__title em {
+    font-style: normal;
+    color: rgba(245,188,112,0.9);
+    font-weight: 300;
+  }
+  .wbd-pg-hero__sub {
+    font-size: 16px;
+    font-weight: 300;
+    color: rgba(240,237,232,0.35);
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ── Returns Section ── */
+  .wbd-pg-returns {
+    padding: 0 48px 96px;
+  }
+  .wbd-pg-returns__label {
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: rgba(245,188,112,0.35);
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  /* ── Products Grid (mock) ── */
+  .wbd-pg-products {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 48px 96px;
+  }
+  .wbd-pg-product {
+    border: 1px solid rgba(245,188,112,0.1);
+    background: #1c1b1b;
+    padding: 16px;
+    transition: border-color 0.3s;
+  }
+  .wbd-pg-product:hover { border-color: rgba(245,188,112,0.2); }
+  .wbd-pg-product__img {
+    width: 100%;
+    aspect-ratio: 1;
+    background: #201f1f;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .wbd-pg-product__img .material-symbols-outlined {
+    font-size: 40px;
+    color: rgba(245,188,112,0.12);
+    font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 48;
+  }
+  .wbd-pg-product__name {
+    font-size: 14px;
+    font-weight: 400;
+    color: #F0EDE8;
+    margin-bottom: 4px;
+  }
+  .wbd-pg-product__price {
+    font-size: 13px;
+    color: #f5bc70;
+    font-weight: 400;
+  }
+
+  @media (max-width: 768px) {
+    .wbd-pg-nav { padding: 0 20px; }
+    .wbd-pg-hero { padding: 64px 20px 48px; }
+    .wbd-pg-hero__title { font-size: 28px; }
+    .wbd-pg-products { grid-template-columns: 1fr 1fr; padding: 0 20px 64px; }
+    .wbd-pg-returns { padding: 0 20px 64px; }
+  }
+</style>
+</head>
+<body>
+  <nav class="wbd-pg-nav">
+    <span class="wbd-pg-nav__brand">Warm by Design</span>
+    <div class="wbd-pg-nav__tabs">
+      <a href="/widget/warm/playground" class="wbd-pg-tab wbd-pg-tab--active">Storefront</a>
+    </div>
+  </nav>
+
+  <section class="wbd-pg-hero">
+    <div class="wbd-pg-hero__label">Designed at 2700K</div>
+    <h1 class="wbd-pg-hero__title">The best upgrade in any room isn't furniture. <em>It's the light.</em></h1>
+    <p class="wbd-pg-hero__sub">Every product tuned to exactly 2700K — the color temperature of golden hour. Warm light transforms how your home feels.</p>
+  </section>
+
+  <div class="wbd-pg-products">
+    <div class="wbd-pg-product">
+      <div class="wbd-pg-product__img"><span class="material-symbols-outlined">lightbulb</span></div>
+      <div class="wbd-pg-product__name">Cesta Table Lamp</div>
+      <div class="wbd-pg-product__price">$185</div>
+    </div>
+    <div class="wbd-pg-product">
+      <div class="wbd-pg-product__img"><span class="material-symbols-outlined">lightbulb</span></div>
+      <div class="wbd-pg-product__name">Lantern Floor Lamp</div>
+      <div class="wbd-pg-product__price">$285</div>
+    </div>
+    <div class="wbd-pg-product">
+      <div class="wbd-pg-product__img"><span class="material-symbols-outlined">lightbulb</span></div>
+      <div class="wbd-pg-product__name">Bamboo Pendant</div>
+      <div class="wbd-pg-product__price">$320</div>
+    </div>
+  </div>
+
+  <section class="wbd-pg-returns">
+    <div class="wbd-pg-returns__label">Returns Portal</div>
+    <div id="returns-portal"></div>
+  </section>
+
+  <!-- Chatbot Widget -->
+  <script src="/widget/warm/chatbot.js"></script>
+
+  <!-- Returns Portal -->
+  <script src="/widget/warm/returns.js" data-target="#returns-portal"></script>
 </body>
 </html>`);
 });

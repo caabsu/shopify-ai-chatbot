@@ -1,0 +1,13 @@
+{
+  "name": "widget-warm",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --config vite.chatbot.config.ts && vite build --config vite.returns.config.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0"
+  }
+}
