@@ -1,0 +1,69 @@
+<h2>Returns & Warehouse Intelligence Dashboard</h2>
+<p class="subtitle">How should we structure the comprehensive dashboard? Pick the approach that feels right.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Single Mega-Dashboard (Replace Analytics Page)</h3>
+      <p>One dense page with tabs: <strong>Inventory</strong> | <strong>RMA Activity</strong> | <strong>Refund Analytics</strong> | <strong>Warehouse Ops</strong>. Replace the current sparse analytics page entirely. Everything in one place — a command center.</p>
+      <div style="margin-top:12px;padding:12px;background:rgba(34,197,94,0.08);border-radius:8px;font-size:13px;color:#16a34a;">
+        <strong>Recommended.</strong> Your current analytics page is mostly empty/broken anyway. This replaces it with something genuinely useful. One URL to bookmark for daily operations.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Separate Pages (Keep Current Structure)</h3>
+      <p>Add individual pages: <code>/returns/inventory</code>, <code>/returns/warehouse</code>, <code>/returns/refund-analytics</code>. Each is focused and lightweight. More nav items in sidebar.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hub + Detail Pages</h3>
+      <p>One overview hub showing key metrics from all areas, with "drill down" links to dedicated detail pages. Best of both — overview at a glance, depth when needed. More pages to build though.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:32px;padding:20px;background:rgba(99,102,241,0.06);border-radius:12px;border:1px solid rgba(99,102,241,0.15);">
+  <h3 style="margin:0 0 12px;color:#6366f1;font-size:14px;">What We Can Pull From Red Stag API</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px;">
+    <div>
+      <strong style="color:#22c55e;">Live Inventory</strong>
+      <ul style="margin:4px 0;padding-left:18px;color:#64748b;">
+        <li>125 SKUs with real-time stock levels</li>
+        <li>Available, allocated, on-hand, backordered qty</li>
+        <li>Low stock alerts</li>
+      </ul>
+    </div>
+    <div>
+      <strong style="color:#3b82f6;">RMA Processing</strong>
+      <ul style="margin:4px 0;padding-left:18px;color:#64748b;">
+        <li>106 RMAs with full status history</li>
+        <li>Exceptions/damage reports with photos</li>
+        <li>Processing time metrics</li>
+      </ul>
+    </div>
+    <div>
+      <strong style="color:#f59e0b;">Warehouse Details</strong>
+      <ul style="margin:4px 0;padding-left:18px;color:#64748b;">
+        <li>2 warehouses (TN + UT) with addresses</li>
+        <li>Container weights, damage types</li>
+        <li>8 inbound ASN shipments</li>
+      </ul>
+    </div>
+    <div>
+      <strong style="color:#a855f7;">Refund Analytics</strong>
+      <ul style="margin:4px 0;padding-left:18px;color:#64748b;">
+        <li>Return reasons breakdown</li>
+        <li>Refund amounts & restocking fees</li>
+        <li>Processing time trends</li>
+      </ul>
+    </div>
+  </div>
+</div>
