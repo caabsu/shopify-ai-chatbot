@@ -67,13 +67,9 @@ async function initSession() {
           timestamp: m.timestamp,
         }));
       } else {
-        messages = [
-          {
-            role: 'assistant' as const,
-            content: sessionRes.greeting,
-            timestamp: Date.now(),
-          },
-        ];
+        // Don't add a greeting message — the header greeting handles it.
+        // Start with an empty message list so the chat area is clean.
+        messages = [];
       }
     }
 
