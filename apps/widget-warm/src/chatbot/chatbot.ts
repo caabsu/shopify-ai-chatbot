@@ -59,16 +59,16 @@ async function initSession() {
     let messages = getState().messages;
     if (messages.length === 0) {
       if (saved?.messages && saved.messages.length > 0) {
-        messages = saved.messages;
+        // Filter out standalone greeting messages — the header handles greetings
+        messages = saved.messages.filter((m) => !(m.role === 'assistant' && !saved.messages.some((u) => u.role === 'user') && saved.messages.indexOf(m) === 0));
       } else if (sessionRes.messages && sessionRes.messages.length > 0) {
-        messages = sessionRes.messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp,
-        }));
+        // Backend history — only include if there are actual user messages
+        const hasUserMsg = sessionRes.messages.some((m) => m.role === 'user');
+        messages = hasUserMsg
+          ? sessionRes.messages.map((m) => ({ role: m.role, content: m.content, timestamp: m.timestamp }))
+          : [];
       } else {
-        // Don't add a greeting message — the header greeting handles it.
-        // Start with an empty message list so the chat area is clean.
+        // New session — header greeting handles it, no message needed
         messages = [];
       }
     }
