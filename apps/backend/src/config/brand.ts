@@ -94,6 +94,35 @@ export async function getBrandName(brandId: string): Promise<string | null> {
   return brand?.name ?? null;
 }
 
+/** Get the full brand object by ID (uses cache) */
+export async function getBrand(brandId: string): Promise<Brand | null> {
+  const brands = await loadBrands();
+  return brands.find((b) => b.id === brandId) ?? null;
+}
+
+/** Get the widget JS URL for a brand. Falls back to default widget paths. */
+export async function getBrandWidgetUrl(brandId: string, widgetType: 'chatbot' | 'returns' | 'contact' | 'reviews' | 'tracking' | 'contactForm'): Promise<string> {
+  const brand = await getBrand(brandId);
+  const settings = brand?.settings as Record<string, unknown> | null;
+  const widgetUrls = settings?.widgetUrls as Record<string, string> | undefined;
+
+  if (widgetUrls?.[widgetType]) {
+    return widgetUrls[widgetType];
+  }
+
+  // Default widget paths (Outlight/Misu shared widget)
+  const defaults: Record<string, string> = {
+    chatbot: '/widget/widget.js',
+    returns: '/widget/returns-portal.js',
+    contact: '/widget/contact-form.js',
+    contactForm: '/widget/contact-form.js',
+    reviews: '/widget/review-widget.js',
+    tracking: '/widget/tracking-widget.js',
+  };
+
+  return defaults[widgetType] || '/widget/widget.js';
+}
+
 /** Invalidate cached brands (useful after brand updates) */
 export function invalidateBrandsCache(): void {
   brandsCache = null;

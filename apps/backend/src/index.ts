@@ -18,7 +18,7 @@ import { contactFormSettingsRouter } from './controllers/contact-form-settings.c
 import { processScheduledEmails, processScheduledReminders, expireOldRequests } from './services/review-email.service.js';
 import { registerWebhooks as registerReviewWebhooks } from './services/product-sync.service.js';
 import { supabase } from './config/supabase.js';
-import { resolveBrandId } from './config/brand.js';
+import { resolveBrandId, getBrandWidgetUrl, getBrand } from './config/brand.js';
 import { getToken } from './services/shopify-auth.service.js';
 import * as ticketService from './services/ticket.service.js';
 import { sendTicketConfirmation } from './services/email.service.js';
@@ -426,14 +426,16 @@ async function getInlinePortalConfig(brandId: string): Promise<Record<string, un
 
 app.get('/widget/preview-returns', async (req, res) => {
   const brandSlug = (req.query.brand as string || '').toLowerCase();
-  const dataBrandAttr = brandSlug && brandSlug !== 'outlight' ? ` data-brand="${brandSlug}"` : '';
+  const dataBrandAttr = brandSlug ? ` data-brand="${brandSlug}"` : '';
 
-  // Run ALL queries in parallel — single await
   const brandId = await resolveBrandId(req);
   const [widgetConfig, portalConfig] = await Promise.all([
     getInlineWidgetConfig(brandId),
     getInlinePortalConfig(brandId),
   ]);
+  const returnsWidgetUrl = await getBrandWidgetUrl(brandId, 'returns');
+  const brand = await getBrand(brandId);
+  const isDark = (brand?.settings as Record<string, unknown> | null)?.theme === 'dark';
 
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
@@ -444,7 +446,7 @@ app.get('/widget/preview-returns', async (req, res) => {
   <title>Returns Preview</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: ${isDark ? '#131313' : '#fff'}; }
     #returns-portal { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
   </style>
 </head>
@@ -456,23 +458,27 @@ app.get('/widget/preview-returns', async (req, res) => {
       portalConfig: ${JSON.stringify(portalConfig)}
     };
     window.__SRP_DEBUG = ${req.query.debug === '1' ? 'true' : 'false'};
-    // Listen for parent frame toggling debug mode
     window.addEventListener('message', function(e) {
       if (e.data && e.data.type === 'srp:set_debug') {
         window.__SRP_DEBUG = !!e.data.enabled;
       }
     });
   </script>
-  <script src="/widget/returns-portal.js"${dataBrandAttr}></script>
+  <script src="${returnsWidgetUrl}?v=${Date.now()}"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
 
 // Review widget preview (for admin playground)
-app.get('/widget/preview-reviews', (req, res) => {
+app.get('/widget/preview-reviews', async (req, res) => {
   const brandSlug = (req.query.brand as string || '').toLowerCase();
-  const dataBrandAttr = brandSlug && brandSlug !== 'outlight' ? ` data-brand="${brandSlug}"` : '';
+  const dataBrandAttr = brandSlug ? ` data-brand="${brandSlug}"` : '';
   const handle = (req.query.handle as string) || 'aven';
+
+  const brandId = await resolveBrandId(req);
+  const reviewWidgetUrl = await getBrandWidgetUrl(brandId, 'reviews');
+  const brand = await getBrand(brandId);
+  const isDark = (brand?.settings as Record<string, unknown> | null)?.theme === 'dark';
 
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
@@ -483,21 +489,26 @@ app.get('/widget/preview-reviews', (req, res) => {
   <title>Review Widget Preview</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: ${isDark ? '#131313' : '#fff'}; }
     #outlight-reviews { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
   </style>
 </head>
 <body>
   <div id="outlight-reviews" data-product-handle="${handle}"></div>
-  <script src="/widget/review-widget.js"${dataBrandAttr}></script>
+  <script src="${reviewWidgetUrl}?v=${Date.now()}"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
 
 // Tracking widget preview (for admin playground)
-app.get('/widget/preview-tracking', (req, res) => {
+app.get('/widget/preview-tracking', async (req, res) => {
   const brandSlug = (req.query.brand as string || '').toLowerCase();
-  const dataBrandAttr = brandSlug && brandSlug !== 'outlight' ? ` data-brand="${brandSlug}"` : '';
+  const dataBrandAttr = brandSlug ? ` data-brand="${brandSlug}"` : '';
+
+  const brandId = await resolveBrandId(req);
+  const trackingWidgetUrl = await getBrandWidgetUrl(brandId, 'tracking');
+  const brand = await getBrand(brandId);
+  const isDark = (brand?.settings as Record<string, unknown> | null)?.theme === 'dark';
 
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
@@ -508,13 +519,13 @@ app.get('/widget/preview-tracking', (req, res) => {
   <title>Tracking Widget Preview</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: ${isDark ? '#131313' : '#fff'}; }
     #outlight-tracking { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
   </style>
 </head>
 <body>
   <div id="outlight-tracking"></div>
-  <script src="/widget/tracking-widget.js"${dataBrandAttr}></script>
+  <script src="${trackingWidgetUrl}?v=${Date.now()}"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
@@ -647,10 +658,14 @@ app.get('/review', async (req, res) => {
 
 app.get('/widget/preview-embedded', async (req, res) => {
   const brandSlug = (req.query.brand as string || '').toLowerCase();
-  const dataBrandAttr = brandSlug && brandSlug !== 'outlight' ? ` data-brand="${brandSlug}"` : '';
+  const dataBrandAttr = brandSlug ? ` data-brand="${brandSlug}"` : '';
 
   const brandId = await resolveBrandId(req);
   const widgetConfig = await getInlineWidgetConfig(brandId);
+  const chatWidgetUrl = await getBrandWidgetUrl(brandId, 'chatbot');
+  const contactWidgetUrl = await getBrandWidgetUrl(brandId, 'contactForm');
+  const brand = await getBrand(brandId);
+  const isDark = (brand?.settings as Record<string, unknown> | null)?.theme === 'dark';
 
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
@@ -661,8 +676,8 @@ app.get('/widget/preview-embedded', async (req, res) => {
   <title>Contact Form Preview</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
-    #chat-embed { height: 500px; border-radius: 16px; overflow: hidden; max-width: 960px; margin: 0 auto; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: ${isDark ? '#131313' : '#fff'}; min-height: 100vh; }
+    #chat-embed { height: 500px; border-radius: ${isDark ? '0' : '16px'}; overflow: hidden; max-width: 960px; margin: 0 auto; }
     #support-contact-form { max-width: 960px; margin: 24px auto 0; padding: 0 16px; }
   </style>
 </head>
@@ -676,15 +691,20 @@ app.get('/widget/preview-embedded', async (req, res) => {
     };
   </script>
   ${playgroundDebugScript}
-  <script src="/widget/widget.js" data-mode="embedded" data-target="#chat-embed"${dataBrandAttr}></script>
-  <script src="/widget/contact-form.js"${dataBrandAttr}></script>
+  <script src="${chatWidgetUrl}?v=${Date.now()}" data-mode="embedded" data-target="#chat-embed"${dataBrandAttr}></script>
+  <script src="${contactWidgetUrl}?v=${Date.now()}"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
 
 app.get('/widget/preview-chat', async (req, res) => {
   const brandSlug = (req.query.brand as string || '').toLowerCase();
-  const dataBrandAttr = brandSlug && brandSlug !== 'outlight' ? ` data-brand="${brandSlug}"` : '';
+  const dataBrandAttr = brandSlug ? ` data-brand="${brandSlug}"` : '';
+
+  const brandId = await resolveBrandId(req);
+  const chatWidgetUrl = await getBrandWidgetUrl(brandId, 'chatbot');
+  const brand = await getBrand(brandId);
+  const isDark = (brand?.settings as Record<string, unknown> | null)?.theme === 'dark';
 
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
@@ -695,17 +715,17 @@ app.get('/widget/preview-chat', async (req, res) => {
   <title>Chat Preview</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fafafa; min-height: 100vh; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: ${isDark ? '#131313' : '#fafafa'}; min-height: 100vh; }
   </style>
 </head>
 <body>
   <script>
     if (new URLSearchParams(window.location.search).has('newconv')) {
-      Object.keys(localStorage).filter(function(k){return k.indexOf('aicb_session')===0;}).forEach(function(k){localStorage.removeItem(k);});
+      Object.keys(localStorage).filter(function(k){return k.indexOf('aicb_session')===0 || k.indexOf('wbd_session')===0;}).forEach(function(k){localStorage.removeItem(k);});
     }
   </script>
   ${playgroundDebugScript}
-  <script src="/widget/widget.js"${dataBrandAttr}></script>
+  <script src="${chatWidgetUrl}?v=${Date.now()}"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
@@ -1065,7 +1085,7 @@ app.get('/widget/playground-embedded', async (req, res) => {
   const qs = brandQueryString(req);
   const inkColor = brand.bgGradientFrom === '#F3EDE2' ? '#1C130A' : '#1a1a1a';
   const brandSlug = (req.query.brand as string || '').toLowerCase();
-  const dataBrandAttr = brandSlug && brandSlug !== 'outlight'
+  const dataBrandAttr = brandSlug
     ? ` data-brand="${brandSlug}"`
     : '';
 
@@ -1221,7 +1241,7 @@ app.get('/widget/playground-returns', async (req, res) => {
   const qs = brandQueryString(req);
   const inkColor = brand.bgGradientFrom === '#F3EDE2' ? '#1C130A' : '#1a1a1a';
   const brandSlug = (req.query.brand as string || '').toLowerCase();
-  const dataBrandAttr = brandSlug && brandSlug !== 'outlight'
+  const dataBrandAttr = brandSlug
     ? ` data-brand="${brandSlug}"`
     : '';
 
