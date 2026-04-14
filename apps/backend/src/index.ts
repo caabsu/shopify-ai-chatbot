@@ -1608,10 +1608,10 @@ app.get('/widget/warm/playground', (_req, res) => {
   </section>
 
   <!-- Chatbot Widget -->
-  <script src="/widget/warm/chatbot.js"></script>
+  <script src="/widget/warm/chatbot.js?v=${Date.now()}"></script>
 
   <!-- Returns Portal -->
-  <script src="/widget/warm/returns.js" data-target="#returns-portal"></script>
+  <script src="/widget/warm/returns.js?v=${Date.now()}" data-target="#returns-portal"></script>
 </body>
 </html>`);
 });
@@ -1632,8 +1632,8 @@ app.get('/widget/warm/playground-contact', (_req, res) => {
 </head>
 <body>
   <div id="contact-page"></div>
-  <script src="/widget/warm/contact.js" data-target="#contact-page"></script>
-  <script src="/widget/warm/chatbot.js"></script>
+  <script src="/widget/warm/contact.js?v=${Date.now()}" data-target="#contact-page"></script>
+  <script src="/widget/warm/chatbot.js?v=${Date.now()}"></script>
 </body>
 </html>`);
 });
