@@ -73,9 +73,9 @@
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-.wbd-fab .wbd-fab__icon-close { display: none; }
-.wbd-fab--open .wbd-fab__icon-chat { display: none; }
-.wbd-fab--open .wbd-fab__icon-close { display: block; }
+.wbd-fab .wbd-fab__icon-close { display: none !important; }
+.wbd-fab--open .wbd-fab__icon-chat { display: none !important; }
+.wbd-fab--open .wbd-fab__icon-close { display: block !important; }
 
 
 /* ═══════════════════════════════════════
