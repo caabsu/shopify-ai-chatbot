@@ -1,31 +1,56 @@
-import { createHeader, updatePresets } from './Header.js';
+import { createHeader } from './Header.js';
 import { createMessageList } from './MessageList.js';
 import { createInputBar } from './InputBar.js';
 import { getState, setState, saveSession, clearSession, subscribe } from '../state/store.js';
 import * as api from '../api/client.js';
-import type { WidgetMessage } from '../state/store.js';
+import type { WidgetMessage, PresetAction } from '../state/store.js';
+
+const PRESET_ICONS: Record<string, string> = {
+  truck: 'local_shipping',
+  return: 'undo',
+  search: 'search',
+  contact: 'support_agent',
+  help: 'help_outline',
+  sparkles: 'auto_awesome',
+};
+
+function createPresetChips(presets: PresetAction[], onClick: (id: string) => void): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'wbd-presets';
+
+  for (const preset of presets) {
+    const chip = document.createElement('button');
+    chip.className = 'wbd-preset-chip';
+    const iconName = PRESET_ICONS[preset.icon] || 'chat_bubble_outline';
+    chip.innerHTML = `<span class="material-symbols-outlined">${iconName}</span>${preset.label}`;
+    chip.addEventListener('click', () => onClick(preset.id));
+    container.appendChild(chip);
+  }
+
+  return container;
+}
 
 export function createChatWindow(onClose: () => void, onSessionInit: () => Promise<void>): HTMLElement {
   const win = document.createElement('div');
   win.className = 'wbd-window';
 
-  function handleReset() {
-    clearSession();
-    if (onSessionInit) onSessionInit();
-  }
-
-  const header = createHeader(onClose, handleReset, handlePresetClick);
+  const header = createHeader(onClose);
   const messageList = createMessageList();
   const inputBar = createInputBar(handleSendMessage);
 
+  // Presets container — inserted between header and messages
+  let presetsEl: HTMLElement | null = null;
+
   win.appendChild(header);
+  // Presets will be inserted here when they load
   win.appendChild(messageList);
   win.appendChild(inputBar);
 
-  // Update preset chips when they load from session
-  subscribe((state) => {
-    if (!state.hasUserSentMessage && state.presetActions.length > 0) {
-      updatePresets(header, state.presetActions, handlePresetClick);
+  // Listen for presets to load from session init
+  const unsubPresets = subscribe((state) => {
+    if (!state.hasUserSentMessage && state.presetActions.length > 0 && !presetsEl) {
+      presetsEl = createPresetChips(state.presetActions, handlePresetClick);
+      win.insertBefore(presetsEl, messageList);
     }
   });
 
@@ -44,9 +69,11 @@ export function createChatWindow(onClose: () => void, onSessionInit: () => Promi
     });
     saveSession();
 
-    // Hide presets after first message
-    const presetsEl = header.querySelector('.wbd-presets');
-    if (presetsEl) presetsEl.remove();
+    // Remove presets after first message
+    if (presetsEl) {
+      presetsEl.remove();
+      presetsEl = null;
+    }
 
     try {
       const result = await api.sendMessage({
@@ -98,8 +125,10 @@ export function createChatWindow(onClose: () => void, onSessionInit: () => Promi
     });
     saveSession();
 
-    const presetsEl = header.querySelector('.wbd-presets');
-    if (presetsEl) presetsEl.remove();
+    if (presetsEl) {
+      presetsEl.remove();
+      presetsEl = null;
+    }
 
     try {
       const result = await api.sendMessage({

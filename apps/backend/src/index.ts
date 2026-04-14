@@ -1603,26 +1603,7 @@ app.get('/widget/warm/playground', (_req, res) => {
     <p class="wbd-pg-hero__sub">Every product tuned to exactly 2700K — the color temperature of golden hour. Warm light transforms how your home feels.</p>
   </section>
 
-  <div class="wbd-pg-products">
-    <div class="wbd-pg-product">
-      <div class="wbd-pg-product__img"><span class="material-symbols-outlined">lightbulb</span></div>
-      <div class="wbd-pg-product__name">Cesta Table Lamp</div>
-      <div class="wbd-pg-product__price">$185</div>
-    </div>
-    <div class="wbd-pg-product">
-      <div class="wbd-pg-product__img"><span class="material-symbols-outlined">lightbulb</span></div>
-      <div class="wbd-pg-product__name">Lantern Floor Lamp</div>
-      <div class="wbd-pg-product__price">$285</div>
-    </div>
-    <div class="wbd-pg-product">
-      <div class="wbd-pg-product__img"><span class="material-symbols-outlined">lightbulb</span></div>
-      <div class="wbd-pg-product__name">Bamboo Pendant</div>
-      <div class="wbd-pg-product__price">$320</div>
-    </div>
-  </div>
-
   <section class="wbd-pg-returns">
-    <div class="wbd-pg-returns__label">Returns Portal</div>
     <div id="returns-portal"></div>
   </section>
 
