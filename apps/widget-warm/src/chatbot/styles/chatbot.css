@@ -24,8 +24,6 @@
 #wbd-root *::before,
 #wbd-root *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 #wbd-root .material-symbols-outlined {

@@ -1616,6 +1616,22 @@ app.get('/widget/warm/playground', (_req, res) => {
 </html>`);
 });
 
+// ── Bare test page: ONLY chatbot, zero other CSS ──
+app.get('/widget/warm/test', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chatbot Test</title>
+</head>
+<body style="background:#131313;margin:0;min-height:100vh;">
+<script src="/widget/warm/chatbot.js?v=${Date.now()}"></script>
+</body>
+</html>`);
+});
+
 // ── Warm by Design Contact Playground ──
 app.get('/widget/warm/playground-contact', (_req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
