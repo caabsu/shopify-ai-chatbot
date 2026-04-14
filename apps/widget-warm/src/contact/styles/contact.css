@@ -1,0 +1,481 @@
+/* ═══════════════════════════════════════════════════════
+   Warm by Design — Contact Page (V10 Glass Panel)
+   Full-page embedded widget with ambient 2700K glow
+   ═══════════════════════════════════════════════════════ */
+
+.wbd-contact {
+  position: relative;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 300;
+  color: rgba(240, 237, 232, 0.6);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.wbd-contact *,
+.wbd-contact *::before,
+.wbd-contact *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.wbd-contact .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+}
+
+/* ── Ambient Glow Background ── */
+.wbd-contact__glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 100% 65% at 50% -5%, rgba(245, 188, 112, 0.18) 0%, rgba(245, 188, 112, 0.06) 40%, transparent 100%),
+    radial-gradient(ellipse 70% 45% at 35% 0%, rgba(210, 150, 60, 0.12) 0%, transparent 100%),
+    radial-gradient(ellipse 70% 45% at 65% 0%, rgba(245, 188, 112, 0.10) 0%, transparent 100%),
+    radial-gradient(ellipse 50% 30% at 50% 8%, rgba(255, 200, 100, 0.08) 0%, transparent 100%),
+    radial-gradient(ellipse 120% 40% at 50% 100%, rgba(245, 188, 112, 0.04) 0%, transparent 100%);
+}
+
+/* ── Content ── */
+.wbd-contact__content {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Hero ── */
+.wbd-contact__hero {
+  text-align: center;
+  padding: 128px 20px 40px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.wbd-contact__label {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  color: rgba(245, 188, 112, 0.6);
+  display: block;
+  margin-bottom: 20px;
+}
+
+.wbd-contact__title {
+  font-family: 'Bricolage Grotesque', serif;
+  font-size: 48px;
+  font-weight: 200;
+  color: #F0EDE8;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  margin-bottom: 20px;
+}
+
+.wbd-contact__desc {
+  font-size: 16px;
+  color: rgba(240, 237, 232, 0.55);
+  font-weight: 300;
+  line-height: 1.7;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+/* ── Amber Dot ── */
+.wbd-contact__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f5bc70;
+  margin: 0 auto 36px;
+  opacity: 0.5;
+}
+
+/* ── Glass Panel Wrapper ── */
+.wbd-contact__panel-wrap {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 0 16px 64px;
+}
+
+.wbd-contact__glass {
+  border: 1px solid rgba(245, 188, 112, 0.1);
+  position: relative;
+  overflow: hidden;
+  background: rgba(19, 19, 19, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: clamp(24px, 4vw, 48px);
+}
+
+/* ── Corner Glows ── */
+.wbd-contact__corner-glow {
+  position: absolute;
+  pointer-events: none;
+}
+
+.wbd-contact__corner-glow--tr {
+  top: -60px;
+  right: -60px;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(245, 188, 112, 0.05) 0%, transparent 60%);
+}
+
+.wbd-contact__corner-glow--bl {
+  bottom: -40px;
+  left: -40px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(245, 188, 112, 0.03) 0%, transparent 60%);
+}
+
+/* ── Quick Contact Row ── */
+.wbd-contact__quick-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 40px;
+  position: relative;
+  z-index: 1;
+}
+
+.wbd-contact__quick-btn {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 1px solid rgba(245, 188, 112, 0.1);
+  background: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+  font-family: inherit;
+}
+
+.wbd-contact__quick-btn:hover {
+  border-color: rgba(245, 188, 112, 0.2);
+  background: rgba(245, 188, 112, 0.02);
+}
+
+.wbd-contact__quick-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(245, 188, 112, 0.06);
+  border: 1px solid rgba(245, 188, 112, 0.08);
+}
+
+.wbd-contact__quick-icon .material-symbols-outlined {
+  font-size: 18px;
+  color: #f5bc70;
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+}
+
+.wbd-contact__quick-title {
+  font-size: 15px;
+  color: #F0EDE8;
+  font-weight: 400;
+}
+
+.wbd-contact__quick-sub {
+  font-size: 12px;
+  color: rgba(240, 237, 232, 0.4);
+  margin-top: 3px;
+}
+
+/* ── Divider ── */
+.wbd-contact__divider {
+  height: 1px;
+  margin-bottom: 40px;
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(90deg, transparent, rgba(245, 188, 112, 0.1), transparent);
+}
+
+/* ── Section Label ── */
+.wbd-contact__section-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(245, 188, 112, 0.5);
+  margin-bottom: 16px;
+}
+
+/* ── Topics ── */
+.wbd-contact__topics {
+  margin-bottom: 40px;
+  position: relative;
+  z-index: 1;
+}
+
+.wbd-contact__topics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wbd-contact__topic {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-align: left;
+  border: 1px solid transparent;
+  background: rgba(245, 188, 112, 0.015);
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: inherit;
+  color: inherit;
+}
+
+.wbd-contact__topic:hover {
+  border-color: rgba(245, 188, 112, 0.1);
+}
+
+.wbd-contact__topic-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(245, 188, 112, 0.06);
+}
+
+.wbd-contact__topic-icon .material-symbols-outlined {
+  font-size: 16px;
+  color: rgba(245, 188, 112, 0.6);
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+}
+
+.wbd-contact__topic-label {
+  flex: 1;
+  font-size: 14px;
+  color: rgba(240, 237, 232, 0.7);
+  font-weight: 300;
+  transition: color 0.3s;
+}
+
+.wbd-contact__topic:hover .wbd-contact__topic-label {
+  color: #F0EDE8;
+}
+
+.wbd-contact__topic-arrow {
+  font-size: 16px;
+  color: rgba(240, 237, 232, 0.2);
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+  transition: color 0.3s;
+}
+
+.wbd-contact__topic:hover .wbd-contact__topic-arrow {
+  color: rgba(245, 188, 112, 0.5);
+}
+
+/* ── Form Section ── */
+.wbd-contact__form-section {
+  position: relative;
+  z-index: 1;
+}
+
+.wbd-contact__form-section .wbd-contact__section-label {
+  margin-bottom: 28px;
+}
+
+.wbd-contact__form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.wbd-contact__form-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.wbd-contact__form-row .wbd-contact__form-field {
+  margin-bottom: 0;
+}
+
+.wbd-contact__form-label {
+  font-size: 12px;
+  color: rgba(240, 237, 232, 0.45);
+  margin-bottom: 8px;
+}
+
+.wbd-contact__input,
+.wbd-contact__textarea {
+  width: 100%;
+  border: 1px solid rgba(245, 188, 112, 0.1);
+  background: rgba(19, 19, 19, 0.5);
+  color: #F0EDE8;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 300;
+  padding: 14px 16px;
+  outline: none;
+  transition: border-color 0.3s;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.wbd-contact__input::placeholder,
+.wbd-contact__textarea::placeholder {
+  color: rgba(240, 237, 232, 0.18);
+}
+
+.wbd-contact__input:focus,
+.wbd-contact__textarea:focus {
+  border-color: rgba(245, 188, 112, 0.3);
+}
+
+.wbd-contact__textarea {
+  resize: none;
+  min-height: 130px;
+  line-height: 1.5;
+}
+
+/* ── Form Error ── */
+.wbd-contact__form-error {
+  font-size: 13px;
+  color: #e57373;
+  margin-bottom: 12px;
+  display: none;
+}
+
+.wbd-contact__form-error--visible {
+  display: block;
+}
+
+/* ── Form Success ── */
+.wbd-contact__form-success {
+  border: 1px solid rgba(245, 188, 112, 0.1);
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 16px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #f5bc70;
+  font-size: 14px;
+}
+
+.wbd-contact__form-success .material-symbols-outlined {
+  font-size: 20px;
+  font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+}
+
+.wbd-contact__form-success--visible {
+  display: flex;
+}
+
+/* ── Submit Button ── */
+.wbd-contact__submit {
+  width: 100%;
+  height: 56px;
+  background: #f5bc70;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: #462b00;
+  transition: background 0.3s;
+}
+
+.wbd-contact__submit:hover {
+  background: rgba(245, 188, 112, 0.85);
+}
+
+.wbd-contact__submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Footer Meta ── */
+.wbd-contact__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 28px;
+  margin-top: 36px;
+  padding-top: 28px;
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid rgba(245, 188, 112, 0.05);
+}
+
+.wbd-contact__footer-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(240, 237, 232, 0.28);
+}
+
+.wbd-contact__footer-item .material-symbols-outlined {
+  font-size: 14px;
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .wbd-contact__hero {
+    padding: 80px 20px 32px;
+  }
+
+  .wbd-contact__title {
+    font-size: 32px;
+  }
+
+  .wbd-contact__desc {
+    font-size: 15px;
+  }
+
+  .wbd-contact__panel-wrap {
+    padding: 0 16px 48px;
+  }
+
+  .wbd-contact__quick-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .wbd-contact__form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .wbd-contact__topic {
+    padding: 14px;
+  }
+
+  .wbd-contact__topic-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .wbd-contact__topic-label {
+    font-size: 13px;
+  }
+
+  .wbd-contact__footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

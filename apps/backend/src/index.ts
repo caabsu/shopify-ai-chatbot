@@ -1,4 +1,5 @@
 import path from 'path';
+import { existsSync } from 'fs';
 
 import express from 'express';
 import cors from 'cors';
@@ -67,7 +68,10 @@ app.use('/widget', express.static(widgetDir, {
 }));
 
 // Serve Warm by Design widget static files
-const widgetWarmDir = path.resolve(process.cwd(), 'apps/widget-warm/dist');
+// Resolve widget-warm dist — works from project root (Railway) or apps/backend/ (local dev)
+const widgetWarmFromRoot = path.resolve(process.cwd(), 'apps/widget-warm/dist');
+const widgetWarmFromBackend = path.resolve(process.cwd(), '../widget-warm/dist');
+const widgetWarmDir = existsSync(widgetWarmFromRoot) ? widgetWarmFromRoot : widgetWarmFromBackend;
 app.use('/widget/warm', express.static(widgetWarmDir, {
   maxAge: config.server.nodeEnv === 'production' ? '5m' : '1m',
   etag: true,
@@ -1589,6 +1593,7 @@ app.get('/widget/warm/playground', (_req, res) => {
     <span class="wbd-pg-nav__brand">Warm by Design</span>
     <div class="wbd-pg-nav__tabs">
       <a href="/widget/warm/playground" class="wbd-pg-tab wbd-pg-tab--active">Storefront</a>
+      <a href="/widget/warm/playground-contact" class="wbd-pg-tab">Contact</a>
     </div>
   </nav>
 
@@ -1626,6 +1631,28 @@ app.get('/widget/warm/playground', (_req, res) => {
 
   <!-- Returns Portal -->
   <script src="/widget/warm/returns.js" data-target="#returns-portal"></script>
+</body>
+</html>`);
+});
+
+// ── Warm by Design Contact Playground ──
+app.get('/widget/warm/playground-contact', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warm by Design — Contact</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #131313; min-height: 100vh; }
+</style>
+</head>
+<body>
+  <div id="contact-page"></div>
+  <script src="/widget/warm/contact.js" data-target="#contact-page"></script>
+  <script src="/widget/warm/chatbot.js"></script>
 </body>
 </html>`);
 });
@@ -2002,6 +2029,56 @@ app.use('/api/tracking', trackingRouter);
 
 // Contact form settings routes
 app.use('/api/contact-form', contactFormSettingsRouter);
+
+// ── Public Contact Form Submission (no auth required) ──
+app.post('/api/contact/submit', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const { name, email, message, topic } = req.body;
+
+    if (!name || !email || !message) {
+      res.status(400).json({ error: 'name, email, and message are required' });
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ error: 'Invalid email address' });
+      return;
+    }
+
+    const ticket = await ticketService.createTicket({
+      source: 'form',
+      subject: topic || `Contact form: ${message.substring(0, 60)}`,
+      customer_email: email,
+      customer_name: name,
+      priority: 'low',
+      metadata: { source_widget: 'warm-contact', topic, initial_message: message },
+      brand_id: brandId,
+    });
+
+    // Add the message body as first ticket message
+    await ticketService.addTicketMessage(ticket.id, {
+      content: message,
+      sender_type: 'customer',
+      sender_name: name,
+      sender_email: email,
+    }).catch((err) => {
+      console.error('[contact] Failed to add message to ticket:', err);
+    });
+
+    console.log(`[contact] Ticket ${ticket.ticket_number} created from ${email}`);
+
+    res.status(201).json({
+      success: true,
+      ticketNumber: ticket.ticket_number,
+      message: 'Your message has been received. We\'ll get back to you within 24 hours.',
+    });
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error('[contact] POST /api/contact/submit error:', errMsg);
+    res.status(500).json({ error: 'Failed to submit form' });
+  }
+});
 
 // One-time migration: create contact_form_settings table
 app.post('/api/migrate/contact-form-settings', async (_req, res) => {
