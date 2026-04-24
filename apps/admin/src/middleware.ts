@@ -5,7 +5,7 @@ import { jwtVerify } from 'jose';
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'admin-secret-key-change-me');
 
 // Pages agents ARE allowed to access
-const AGENT_ALLOWED = ['/agent', '/api/tickets', '/api/auth', '/api/settings/canned-responses'];
+const AGENT_ALLOWED = ['/agent', '/api/tickets', '/api/orders', '/api/knowledge', '/api/auth', '/api/settings/canned-responses'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
