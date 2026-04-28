@@ -14,7 +14,12 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 const widgetDesign = {
   primaryColor: '#f5bc70',
   backgroundColor: '#1B1B1B',
-  headerTitle: 'Warm by Design',
+  headerTitle: 'Talk to us.',
+  description: 'Reply in under 12 hours.',
+  chatButtonText: 'Chat now',
+  emailButtonText: 'Email us',
+  emailAddress: 'support@warmbydesign.com',
+  responseTime: 'Reply in under 12 hours',
   position: 'bottom-right',
   bubbleIcon: 'chat',
   welcomeMessage: '',
@@ -24,8 +29,8 @@ const widgetDesign = {
   showBrandingBadge: true,
   autoOpenDelay: 0,
   greetingHeader: 'Every room deserves golden hour.',
-  greetingSubtext: 'Ask us about products, orders, shipping, or returns.',
-  headerSubtitle: 'Support',
+  greetingSubtext: 'Replies in under 12 hours',
+  headerSubtitle: 'Replies in under 12 hours',
   headerLogo: '',
   brandingText: 'Designed at 2700K',
   theme: 'dark',
@@ -61,8 +66,8 @@ const contactDesign = {
   subjectPlaceholder: 'Order help, product question, or return',
   messageLabel: 'Message',
   messagePlaceholder: 'Tell us what you need help with...',
-  buttonText: 'Send Message',
-  buttonShowArrow: true,
+  buttonText: 'Send message',
+  buttonShowArrow: false,
   successMessage: "Message sent. We'll get back to you soon.",
   showSubjectField: true,
   cardPadding: 'clamp(24px, 4vw, 48px)',
@@ -225,8 +230,8 @@ async function updateReturnSettings(brandId) {
   const updated = await supabase
     .from('return_settings')
     .update({
-      portal_title: 'Start a return',
-      portal_description: 'Look up an eligible Warm by Design order and send us the details.',
+      portal_title: 'Start a return.',
+      portal_description: '30 days. Free shipping back. No questions.',
       updated_at: new Date().toISOString(),
     })
     .eq('id', existing.data.id);

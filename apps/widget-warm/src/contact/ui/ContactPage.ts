@@ -7,9 +7,8 @@ interface ContactConfig {
   emailButtonText: string;
   emailAddress: string;
   responseTime: string;
-  location: string;
   formHeading: string;
-  topics: Array<{ icon: string; label: string }>;
+  topics: Array<{ icon: string; label: string; subject?: string }>;
   primaryColor?: string;
   backgroundColor?: string;
   inputBackground?: string;
@@ -35,224 +34,113 @@ interface ContactConfig {
   messageLabel: string;
   messagePlaceholder: string;
   buttonText: string;
-  buttonShowArrow: boolean;
   successMessage: string;
   showSubjectField: boolean;
   cardPadding?: string;
 }
 
 const DEFAULT_CONFIG: ContactConfig = {
-  heading: 'Need lighting advice?',
-  description: "Our team knows 2700K inside and out. Whether you're designing a room or choosing a finish, we're here.",
-  chatButtonText: 'Start a Chat',
+  heading: 'Talk to us.',
+  description: 'Reply in under 12 hours.',
+  chatButtonText: 'Chat now',
   emailButtonText: 'Email us',
   emailAddress: 'support@warmbydesign.com',
-  responseTime: '24hr response',
-  location: 'Los Angeles, CA',
-  formHeading: 'Send a message',
+  responseTime: 'Reply in under 12 hours',
+  formHeading: '',
   topics: [
-    { icon: 'emoji_objects', label: 'Which lamp is right for my living room?' },
-    { icon: 'palette', label: 'Help choosing the right finish' },
-    { icon: 'local_shipping', label: 'Shipping & returns question' },
-    { icon: 'storefront', label: 'Trade or designer inquiry' },
+    { icon: 'light', label: 'Lamp pick', subject: 'Lamp pick' },
+    { icon: 'palette', label: 'Finish', subject: 'Finish help' },
+    { icon: 'local_shipping', label: 'Shipping / returns', subject: 'Shipping / returns' },
+    { icon: 'business', label: 'Trade', subject: 'Trade inquiry' },
   ],
   nameLabel: 'Name',
-  namePlaceholder: 'Your name',
+  namePlaceholder: 'Your full name',
   emailLabel: 'Email',
-  emailPlaceholder: 'your@email.com',
+  emailPlaceholder: 'you@example.com',
   subjectLabel: 'Subject',
-  subjectPlaceholder: 'What can we help with?',
+  subjectPlaceholder: 'Order help, product question, or return',
   messageLabel: 'Message',
-  messagePlaceholder: "Tell us what you're looking for...",
-  buttonText: 'Send Message',
-  buttonShowArrow: false,
-  successMessage: "Thanks for reaching out! We'll get back to you within 24 hours.",
-  showSubjectField: false,
+  messagePlaceholder: 'Tell us what you need help with...',
+  buttonText: 'Send message',
+  successMessage: "Message sent. We'll get back to you soon.",
+  showSubjectField: true,
 };
 
 export function createContactPage(config?: Partial<ContactConfig>): HTMLElement {
   const c = { ...DEFAULT_CONFIG, ...config };
-
-  const root = document.createElement('div');
+  const root = document.createElement('section');
   root.className = 'wbd-contact';
   applyDesignVariables(root, c);
 
-  // ── Ambient glow background ──
-  const glow = document.createElement('div');
-  glow.className = 'wbd-contact__glow';
-  glow.setAttribute('aria-hidden', 'true');
-  root.appendChild(glow);
+  const wrap = document.createElement('div');
+  wrap.className = 'wbd-contact__wrap';
 
-  // ── Content wrapper ──
-  const content = document.createElement('div');
-  content.className = 'wbd-contact__content';
-
-  // ── Hero heading ──
-  const hero = document.createElement('div');
-  hero.className = 'wbd-contact__hero';
-  hero.innerHTML = `
-    <span class="wbd-contact__label">Contact</span>
-    <h1 class="wbd-contact__title">${escapeHtml(c.heading)}</h1>
-    ${c.description ? `<p class="wbd-contact__desc">${escapeHtml(c.description)}</p>` : ''}
-  `;
-  content.appendChild(hero);
-
-  // ── Amber dot accent ──
-  const dot = document.createElement('div');
-  dot.className = 'wbd-contact__dot';
-  content.appendChild(dot);
-
-  // ── Glass panel ──
-  const panel = document.createElement('div');
-  panel.className = 'wbd-contact__panel-wrap';
-
-  const glass = document.createElement('div');
-  glass.className = 'wbd-contact__glass';
-
-  // Corner glows
-  glass.innerHTML = `
-    <div class="wbd-contact__corner-glow wbd-contact__corner-glow--tr"></div>
-    <div class="wbd-contact__corner-glow wbd-contact__corner-glow--bl"></div>
+  const card = document.createElement('div');
+  card.className = 'wbd-contact__card';
+  card.innerHTML = `
+    <header class="wbd-contact__header">
+      <h1 class="wbd-contact__title">${escapeHtml(c.heading)}</h1>
+      ${c.description ? `<p class="wbd-contact__desc">${escapeHtml(c.description)}</p>` : ''}
+    </header>
   `;
 
-  // ── Quick contact row ──
-  const quickRow = document.createElement('div');
-  quickRow.className = 'wbd-contact__quick-row';
-
-  // Chat button
-  if (c.chatButtonText) {
-    const chatBtn = document.createElement('button');
-    chatBtn.className = 'wbd-contact__quick-btn';
-    chatBtn.innerHTML = `
-      <div class="wbd-contact__quick-icon">
-        <span class="material-symbols-outlined">chat</span>
-      </div>
-      <div>
-        <div class="wbd-contact__quick-title">${escapeHtml(c.chatButtonText)}</div>
-        <div class="wbd-contact__quick-sub">Typically responds in minutes</div>
-      </div>
+  const chips = document.createElement('div');
+  chips.className = 'wbd-contact__chips';
+  for (const topic of c.topics) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'wbd-contact__chip';
+    chip.innerHTML = `
+      <span class="wbd-contact__chip-icon material-symbols-outlined">${escapeHtml(topic.icon)}</span>
+      ${escapeHtml(topic.label)}
     `;
-    chatBtn.addEventListener('click', () => {
-      // Find the chatbot FAB and click it to open
-      const fab = document.querySelector('.wbd-fab') as HTMLElement | null;
-      if (fab && !document.querySelector('.wbd-window')) {
-        fab.click();
-      } else if (fab && document.querySelector('.wbd-window')) {
-        // Already open — scroll up to make it visible
-      }
+    chip.addEventListener('click', () => {
+      const subject = card.querySelector('#wbd-contact-subject') as HTMLInputElement | null;
+      if (subject) subject.value = topic.subject ?? topic.label;
+      const message = card.querySelector('#wbd-contact-message') as HTMLTextAreaElement | null;
+      message?.focus();
     });
-    quickRow.appendChild(chatBtn);
+    chips.appendChild(chip);
   }
-
-  // Email button
-  if (c.emailButtonText) {
-    const emailBtn = document.createElement('a');
-    emailBtn.className = 'wbd-contact__quick-btn';
-    emailBtn.href = `mailto:${c.emailAddress}`;
-    emailBtn.innerHTML = `
-      <div class="wbd-contact__quick-icon">
-        <span class="material-symbols-outlined">mail</span>
-      </div>
-      <div>
-        <div class="wbd-contact__quick-title">${escapeHtml(c.emailButtonText)}</div>
-        <div class="wbd-contact__quick-sub">${escapeHtml(c.emailAddress)}</div>
-      </div>
-    `;
-    quickRow.appendChild(emailBtn);
-  }
-
-  glass.appendChild(quickRow);
-
-  // ── Divider ──
-  glass.appendChild(createDivider());
-
-  // ── Topics ──
-  if (c.topics.length > 0) {
-    const topicsSection = document.createElement('div');
-    topicsSection.className = 'wbd-contact__topics';
-
-    const topicsLabel = document.createElement('h3');
-    topicsLabel.className = 'wbd-contact__section-label';
-    topicsLabel.textContent = 'Common questions';
-    topicsSection.appendChild(topicsLabel);
-
-    const topicsList = document.createElement('div');
-    topicsList.className = 'wbd-contact__topics-list';
-
-    for (const topic of c.topics) {
-      const btn = document.createElement('button');
-      btn.className = 'wbd-contact__topic';
-      btn.innerHTML = `
-        ${topic.icon ? `<div class="wbd-contact__topic-icon"><span class="material-symbols-outlined">${escapeHtml(topic.icon)}</span></div>` : ''}
-        <span class="wbd-contact__topic-label">${escapeHtml(topic.label)}</span>
-        <span class="material-symbols-outlined wbd-contact__topic-arrow">chevron_right</span>
-      `;
-      // Clicking a topic opens chatbot with the question
-      btn.addEventListener('click', () => {
-        const fab = document.querySelector('.wbd-fab') as HTMLElement | null;
-        if (fab && !document.querySelector('.wbd-window')) {
-          fab.click();
-        }
-        // After a short delay for the chatbot to open, we could dispatch a message
-        // For now, just open the chatbot
-      });
-      topicsList.appendChild(btn);
-    }
-
-    topicsSection.appendChild(topicsList);
-    glass.appendChild(topicsSection);
-    glass.appendChild(createDivider());
-  }
-
-  // ── Contact form ──
-  const formSection = document.createElement('div');
-  formSection.className = 'wbd-contact__form-section';
-
-  if (c.formHeading) {
-    const formLabel = document.createElement('h3');
-    formLabel.className = 'wbd-contact__section-label';
-    formLabel.textContent = c.formHeading;
-    formSection.appendChild(formLabel);
-  }
+  card.appendChild(chips);
 
   const form = document.createElement('form');
   form.className = 'wbd-contact__form';
   form.noValidate = true;
-
   form.innerHTML = `
-    <div class="wbd-contact__form-row">
-      <div class="wbd-contact__form-field">
+    <div class="wbd-contact__grid">
+      <div class="wbd-contact__field">
         <label class="wbd-contact__form-label" for="wbd-contact-name">${escapeHtml(c.nameLabel)}</label>
         <input type="text" id="wbd-contact-name" class="wbd-contact__input" placeholder="${escapeHtml(c.namePlaceholder)}" required>
       </div>
-      <div class="wbd-contact__form-field">
+      <div class="wbd-contact__field">
         <label class="wbd-contact__form-label" for="wbd-contact-email">${escapeHtml(c.emailLabel)}</label>
         <input type="email" id="wbd-contact-email" class="wbd-contact__input" placeholder="${escapeHtml(c.emailPlaceholder)}" required>
       </div>
     </div>
     ${c.showSubjectField ? `
-      <div class="wbd-contact__form-field">
+      <div class="wbd-contact__field">
         <label class="wbd-contact__form-label" for="wbd-contact-subject">${escapeHtml(c.subjectLabel)}</label>
         <input type="text" id="wbd-contact-subject" class="wbd-contact__input" placeholder="${escapeHtml(c.subjectPlaceholder)}">
       </div>
     ` : ''}
-    <div class="wbd-contact__form-field">
+    <div class="wbd-contact__field">
       <label class="wbd-contact__form-label" for="wbd-contact-message">${escapeHtml(c.messageLabel)}</label>
-      <textarea id="wbd-contact-message" class="wbd-contact__textarea" placeholder="${escapeHtml(c.messagePlaceholder)}" rows="5" required></textarea>
+      <textarea id="wbd-contact-message" class="wbd-contact__textarea" placeholder="${escapeHtml(c.messagePlaceholder)}" required></textarea>
     </div>
     <div class="wbd-contact__form-error" id="wbd-contact-error"></div>
     <div class="wbd-contact__form-success" id="wbd-contact-success">
       <span class="material-symbols-outlined">check_circle</span>
-      ${escapeHtml(c.successMessage)}
+      <span>${escapeHtml(c.successMessage)}</span>
     </div>
     <button type="submit" class="wbd-contact__submit">
+      <span class="material-symbols-outlined">send</span>
       ${escapeHtml(c.buttonText)}
-      ${c.buttonShowArrow ? '<span class="material-symbols-outlined">arrow_forward</span>' : ''}
     </button>
   `;
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
 
     const nameInput = form.querySelector('#wbd-contact-name') as HTMLInputElement;
     const emailInput = form.querySelector('#wbd-contact-email') as HTMLInputElement;
@@ -267,25 +155,20 @@ export function createContactPage(config?: Partial<ContactConfig>): HTMLElement 
     const subject = subjectInput?.value.trim() || '';
     const message = messageInput.value.trim();
 
-    // Reset states
     errorEl.classList.remove('wbd-contact__form-error--visible');
     successEl.classList.remove('wbd-contact__form-success--visible');
 
     if (!name || !email || !message) {
-      errorEl.textContent = 'Please fill in all fields.';
-      errorEl.classList.add('wbd-contact__form-error--visible');
+      showError(errorEl, 'Please fill in name, email, and message.');
       return;
     }
-
-    // Basic email validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errorEl.textContent = 'Please enter a valid email address.';
-      errorEl.classList.add('wbd-contact__form-error--visible');
+      showError(errorEl, 'Please enter a valid email address.');
       return;
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Sending...';
+    submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span>Sending...';
 
     try {
       await submitContactForm({ name, email, message, topic: subject || undefined, subject: subject || undefined });
@@ -295,45 +178,50 @@ export function createContactPage(config?: Partial<ContactConfig>): HTMLElement 
       if (subjectInput) subjectInput.value = '';
       messageInput.value = '';
     } catch (err) {
-      errorEl.textContent = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-      errorEl.classList.add('wbd-contact__form-error--visible');
+      showError(errorEl, err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       submitBtn.disabled = false;
-      submitBtn.innerHTML = `${escapeHtml(c.buttonText)}${c.buttonShowArrow ? '<span class="material-symbols-outlined">arrow_forward</span>' : ''}`;
+      submitBtn.innerHTML = `<span class="material-symbols-outlined">send</span>${escapeHtml(c.buttonText)}`;
     }
   });
+  card.appendChild(form);
 
-  formSection.appendChild(form);
-  glass.appendChild(formSection);
+  const divider = document.createElement('div');
+  divider.className = 'wbd-contact__divider';
+  divider.innerHTML = '<span></span><em>Or</em><span></span>';
+  card.appendChild(divider);
 
-  // ── Footer meta ──
-  const footer = document.createElement('div');
-  footer.className = 'wbd-contact__footer';
-  footer.innerHTML = `
-    ${c.responseTime ? `<div class="wbd-contact__footer-item"><span class="material-symbols-outlined">schedule</span>${escapeHtml(c.responseTime)}</div>` : ''}
-    ${c.location ? `<div class="wbd-contact__footer-item"><span class="material-symbols-outlined">location_on</span>${escapeHtml(c.location)}</div>` : ''}
-    <div class="wbd-contact__footer-item"><span class="material-symbols-outlined">wb_twilight</span>Designed at 2700K</div>
+  const actions = document.createElement('div');
+  actions.className = 'wbd-contact__actions';
+  actions.innerHTML = `
+    <button type="button" class="wbd-contact__alt" id="wbd-contact-chat">
+      <span class="material-symbols-outlined">chat</span>${escapeHtml(c.chatButtonText)}
+    </button>
+    <a class="wbd-contact__alt" href="mailto:${escapeHtml(c.emailAddress)}">
+      <span class="material-symbols-outlined">mail</span>${escapeHtml(c.emailButtonText)}
+    </a>
   `;
-  glass.appendChild(footer);
+  actions.querySelector('#wbd-contact-chat')?.addEventListener('click', () => {
+    const fab = document.querySelector('.wbd-fab') as HTMLElement | null;
+    fab?.click();
+  });
+  card.appendChild(actions);
 
-  panel.appendChild(glass);
-  content.appendChild(panel);
-  root.appendChild(content);
-
+  wrap.appendChild(card);
+  root.appendChild(wrap);
   return root;
 }
 
-function createDivider(): HTMLElement {
-  const div = document.createElement('div');
-  div.className = 'wbd-contact__divider';
-  return div;
+function showError(errorEl: HTMLElement, message: string): void {
+  errorEl.textContent = message;
+  errorEl.classList.add('wbd-contact__form-error--visible');
 }
 
 function applyDesignVariables(root: HTMLElement, config: Partial<ContactConfig>): void {
   const vars: Array<[string, string | undefined]> = [
     ['--wbd-contact-accent', config.accentColor || config.primaryColor],
     ['--wbd-contact-bg', config.backgroundColor],
-    ['--wbd-contact-panel-bg', config.backgroundColor],
+    ['--wbd-contact-card-bg', config.inputBackground],
     ['--wbd-contact-input-bg', config.inputBackground],
     ['--wbd-contact-border', config.borderColor],
     ['--wbd-contact-text', config.textColor],

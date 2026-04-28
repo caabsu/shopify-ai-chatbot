@@ -28,7 +28,12 @@ export const DEFAULT_CONTACT_FORM_DESIGN: ContactFormDesign = {
   buttonBorderRadius: '0',
 
   // Labels & Text
-  headerTitle: 'How can we help?',
+  headerTitle: 'Talk to us.',
+  description: 'Reply in under 12 hours.',
+  chatButtonText: 'Chat now',
+  emailButtonText: 'Email us',
+  emailAddress: 'support@warmbydesign.com',
+  responseTime: 'Reply in under 12 hours',
   headerIcon: 'mail',
   nameLabel: 'Name',
   namePlaceholder: 'Your full name',
@@ -38,8 +43,8 @@ export const DEFAULT_CONTACT_FORM_DESIGN: ContactFormDesign = {
   subjectPlaceholder: 'Order help, product question, or return',
   messageLabel: 'Message',
   messagePlaceholder: 'Tell us what you need help with...',
-  buttonText: 'Send Message',
-  buttonShowArrow: true,
+  buttonText: 'Send message',
+  buttonShowArrow: false,
   successMessage: "Message sent. We'll get back to you soon.",
 
   // Layout

@@ -10,10 +10,11 @@ function escapeHtml(text: string): string {
 export function createHeader(onClose: () => void, design?: WidgetDesign): HTMLElement {
   const header = document.createElement('div');
   header.className = 'wbd-header';
-  const brand = design?.headerTitle && design.headerTitle !== 'Outlight Assistant'
+  const brand = design?.headerTitle && !['Outlight Assistant', 'Warm by Design'].includes(design.headerTitle)
     ? design.headerTitle
-    : 'Warm by Design';
+    : 'How can we help?';
   const greeting = design?.greetingHeader || 'Every room deserves golden hour.';
+  const subtitle = (design as WidgetDesign & { headerSubtitle?: string } | undefined)?.headerSubtitle || 'Replies in under 12 hours';
 
   header.innerHTML = `
     <div class="wbd-header__row">
@@ -26,7 +27,7 @@ export function createHeader(onClose: () => void, design?: WidgetDesign): HTMLEl
       </button>
     </div>
     <div class="wbd-header__greeting">${escapeHtml(greeting)}</div>
-    ${design?.greetingSubtext ? `<div class="wbd-header__subtext">${escapeHtml(design.greetingSubtext)}</div>` : ''}
+    <div class="wbd-header__subtext">${escapeHtml(subtitle)}</div>
   `;
 
   header.querySelector('.wbd-header__minimize')!.addEventListener('click', onClose);

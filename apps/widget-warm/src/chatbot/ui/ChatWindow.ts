@@ -15,17 +15,68 @@ const PRESET_ICONS: Record<string, string> = {
   sparkles: 'auto_awesome',
 };
 
-function createPresetChips(presets: PresetAction[], onClick: (id: string) => void): HTMLElement {
+const LOCKED_ACTIONS: Array<{
+  id: string;
+  label: string;
+  icon: string;
+  prompt?: string;
+  href?: string;
+}> = [
+  {
+    id: 'track_order',
+    label: 'Track my order',
+    icon: 'local_shipping',
+    prompt: 'I want to track my order.',
+  },
+  {
+    id: 'start_return',
+    label: 'Start a return',
+    icon: 'undo',
+    href: '/pages/returns',
+  },
+  {
+    id: 'email_support',
+    label: 'Email us instead',
+    icon: 'mail',
+    href: 'mailto:support@warmbydesign.com',
+  },
+];
+
+function createPresetChips(presets: PresetAction[], onClick: (id: string) => void, onPrompt: (prompt: string) => void): HTMLElement {
   const container = document.createElement('div');
   container.className = 'wbd-presets';
 
-  for (const preset of presets) {
-    const chip = document.createElement('button');
-    chip.className = 'wbd-preset-chip';
-    const iconName = PRESET_ICONS[preset.icon] || 'chat_bubble_outline';
-    chip.innerHTML = `<span class="material-symbols-outlined">${iconName}</span>${preset.label}`;
-    chip.addEventListener('click', () => onClick(preset.id));
-    container.appendChild(chip);
+  const renderedActions = LOCKED_ACTIONS.map((action) => {
+    const preset = presets.find((candidate) => candidate.id === action.id || candidate.label.toLowerCase().includes(action.label.split(' ')[0].toLowerCase()));
+    return {
+      ...action,
+      prompt: action.prompt ?? preset?.prompt,
+      presetId: preset?.id,
+      label: preset?.label && action.id === 'track_order' ? preset.label : action.label,
+    };
+  });
+
+  for (const action of renderedActions) {
+    const button = document.createElement(action.href ? 'a' : 'button');
+    button.className = 'wbd-action';
+    if (action.href) {
+      (button as HTMLAnchorElement).href = action.href;
+      if (action.href.startsWith('mailto:')) (button as HTMLAnchorElement).target = '_self';
+    } else {
+      (button as HTMLButtonElement).type = 'button';
+    }
+    button.innerHTML = `
+      <span class="wbd-action__icon material-symbols-outlined">${action.icon}</span>
+      <span class="wbd-action__label">${action.label}</span>
+      <span class="wbd-action__arrow material-symbols-outlined">chevron_right</span>
+    `;
+    if (!action.href) {
+      button.addEventListener('click', () => {
+        if (action.presetId) onClick(action.presetId);
+        else if (action.prompt) onPrompt(action.prompt);
+      });
+    }
+    container.appendChild(button);
   }
 
   return container;
@@ -50,7 +101,7 @@ export function createChatWindow(onClose: () => void, onSessionInit: () => Promi
   // Listen for presets to load from session init
   const unsubPresets = subscribe((state) => {
     if (!state.hasUserSentMessage && state.presetActions.length > 0 && !presetsEl) {
-      presetsEl = createPresetChips(state.presetActions, handlePresetClick);
+      presetsEl = createPresetChips(state.presetActions, handlePresetClick, handlePromptClick);
       win.insertBefore(presetsEl, messageList);
     }
   });
@@ -161,6 +212,10 @@ export function createChatWindow(onClose: () => void, onSessionInit: () => Promi
         error: errorMsg,
       });
     }
+  }
+
+  async function handlePromptClick(prompt: string) {
+    await handleSendMessage(prompt);
   }
 
   // Focus input on desktop

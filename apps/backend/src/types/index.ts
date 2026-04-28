@@ -748,6 +748,12 @@ export interface ContactFormDesign {
   // Labels & Text
   headerTitle: string;
   headerIcon: string;
+  description?: string;
+  chatButtonText?: string;
+  emailButtonText?: string;
+  emailAddress?: string;
+  responseTime?: string;
+  formHeading?: string;
   nameLabel: string;
   namePlaceholder: string;
   emailLabel: string;
