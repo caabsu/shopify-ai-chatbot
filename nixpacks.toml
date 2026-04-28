@@ -5,6 +5,7 @@ nixPkgs = ["nodejs_20", "npm-9_x"]
 cmds = [
   "npm install",
   "npm run build:widget",
+  "npm run build --workspace=apps/widget-warm",
   "npm run build:backend"
 ]
 
