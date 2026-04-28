@@ -280,12 +280,19 @@
 }
 
 @media (max-width: 640px) {
+  .wbd-contact {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+  }
+
   .wbd-contact__wrap {
-    padding: 32px 16px;
+    padding: 24px 8px;
   }
 
   .wbd-contact__card {
-    padding: 28px 20px;
+    width: 100%;
+    padding: 26px 14px;
   }
 
   .wbd-contact__grid,

@@ -515,6 +515,14 @@
   }
 
   .wbd-fab {
+    right: 16px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    width: 58px;
+    height: 58px;
+    display: flex;
+  }
+
+  .wbd-fab--open {
     display: none;
   }
 
