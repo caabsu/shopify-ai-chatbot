@@ -6,45 +6,45 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export const DEFAULT_CONTACT_FORM_DESIGN: ContactFormDesign = {
   // Colors
-  primaryColor: '#3C2415',
-  backgroundColor: '#FDFAF6',
-  inputBackground: '#FAF7F2',
-  borderColor: '#E8E0D5',
-  textColor: '#2C1810',
-  labelColor: '#2C1810',
-  placeholderColor: '#B5A898',
-  accentColor: '#C5A059',
+  primaryColor: '#f5bc70',
+  backgroundColor: '#131313',
+  inputBackground: 'rgba(19, 19, 19, 0.5)',
+  borderColor: 'rgba(245, 188, 112, 0.1)',
+  textColor: '#F0EDE8',
+  labelColor: 'rgba(240, 237, 232, 0.45)',
+  placeholderColor: 'rgba(240, 237, 232, 0.18)',
+  accentColor: '#f5bc70',
 
   // Typography
-  headingFontFamily: 'Georgia, serif',
-  bodyFontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  headingFontSize: '22px',
-  labelFontSize: '14px',
+  headingFontFamily: '"Bricolage Grotesque", sans-serif',
+  bodyFontFamily: '"Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  headingFontSize: '48px',
+  labelFontSize: '12px',
   inputFontSize: '15px',
 
   // Border radius
-  cardBorderRadius: '16px',
-  inputBorderRadius: '12px',
-  buttonBorderRadius: '12px',
+  cardBorderRadius: '0',
+  inputBorderRadius: '0',
+  buttonBorderRadius: '0',
 
   // Labels & Text
-  headerTitle: 'Send a Message',
+  headerTitle: 'How can we help?',
   headerIcon: 'mail',
   nameLabel: 'Name',
   namePlaceholder: 'Your full name',
   emailLabel: 'Email',
   emailPlaceholder: 'you@example.com',
   subjectLabel: 'Subject',
-  subjectPlaceholder: 'e.g., Subscription help',
+  subjectPlaceholder: 'Order help, product question, or return',
   messageLabel: 'Message',
-  messagePlaceholder: 'Describe your question or concern...',
+  messagePlaceholder: 'Tell us what you need help with...',
   buttonText: 'Send Message',
   buttonShowArrow: true,
-  successMessage: "Message sent! We'll get back to you soon.",
+  successMessage: "Message sent. We'll get back to you soon.",
 
   // Layout
   showSubjectField: true,
-  cardPadding: '36px 32px',
+  cardPadding: 'clamp(24px, 4vw, 48px)',
 };
 
 export const DEFAULT_CONTACT_FORM_CONFIG: ContactFormConfig = {

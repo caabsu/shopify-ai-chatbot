@@ -360,6 +360,50 @@ function brandQueryString(req: express.Request): string {
 const inlineConfigCache = new Map<string, { data: Record<string, unknown>; expiry: number }>();
 const INLINE_CACHE_TTL = 60 * 1000; // 1 minute
 
+const WARM_WIDGET_DESIGN: Record<string, unknown> = {
+  primaryColor: '#f5bc70',
+  backgroundColor: '#1c1b1b',
+  headerTitle: 'Warm by Design',
+  position: 'bottom-right',
+  bubbleIcon: 'chat',
+  welcomeMessage: '',
+  inputPlaceholder: 'Ask about lighting, orders, returns...',
+  borderRadius: 'sharp',
+  fontSize: 'medium',
+  showBrandingBadge: true,
+  autoOpenDelay: 0,
+  greetingHeader: 'Every room deserves golden hour.',
+  greetingSubtext: 'Ask us about products, orders, shipping, or returns.',
+  headerSubtitle: 'Support',
+  headerLogo: '',
+  brandingText: 'Designed at 2700K',
+  theme: 'dark',
+  fontFamily: '"Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  headingFontFamily: '"Bricolage Grotesque", sans-serif',
+  headingFontWeight: '300',
+};
+
+const WARM_RETURN_PORTAL_DESIGN: Record<string, unknown> = {
+  primaryColor: '#f5bc70',
+  backgroundColor: 'transparent',
+  cardBackgroundColor: '#1c1b1b',
+  textColor: '#F0EDE8',
+  mutedTextColor: 'rgba(240, 237, 232, 0.4)',
+  borderRadius: 'sharp',
+  fontSize: 'medium',
+  fontFamily: '"Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  headingFontFamily: '"Bricolage Grotesque", sans-serif',
+  buttonTextLookup: 'Look up order',
+  buttonTextSubmit: 'Submit return request',
+  successTitle: 'Return request submitted',
+  successMessage: "We'll send instructions after we review your request.",
+};
+
+async function isWarmBrand(brandId: string): Promise<boolean> {
+  const brand = await getBrand(brandId);
+  return brand?.slug === 'warm-by-design';
+}
+
 async function getInlineWidgetConfig(brandId: string): Promise<Record<string, unknown>> {
   const key = `widget:${brandId}`;
   const cached = inlineConfigCache.get(key);
@@ -396,7 +440,12 @@ async function getInlineWidgetConfig(brandId: string): Promise<Record<string, un
       formConfig = formConfig ?? contactSettings.form_config;
     } catch { /* contact form settings are optional for preview fallback */ }
 
-    const result = { design, contactDesign, formConfig };
+    const brandDefaults = await isWarmBrand(brandId) ? WARM_WIDGET_DESIGN : {};
+    const result = {
+      design: { ...brandDefaults, ...design },
+      contactDesign,
+      formConfig,
+    };
     inlineConfigCache.set(key, { data: result, expiry: Date.now() + INLINE_CACHE_TTL });
     return result;
   } catch {
@@ -426,6 +475,7 @@ async function getInlinePortalConfig(brandId: string): Promise<Record<string, un
       try { design = JSON.parse(designRow.data.value); } catch { /* ignore */ }
     }
 
+    const brandDefaults = await isWarmBrand(brandId) ? WARM_RETURN_PORTAL_DESIGN : {};
     const result = {
       settings: {
         return_window_days: settings.return_window_days,
@@ -442,7 +492,7 @@ async function getInlinePortalConfig(brandId: string): Promise<Record<string, un
         provide_prepaid_label_for_reasons: settings.provide_prepaid_label_for_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
         dimension_collection_enabled: settings.dimension_collection_enabled ?? true,
       },
-      design,
+      design: { ...brandDefaults, ...(design ?? {}) },
     };
     inlineConfigCache.set(key, { data: result, expiry: Date.now() + INLINE_CACHE_TTL });
     return result;
@@ -2275,6 +2325,10 @@ app.get('/api/widget/config', async (req, res) => {
       brandingText: '',
       theme: 'light',
     };
+    if (await isWarmBrand(brandId)) {
+      design = { ...design, ...WARM_WIDGET_DESIGN };
+      hasDesignConfig = true;
+    }
     try {
       const raw = configMap.get('widget_design');
       if (raw) {

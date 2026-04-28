@@ -1517,10 +1517,10 @@ function createReviewWidget(
 
   // Apply CSS custom properties
   function applyDesign(d: DesignConfig): void {
-    container.style.setProperty('--orw-star', d.starColor || '#C5A059');
-    container.style.setProperty('--orw-text', d.textColor || '#2D3338');
-    container.style.setProperty('--orw-heading', d.headingColor || '#C5A059');
-    container.style.setProperty('--orw-bg', d.backgroundColor || '#ffffff');
+    container.style.setProperty('--orw-star', d.starColor || '#f5bc70');
+    container.style.setProperty('--orw-text', d.textColor || '#F0EDE8');
+    container.style.setProperty('--orw-heading', d.headingColor || '#f5bc70');
+    container.style.setProperty('--orw-bg', d.backgroundColor || '#131313');
   }
 
   applyDesign(design);
@@ -1582,7 +1582,7 @@ function createReviewWidget(
 
   function render(): void {
     container.innerHTML = '';
-    const wrap = createEl('div', 'orw-container');
+    const wrap = createEl('div', brandSlug === 'warm-by-design' ? 'orw-container orw-container--warm' : 'orw-container');
 
     if (state.loading) {
       const loading = createEl('div', 'orw-loading');
@@ -1936,12 +1936,15 @@ async function init(): Promise<void> {
     } catch { /* use defaults */ }
 
     const design: DesignConfig = config.widget_design || {};
+    if (brandSlug === 'warm-by-design') {
+      formRoot.classList.add('orw-container--warm');
+    }
 
     // Apply CSS variables
-    formRoot.style.setProperty('--orw-star', design.starColor || '#C5A059');
-    formRoot.style.setProperty('--orw-text', design.textColor || '#2D3338');
-    formRoot.style.setProperty('--orw-heading', design.headingColor || '#C5A059');
-    formRoot.style.setProperty('--orw-bg', design.backgroundColor || '#ffffff');
+    formRoot.style.setProperty('--orw-star', design.starColor || '#f5bc70');
+    formRoot.style.setProperty('--orw-text', design.textColor || '#F0EDE8');
+    formRoot.style.setProperty('--orw-heading', design.headingColor || '#f5bc70');
+    formRoot.style.setProperty('--orw-bg', design.backgroundColor || '#131313');
 
     // Check for multi-item line_items data
     const lineItemsRaw = formRoot.getAttribute('data-line-items');
@@ -1956,7 +1959,7 @@ async function init(): Promise<void> {
     if (lineItems.length > 1) {
       const heading = document.createElement('div');
       heading.style.cssText = 'max-width:700px;margin:40px auto 0;padding:0 20px;text-align:center;';
-      heading.innerHTML = `<h1 style="font-family:${design.headingFontFamily || 'Manrope'},sans-serif;color:${design.headingColor || '#C5A059'};font-size:20px;font-weight:600;margin-bottom:4px;">Review Your Order (${lineItems.length} items)</h1><p style="color:${design.textColor || '#666'};font-size:14px;">Review one or all of the items in your order</p>`;
+      heading.innerHTML = `<h1 style="font-family:${design.headingFontFamily || 'Bricolage Grotesque'},sans-serif;color:${design.headingColor || '#f5bc70'};font-size:28px;font-weight:300;letter-spacing:-0.025em;margin-bottom:4px;">Review Your Order (${lineItems.length} items)</h1><p style="color:${design.textColor || 'rgba(240,237,232,0.55)'};font-size:14px;">Review one or all of the items in your order</p>`;
       formRoot.parentElement?.insertBefore(heading, formRoot);
 
       const multiForm = renderMultiItemForm(lineItems, design, backendUrl, brandSlug, token, prefillData as { name?: string; email?: string });
@@ -1968,7 +1971,7 @@ async function init(): Promise<void> {
     if (productTitle) {
       const heading = document.createElement('div');
       heading.style.cssText = 'max-width:600px;margin:40px auto 0;padding:0 20px;text-align:center;';
-      heading.innerHTML = `<h1 style="font-family:${design.headingFontFamily || 'Manrope'},sans-serif;color:${design.headingColor || '#C5A059'};font-size:20px;font-weight:600;margin-bottom:4px;">How was your ${productTitle}?</h1><p style="color:${design.textColor || '#666'};font-size:14px;">We'd love to hear your thoughts</p>`;
+      heading.innerHTML = `<h1 style="font-family:${design.headingFontFamily || 'Bricolage Grotesque'},sans-serif;color:${design.headingColor || '#f5bc70'};font-size:28px;font-weight:300;letter-spacing:-0.025em;margin-bottom:4px;">How was your ${productTitle}?</h1><p style="color:${design.textColor || 'rgba(240,237,232,0.55)'};font-size:14px;">We'd love to hear your thoughts</p>`;
       formRoot.parentElement?.insertBefore(heading, formRoot);
     }
 

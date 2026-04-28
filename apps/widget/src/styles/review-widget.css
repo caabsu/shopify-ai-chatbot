@@ -3,6 +3,7 @@
    Prefix: orw-
    ══════════════════════════════════════════════════════════════════════════════ */
 
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@200;300;400;500&family=Outfit:wght@200;300;400;500&family=Syne:wght@400;500;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,200;0,300;0,400;1,200;1,300&family=Manrope:wght@300;400;500;600;700&display=swap');
 
 /* ── Reset & Container ── */
@@ -1195,4 +1196,191 @@
   .orw-item-image { width: 44px; height: 44px; }
   .orw-item-name { font-size: 13px; }
   .orw-item-body { padding: 0 12px 12px; }
+}
+
+/* Warm by Design theme override. Scoped so the shared review widget stays
+   multi-brand safe. */
+.orw-container--warm,
+.orw-container--warm .orw-multi-form {
+  background: var(--orw-bg);
+  color: rgba(240, 237, 232, 0.6);
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 300;
+}
+
+.orw-container--warm .orw-header,
+.orw-container--warm .orw-toolbar {
+  background: var(--orw-bg);
+  border-color: rgba(245, 188, 112, 0.1);
+}
+
+.orw-container--warm .orw-header-title,
+.orw-container--warm .orw-toolbar-count,
+.orw-container--warm .orw-filter-dd-clear,
+.orw-container--warm .orw-card-verified,
+.orw-container--warm .orw-card-variant-label,
+.orw-container--warm .orw-multi-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(245, 188, 112, 0.65);
+}
+
+.orw-container--warm .orw-header-rating-number {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-style: normal;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  color: #F0EDE8;
+}
+
+.orw-container--warm .orw-header-count,
+.orw-container--warm .orw-card-date,
+.orw-container--warm .orw-card-body,
+.orw-container--warm .orw-card-variant,
+.orw-container--warm .orw-form-subtitle,
+.orw-container--warm .orw-multi-subtitle,
+.orw-container--warm .orw-item-variant {
+  color: rgba(240, 237, 232, 0.45);
+}
+
+.orw-container--warm .orw-header-btn,
+.orw-container--warm .orw-form-submit,
+.orw-container--warm .orw-multi-actions .orw-form-submit {
+  background: #f5bc70;
+  border-color: #f5bc70;
+  color: #462b00;
+  border-radius: 0;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 400;
+}
+
+.orw-container--warm .orw-header-btn:hover,
+.orw-container--warm .orw-form-submit:hover:not(:disabled),
+.orw-container--warm .orw-multi-actions .orw-form-submit:hover:not(:disabled) {
+  background: rgba(245, 188, 112, 0.86);
+  border-color: rgba(245, 188, 112, 0.86);
+  color: #462b00;
+}
+
+.orw-container--warm .orw-toolbar-btn,
+.orw-container--warm .orw-toolbar-sort,
+.orw-container--warm .orw-filter-dropdown,
+.orw-container--warm .orw-card,
+.orw-container--warm .orw-form,
+.orw-container--warm .orw-item-card {
+  background: #1c1b1b;
+  border-color: rgba(245, 188, 112, 0.1);
+  color: rgba(240, 237, 232, 0.65);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.orw-container--warm .orw-toolbar-btn:hover,
+.orw-container--warm .orw-toolbar-sort:hover,
+.orw-container--warm .orw-card:hover,
+.orw-container--warm .orw-item-card.orw-item-expanded {
+  border-color: rgba(245, 188, 112, 0.25);
+}
+
+.orw-container--warm .orw-toolbar-btn--active,
+.orw-container--warm .orw-rating-filter--active {
+  background: rgba(245, 188, 112, 0.08);
+  border-color: rgba(245, 188, 112, 0.3);
+  color: #F0EDE8;
+}
+
+.orw-container--warm .orw-card-name,
+.orw-container--warm .orw-card-title,
+.orw-container--warm .orw-form-title,
+.orw-container--warm .orw-item-name {
+  color: #F0EDE8;
+  font-weight: 400;
+}
+
+.orw-container--warm .orw-form-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+}
+
+.orw-container--warm .orw-form-label,
+.orw-container--warm .orw-item-body .orw-form-label,
+.orw-container--warm .orw-filter-dd-title {
+  color: rgba(240, 237, 232, 0.55);
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.orw-container--warm .orw-form-input,
+.orw-container--warm .orw-form-textarea,
+.orw-container--warm .orw-item-body .orw-form-input,
+.orw-container--warm .orw-item-body .orw-form-textarea {
+  background: #2a2a2a;
+  border-color: rgba(245, 188, 112, 0.1);
+  color: #F0EDE8;
+  border-radius: 0;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 300;
+}
+
+.orw-container--warm .orw-form-input::placeholder,
+.orw-container--warm .orw-form-textarea::placeholder {
+  color: rgba(240, 237, 232, 0.2);
+}
+
+.orw-container--warm .orw-form-input:focus,
+.orw-container--warm .orw-form-textarea:focus,
+.orw-container--warm .orw-item-body .orw-form-input:focus,
+.orw-container--warm .orw-item-body .orw-form-textarea:focus {
+  border-color: rgba(245, 188, 112, 0.35);
+}
+
+.orw-container--warm .orw-photo-upload,
+.orw-container--warm .orw-item-body .orw-photo-upload {
+  background: rgba(245, 188, 112, 0.025);
+  border-color: rgba(245, 188, 112, 0.14);
+  color: rgba(240, 237, 232, 0.45);
+  border-radius: 0;
+}
+
+.orw-container--warm .orw-photo-upload:hover,
+.orw-container--warm .orw-item-body .orw-photo-upload:hover {
+  background: rgba(245, 188, 112, 0.05);
+  border-color: rgba(245, 188, 112, 0.28);
+}
+
+.orw-container--warm .orw-multi-progress {
+  background: rgba(240, 237, 232, 0.08);
+  border-radius: 0;
+}
+
+.orw-container--warm .orw-multi-progress-bar {
+  background: #f5bc70;
+  border-radius: 0;
+}
+
+.orw-container--warm .orw-item-body {
+  border-color: rgba(245, 188, 112, 0.08);
+}
+
+.orw-container--warm .orw-item-card.orw-item-submitted {
+  background: #201f1f;
+}
+
+.orw-container--warm .orw-item-badge-done {
+  background: rgba(245, 188, 112, 0.12);
+  color: #f5bc70;
+}
+
+.orw-container--warm .orw-multi-skip {
+  color: rgba(240, 237, 232, 0.35);
+}
+
+.orw-container--warm .orw-multi-skip:hover {
+  color: rgba(245, 188, 112, 0.75);
 }

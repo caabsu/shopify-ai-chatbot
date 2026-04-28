@@ -306,7 +306,7 @@ export function createReturnsPortal(config?: ReturnsPortalConfig): HTMLElement {
 }
 
 function radiusValue(radius: 'sharp' | 'rounded' | 'pill'): string {
-  if (radius === 'sharp') return '4px';
+  if (radius === 'sharp') return '0';
   if (radius === 'pill') return '24px';
   return '12px';
 }
