@@ -1959,7 +1959,7 @@ async function init(): Promise<void> {
     if (lineItems.length > 1) {
       const heading = document.createElement('div');
       heading.style.cssText = 'max-width:700px;margin:40px auto 0;padding:0 20px;text-align:center;';
-      heading.innerHTML = `<h1 style="font-family:${design.headingFontFamily || 'Bricolage Grotesque'},sans-serif;color:${design.headingColor || '#f5bc70'};font-size:28px;font-weight:300;letter-spacing:-0.025em;margin-bottom:4px;">Review Your Order (${lineItems.length} items)</h1><p style="color:${design.textColor || 'rgba(240,237,232,0.55)'};font-size:14px;">Review one or all of the items in your order</p>`;
+      heading.innerHTML = `<h1 style="font-family:${design.headingFontFamily || 'Instrument Sans'},sans-serif;color:${design.headingColor || '#f5bc70'};font-size:28px;font-weight:400;letter-spacing:-0.035em;margin-bottom:4px;">Review Your Order (${lineItems.length} items)</h1><p style="color:${design.textColor || 'rgba(240,237,232,0.55)'};font-size:14px;">Review one or all of the items in your order</p>`;
       formRoot.parentElement?.insertBefore(heading, formRoot);
 
       const multiForm = renderMultiItemForm(lineItems, design, backendUrl, brandSlug, token, prefillData as { name?: string; email?: string });
@@ -1971,7 +1971,7 @@ async function init(): Promise<void> {
     if (productTitle) {
       const heading = document.createElement('div');
       heading.style.cssText = 'max-width:600px;margin:40px auto 0;padding:0 20px;text-align:center;';
-      heading.innerHTML = `<h1 style="font-family:${design.headingFontFamily || 'Bricolage Grotesque'},sans-serif;color:${design.headingColor || '#f5bc70'};font-size:28px;font-weight:300;letter-spacing:-0.025em;margin-bottom:4px;">How was your ${productTitle}?</h1><p style="color:${design.textColor || 'rgba(240,237,232,0.55)'};font-size:14px;">We'd love to hear your thoughts</p>`;
+      heading.innerHTML = `<h1 style="font-family:${design.headingFontFamily || 'Instrument Sans'},sans-serif;color:${design.headingColor || '#f5bc70'};font-size:28px;font-weight:400;letter-spacing:-0.035em;margin-bottom:4px;">How was your ${productTitle}?</h1><p style="color:${design.textColor || 'rgba(240,237,232,0.55)'};font-size:14px;">We'd love to hear your thoughts</p>`;
       formRoot.parentElement?.insertBefore(heading, formRoot);
     }
 

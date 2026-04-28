@@ -16,8 +16,8 @@ export const DEFAULT_CONTACT_FORM_DESIGN: ContactFormDesign = {
   accentColor: '#f5bc70',
 
   // Typography
-  headingFontFamily: '"Bricolage Grotesque", sans-serif',
-  bodyFontFamily: '"Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  headingFontFamily: '"Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  bodyFontFamily: '"Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   headingFontSize: '48px',
   labelFontSize: '12px',
   inputFontSize: '15px',

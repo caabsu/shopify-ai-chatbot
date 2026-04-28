@@ -3,7 +3,7 @@
    Prefix: orw-
    ══════════════════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@200;300;400;500&family=Outfit:wght@200;300;400;500&family=Syne:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,200;0,300;0,400;1,200;1,300&family=Manrope:wght@300;400;500;600;700&display=swap');
 
 /* ── Reset & Container ── */
@@ -1204,8 +1204,8 @@
 .orw-container--warm .orw-multi-form {
   background: var(--orw-bg);
   color: rgba(240, 237, 232, 0.6);
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  font-weight: 300;
+  font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 400;
 }
 
 .orw-container--warm .orw-header,
@@ -1220,7 +1220,7 @@
 .orw-container--warm .orw-card-verified,
 .orw-container--warm .orw-card-variant-label,
 .orw-container--warm .orw-multi-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'Instrument Sans', sans-serif;
   font-weight: 500;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -1228,10 +1228,10 @@
 }
 
 .orw-container--warm .orw-header-rating-number {
-  font-family: 'Bricolage Grotesque', sans-serif;
+  font-family: 'Instrument Sans', sans-serif;
   font-style: normal;
-  font-weight: 300;
-  letter-spacing: -0.025em;
+  font-weight: 600;
+  letter-spacing: -0.035em;
   color: #F0EDE8;
 }
 
@@ -1250,9 +1250,9 @@
 .orw-container--warm .orw-multi-actions .orw-form-submit {
   background: #f5bc70;
   border-color: #f5bc70;
-  color: #462b00;
+  color: #2B1C05;
   border-radius: 0;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Instrument Sans', sans-serif;
   font-weight: 400;
 }
 
@@ -1261,7 +1261,7 @@
 .orw-container--warm .orw-multi-actions .orw-form-submit:hover:not(:disabled) {
   background: rgba(245, 188, 112, 0.86);
   border-color: rgba(245, 188, 112, 0.86);
-  color: #462b00;
+  color: #2B1C05;
 }
 
 .orw-container--warm .orw-toolbar-btn,
@@ -1270,7 +1270,7 @@
 .orw-container--warm .orw-card,
 .orw-container--warm .orw-form,
 .orw-container--warm .orw-item-card {
-  background: #1c1b1b;
+  background: #1B1B1B;
   border-color: rgba(245, 188, 112, 0.1);
   color: rgba(240, 237, 232, 0.65);
   border-radius: 0;
@@ -1300,16 +1300,16 @@
 }
 
 .orw-container--warm .orw-form-title {
-  font-family: 'Bricolage Grotesque', sans-serif;
-  font-weight: 300;
-  letter-spacing: -0.025em;
+  font-family: 'Instrument Sans', sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.035em;
 }
 
 .orw-container--warm .orw-form-label,
 .orw-container--warm .orw-item-body .orw-form-label,
 .orw-container--warm .orw-filter-dd-title {
   color: rgba(240, 237, 232, 0.55);
-  font-family: 'Syne', sans-serif;
+  font-family: 'Instrument Sans', sans-serif;
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.18em;
@@ -1324,8 +1324,8 @@
   border-color: rgba(245, 188, 112, 0.1);
   color: #F0EDE8;
   border-radius: 0;
-  font-family: 'Outfit', sans-serif;
-  font-weight: 300;
+  font-family: 'Instrument Sans', sans-serif;
+  font-weight: 400;
 }
 
 .orw-container--warm .orw-form-input::placeholder,

@@ -10,7 +10,7 @@ function loadFonts(): void {
   const link = document.createElement('link');
   link.id = 'wbd-fonts';
   link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@200;300;400;500&family=Outfit:wght@200;300;400;500&family=Syne:wght@400;500;600&display=swap';
+  link.href = 'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap';
   document.head.appendChild(link);
 
   const iconLink = document.createElement('link');

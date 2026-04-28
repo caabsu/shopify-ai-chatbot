@@ -362,7 +362,7 @@ const INLINE_CACHE_TTL = 60 * 1000; // 1 minute
 
 const WARM_WIDGET_DESIGN: Record<string, unknown> = {
   primaryColor: '#f5bc70',
-  backgroundColor: '#1c1b1b',
+  backgroundColor: '#1B1B1B',
   headerTitle: 'Warm by Design',
   position: 'bottom-right',
   bubbleIcon: 'chat',
@@ -378,21 +378,21 @@ const WARM_WIDGET_DESIGN: Record<string, unknown> = {
   headerLogo: '',
   brandingText: 'Designed at 2700K',
   theme: 'dark',
-  fontFamily: '"Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  headingFontFamily: '"Bricolage Grotesque", sans-serif',
-  headingFontWeight: '300',
+  fontFamily: '"Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  headingFontFamily: '"Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  headingFontWeight: '400',
 };
 
 const WARM_RETURN_PORTAL_DESIGN: Record<string, unknown> = {
   primaryColor: '#f5bc70',
   backgroundColor: 'transparent',
-  cardBackgroundColor: '#1c1b1b',
+  cardBackgroundColor: '#1B1B1B',
   textColor: '#F0EDE8',
   mutedTextColor: 'rgba(240, 237, 232, 0.4)',
   borderRadius: 'sharp',
   fontSize: 'medium',
-  fontFamily: '"Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  headingFontFamily: '"Bricolage Grotesque", sans-serif',
+  fontFamily: '"Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  headingFontFamily: '"Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   buttonTextLookup: 'Look up order',
   buttonTextSubmit: 'Submit return request',
   successTitle: 'Return request submitted',
@@ -1556,13 +1556,13 @@ app.get('/widget/warm/playground', (_req, res) => {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Warm by Design — Playground</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@200;300;400;500&family=Outfit:wght@200;300;400;500&family=Syne:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: #131313;
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Instrument Sans', sans-serif;
     color: rgba(240,237,232,0.6);
     min-height: 100vh;
   }
@@ -1583,10 +1583,10 @@ app.get('/widget/warm/playground', (_req, res) => {
     gap: 32px;
   }
   .wbd-pg-nav__brand {
-    font-family: 'Bricolage Grotesque', serif;
+    font-family: 'Instrument Sans', sans-serif;
     font-size: 16px;
-    font-weight: 300;
-    letter-spacing: -0.025em;
+    font-weight: 600;
+    letter-spacing: -0.035em;
     color: #F0EDE8;
   }
   .wbd-pg-nav__tabs {
@@ -1596,7 +1596,7 @@ app.get('/widget/warm/playground', (_req, res) => {
   }
   .wbd-pg-tab {
     padding: 16px 20px;
-    font-family: 'Syne', sans-serif;
+    font-family: 'Instrument Sans', sans-serif;
     font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
@@ -1630,7 +1630,7 @@ app.get('/widget/warm/playground', (_req, res) => {
     pointer-events: none;
   }
   .wbd-pg-hero__label {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Instrument Sans', sans-serif;
     font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
@@ -1639,7 +1639,7 @@ app.get('/widget/warm/playground', (_req, res) => {
     margin-bottom: 16px;
   }
   .wbd-pg-hero__title {
-    font-family: 'Bricolage Grotesque', serif;
+    font-family: 'Instrument Sans', sans-serif;
     font-size: 40px;
     font-weight: 200;
     letter-spacing: -0.03em;
@@ -1666,7 +1666,7 @@ app.get('/widget/warm/playground', (_req, res) => {
     padding: 0 48px 96px;
   }
   .wbd-pg-returns__label {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Instrument Sans', sans-serif;
     font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
@@ -1687,7 +1687,7 @@ app.get('/widget/warm/playground', (_req, res) => {
   }
   .wbd-pg-product {
     border: 1px solid rgba(245,188,112,0.1);
-    background: #1c1b1b;
+    background: #1B1B1B;
     padding: 16px;
     transition: border-color 0.3s;
   }
