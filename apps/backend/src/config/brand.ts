@@ -10,6 +10,23 @@ let brandsCache: Brand[] | null = null;
 let brandsCacheExpiry = 0;
 const BRANDS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+function normalizeShopifyShop(shop: string): string {
+  return shop
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/.*$/, '')
+    .replace(/\.myshopify\.com$/i, '')
+    .toLowerCase();
+}
+
+function normalizeHost(value: string): string {
+  return value
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/.*$/, '')
+    .toLowerCase();
+}
+
 async function loadBrands(): Promise<Brand[]> {
   if (brandsCache && Date.now() < brandsCacheExpiry) {
     return brandsCache;
@@ -69,22 +86,24 @@ export async function resolveBrandId(req: Request): Promise<string> {
   // 4. Shopify webhook shop-domain header
   const shopDomainHeader = req.headers['x-shopify-shop-domain'] as string | undefined;
   if (shopDomainHeader) {
-    const normalizedShop = shopDomainHeader.toLowerCase().replace(/\.myshopify\.com$/, '');
-    const match = brands.find((b) => b.shopify_shop.toLowerCase().replace(/\.myshopify\.com$/, '') === normalizedShop);
+    const normalizedShop = normalizeShopifyShop(shopDomainHeader);
+    const match = brands.find((b) => normalizeShopifyShop(b.shopify_shop) === normalizedShop);
     if (match) return match.id;
   }
 
   // 5. Origin/Referer to match shopify_shop or settings.domain
   const origin = req.headers.origin || req.headers.referer || '';
   if (origin) {
+    const normalizedOrigin = normalizeHost(origin);
     for (const b of brands) {
       // Match shopify_shop domain
-      if (origin.includes(`${b.shopify_shop}.myshopify.com`)) {
+      const shopDomain = `${normalizeShopifyShop(b.shopify_shop)}.myshopify.com`;
+      if (normalizedOrigin.includes(shopDomain)) {
         return b.id;
       }
       // Match custom domain from settings
       const domain = (b.settings as Record<string, unknown> | null)?.domain as string | undefined;
-      if (domain && origin.includes(domain)) {
+      if (domain && normalizedOrigin.includes(normalizeHost(domain))) {
         return b.id;
       }
     }

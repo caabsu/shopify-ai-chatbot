@@ -132,6 +132,7 @@ export function createChatWindow(onClose: () => void, onSessionInit: () => Promi
         sessionId: state.sessionId,
         conversationId: state.conversationId,
         message: text,
+        pageUrl: window.location.href,
       });
 
       const assistantMsg: WidgetMessage = {
@@ -187,6 +188,7 @@ export function createChatWindow(onClose: () => void, onSessionInit: () => Promi
         sessionId: state.sessionId,
         conversationId: state.conversationId,
         presetActionId: presetId,
+        pageUrl: window.location.href,
       });
 
       const assistantMsg: WidgetMessage = {

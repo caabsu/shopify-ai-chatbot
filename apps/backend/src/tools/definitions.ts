@@ -4,7 +4,7 @@ export const toolDefinitions: Anthropic.Tool[] = [
   {
     name: 'search_products',
     description:
-      'Search the store product catalog using natural language. Use when customer asks about products, availability, pricing, or wants recommendations. Returns product titles, prices, images, and availability.',
+      'Search the live Shopify product catalog using natural language. Always use this before answering customer questions about products, recommendations, prices, availability, finishes, sizes, variants, delivery timing, or compatibility unless the current page product context already contains the exact answer. Returns product titles, prices, images, URLs, and availability.',
     input_schema: {
       type: 'object' as const,
       properties: {

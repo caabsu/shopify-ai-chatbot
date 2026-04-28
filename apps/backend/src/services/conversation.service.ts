@@ -39,7 +39,7 @@ export async function getConversation(id: string): Promise<Conversation | null> 
 
 export async function updateConversation(
   id: string,
-  updates: Partial<Pick<Conversation, 'status' | 'ended_at' | 'last_message_at' | 'message_count' | 'satisfaction_score' | 'resolved' | 'metadata' | 'customer_email' | 'customer_name' | 'customer_phone' | 'shopify_customer_id'>>
+  updates: Partial<Pick<Conversation, 'status' | 'ended_at' | 'last_message_at' | 'message_count' | 'satisfaction_score' | 'resolved' | 'metadata' | 'customer_email' | 'customer_name' | 'customer_phone' | 'shopify_customer_id' | 'page_url'>>
 ): Promise<Conversation> {
   const { data: row, error } = await supabase
     .from('conversations')

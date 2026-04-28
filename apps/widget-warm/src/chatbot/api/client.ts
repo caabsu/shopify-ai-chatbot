@@ -112,6 +112,7 @@ export async function sendMessage(data: {
   conversationId: string;
   message?: string;
   presetActionId?: string;
+  pageUrl?: string;
 }): Promise<MessageResponse> {
   return request<MessageResponse>('/api/chat/message', {
     method: 'POST',

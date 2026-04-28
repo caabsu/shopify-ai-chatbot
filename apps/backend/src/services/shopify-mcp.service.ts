@@ -1,14 +1,13 @@
 import { config } from '../config/env.js';
-import { getBrandShopDomain } from '../config/brand-shopify.js';
+import { getBrandShopDomain, normalizeShopifyShop } from '../config/brand-shopify.js';
 
 let rpcId = 1;
+const toolsCache = new Map<string, { names: Set<string>; expiry: number }>();
+const TOOLS_CACHE_TTL = 10 * 60 * 1000;
 
 async function getMcpUrl(brandId?: string): Promise<string> {
-  if (brandId) {
-    const shop = await getBrandShopDomain(brandId);
-    return `https://${shop}.myshopify.com/api/mcp`;
-  }
-  return `https://${config.shopify.shop}.myshopify.com/api/mcp`;
+  const shop = brandId ? await getBrandShopDomain(brandId) : normalizeShopifyShop(config.shopify.shop);
+  return `https://${shop}.myshopify.com/api/mcp`;
 }
 
 async function mcpCall<T = unknown>(toolName: string, args: Record<string, unknown>, brandId?: string): Promise<T> {
@@ -59,6 +58,43 @@ async function mcpCall<T = unknown>(toolName: string, args: Record<string, unkno
   }
 }
 
+async function listToolNames(brandId?: string): Promise<Set<string>> {
+  const url = await getMcpUrl(brandId);
+  const cached = toolsCache.get(url);
+  if (cached && Date.now() < cached.expiry) {
+    return cached.names;
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'tools/list',
+      id: rpcId++,
+      params: {},
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`MCP tools/list failed (${res.status}): ${text}`);
+  }
+
+  const json = (await res.json()) as {
+    result?: { tools?: Array<{ name: string }> };
+    error?: { code: number; message: string };
+  };
+
+  if (json.error) {
+    throw new Error(`MCP tools/list error (${json.error.code}): ${json.error.message}`);
+  }
+
+  const names = new Set((json.result?.tools ?? []).map((tool) => tool.name));
+  toolsCache.set(url, { names, expiry: Date.now() + TOOLS_CACHE_TTL });
+  return names;
+}
+
 export interface McpProduct {
   id: string;
   title: string;
@@ -82,6 +118,35 @@ export async function searchProducts(
   options?: { filters?: Record<string, unknown>; limit?: number; country?: string; language?: string; after?: string },
   brandId?: string
 ): Promise<unknown> {
+  let toolNames: Set<string>;
+  try {
+    toolNames = await listToolNames(brandId);
+  } catch (err) {
+    console.error('[shopify-mcp] Failed to list tools, falling back to legacy catalog search:', err instanceof Error ? err.message : err);
+    toolNames = new Set(['search_shop_catalog']);
+  }
+
+  if (toolNames.has('search_catalog')) {
+    const catalog: Record<string, unknown> = {
+      query,
+      context: {
+        intent: context,
+        address_country: options?.country,
+        language: options?.language,
+        currency: 'USD',
+      },
+    };
+    if (options?.filters) catalog.filters = options.filters;
+    if (options?.limit || options?.after) {
+      catalog.pagination = {
+        limit: options?.limit,
+        cursor: options?.after,
+      };
+    }
+
+    return mcpCall('search_catalog', { catalog }, brandId);
+  }
+
   const args: Record<string, unknown> = { query, context };
   if (options?.filters) args.filters = options.filters;
   if (options?.limit) args.limit = options.limit;

@@ -147,11 +147,12 @@ chatRouter.post('/session', async (req: Request, res: Response) => {
 // POST /api/chat/message
 chatRouter.post('/message', async (req: Request, res: Response) => {
   try {
-    const { sessionId, conversationId, message, presetActionId } = req.body as {
+    const { sessionId, conversationId, message, presetActionId, pageUrl } = req.body as {
       sessionId?: string;
       conversationId?: string;
       message?: string;
       presetActionId?: string;
+      pageUrl?: string;
     };
 
     // Validate
@@ -187,6 +188,12 @@ chatRouter.post('/message', async (req: Request, res: Response) => {
 
     // Use brand_id column (fallback to metadata for legacy conversations)
     const brandId = conversation.brand_id || (conversation.metadata as Record<string, unknown> | null)?.brandId as string | undefined;
+    const currentPageUrl = typeof pageUrl === 'string' && pageUrl.trim() ? pageUrl.trim() : conversation.page_url ?? undefined;
+    if (currentPageUrl && currentPageUrl !== conversation.page_url) {
+      await conversationService.updateConversation(conversationId, {
+        page_url: currentPageUrl,
+      });
+    }
 
     // Resolve message text
     let messageText = message || '';
@@ -222,7 +229,7 @@ chatRouter.post('/message', async (req: Request, res: Response) => {
     // Process with AI
     const result = await aiService.processMessage(conversationId, messageText, {
       customerEmail: conversation.customer_email ?? undefined,
-      pageUrl: conversation.page_url ?? undefined,
+      pageUrl: currentPageUrl,
       cartId: (conversation.metadata as Record<string, unknown> | null)?.cartId as string | undefined,
       brandId,
     });

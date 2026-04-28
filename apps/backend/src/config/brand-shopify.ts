@@ -7,6 +7,15 @@ export interface BrandShopifyConfig {
   clientSecret: string;
 }
 
+export function normalizeShopifyShop(shop: string): string {
+  return shop
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/.*$/, '')
+    .replace(/\.myshopify\.com$/i, '')
+    .toLowerCase();
+}
+
 // In-memory cache keyed by brand_id, with 5-minute TTL
 const cache = new Map<string, { data: BrandShopifyConfig; expiry: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -23,7 +32,7 @@ export async function getBrandShopifyConfig(brandId?: string): Promise<BrandShop
   // No brandId — use global env vars (backward compat)
   if (!brandId) {
     return {
-      shop: config.shopify.shop,
+      shop: normalizeShopifyShop(config.shopify.shop),
       clientId: config.shopify.clientId,
       clientSecret: config.shopify.clientSecret,
     };
@@ -55,7 +64,7 @@ export async function getBrandShopifyConfig(brandId?: string): Promise<BrandShop
   // If the brand has all three Shopify credentials, use them
   if (shop && shopifyClientId && shopifyClientSecret) {
     const brandConfig: BrandShopifyConfig = {
-      shop,
+      shop: normalizeShopifyShop(shop),
       clientId: shopifyClientId,
       clientSecret: shopifyClientSecret,
     };
@@ -70,7 +79,7 @@ export async function getBrandShopifyConfig(brandId?: string): Promise<BrandShop
 /** Load only the Shopify shop domain for APIs that do not require Admin credentials. */
 export async function getBrandShopDomain(brandId?: string): Promise<string> {
   if (!brandId) {
-    return config.shopify.shop;
+    return normalizeShopifyShop(config.shopify.shop);
   }
 
   const { data: brand, error } = await supabase
@@ -84,7 +93,7 @@ export async function getBrandShopDomain(brandId?: string): Promise<string> {
     throw new Error(`Shopify shop is not configured for brand ${brandId}`);
   }
 
-  return brand.shopify_shop as string;
+  return normalizeShopifyShop(brand.shopify_shop as string);
 }
 
 /** Invalidate cached config for a specific brand, or all brands if no id provided */
