@@ -1,47 +1,17 @@
-import { Resend } from 'resend';
 import { supabase } from '../config/supabase.js';
-import { getBrandSlug, getBrandName } from '../config/brand.js';
+import { getBrandName } from '../config/brand.js';
 import { getReviewSettings } from './review-settings.service.js';
 import type { ReviewEmailTemplate, ReviewRequestLineItem } from '../types/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { logEvent } from './activity-log.service.js';
+import { getBrandEmailConfig as getSharedBrandEmailConfig } from './brand-email-config.service.js';
 
 // ── Per-Brand Resend Client ───────────────────────────────────────────────
 
-const resendClients = new Map<string, Resend>();
-
-function getResendClient(apiKey: string): Resend {
-  let client = resendClients.get(apiKey);
-  if (!client) {
-    client = new Resend(apiKey);
-    resendClients.set(apiKey, client);
-  }
-  return client;
-}
-
-const defaultApiKey = process.env.RESEND_API_KEY || '';
 const defaultFromAddress = process.env.EMAIL_FROM_ADDRESS || 'Reviews <onboarding@resend.dev>';
 
-interface BrandEmailConfig {
-  resend: Resend;
-  fromAddress: string;
-}
-
-async function getBrandEmailConfig(brandId: string): Promise<BrandEmailConfig | null> {
-  let apiKey = defaultApiKey;
-  let fromAddress = defaultFromAddress;
-
-  const slug = await getBrandSlug(brandId);
-  if (slug) {
-    const upper = slug.toUpperCase();
-    const brandKey = process.env[`RESEND_API_KEY_${upper}`];
-    const brandFrom = process.env[`EMAIL_FROM_ADDRESS_${upper}`];
-    if (brandKey) apiKey = brandKey;
-    if (brandFrom) fromAddress = brandFrom;
-  }
-
-  if (!apiKey) return null;
-  return { resend: getResendClient(apiKey), fromAddress };
+async function getBrandEmailConfig(brandId: string) {
+  return getSharedBrandEmailConfig(brandId, { defaultFromAddress });
 }
 
 // ── Default Email Templates ───────────────────────────────────────────────

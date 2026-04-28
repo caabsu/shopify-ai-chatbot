@@ -2,6 +2,7 @@ import { config } from '../config/env.js';
 import { getTokenForBrand } from './shopify-auth.service.js';
 import { getBrandShopifyConfig } from '../config/brand-shopify.js';
 import { supabase } from '../config/supabase.js';
+import { getBrand } from '../config/brand.js';
 
 export async function graphql<T = Record<string, unknown>>(
   query: string,
@@ -42,6 +43,41 @@ export async function graphql<T = Record<string, unknown>>(
 
 function normalizePhone(phone: string): string {
   return phone.replace(/[\s\-\(\)\+]/g, '');
+}
+
+function normalizeDomain(value: string): string {
+  return value.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+}
+
+async function getTrackingPageUrl(brandId?: string): Promise<string> {
+  const brandConfig = await getBrandShopifyConfig(brandId);
+  const fallbackDomain = `${brandConfig.shop}.myshopify.com`;
+
+  if (!brandId) {
+    return `https://${fallbackDomain}/pages/tracking-page`;
+  }
+
+  const brand = await getBrand(brandId);
+  const settings = brand?.settings as Record<string, unknown> | null;
+  const explicitUrl =
+    settings?.tracking_page_url ??
+    settings?.trackingPageUrl ??
+    settings?.tracking_url ??
+    settings?.trackingUrl;
+
+  if (typeof explicitUrl === 'string' && explicitUrl.trim()) {
+    return explicitUrl.trim();
+  }
+
+  const storefrontDomain =
+    settings?.domain ??
+    settings?.storefront_domain ??
+    settings?.storefrontDomain;
+  const domain = typeof storefrontDomain === 'string' && storefrontDomain.trim()
+    ? normalizeDomain(storefrontDomain.trim())
+    : fallbackDomain;
+
+  return `https://${domain}/pages/tracking-page`;
 }
 
 export interface OrderLookupResult {
@@ -258,11 +294,11 @@ export async function lookupOrder(
   let estimatedDelivery: string | null = null;
   const fulfillmentEvents: Array<{ status: string; happenedAt: string; city: string | null; province: string | null; country: string | null; message: string | null }> = [];
   let fulfillmentDisplayStatus: string | null = null;
+  const trackingPageUrl = await getTrackingPageUrl(brandId);
 
   for (const fulfillment of order.fulfillments) {
     for (const t of fulfillment.trackingInfo) {
-      // Always use the correct Outlight tracking page instead of Shopify's 17track proxy URLs
-      tracking.push({ number: t.number, url: 'https://outlight.us/pages/tracking-page', company: t.company });
+      tracking.push({ number: t.number, url: trackingPageUrl, company: t.company });
     }
     if (fulfillment.estimatedDeliveryAt) {
       estimatedDelivery = fulfillment.estimatedDeliveryAt;

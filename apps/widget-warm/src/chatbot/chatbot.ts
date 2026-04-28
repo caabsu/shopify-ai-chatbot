@@ -2,7 +2,8 @@ import './styles/chatbot.css';
 import { createFloatingButton } from './ui/FloatingButton.js';
 import { createChatWindow } from './ui/ChatWindow.js';
 import { getState, setState, loadSession, saveSession } from './state/store.js';
-import { initBaseUrl, createSession } from './api/client.js';
+import { initBaseUrl, createSession, getWidgetConfig } from './api/client.js';
+import type { WidgetConfig, WidgetDesign } from './api/client.js';
 
 const currentScript = document.currentScript as HTMLScriptElement | null;
 
@@ -98,12 +99,37 @@ async function initSession() {
   }
 }
 
-function initFloating() {
+function radiusValue(radius?: WidgetDesign['borderRadius']): string {
+  if (radius === 'sharp') return '4px';
+  if (radius === 'pill') return '24px';
+  return '0';
+}
+
+function fontSizeValue(size?: WidgetDesign['fontSize']): string {
+  if (size === 'small') return '13px';
+  if (size === 'large') return '16px';
+  return '14px';
+}
+
+function applyWidgetDesign(root: HTMLElement, config: WidgetConfig | null): WidgetDesign | undefined {
+  if (!config?.hasDesignConfig || !config.design) return undefined;
+
+  const design = config.design;
+  if (design.primaryColor) root.style.setProperty('--wbd-accent', design.primaryColor);
+  if (design.backgroundColor) root.style.setProperty('--wbd-window-bg', design.backgroundColor);
+  root.style.setProperty('--wbd-radius', radiusValue(design.borderRadius));
+  root.style.setProperty('--wbd-base-size', fontSizeValue(design.fontSize));
+  if (design.position === 'bottom-left') root.classList.add('wbd-root--left');
+  return design;
+}
+
+function initFloating(widgetConfig: WidgetConfig | null) {
   loadFonts();
 
   const root = document.createElement('div');
   root.id = 'wbd-root';
   document.body.appendChild(root);
+  const design = applyWidgetDesign(root, widgetConfig);
 
   let chatWindow: HTMLElement | null = null;
 
@@ -130,7 +156,7 @@ function initFloating() {
     setState({ isOpen: true });
     lockBodyScroll();
 
-    chatWindow = createChatWindow(closeChatWindow, initSession);
+    chatWindow = createChatWindow(closeChatWindow, initSession, design);
     root.appendChild(chatWindow);
 
     if (!state.sessionId || !state.conversationId) {
@@ -139,9 +165,15 @@ function initFloating() {
   }
 }
 
-function init() {
+async function init() {
   initBaseUrl();
-  initFloating();
+  let widgetConfig: WidgetConfig | null = null;
+  try {
+    widgetConfig = await getWidgetConfig();
+  } catch (err) {
+    console.warn('[wbd] Failed to load widget design config; using bundled design.', err);
+  }
+  initFloating(widgetConfig);
 }
 
 if (document.readyState === 'loading') {

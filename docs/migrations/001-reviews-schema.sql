@@ -4,7 +4,7 @@
 -- 1. Products table (synced from Shopify)
 CREATE TABLE IF NOT EXISTS products (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  shopify_product_id text UNIQUE NOT NULL,
+  shopify_product_id text NOT NULL,
   title text NOT NULL,
   handle text NOT NULL,
   product_type text,
@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 CREATE INDEX IF NOT EXISTS idx_products_brand_handle ON products(brand_id, handle);
+CREATE UNIQUE INDEX IF NOT EXISTS products_brand_shopify_product_id_key ON products(brand_id, shopify_product_id);
 
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all for service role" ON products;

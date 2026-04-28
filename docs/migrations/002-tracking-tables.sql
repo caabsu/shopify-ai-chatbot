@@ -21,8 +21,8 @@ CREATE POLICY "service_role_all" ON tracking_settings
 -- tracking_cache: cached 17track API responses
 CREATE TABLE IF NOT EXISTS tracking_cache (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  tracking_number text        NOT NULL UNIQUE,
-  brand_id        text        NULL,
+  tracking_number text        NOT NULL,
+  brand_id        text        NOT NULL,
   status          text        NOT NULL,
   "statusDetail"  text        NOT NULL DEFAULT '',
   events          jsonb       NOT NULL DEFAULT '[]',
@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS tracking_cache (
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS tracking_cache_number_idx ON tracking_cache (tracking_number);
+CREATE UNIQUE INDEX IF NOT EXISTS tracking_cache_brand_tracking_number_key ON tracking_cache (brand_id, tracking_number);
+CREATE INDEX IF NOT EXISTS tracking_cache_tracking_number_idx ON tracking_cache (tracking_number);
 CREATE INDEX IF NOT EXISTS tracking_cache_cached_at_idx ON tracking_cache ("cachedAt");
 
 ALTER TABLE tracking_cache ENABLE ROW LEVEL SECURITY;

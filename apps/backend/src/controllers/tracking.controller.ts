@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { resolveBrandId } from '../config/brand.js';
 import * as trackingService from '../services/tracking.service.js';
 import * as trackingSettingsService from '../services/tracking-settings.service.js';
+import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
 
 export const trackingRouter = Router();
 
@@ -100,7 +101,7 @@ trackingRouter.get('/widget/config', async (req, res) => {
 
 // ── GET /admin/settings — Full settings ──────────────────────────────────
 
-trackingRouter.get('/admin/settings', async (req, res) => {
+trackingRouter.get('/admin/settings', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const settings = await trackingSettingsService.getTrackingSettings(brandId);
@@ -114,7 +115,7 @@ trackingRouter.get('/admin/settings', async (req, res) => {
 
 // ── PUT /admin/settings — Update settings (partial) ──────────────────────
 
-trackingRouter.put('/admin/settings', async (req, res) => {
+trackingRouter.put('/admin/settings', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const settings = await trackingSettingsService.updateTrackingSettings(brandId, req.body);
@@ -128,7 +129,7 @@ trackingRouter.put('/admin/settings', async (req, res) => {
 
 // ── GET /admin/design — Widget design only ───────────────────────────────
 
-trackingRouter.get('/admin/design', async (req, res) => {
+trackingRouter.get('/admin/design', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const settings = await trackingSettingsService.getTrackingSettings(brandId);
@@ -142,7 +143,7 @@ trackingRouter.get('/admin/design', async (req, res) => {
 
 // ── PUT /admin/design — Update widget design only ────────────────────────
 
-trackingRouter.put('/admin/design', async (req, res) => {
+trackingRouter.put('/admin/design', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const settings = await trackingSettingsService.updateTrackingSettings(brandId, {

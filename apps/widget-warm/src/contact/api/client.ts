@@ -22,11 +22,30 @@ export interface ContactSubmitResponse {
   message: string;
 }
 
+export interface ContactWidgetConfig {
+  widget_design?: Record<string, unknown>;
+  form_config?: Record<string, unknown>;
+}
+
+export async function getContactWidgetConfig(): Promise<ContactWidgetConfig> {
+  const url = `${baseUrl}/api/contact-form/widget/config`;
+  const res = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Brand': BRAND_SLUG,
+    },
+  });
+
+  if (!res.ok) return {};
+  return res.json() as Promise<ContactWidgetConfig>;
+}
+
 export async function submitContactForm(data: {
   name: string;
   email: string;
   message: string;
   topic?: string;
+  subject?: string;
 }): Promise<ContactSubmitResponse> {
   const url = `${baseUrl}/api/contact/submit`;
   const res = await fetch(url, {

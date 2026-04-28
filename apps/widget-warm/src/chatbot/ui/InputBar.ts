@@ -1,6 +1,7 @@
 import { getState, subscribe } from '../state/store.js';
+import type { WidgetDesign } from '../api/client.js';
 
-export function createInputBar(onSend: (text: string) => void): HTMLElement {
+export function createInputBar(onSend: (text: string) => void, design?: WidgetDesign): HTMLElement {
   const container = document.createElement('div');
   container.className = 'wbd-input-area';
 
@@ -9,7 +10,7 @@ export function createInputBar(onSend: (text: string) => void): HTMLElement {
 
   const input = document.createElement('textarea');
   input.className = 'wbd-input';
-  input.placeholder = 'Ask anything...';
+  input.placeholder = design?.inputPlaceholder || 'Ask anything...';
   input.rows = 1;
 
   const sendBtn = document.createElement('button');
@@ -53,10 +54,12 @@ export function createInputBar(onSend: (text: string) => void): HTMLElement {
   inputWrap.appendChild(sendBtn);
   container.appendChild(inputWrap);
 
-  const powered = document.createElement('div');
-  powered.className = 'wbd-powered';
-  powered.textContent = 'Designed at 2700K';
-  container.appendChild(powered);
+  if (design?.showBrandingBadge !== false) {
+    const powered = document.createElement('div');
+    powered.className = 'wbd-powered';
+    powered.textContent = design?.brandingText || 'Designed at 2700K';
+    container.appendChild(powered);
+  }
 
   (container as HTMLElement & { focusInput: () => void }).focusInput = () => input.focus();
 

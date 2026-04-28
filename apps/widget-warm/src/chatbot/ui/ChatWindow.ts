@@ -3,6 +3,7 @@ import { createMessageList } from './MessageList.js';
 import { createInputBar } from './InputBar.js';
 import { getState, setState, saveSession, clearSession, subscribe } from '../state/store.js';
 import * as api from '../api/client.js';
+import type { WidgetDesign } from '../api/client.js';
 import type { WidgetMessage, PresetAction } from '../state/store.js';
 
 const PRESET_ICONS: Record<string, string> = {
@@ -30,13 +31,13 @@ function createPresetChips(presets: PresetAction[], onClick: (id: string) => voi
   return container;
 }
 
-export function createChatWindow(onClose: () => void, onSessionInit: () => Promise<void>): HTMLElement {
+export function createChatWindow(onClose: () => void, onSessionInit: () => Promise<void>, design?: WidgetDesign): HTMLElement {
   const win = document.createElement('div');
   win.className = 'wbd-window';
 
-  const header = createHeader(onClose);
+  const header = createHeader(onClose, design);
   const messageList = createMessageList();
-  const inputBar = createInputBar(handleSendMessage);
+  const inputBar = createInputBar(handleSendMessage, design);
 
   // Presets container — inserted between header and messages
   let presetsEl: HTMLElement | null = null;

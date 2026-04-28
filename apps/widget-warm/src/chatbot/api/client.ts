@@ -46,6 +46,27 @@ export interface SessionResponse {
   messages?: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>;
 }
 
+export interface WidgetDesign {
+  primaryColor?: string;
+  backgroundColor?: string;
+  headerTitle?: string;
+  inputPlaceholder?: string;
+  borderRadius?: 'sharp' | 'rounded' | 'pill';
+  fontSize?: 'small' | 'medium' | 'large';
+  showBrandingBadge?: boolean;
+  position?: 'bottom-right' | 'bottom-left';
+  greetingHeader?: string;
+  greetingSubtext?: string;
+  brandingText?: string;
+}
+
+export interface WidgetConfig {
+  greeting?: string;
+  presetActions?: Array<{ id: string; label: string; icon: string; prompt: string; description?: string }>;
+  design?: WidgetDesign;
+  hasDesignConfig?: boolean;
+}
+
 export interface MessageResponse {
   response: string;
   navigationButtons: Array<{ url: string; label: string }>;
@@ -68,6 +89,10 @@ export interface MessageResponse {
   } | null;
   toolsUsed: string[];
   conversationStatus: string;
+}
+
+export async function getWidgetConfig(): Promise<WidgetConfig> {
+  return request<WidgetConfig>('/api/widget/config');
 }
 
 export async function createSession(data: {

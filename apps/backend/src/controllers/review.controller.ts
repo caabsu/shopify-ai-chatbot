@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import { resolveBrandId } from '../config/brand.js';
-import { config } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
+import { getBrandShopifyConfig } from '../config/brand-shopify.js';
 import * as reviewService from '../services/review.service.js';
 import * as reviewSettingsService from '../services/review-settings.service.js';
 import * as reviewEmailService from '../services/review-email.service.js';
@@ -11,6 +11,7 @@ import * as reviewImportService from '../services/review-import.service.js';
 import * as productSyncService from '../services/product-sync.service.js';
 import { logEvent } from '../services/activity-log.service.js';
 import { graphql } from '../services/shopify-admin.service.js';
+import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
 import type { ReviewRequestLineItem } from '../types/index.js';
 
 export const reviewRouter = Router();
@@ -115,6 +116,7 @@ reviewRouter.get('/request/:token', async (req, res) => {
       const { data: productRows } = await supabase
         .from('products')
         .select('handle, title')
+        .eq('brand_id', req_data.brand_id as string)
         .in('id', productIds);
 
       if (productRows) {
@@ -139,7 +141,7 @@ reviewRouter.get('/request/:token', async (req, res) => {
 
 reviewRouter.post('/submit', async (req, res) => {
   try {
-    const brandId = await resolveBrandId(req);
+    let brandId = await resolveBrandId(req);
     let {
       product_handle,
       customer_email,
@@ -155,21 +157,25 @@ reviewRouter.post('/submit', async (req, res) => {
       media_urls,
     } = req.body;
 
-    // If token is provided but product_handle is missing, resolve from review_request
-    if (!product_handle && token) {
+    // Review links are token-scoped; use the token's brand instead of request origin/header.
+    if (token) {
       const { data: request } = await supabase
         .from('review_requests')
-        .select('product_ids, customer_email, customer_name')
+        .select('product_ids, customer_email, customer_name, brand_id')
         .eq('token', token)
         .single();
       if (request) {
         const reqData = request as Record<string, unknown>;
+        if (typeof reqData.brand_id === 'string' && reqData.brand_id) {
+          brandId = reqData.brand_id;
+        }
         const productIds = reqData.product_ids as string[];
-        if (productIds?.length) {
+        if (!product_handle && productIds?.length) {
           const { data: product } = await supabase
             .from('products')
             .select('handle')
             .eq('id', productIds[0])
+            .eq('brand_id', brandId)
             .single();
           if (product) product_handle = (product as Record<string, unknown>).handle as string;
         }
@@ -345,6 +351,8 @@ reviewRouter.get('/widget/config', async (req, res) => {
 // ── Admin endpoints ───────────────────────────────────────────────────────
 
 // GET /admin/reviews — List all reviews for brand (admin)
+reviewRouter.use('/admin', agentAuthMiddleware);
+
 reviewRouter.get('/admin/reviews', async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
@@ -716,6 +724,12 @@ function verifyShopifyHmac(body: string, hmacHeader: string, secret: string): bo
   }
 }
 
+async function getWebhookBrandAndSecret(req: Parameters<typeof resolveBrandId>[0]): Promise<{ brandId: string; secret: string }> {
+  const brandId = await resolveBrandId(req);
+  const brandConfig = await getBrandShopifyConfig(brandId);
+  return { brandId, secret: brandConfig.clientSecret };
+}
+
 // POST /webhooks/shopify/products — Product create/update/delete
 reviewRouter.post('/webhooks/shopify/products', async (req, res) => {
   try {
@@ -724,7 +738,9 @@ reviewRouter.post('/webhooks/shopify/products', async (req, res) => {
     const rawBody = (req as unknown as Record<string, unknown>).rawBody as string || JSON.stringify(req.body);
     const hasRawBody = !!(req as unknown as Record<string, unknown>).rawBody;
 
-    if (!hmac || !verifyShopifyHmac(rawBody, hmac, config.shopify.clientSecret)) {
+    const { brandId, secret } = await getWebhookBrandAndSecret(req);
+
+    if (!hmac || !verifyShopifyHmac(rawBody, hmac, secret)) {
       logEvent('webhook.products', 'error', `HMAC verification failed (topic: ${topic || 'unknown'})`, { hasRawBody, bodyLen: rawBody.length });
       res.status(401).json({ error: 'Invalid HMAC signature' });
       return;
@@ -733,7 +749,6 @@ reviewRouter.post('/webhooks/shopify/products', async (req, res) => {
     const productTitle = req.body?.title || req.body?.handle || `ID ${req.body?.id}`;
     logEvent('webhook.products', 'success', `${topic}: ${productTitle}`, { topic, productId: req.body?.id, title: productTitle });
 
-    const brandId = await resolveBrandId(req);
     await productSyncService.handleProductWebhook(topic, req.body, brandId);
 
     res.status(200).json({ ok: true });
@@ -751,13 +766,14 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
     const rawBody = (req as unknown as Record<string, unknown>).rawBody as string || JSON.stringify(req.body);
     const hasRawBody = !!(req as unknown as Record<string, unknown>).rawBody;
 
-    if (!hmac || !verifyShopifyHmac(rawBody, hmac, config.shopify.clientSecret)) {
+    const { brandId, secret } = await getWebhookBrandAndSecret(req);
+
+    if (!hmac || !verifyShopifyHmac(rawBody, hmac, secret)) {
       logEvent('webhook.orders', 'error', 'HMAC verification failed for order webhook', { hasRawBody, bodyLen: rawBody.length });
       res.status(401).json({ error: 'Invalid HMAC signature' });
       return;
     }
 
-    const brandId = await resolveBrandId(req);
     const payload = req.body;
     const orderId = payload.id || payload.order_number || 'unknown';
 
@@ -871,7 +887,7 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
 });
 
 // GET /webhooks/status — List registered Shopify webhooks
-reviewRouter.get('/webhooks/status', async (req, res) => {
+reviewRouter.get('/webhooks/status', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const webhooks = await productSyncService.listWebhooks(brandId);
@@ -883,7 +899,7 @@ reviewRouter.get('/webhooks/status', async (req, res) => {
 });
 
 // POST /webhooks/reset — Delete all webhooks and re-register them
-reviewRouter.post('/webhooks/reset', async (req, res) => {
+reviewRouter.post('/webhooks/reset', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const result = await productSyncService.resetWebhooks(brandId);
@@ -896,7 +912,7 @@ reviewRouter.post('/webhooks/reset', async (req, res) => {
 
 // ── POST /backfill-orders — Backfill review requests from recent fulfilled orders ──
 
-reviewRouter.post('/backfill-orders', async (req, res) => {
+reviewRouter.post('/backfill-orders', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const daysBack = parseInt(req.body?.days as string, 10) || parseInt(req.query.days as string, 10) || 3;

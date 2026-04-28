@@ -1,5 +1,6 @@
 import path from 'path';
 import { existsSync } from 'fs';
+import crypto from 'crypto';
 
 import express from 'express';
 import cors from 'cors';
@@ -23,8 +24,29 @@ import { getToken } from './services/shopify-auth.service.js';
 import * as ticketService from './services/ticket.service.js';
 import { sendTicketConfirmation } from './services/email.service.js';
 import { classifyEmail } from './services/email-classifier.service.js';
+import { getConfiguredSenderAddresses } from './services/brand-email-config.service.js';
 
 const app = express();
+
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function verifyEmailWebhookSecret(req: express.Request): boolean {
+  const expected = process.env.EMAIL_WEBHOOK_SECRET || process.env.RESEND_WEBHOOK_SECRET;
+  if (!expected) return true;
+
+  const authHeader = req.headers.authorization;
+  const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : '';
+  const headerSecret = req.headers['x-webhook-secret'];
+  const querySecret = typeof req.query.secret === 'string' ? req.query.secret : '';
+  const provided = bearer || (typeof headerSecret === 'string' ? headerSecret : '') || querySecret;
+
+  return !!provided && timingSafeStringEqual(provided, expected);
+}
 
 // Request logging
 app.use((req, res, next) => {
@@ -366,11 +388,19 @@ async function getInlineWidgetConfig(brandId: string): Promise<Record<string, un
       if (raw) formConfig = JSON.parse(raw);
     } catch { /* ignore */ }
 
-    const result = { design, formConfig };
+    let contactDesign: Record<string, unknown> = {};
+    try {
+      const { getContactFormSettings } = await import('./services/contact-form-settings.service.js');
+      const contactSettings = await getContactFormSettings(brandId);
+      contactDesign = contactSettings.widget_design as unknown as Record<string, unknown>;
+      formConfig = formConfig ?? contactSettings.form_config;
+    } catch { /* contact form settings are optional for preview fallback */ }
+
+    const result = { design, contactDesign, formConfig };
     inlineConfigCache.set(key, { data: result, expiry: Date.now() + INLINE_CACHE_TTL });
     return result;
   } catch {
-    return { design: {}, formConfig: null };
+    return { design: {}, contactDesign: {}, formConfig: null };
   }
 }
 
@@ -686,13 +716,52 @@ app.get('/widget/preview-embedded', async (req, res) => {
   <div id="support-contact-form"></div>
   <script>
     window.__SCF_CONFIG = {
-      design: ${JSON.stringify(widgetConfig.design || {})},
+      design: ${JSON.stringify(widgetConfig.contactDesign || widgetConfig.design || {})},
       formConfig: ${JSON.stringify(widgetConfig.formConfig || null)}
     };
   </script>
   ${playgroundDebugScript}
   <script src="${chatWidgetUrl}?v=${Date.now()}" data-mode="embedded" data-target="#chat-embed"${dataBrandAttr}></script>
-  <script src="${contactWidgetUrl}?v=${Date.now()}"${dataBrandAttr}></script>
+  <script src="${contactWidgetUrl}?v=${Date.now()}" data-target="#support-contact-form"${dataBrandAttr}></script>
+</body>
+</html>`);
+});
+
+app.get('/widget/preview-contact', async (req, res) => {
+  const brandSlug = (req.query.brand as string || '').toLowerCase();
+  const dataBrandAttr = brandSlug ? ` data-brand="${brandSlug}"` : '';
+
+  const brandId = await resolveBrandId(req);
+  const widgetConfig = await getInlineWidgetConfig(brandId);
+  const contactWidgetUrl = await getBrandWidgetUrl(brandId, 'contactForm');
+  const chatWidgetUrl = await getBrandWidgetUrl(brandId, 'chatbot');
+  const brand = await getBrand(brandId);
+  const isDark = (brand?.settings as Record<string, unknown> | null)?.theme === 'dark';
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Form Preview</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: ${isDark ? '#131313' : '#fff'}; min-height: 100vh; }
+    #support-contact-form { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="support-contact-form"></div>
+  <script>
+    window.__SCF_CONFIG = {
+      design: ${JSON.stringify(widgetConfig.contactDesign || widgetConfig.design || {})},
+      formConfig: ${JSON.stringify(widgetConfig.formConfig || null)}
+    };
+  </script>
+  ${playgroundDebugScript}
+  <script src="${contactWidgetUrl}?v=${Date.now()}" data-target="#support-contact-form"${dataBrandAttr}></script>
+  <script src="${chatWidgetUrl}?v=${Date.now()}"${dataBrandAttr}></script>
 </body>
 </html>`);
 });
@@ -1224,7 +1293,7 @@ app.get('/widget/playground-embedded', async (req, res) => {
   <script>
     // Inline config — eliminates fetch round-trip for instant rendering
     window.__SCF_CONFIG = {
-      design: ${JSON.stringify(widgetConfig.design || {})},
+      design: ${JSON.stringify(widgetConfig.contactDesign || widgetConfig.design || {})},
       formConfig: ${JSON.stringify(widgetConfig.formConfig || null)}
     };
   </script>
@@ -1770,6 +1839,11 @@ app.post('/api/tickets/escalate', async (req, res) => {
 // Creates a new ticket or adds a reply to an existing one.
 app.post('/api/webhooks/email', async (req, res) => {
   try {
+    if (!verifyEmailWebhookSecret(req)) {
+      res.status(401).json({ error: 'Invalid webhook secret' });
+      return;
+    }
+
     // Support multiple webhook formats
     const {
       from, from_email, sender,          // sender email
@@ -1792,18 +1866,7 @@ app.post('/api/webhooks/email', async (req, res) => {
     }
 
     // ── Loop Prevention: reject emails from our own support addresses ──
-    // Collect all brand FROM addresses to detect self-referential loops
-    const ownAddresses = new Set<string>();
-    const defaultFrom = (process.env.EMAIL_FROM_ADDRESS || '').match(/<(.+?)>/)?.[1]?.toLowerCase();
-    if (defaultFrom) ownAddresses.add(defaultFrom);
-    // Check all RESEND/EMAIL env vars for brand-specific FROM addresses
-    for (const [key, value] of Object.entries(process.env)) {
-      if (key.startsWith('EMAIL_FROM_ADDRESS') && value) {
-        const match = value.match(/<(.+?)>/);
-        if (match) ownAddresses.add(match[1].toLowerCase());
-        else if (value.includes('@')) ownAddresses.add(value.toLowerCase().trim());
-      }
-    }
+    const ownAddresses = await getConfiguredSenderAddresses();
     // Also check common noreply patterns
     if (senderEmail.includes('noreply@') || senderEmail.includes('no-reply@')) {
       ownAddresses.add(senderEmail); // will match below
@@ -2051,7 +2114,7 @@ app.use('/api/contact-form', contactFormSettingsRouter);
 app.post('/api/contact/submit', async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
-    const { name, email, message, topic } = req.body;
+    const { name, email, message, topic, subject } = req.body;
 
     if (!name || !email || !message) {
       res.status(400).json({ error: 'name, email, and message are required' });
@@ -2063,13 +2126,15 @@ app.post('/api/contact/submit', async (req, res) => {
       return;
     }
 
+    const ticketSubject = subject || topic || `Contact form: ${message.substring(0, 60)}`;
+
     const ticket = await ticketService.createTicket({
       source: 'form',
-      subject: topic || `Contact form: ${message.substring(0, 60)}`,
+      subject: ticketSubject,
       customer_email: email,
       customer_name: name,
       priority: 'low',
-      metadata: { source_widget: 'warm-contact', topic, initial_message: message },
+      metadata: { source_widget: 'warm-contact', topic, subject, initial_message: message },
       brand_id: brandId,
     });
 
@@ -2084,6 +2149,14 @@ app.post('/api/contact/submit', async (req, res) => {
     });
 
     console.log(`[contact] Ticket ${ticket.ticket_number} created from ${email}`);
+
+    sendTicketConfirmation({
+      to: email,
+      customerName: name,
+      ticketNumber: ticket.ticket_number,
+      subject: ticket.subject,
+      brandId,
+    }).catch((err) => console.error('[contact] Confirmation email failed:', err));
 
     res.status(201).json({
       success: true,
@@ -2182,6 +2255,7 @@ app.get('/api/widget/config', async (req, res) => {
       // empty
     }
 
+    let hasDesignConfig = false;
     let design: Record<string, unknown> = {
       primaryColor: '#6B4A37',
       backgroundColor: '#ffffff',
@@ -2203,7 +2277,10 @@ app.get('/api/widget/config', async (req, res) => {
     };
     try {
       const raw = configMap.get('widget_design');
-      if (raw) design = { ...design, ...JSON.parse(raw) };
+      if (raw) {
+        hasDesignConfig = true;
+        design = { ...design, ...JSON.parse(raw) };
+      }
     } catch {
       // empty
     }
@@ -2218,6 +2295,7 @@ app.get('/api/widget/config', async (req, res) => {
       greeting: configMap.get('greeting') ?? 'Hi! How can I help you?',
       presetActions,
       design,
+      hasDesignConfig,
       formConfig,
     });
   } catch (err) {
@@ -2290,6 +2368,41 @@ async function runStartupChecks() {
   }
 }
 
+async function registerReviewWebhooksForConfiguredBrands(): Promise<void> {
+  const { data: brands, error } = await supabase
+    .from('brands')
+    .select('id, slug, settings')
+    .eq('enabled', true);
+
+  if (error) {
+    console.warn('[startup] Failed to load brands for review webhooks:', error.message);
+    await registerReviewWebhooks();
+    return;
+  }
+
+  const configuredBrands = (brands ?? []).filter((brand) => {
+    const settings = (brand.settings ?? {}) as Record<string, unknown>;
+    return !!settings.shopify_client_id && !!settings.shopify_client_secret;
+  });
+
+  try {
+    await registerReviewWebhooks();
+  } catch (err) {
+    console.warn('[startup] Default review webhook registration failed:', err instanceof Error ? err.message : String(err));
+  }
+
+  if (configuredBrands.length === 0) return;
+
+  for (const brand of configuredBrands) {
+    try {
+      await registerReviewWebhooks(brand.id as string);
+      console.log(`[startup] Review webhooks registered for ${brand.slug as string}`);
+    } catch (err) {
+      console.warn(`[startup] Review webhook registration failed for ${brand.slug as string}:`, err instanceof Error ? err.message : String(err));
+    }
+  }
+}
+
 app.listen(config.server.port, async () => {
   console.log(`[server] Running on port ${config.server.port}`);
   console.log(`[server] Environment: ${config.server.nodeEnv}`);
@@ -2304,7 +2417,7 @@ app.listen(config.server.port, async () => {
   }
 
   // Register Shopify webhooks for product sync + review collection
-  registerReviewWebhooks().catch(err =>
+  registerReviewWebhooksForConfiguredBrands().catch(err =>
     console.warn('[startup] Review webhook registration failed:', err instanceof Error ? err.message : String(err))
   );
 

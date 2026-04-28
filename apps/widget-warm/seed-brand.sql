@@ -7,7 +7,7 @@ VALUES (
   'b2f7e4a1-8c3d-4e5f-9a1b-2c3d4e5f6a7b',
   'warm-by-design',
   'Warm by Design',
-  'warm-by-design',  -- Update when Shopify store is created
+  '1u8ryb-ym',
   true,
   '{
     "domain": null,
@@ -21,6 +21,14 @@ VALUES (
       "cream": "#F0EDE8",
       "amber": "#f5bc70",
       "onPrimary": "#462b00"
+    },
+    "widgetUrls": {
+      "chatbot": "/widget/warm/chatbot.js",
+      "returns": "/widget/warm/returns.js",
+      "contact": "/widget/warm/contact.js",
+      "contactForm": "/widget/warm/contact.js",
+      "reviews": "/widget/review-widget.js",
+      "tracking": "/widget/tracking-widget.js"
     },
     "theme": "dark"
   }'::jsonb

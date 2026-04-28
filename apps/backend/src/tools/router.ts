@@ -129,7 +129,7 @@ export async function executeTool(
       case 'cancel_order': {
         const result = await shopifyActions.cancelOrder(
           toolInput.order_id as string,
-          toolInput.order_name as string,
+          undefined,
           context.brandId
         );
         return { success: result.success, data: result };

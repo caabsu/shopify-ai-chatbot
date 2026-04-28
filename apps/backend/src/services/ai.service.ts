@@ -123,8 +123,12 @@ export async function processMessage(
       content: m.content,
     }));
 
-  // Add the new user message
-  claudeMessages.push({ role: 'user', content: userMessage });
+  // Chat controller stores the user message before this call. Append only when
+  // processMessage is used directly and the current turn is not already saved.
+  const lastConversationMessage = messages[messages.length - 1];
+  if (!(lastConversationMessage?.role === 'user' && lastConversationMessage.content === userMessage)) {
+    claudeMessages.push({ role: 'user', content: userMessage });
+  }
 
   // 5. Call Claude with tool loop
   const toolContext: ToolContext = {

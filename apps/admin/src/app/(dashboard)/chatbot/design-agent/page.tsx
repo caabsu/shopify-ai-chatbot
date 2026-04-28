@@ -39,7 +39,7 @@ export default function DesignAgentPage() {
   const iframeSrc =
     previewTab === 'storefront'
       ? `${backendUrl}/widget/preview-chat?${[brandQs, `_r=${previewKey}`].filter(Boolean).join('&')}`
-      : `${backendUrl}/widget/preview-embedded?${[brandQs, `_r=${previewKey}`].filter(Boolean).join('&')}`;
+      : `${backendUrl}/widget/preview-contact?${[brandQs, `_r=${previewKey}`].filter(Boolean).join('&')}`;
 
   async function sendMessage(text?: string) {
     const msg = (text || input).trim();

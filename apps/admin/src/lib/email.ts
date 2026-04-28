@@ -1,10 +1,9 @@
 import { Resend } from 'resend';
+import { supabase } from './supabase';
 
 // ── Per-Brand Resend Client Resolution ───────────────────────────────────────
-// Each brand can have its own Resend API key and FROM address via env vars:
-//   RESEND_API_KEY_<SLUG_UPPER>   (e.g. RESEND_API_KEY_OUTLIGHT)
-//   EMAIL_FROM_ADDRESS_<SLUG_UPPER> (e.g. EMAIL_FROM_ADDRESS_OUTLIGHT)
-// Falls back to the base RESEND_API_KEY / EMAIL_FROM_ADDRESS.
+// Each brand can have its own Resend API key and FROM address via env vars
+// or brands.settings. Env suffixes normalize slugs, e.g. warm-by-design -> WARM_BY_DESIGN.
 
 const resendClients = new Map<string, Resend>();
 
@@ -22,17 +21,47 @@ interface BrandEmailConfig {
   fromAddress: string;
 }
 
-const defaultApiKey = process.env.RESEND_API_KEY || '';
-const defaultFromAddress = process.env.EMAIL_FROM_ADDRESS || 'Support <onboarding@resend.dev>';
+function normalizeEnvSuffix(slug: string): string {
+  return slug.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+}
 
-function getBrandEmailConfig(brandSlug?: string): BrandEmailConfig | null {
-  let apiKey = defaultApiKey;
-  let fromAddress = defaultFromAddress;
+function stringSetting(settings: Record<string, unknown> | null | undefined, key: string): string | undefined {
+  const value = settings?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+async function getBrandEmailConfig(brandSlug?: string): Promise<BrandEmailConfig | null> {
+  let apiKey = process.env.RESEND_API_KEY || '';
+  let fromAddress = process.env.EMAIL_FROM_ADDRESS || 'Support <onboarding@resend.dev>';
 
   if (brandSlug) {
-    const upper = brandSlug.toUpperCase();
-    const brandKey = process.env[`RESEND_API_KEY_${upper}`];
-    const brandFrom = process.env[`EMAIL_FROM_ADDRESS_${upper}`];
+    const { data: brand } = await supabase
+      .from('brands')
+      .select('name, settings')
+      .eq('slug', brandSlug)
+      .single();
+
+    const settings = (brand?.settings ?? null) as Record<string, unknown> | null;
+    const settingsApiKey = stringSetting(settings, 'resend_api_key') || stringSetting(settings, 'resendApiKey');
+    const settingsFrom =
+      stringSetting(settings, 'email_from_address') ||
+      stringSetting(settings, 'emailFromAddress') ||
+      stringSetting(settings, 'support_from_address') ||
+      stringSetting(settings, 'supportFromAddress');
+    const supportEmail =
+      stringSetting(settings, 'support_email') ||
+      stringSetting(settings, 'supportEmail') ||
+      stringSetting(settings, 'inbound_email') ||
+      stringSetting(settings, 'inboundEmail');
+
+    if (settingsApiKey) apiKey = settingsApiKey;
+    if (settingsFrom) fromAddress = settingsFrom;
+    else if (supportEmail) fromAddress = `${brand?.name || 'Support'} <${supportEmail}>`;
+
+    const normalized = normalizeEnvSuffix(brandSlug);
+    const legacy = brandSlug.toUpperCase();
+    const brandKey = process.env[`RESEND_API_KEY_${normalized}`] || process.env[`RESEND_API_KEY_${legacy}`];
+    const brandFrom = process.env[`EMAIL_FROM_ADDRESS_${normalized}`] || process.env[`EMAIL_FROM_ADDRESS_${legacy}`];
     if (brandKey) apiKey = brandKey;
     if (brandFrom) fromAddress = brandFrom;
   }
@@ -53,7 +82,7 @@ export async function sendTicketReplyEmail(opts: {
   inReplyToMessageId?: string;
   originalMessage?: string;
 }): Promise<{ messageId?: string; error?: string }> {
-  const config = getBrandEmailConfig(opts.brandSlug);
+  const config = await getBrandEmailConfig(opts.brandSlug);
   if (!config) {
     console.warn('[email] No Resend API key configured — skipping email');
     return { error: 'Email not configured' };

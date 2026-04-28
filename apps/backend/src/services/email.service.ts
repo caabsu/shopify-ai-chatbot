@@ -1,55 +1,13 @@
-import { Resend } from 'resend';
 import { getTemplate, renderTemplate } from './return-email-template.service.js';
-import { getBrandSlug, getBrandName } from '../config/brand.js';
+import { getBrandName } from '../config/brand.js';
 import { RETURN_ADDRESSES } from './shippo.service.js';
+import { getBrandEmailConfig, isDefaultEmailConfigured } from './brand-email-config.service.js';
 
 // ── Per-Brand Resend Client Resolution ───────────────────────────────────────
-// Each brand can have its own Resend API key and FROM address via env vars:
-//   RESEND_API_KEY_<SLUG_UPPER>   (e.g. RESEND_API_KEY_OUTLIGHT)
-//   EMAIL_FROM_ADDRESS_<SLUG_UPPER> (e.g. EMAIL_FROM_ADDRESS_OUTLIGHT)
-// Falls back to the base RESEND_API_KEY / EMAIL_FROM_ADDRESS for brands
-// without dedicated env vars (e.g. Misu uses the defaults).
-
-const resendClients = new Map<string, Resend>();
-
-function getResendClient(apiKey: string): Resend {
-  let client = resendClients.get(apiKey);
-  if (!client) {
-    client = new Resend(apiKey);
-    resendClients.set(apiKey, client);
-  }
-  return client;
-}
-
-interface BrandEmailConfig {
-  resend: Resend;
-  fromAddress: string;
-}
-
-const defaultApiKey = process.env.RESEND_API_KEY || '';
-const defaultFromAddress = process.env.EMAIL_FROM_ADDRESS || 'Support <onboarding@resend.dev>';
-
-async function getBrandEmailConfig(brandId?: string): Promise<BrandEmailConfig | null> {
-  let apiKey = defaultApiKey;
-  let fromAddress = defaultFromAddress;
-
-  if (brandId) {
-    const slug = await getBrandSlug(brandId);
-    if (slug) {
-      const upper = slug.toUpperCase();
-      const brandKey = process.env[`RESEND_API_KEY_${upper}`];
-      const brandFrom = process.env[`EMAIL_FROM_ADDRESS_${upper}`];
-      if (brandKey) apiKey = brandKey;
-      if (brandFrom) fromAddress = brandFrom;
-    }
-  }
-
-  if (!apiKey) return null;
-  return { resend: getResendClient(apiKey), fromAddress };
-}
+// Shared brand email resolution lives in brand-email-config.service.
 
 export function isEmailConfigured(): boolean {
-  return !!defaultApiKey;
+  return isDefaultEmailConfigured();
 }
 
 // ── Ticket Confirmation Email ────────────────────────────────────────────────

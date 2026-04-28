@@ -4,9 +4,19 @@
    ═══════════════════════════════════════════════════════ */
 
 .wbd-returns {
+  --wbd-returns-accent: #f5bc70;
+  --wbd-returns-bg: transparent;
+  --wbd-returns-card-bg: #1c1b1b;
+  --wbd-returns-text: #F0EDE8;
+  --wbd-returns-muted: rgba(240, 237, 232, 0.4);
+  --wbd-returns-radius: 0;
+  --wbd-returns-font: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --wbd-returns-heading-font: 'Bricolage Grotesque', serif;
+  --wbd-returns-base-size: 14px;
   max-width: 640px;
   margin: 0 auto;
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--wbd-returns-bg);
+  font-family: var(--wbd-returns-font);
   font-weight: 300;
   color: rgba(240, 237, 232, 0.6);
   -webkit-font-smoothing: antialiased;
@@ -38,16 +48,16 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.25em;
-  color: rgba(245, 188, 112, 0.6);
+  color: var(--wbd-returns-accent);
   margin-bottom: 12px;
 }
 
 .wbd-returns__title {
-  font-family: 'Bricolage Grotesque', serif;
+  font-family: var(--wbd-returns-heading-font);
   font-size: 28px;
   font-weight: 300;
   letter-spacing: -0.025em;
-  color: #F0EDE8;
+  color: var(--wbd-returns-text);
   line-height: 1.2;
   margin-bottom: 8px;
 }
@@ -55,14 +65,15 @@
 .wbd-returns__subtitle {
   font-size: 14px;
   font-weight: 300;
-  color: rgba(240, 237, 232, 0.4);
+  color: var(--wbd-returns-muted);
   line-height: 1.5;
 }
 
 /* ── Card ── */
 .wbd-returns__card {
-  background: #1c1b1b;
+  background: var(--wbd-returns-card-bg);
   border: 1px solid rgba(245, 188, 112, 0.1);
+  border-radius: var(--wbd-returns-radius);
   padding: 32px;
 }
 
@@ -119,10 +130,10 @@
 .wbd-returns__textarea {
   background: #2a2a2a;
   border: 1px solid rgba(245, 188, 112, 0.1);
-  border-radius: 0;
+  border-radius: var(--wbd-returns-radius);
   color: #F0EDE8;
-  font-family: 'Outfit', sans-serif;
-  font-size: 14px;
+  font-family: var(--wbd-returns-font);
+  font-size: var(--wbd-returns-base-size);
   font-weight: 300;
   padding: 0 14px;
   height: 48px;
@@ -168,10 +179,10 @@
   height: 48px;
   background: none;
   border: 1px solid rgba(245, 188, 112, 0.15);
-  border-radius: 0;
+  border-radius: var(--wbd-returns-radius);
   color: rgba(240, 237, 232, 0.6);
-  font-family: 'Outfit', sans-serif;
-  font-size: 14px;
+  font-family: var(--wbd-returns-font);
+  font-size: var(--wbd-returns-base-size);
   font-weight: 300;
   cursor: pointer;
   transition: all 0.3s;
@@ -225,6 +236,7 @@
   padding: 12px 14px;
   background: #201f1f;
   border: 1px solid rgba(245, 188, 112, 0.08);
+  border-radius: var(--wbd-returns-radius);
   cursor: pointer;
   transition: all 0.3s;
 }
@@ -250,8 +262,8 @@
 }
 
 .wbd-returns__item--selected .wbd-returns__item-check {
-  background: #f5bc70;
-  border-color: #f5bc70;
+  background: var(--wbd-returns-accent);
+  border-color: var(--wbd-returns-accent);
 }
 
 .wbd-returns__item-check .material-symbols-outlined {
@@ -317,11 +329,11 @@
 .wbd-returns__submit {
   width: 100%;
   height: 56px;
-  background: #f5bc70;
+  background: var(--wbd-returns-accent);
   border: none;
-  border-radius: 0;
+  border-radius: var(--wbd-returns-radius);
   cursor: pointer;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--wbd-returns-font);
   font-size: 16px;
   font-weight: 400;
   color: #462b00;
@@ -346,24 +358,24 @@
 
 .wbd-returns__success-icon {
   font-size: 48px;
-  color: #f5bc70;
+  color: var(--wbd-returns-accent);
   font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 48;
   display: block;
   margin-bottom: 16px;
 }
 
 .wbd-returns__success-title {
-  font-family: 'Bricolage Grotesque', serif;
+  font-family: var(--wbd-returns-heading-font);
   font-size: 22px;
   font-weight: 300;
   letter-spacing: -0.025em;
-  color: #F0EDE8;
+  color: var(--wbd-returns-text);
   margin-bottom: 8px;
 }
 
 .wbd-returns__success-text {
   font-size: 14px;
-  color: rgba(240, 237, 232, 0.4);
+  color: var(--wbd-returns-muted);
   font-weight: 300;
   line-height: 1.5;
 }

@@ -1,8 +1,17 @@
 import './styles/returns.css';
-import { initBaseUrl } from './api/client.js';
+import { getPortalConfig, initBaseUrl } from './api/client.js';
+import type { ReturnsPortalConfig } from './api/client.js';
 import { createReturnsPortal } from './ui/ReturnsPortal.js';
 
 const currentScript = document.currentScript as HTMLScriptElement | null;
+
+function getInlinePortalConfig(): ReturnsPortalConfig | null {
+  const inline = (window as unknown as {
+    __SRP_CONFIG?: { portalConfig?: ReturnsPortalConfig | null };
+  }).__SRP_CONFIG;
+
+  return inline?.portalConfig ?? null;
+}
 
 function loadFonts(): void {
   if (document.getElementById('wbd-fonts')) return;
@@ -20,20 +29,45 @@ function loadFonts(): void {
   document.head.appendChild(iconLink);
 }
 
-function init() {
+async function init() {
   initBaseUrl();
   loadFonts();
 
   const targetSelector = currentScript?.getAttribute('data-target');
-  const target = targetSelector ? document.querySelector(targetSelector) : null;
+  let target = targetSelector ? document.querySelector(targetSelector) : null;
 
   if (!target) {
-    console.error('[wbd-returns] No target found. Use data-target="#your-container" on the script tag.');
-    return;
+    target = document.createElement('div');
+    target.id = targetSelector?.startsWith('#') ? targetSelector.slice(1) : 'wbd-returns-page';
+    const parent = currentScript?.parentElement ?? document.body;
+    parent.insertBefore(target, currentScript ?? null);
   }
 
-  const portal = createReturnsPortal();
-  target.appendChild(portal);
+  let config: ReturnsPortalConfig | null = getInlinePortalConfig();
+  try {
+    config = config ?? await getPortalConfig();
+  } catch (err) {
+    console.warn('[wbd-returns] Failed to load backend config; using defaults.', err);
+  }
+
+  function render(nextConfig?: ReturnsPortalConfig | null) {
+    target.innerHTML = '';
+    target.appendChild(createReturnsPortal(nextConfig ?? undefined));
+  }
+
+  render(config);
+
+  window.addEventListener('message', (event) => {
+    if (!event.data || event.data.type !== 'srp:design_update') return;
+    config = {
+      ...(config ?? {}),
+      design: {
+        ...((config?.design ?? {}) as NonNullable<ReturnsPortalConfig['design']>),
+        ...(event.data.design ?? {}),
+      },
+    };
+    render(config);
+  });
 }
 
 if (document.readyState === 'loading') {

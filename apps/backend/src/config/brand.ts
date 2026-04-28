@@ -34,15 +34,21 @@ async function loadBrands(): Promise<Brand[]> {
 
 /**
  * Resolve the brand_id from a request. Strategy:
- * 1. Query param ?brand=<slug>
- * 2. X-Brand header (slug or id)
- * 3. Origin/Referer header matched against brands.shopify_shop or brands.settings.domain
- * 4. Default to Outlight
+ * 1. Authenticated agent brand, when route auth has populated req.agent
+ * 2. Query param ?brand=<slug>
+ * 3. X-Brand or X-Brand-Id header (slug or id)
+ * 4. Shopify webhook shop-domain header
+ * 5. Origin/Referer header matched against brands.shopify_shop or brands.settings.domain
+ * 6. Default to Outlight
  */
 export async function resolveBrandId(req: Request): Promise<string> {
+  if (req.agent?.brandId) {
+    return req.agent.brandId;
+  }
+
   const brands = await loadBrands();
 
-  // 1. Query param ?brand=<slug>
+  // 2. Query param ?brand=<slug>
   const brandParam = req.query.brand as string | undefined;
   if (brandParam) {
     const match = brands.find(
@@ -51,8 +57,8 @@ export async function resolveBrandId(req: Request): Promise<string> {
     if (match) return match.id;
   }
 
-  // 2. X-Brand header
-  const brandHeader = req.headers['x-brand'] as string | undefined;
+  // 3. X-Brand / X-Brand-Id header
+  const brandHeader = (req.headers['x-brand'] ?? req.headers['x-brand-id']) as string | undefined;
   if (brandHeader) {
     const match = brands.find(
       (b) => b.slug === brandHeader || b.id === brandHeader
@@ -60,7 +66,15 @@ export async function resolveBrandId(req: Request): Promise<string> {
     if (match) return match.id;
   }
 
-  // 3. Origin/Referer to match shopify_shop or settings.domain
+  // 4. Shopify webhook shop-domain header
+  const shopDomainHeader = req.headers['x-shopify-shop-domain'] as string | undefined;
+  if (shopDomainHeader) {
+    const normalizedShop = shopDomainHeader.toLowerCase().replace(/\.myshopify\.com$/, '');
+    const match = brands.find((b) => b.shopify_shop.toLowerCase().replace(/\.myshopify\.com$/, '') === normalizedShop);
+    if (match) return match.id;
+  }
+
+  // 5. Origin/Referer to match shopify_shop or settings.domain
   const origin = req.headers.origin || req.headers.referer || '';
   if (origin) {
     for (const b of brands) {
@@ -76,7 +90,7 @@ export async function resolveBrandId(req: Request): Promise<string> {
     }
   }
 
-  // 4. Default to Outlight
+  // 6. Default to Outlight
   return DEFAULT_BRAND_ID;
 }
 

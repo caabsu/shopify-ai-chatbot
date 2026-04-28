@@ -16,7 +16,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  *
  * Resolution order:
  * 1. If brandId is provided, fetch from the brands table (shopify_shop + settings JSONB)
- * 2. If the brand has no credentials in the DB, fall back to env vars
+ * 2. If the brand has no credentials in the DB, fail closed to avoid cross-brand access
  * 3. If no brandId is provided at all, use env vars directly
  */
 export async function getBrandShopifyConfig(brandId?: string): Promise<BrandShopifyConfig> {
@@ -44,12 +44,7 @@ export async function getBrandShopifyConfig(brandId?: string): Promise<BrandShop
 
   if (error) {
     console.error(`[brand-shopify] Failed to load brand ${brandId}:`, error.message);
-    // Fall back to env vars if DB query fails
-    return {
-      shop: config.shopify.shop,
-      clientId: config.shopify.clientId,
-      clientSecret: config.shopify.clientSecret,
-    };
+    throw new Error(`Failed to load Shopify configuration for brand ${brandId}`);
   }
 
   const settings = (brand.settings ?? {}) as Record<string, unknown>;
@@ -68,15 +63,28 @@ export async function getBrandShopifyConfig(brandId?: string): Promise<BrandShop
     return brandConfig;
   }
 
-  // Brand exists but lacks credentials — fall back to env vars
-  console.warn(`[brand-shopify] Brand ${brandId} missing Shopify credentials, falling back to env vars`);
-  const fallback: BrandShopifyConfig = {
-    shop: config.shopify.shop,
-    clientId: config.shopify.clientId,
-    clientSecret: config.shopify.clientSecret,
-  };
-  cache.set(brandId, { data: fallback, expiry: Date.now() + CACHE_TTL });
-  return fallback;
+  console.error(`[brand-shopify] Brand ${brandId} is missing Shopify credentials`);
+  throw new Error(`Shopify credentials are not configured for brand ${brandId}`);
+}
+
+/** Load only the Shopify shop domain for APIs that do not require Admin credentials. */
+export async function getBrandShopDomain(brandId?: string): Promise<string> {
+  if (!brandId) {
+    return config.shopify.shop;
+  }
+
+  const { data: brand, error } = await supabase
+    .from('brands')
+    .select('shopify_shop')
+    .eq('id', brandId)
+    .single();
+
+  if (error || !brand?.shopify_shop) {
+    console.error(`[brand-shopify] Failed to load Shopify shop for brand ${brandId}:`, error?.message);
+    throw new Error(`Shopify shop is not configured for brand ${brandId}`);
+  }
+
+  return brand.shopify_shop as string;
 }
 
 /** Invalidate cached config for a specific brand, or all brands if no id provided */

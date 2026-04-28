@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     if (action === 'session') {
       const res = await fetch(`${backendUrl}/api/chat/session`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-brand': session.brandId },
         body: JSON.stringify(rest),
       });
       const data = await res.json();
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     if (action === 'message') {
       const res = await fetch(`${backendUrl}/api/chat/message`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-brand': session.brandId },
         body: JSON.stringify(rest),
       });
       const data = await res.json();

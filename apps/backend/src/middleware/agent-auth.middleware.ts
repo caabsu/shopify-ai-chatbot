@@ -58,7 +58,7 @@ export async function agentAuthMiddleware(req: Request, res: Response, next: Nex
           if (key && val) acc[key] = decodeURIComponent(val);
           return acc;
         }, {});
-        token = cookies['agent_token'];
+        token = cookies['agent_token'] ?? cookies['admin_token'];
       }
     }
 
@@ -69,12 +69,18 @@ export async function agentAuthMiddleware(req: Request, res: Response, next: Nex
 
     const { payload } = await jose.jwtVerify(token, secret);
 
+    const brandId = payload.brandId as string | undefined;
+    if (!brandId) {
+      res.status(401).json({ error: 'Invalid token payload' });
+      return;
+    }
+
     req.agent = {
       id: (payload.id ?? payload.userId ?? '') as string,
       email: (payload.email ?? '') as string,
       name: (payload.name ?? '') as string,
       role: payload.role as 'admin' | 'agent',
-      brandId: payload.brandId as string,
+      brandId,
     };
 
     next();

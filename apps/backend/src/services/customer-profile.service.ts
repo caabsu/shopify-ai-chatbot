@@ -1,6 +1,7 @@
 import { config } from '../config/env.js';
 import { getTokenForBrand } from './shopify-auth.service.js';
 import { getBrandShopifyConfig } from '../config/brand-shopify.js';
+import { getBrand } from '../config/brand.js';
 
 interface ShopifyCustomerProfile {
   id: string;
@@ -62,6 +63,41 @@ async function shopifyGraphql<T>(query: string, variables?: Record<string, unkno
   }
 
   return json.data;
+}
+
+function normalizeDomain(value: string): string {
+  return value.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+}
+
+async function getTrackingPageUrl(brandId?: string): Promise<string> {
+  const brandConfig = await getBrandShopifyConfig(brandId);
+  const fallbackDomain = `${brandConfig.shop}.myshopify.com`;
+
+  if (!brandId) {
+    return `https://${fallbackDomain}/pages/tracking-page`;
+  }
+
+  const brand = await getBrand(brandId);
+  const settings = brand?.settings as Record<string, unknown> | null;
+  const explicitUrl =
+    settings?.tracking_page_url ??
+    settings?.trackingPageUrl ??
+    settings?.tracking_url ??
+    settings?.trackingUrl;
+
+  if (typeof explicitUrl === 'string' && explicitUrl.trim()) {
+    return explicitUrl.trim();
+  }
+
+  const storefrontDomain =
+    settings?.domain ??
+    settings?.storefront_domain ??
+    settings?.storefrontDomain;
+  const domain = typeof storefrontDomain === 'string' && storefrontDomain.trim()
+    ? normalizeDomain(storefrontDomain.trim())
+    : fallbackDomain;
+
+  return `https://${domain}/pages/tracking-page`;
 }
 
 // ── Get Customer by Email ──────────────────────────────────────────────────
@@ -202,13 +238,14 @@ export async function getCustomerOrders(email: string, limit = 10, brandId?: str
       };
     }>(query, { queryStr: `email:${email}`, first: limit }, brandId);
 
+    const trackingPageUrl = await getTrackingPageUrl(brandId);
+
     return data.orders.edges.map((edge) => {
       const o = edge.node;
       const tracking: Array<{ number: string; url: string | null }> = [];
       for (const f of o.fulfillments) {
         for (const t of f.trackingInfo) {
-          // Always use the correct Outlight tracking page instead of Shopify's 17track proxy URLs
-          tracking.push({ number: t.number, url: 'https://outlight.us/pages/tracking-page' });
+          tracking.push({ number: t.number, url: trackingPageUrl });
         }
       }
 

@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getSession, getToken } from '@/lib/auth';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const token = await getToken();
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const body = await req.json();
@@ -16,10 +18,13 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(`${BACKEND_URL}/api/reviews/admin/import`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'x-brand': session.brandId,
+      },
       body: JSON.stringify({
         csv_text: body.csv_text,
-        brand_id: session.brandId,
       }),
     });
 

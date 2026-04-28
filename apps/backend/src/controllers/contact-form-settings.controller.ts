@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { resolveBrandId } from '../config/brand.js';
 import * as contactFormSettingsService from '../services/contact-form-settings.service.js';
+import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
 
 export const contactFormSettingsRouter = Router();
 
@@ -25,7 +26,7 @@ contactFormSettingsRouter.get('/widget/config', async (req, res) => {
 
 // ── GET /admin/design — Returns widget_design + form_config ─────────────
 
-contactFormSettingsRouter.get('/admin/design', async (req, res) => {
+contactFormSettingsRouter.get('/admin/design', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const settings = await contactFormSettingsService.getContactFormSettings(brandId);
@@ -43,7 +44,7 @@ contactFormSettingsRouter.get('/admin/design', async (req, res) => {
 
 // ── PUT /admin/design — Updates widget_design and/or form_config ────────
 
-contactFormSettingsRouter.put('/admin/design', async (req, res) => {
+contactFormSettingsRouter.put('/admin/design', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const { widget_design, form_config } = req.body;

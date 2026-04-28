@@ -10,6 +10,35 @@ interface ContactConfig {
   location: string;
   formHeading: string;
   topics: Array<{ icon: string; label: string }>;
+  primaryColor?: string;
+  backgroundColor?: string;
+  inputBackground?: string;
+  borderColor?: string;
+  textColor?: string;
+  labelColor?: string;
+  placeholderColor?: string;
+  accentColor?: string;
+  headingFontFamily?: string;
+  bodyFontFamily?: string;
+  headingFontSize?: string;
+  labelFontSize?: string;
+  inputFontSize?: string;
+  cardBorderRadius?: string;
+  inputBorderRadius?: string;
+  buttonBorderRadius?: string;
+  nameLabel: string;
+  namePlaceholder: string;
+  emailLabel: string;
+  emailPlaceholder: string;
+  subjectLabel: string;
+  subjectPlaceholder: string;
+  messageLabel: string;
+  messagePlaceholder: string;
+  buttonText: string;
+  buttonShowArrow: boolean;
+  successMessage: string;
+  showSubjectField: boolean;
+  cardPadding?: string;
 }
 
 const DEFAULT_CONFIG: ContactConfig = {
@@ -17,7 +46,7 @@ const DEFAULT_CONFIG: ContactConfig = {
   description: "Our team knows 2700K inside and out. Whether you're designing a room or choosing a finish, we're here.",
   chatButtonText: 'Start a Chat',
   emailButtonText: 'Email us',
-  emailAddress: 'hello@warmbydesign.com',
+  emailAddress: 'support@warmbydesign.com',
   responseTime: '24hr response',
   location: 'Los Angeles, CA',
   formHeading: 'Send a message',
@@ -27,6 +56,18 @@ const DEFAULT_CONFIG: ContactConfig = {
     { icon: 'local_shipping', label: 'Shipping & returns question' },
     { icon: 'storefront', label: 'Trade or designer inquiry' },
   ],
+  nameLabel: 'Name',
+  namePlaceholder: 'Your name',
+  emailLabel: 'Email',
+  emailPlaceholder: 'your@email.com',
+  subjectLabel: 'Subject',
+  subjectPlaceholder: 'What can we help with?',
+  messageLabel: 'Message',
+  messagePlaceholder: "Tell us what you're looking for...",
+  buttonText: 'Send Message',
+  buttonShowArrow: false,
+  successMessage: "Thanks for reaching out! We'll get back to you within 24 hours.",
+  showSubjectField: false,
 };
 
 export function createContactPage(config?: Partial<ContactConfig>): HTMLElement {
@@ -34,6 +75,7 @@ export function createContactPage(config?: Partial<ContactConfig>): HTMLElement 
 
   const root = document.createElement('div');
   root.className = 'wbd-contact';
+  applyDesignVariables(root, c);
 
   // ── Ambient glow background ──
   const glow = document.createElement('div');
@@ -180,24 +222,33 @@ export function createContactPage(config?: Partial<ContactConfig>): HTMLElement 
   form.innerHTML = `
     <div class="wbd-contact__form-row">
       <div class="wbd-contact__form-field">
-        <label class="wbd-contact__form-label" for="wbd-contact-name">Name</label>
-        <input type="text" id="wbd-contact-name" class="wbd-contact__input" placeholder="Your name" required>
+        <label class="wbd-contact__form-label" for="wbd-contact-name">${escapeHtml(c.nameLabel)}</label>
+        <input type="text" id="wbd-contact-name" class="wbd-contact__input" placeholder="${escapeHtml(c.namePlaceholder)}" required>
       </div>
       <div class="wbd-contact__form-field">
-        <label class="wbd-contact__form-label" for="wbd-contact-email">Email</label>
-        <input type="email" id="wbd-contact-email" class="wbd-contact__input" placeholder="your@email.com" required>
+        <label class="wbd-contact__form-label" for="wbd-contact-email">${escapeHtml(c.emailLabel)}</label>
+        <input type="email" id="wbd-contact-email" class="wbd-contact__input" placeholder="${escapeHtml(c.emailPlaceholder)}" required>
       </div>
     </div>
+    ${c.showSubjectField ? `
+      <div class="wbd-contact__form-field">
+        <label class="wbd-contact__form-label" for="wbd-contact-subject">${escapeHtml(c.subjectLabel)}</label>
+        <input type="text" id="wbd-contact-subject" class="wbd-contact__input" placeholder="${escapeHtml(c.subjectPlaceholder)}">
+      </div>
+    ` : ''}
     <div class="wbd-contact__form-field">
-      <label class="wbd-contact__form-label" for="wbd-contact-message">Message</label>
-      <textarea id="wbd-contact-message" class="wbd-contact__textarea" placeholder="Tell us what you're looking for..." rows="5" required></textarea>
+      <label class="wbd-contact__form-label" for="wbd-contact-message">${escapeHtml(c.messageLabel)}</label>
+      <textarea id="wbd-contact-message" class="wbd-contact__textarea" placeholder="${escapeHtml(c.messagePlaceholder)}" rows="5" required></textarea>
     </div>
     <div class="wbd-contact__form-error" id="wbd-contact-error"></div>
     <div class="wbd-contact__form-success" id="wbd-contact-success">
       <span class="material-symbols-outlined">check_circle</span>
-      Thanks for reaching out! We'll get back to you within 24 hours.
+      ${escapeHtml(c.successMessage)}
     </div>
-    <button type="submit" class="wbd-contact__submit">Send Message</button>
+    <button type="submit" class="wbd-contact__submit">
+      ${escapeHtml(c.buttonText)}
+      ${c.buttonShowArrow ? '<span class="material-symbols-outlined">arrow_forward</span>' : ''}
+    </button>
   `;
 
   form.addEventListener('submit', async (e) => {
@@ -205,6 +256,7 @@ export function createContactPage(config?: Partial<ContactConfig>): HTMLElement 
 
     const nameInput = form.querySelector('#wbd-contact-name') as HTMLInputElement;
     const emailInput = form.querySelector('#wbd-contact-email') as HTMLInputElement;
+    const subjectInput = form.querySelector('#wbd-contact-subject') as HTMLInputElement | null;
     const messageInput = form.querySelector('#wbd-contact-message') as HTMLTextAreaElement;
     const errorEl = form.querySelector('#wbd-contact-error') as HTMLElement;
     const successEl = form.querySelector('#wbd-contact-success') as HTMLElement;
@@ -212,6 +264,7 @@ export function createContactPage(config?: Partial<ContactConfig>): HTMLElement 
 
     const name = nameInput.value.trim();
     const email = emailInput.value.trim();
+    const subject = subjectInput?.value.trim() || '';
     const message = messageInput.value.trim();
 
     // Reset states
@@ -235,17 +288,18 @@ export function createContactPage(config?: Partial<ContactConfig>): HTMLElement 
     submitBtn.textContent = 'Sending...';
 
     try {
-      await submitContactForm({ name, email, message });
+      await submitContactForm({ name, email, message, topic: subject || undefined, subject: subject || undefined });
       successEl.classList.add('wbd-contact__form-success--visible');
       nameInput.value = '';
       emailInput.value = '';
+      if (subjectInput) subjectInput.value = '';
       messageInput.value = '';
     } catch (err) {
       errorEl.textContent = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
       errorEl.classList.add('wbd-contact__form-error--visible');
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Send Message';
+      submitBtn.innerHTML = `${escapeHtml(c.buttonText)}${c.buttonShowArrow ? '<span class="material-symbols-outlined">arrow_forward</span>' : ''}`;
     }
   });
 
@@ -273,6 +327,32 @@ function createDivider(): HTMLElement {
   const div = document.createElement('div');
   div.className = 'wbd-contact__divider';
   return div;
+}
+
+function applyDesignVariables(root: HTMLElement, config: Partial<ContactConfig>): void {
+  const vars: Array<[string, string | undefined]> = [
+    ['--wbd-contact-accent', config.accentColor || config.primaryColor],
+    ['--wbd-contact-bg', config.backgroundColor],
+    ['--wbd-contact-panel-bg', config.backgroundColor],
+    ['--wbd-contact-input-bg', config.inputBackground],
+    ['--wbd-contact-border', config.borderColor],
+    ['--wbd-contact-text', config.textColor],
+    ['--wbd-contact-label', config.labelColor],
+    ['--wbd-contact-placeholder', config.placeholderColor],
+    ['--wbd-contact-heading-font', config.headingFontFamily],
+    ['--wbd-contact-body-font', config.bodyFontFamily],
+    ['--wbd-contact-heading-size', config.headingFontSize],
+    ['--wbd-contact-label-size', config.labelFontSize],
+    ['--wbd-contact-input-size', config.inputFontSize],
+    ['--wbd-contact-card-radius', config.cardBorderRadius],
+    ['--wbd-contact-input-radius', config.inputBorderRadius],
+    ['--wbd-contact-button-radius', config.buttonBorderRadius],
+    ['--wbd-contact-card-padding', config.cardPadding],
+  ];
+
+  for (const [name, value] of vars) {
+    if (value) root.style.setProperty(name, value);
+  }
 }
 
 function escapeHtml(text: string): string {

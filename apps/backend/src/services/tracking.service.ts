@@ -291,6 +291,7 @@ async function fetchFromSeventeenTrack(
     const { data: cacheRow } = await supabase
       .from('tracking_cache')
       .select('*')
+      .eq('brand_id', brandId)
       .eq('tracking_number', trackingNumber)
       .single();
 
@@ -379,7 +380,7 @@ async function fetchFromSeventeenTrack(
         signedBy,
         deliveredAt,
         cachedAt: new Date().toISOString(),
-      }, { onConflict: 'tracking_number' });
+      }, { onConflict: 'brand_id,tracking_number' });
     } catch { /* non-fatal */ }
 
     return { status, statusDetail: events[0]?.description ?? '', events, carrier, signedBy, deliveredAt };

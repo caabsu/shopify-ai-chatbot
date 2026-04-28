@@ -1,12 +1,12 @@
 import { config } from '../config/env.js';
-import { getBrandShopifyConfig } from '../config/brand-shopify.js';
+import { getBrandShopDomain } from '../config/brand-shopify.js';
 
 let rpcId = 1;
 
 async function getMcpUrl(brandId?: string): Promise<string> {
   if (brandId) {
-    const brandConfig = await getBrandShopifyConfig(brandId);
-    return `https://${brandConfig.shop}.myshopify.com/api/mcp`;
+    const shop = await getBrandShopDomain(brandId);
+    return `https://${shop}.myshopify.com/api/mcp`;
   }
   return `https://${config.shopify.shop}.myshopify.com/api/mcp`;
 }
