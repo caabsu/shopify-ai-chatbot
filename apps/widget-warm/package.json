@@ -4,7 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build --config vite.chatbot.config.ts && vite build --config vite.returns.config.ts && vite build --config vite.contact.config.ts"
+    "build:chatbot": "vite build --config vite.chatbot.config.ts",
+    "build:returns": "vite build --config vite.returns.config.ts",
+    "build:contact": "vite build --config vite.contact.config.ts",
+    "build:reviews": "vite build --config vite.reviews.config.ts",
+    "build": "npm run build:chatbot && npm run build:returns && npm run build:contact && npm run build:reviews"
   },
   "devDependencies": {
     "typescript": "^5.7.3",

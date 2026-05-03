@@ -1793,6 +1793,55 @@ app.get('/widget/warm/playground-contact', (_req, res) => {
 </html>`);
 });
 
+app.get('/widget/warm/playground-reviews', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.type('html').send(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Warm by Design - Reviews</title>
+<style>
+  body {
+    margin: 0;
+    padding: 48px 24px;
+    background: #131313;
+    color: #f0ede8;
+    font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+  main {
+    max-width: 1140px;
+    margin: 0 auto;
+  }
+  h1 {
+    margin: 0 0 10px;
+    font-size: clamp(40px, 6vw, 72px);
+    line-height: .92;
+    letter-spacing: -.055em;
+    font-weight: 750;
+  }
+  .kicker {
+    margin: 0 0 18px;
+    color: #f5bc70;
+    font-size: 11px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+  }
+  .qrow { display: block; margin: 18px 0 44px; }
+</style>
+</head>
+<body>
+  <main>
+    <p class="kicker">Floor Lamp</p>
+    <h1>Ribbon</h1>
+    <span data-wbd-review-badge data-product-handle="ribbon" class="qrow"></span>
+    <section id="wbd-reviews" data-product-handle="ribbon"></section>
+  </main>
+  <script src="/widget/warm/reviews.js?v=${Date.now()}"></script>
+</body>
+</html>`);
+});
+
 // Preview page (dev only)
 if (config.server.nodeEnv === 'development') {
   app.get('/preview', (_req, res) => {
