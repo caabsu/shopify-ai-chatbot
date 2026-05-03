@@ -25,14 +25,75 @@ export default function ReviewImportPage() {
   const [dragOver, setDragOver] = useState(false);
 
   function parseCSV(text: string): { headers: string[]; rows: string[][] } {
-    const lines = text.trim().split('\n');
+    const lines = splitCSVLines(text);
     if (lines.length === 0) return { headers: [], rows: [] };
 
-    const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
-    const rows = lines.slice(1, 6).map((line) =>
-      line.split(',').map((cell) => cell.trim().replace(/^"|"$/g, '')),
-    );
+    const headers = parseCSVRow(lines[0]);
+    const rows = lines.slice(1, 6).map((line) => parseCSVRow(line));
     return { headers, rows };
+  }
+
+  function splitCSVLines(text: string): string[] {
+    const lines: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+
+      if (char === '\\' && inQuotes && i + 1 < text.length && text[i + 1] === '"') {
+        current += char;
+        current += '"';
+        i++;
+      } else if (char === '"') {
+        current += char;
+        if (inQuotes && i + 1 < text.length && text[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if ((char === '\n' || char === '\r') && !inQuotes) {
+        if (char === '\r' && i + 1 < text.length && text[i + 1] === '\n') i++;
+        if (current.trim()) lines.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+
+    if (current.trim()) lines.push(current);
+    return lines;
+  }
+
+  function parseCSVRow(line: string): string[] {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (char === '\\' && inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (char === '"') {
+        if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        values.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+
+    values.push(current.trim());
+    return values;
   }
 
   function handleFile(file: File) {
