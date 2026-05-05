@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -52,9 +54,47 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const returnsWithItems = (returns ?? []).map((r) => ({
-    ...r,
-    items: items[r.id] ?? [],
+  const returnsWithItems = await Promise.all((returns ?? []).map(async (r) => {
+    const returnItems = items[r.id] ?? [];
+
+    try {
+      const params = new URLSearchParams({
+        order_number: r.order_number,
+        email: r.customer_email,
+      });
+      const lookupRes = await fetch(`${BACKEND_URL}/api/returns/lookup?${params.toString()}`, {
+        headers: { 'x-brand': session.brandId },
+        cache: 'no-store',
+      });
+      if (lookupRes.ok) {
+        const lookup = await lookupRes.json() as {
+          items?: Array<{
+            id: string;
+            price?: string;
+            originalUnitPrice?: string;
+            originalTotal?: string;
+            discountedTotal?: string;
+          }>;
+        };
+        const paidByLineItemId = new Map((lookup.items ?? []).map((item) => [item.id, item]));
+        for (const item of returnItems as Array<Record<string, unknown>>) {
+          const paid = paidByLineItemId.get(String(item.line_item_id));
+          if (!paid) continue;
+          const unitPaid = parseFloat(String(paid.price ?? '0').replace(/[^0-9.-]/g, ''));
+          if (!Number.isNaN(unitPaid)) item.price = unitPaid;
+          item.original_unit_price = paid.originalUnitPrice ? parseFloat(paid.originalUnitPrice) : null;
+          item.original_total = paid.originalTotal ? parseFloat(paid.originalTotal) : null;
+          item.discounted_total = paid.discountedTotal ? parseFloat(paid.discountedTotal) : null;
+        }
+      }
+    } catch {
+      // Non-fatal. Fall back to the stored return item amount.
+    }
+
+    return {
+      ...r,
+      items: returnItems,
+    };
   }));
 
   return NextResponse.json({

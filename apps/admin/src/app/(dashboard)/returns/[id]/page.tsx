@@ -537,8 +537,6 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
   const statusStyle = STATUS_STYLES[data.status] || STATUS_STYLES.closed;
   const totalItemValue = data.items?.reduce((sum, item) => sum + item.price * item.quantity, 0) ?? 0;
-  const originalItemValue = data.items?.reduce((sum, item) => sum + (item.original_total ?? item.price * item.quantity), 0) ?? totalItemValue;
-  const hasDiscountedItems = originalItemValue > totalItemValue + 0.01;
 
   // Determine current timeline step
   const statusOrder = ['pending_review', 'approved', 'partially_approved', 'shipped', 'received', 'refunded', 'closed'];
@@ -641,7 +639,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="flex items-center gap-3 mt-2">
           <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            {data.items?.length ?? 0} {(data.items?.length ?? 0) === 1 ? 'item' : 'items'} -- ${totalItemValue.toFixed(2)} paid
+            {data.items?.length ?? 0} {(data.items?.length ?? 0) === 1 ? 'item' : 'items'} · Amount paid ${totalItemValue.toFixed(2)}
           </span>
           <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
             Submitted {formatDate(data.created_at)}
@@ -747,11 +745,11 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
                           <div className="flex items-center gap-3 mt-1">
                             <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                              Qty: {item.quantity} x ${item.price.toFixed(2)} paid
+                              Amount paid: ${(item.price * item.quantity).toFixed(2)}
                             </span>
-                            {item.original_unit_price != null && item.original_unit_price > item.price + 0.01 && (
-                              <span className="text-xs line-through" style={{ color: 'var(--text-tertiary)' }}>
-                                ${item.original_unit_price.toFixed(2)}
+                            {item.quantity > 1 && (
+                              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                                {item.quantity} @ ${item.price.toFixed(2)}
                               </span>
                             )}
                             <span
@@ -1087,13 +1085,8 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                 </span>
               </div>
               <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                Paid item value: ${totalItemValue.toFixed(2)}
+                Amount paid: ${totalItemValue.toFixed(2)}
               </p>
-              {hasDiscountedItems && (
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  Original item value before discounts: ${originalItemValue.toFixed(2)}
-                </p>
-              )}
               {data.refund_amount != null && (
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                   Refund amount: ${data.refund_amount.toFixed(2)}
@@ -1480,7 +1473,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>
-                  Refund Amount ($)
+                  Expected refund amount ($)
                 </label>
                 <input
                   type="number"
@@ -1552,7 +1545,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                 <strong>Items:</strong> {data.items?.map((i) => `${i.product_title} (x${i.quantity})`).join(', ')}
               </p>
               <p className="text-xs mt-1" style={{ color: '#3b82f6' }}>
-                <strong>Paid item value:</strong> ${totalItemValue.toFixed(2)}{hasDiscountedItems ? ` after discounts (original ${originalItemValue.toFixed(2)})` : ''} (restocking fee may be applied based on settings)
+                <strong>Amount paid:</strong> ${totalItemValue.toFixed(2)}. Refunds use the customer&apos;s actual paid amount after discounts/promotions.
               </p>
             </div>
 
@@ -1864,8 +1857,11 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>
-                Refund Amount ($)
+                Refund amount ($)
               </label>
+              <p className="text-[11px] mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                Defaults to the amount paid for the returned items, after discounts/promotions.
+              </p>
               <input
                 type="number"
                 step="0.01"

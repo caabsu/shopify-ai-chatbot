@@ -262,7 +262,7 @@ export default function ReturnsPage() {
 
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                              {itemCount} {itemCount === 1 ? 'item' : 'items'} — ${totalAmount.toFixed(2)}
+                              {itemCount} {itemCount === 1 ? 'item' : 'items'} · Amount paid ${totalAmount.toFixed(2)}
                             </span>
                             {aiBadge && (
                               <span

@@ -430,7 +430,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
                   <span>Qty: ${item.quantity}</span>
                 </div>
               </div>
-              <div class="srp-item__price">${item.price}</div>
+              <div class="srp-item__price">Paid ${item.price}</div>
             </div>
             ${!item.eligible ? `<div class="srp-item__ineligible-reason">${escapeHtml(item.eligibility_reason || 'Not eligible for return')}</div>` : ''}
             ${reasonSection}
@@ -545,7 +545,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       })()}
       <div class="srp-refund-card">
         <div class="srp-refund-row">
-          <span class="srp-refund-row__label">Item Total</span>
+          <span class="srp-refund-row__label">Amount Paid</span>
           <span class="srp-refund-row__value">$${subtotal.toFixed(2)}</span>
         </div>
         ${totalFee > 0 ? `
@@ -630,11 +630,11 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
               <span class="srp-success__detail-value">${escapeHtml(statusLabel)}</span>
             </div>
             <div class="srp-success__detail-row">
-              <span class="srp-success__detail-label">Refund Amount</span>
+              <span class="srp-success__detail-label">Estimated Refund</span>
               <span class="srp-success__detail-value">$${totalRefund.toFixed(2)}</span>
             </div>
             <div class="srp-success__detail-row">
-              <span class="srp-success__detail-label">Estimated Refund</span>
+              <span class="srp-success__detail-label">Timing</span>
               <span class="srp-success__detail-value">5–10 business days</span>
             </div>
           </div>

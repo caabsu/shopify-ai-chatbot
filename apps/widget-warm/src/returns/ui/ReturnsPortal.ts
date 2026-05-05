@@ -269,7 +269,7 @@ export function createReturnsPortal(config?: ReturnsPortalConfig): HTMLElement {
             <span class="wbd-returns__item-name">${escapeHtml(item.title)}</span>
             <span class="wbd-returns__item-variant">${escapeHtml(item.variantTitle || `${item.quantity} item${item.quantity === 1 ? '' : 's'}`)}</span>
           </span>
-          <span class="wbd-returns__item-price">${escapeHtml(formatDisplayPrice(item))}</span>
+          <span class="wbd-returns__item-price">Paid ${escapeHtml(formatDisplayPrice(item))}</span>
         </label>
       `;
       const input = row.querySelector('input') as HTMLInputElement;
