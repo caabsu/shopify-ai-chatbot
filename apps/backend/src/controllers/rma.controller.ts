@@ -3,8 +3,11 @@ import { resolveBrandId } from '../config/brand.js';
 import { syncRMAs, getRecentSyncLog } from '../services/rma-sync.service.js';
 import { testConnection, getInventory, getWarehouses, getInboundShipments } from '../services/redstag.service.js';
 import { supabase } from '../config/supabase.js';
+import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
 
 export const rmaRouter = Router();
+
+rmaRouter.use(agentAuthMiddleware);
 
 /**
  * GET /api/rma/sync-status

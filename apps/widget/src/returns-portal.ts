@@ -194,6 +194,20 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
   const dimensionCollectionEnabled = portalConfig?.settings?.dimension_collection_enabled ?? false;
   const collectDimensionsForReasons = portalConfig?.settings?.collect_dimensions_for_reasons || [];
 
+  function requiresDimensions(reason: string): boolean {
+    return dimensionCollectionEnabled && collectDimensionsForReasons.includes(reason);
+  }
+
+  function hasRequiredDimensions(item: SelectedItem): boolean {
+    if (!requiresDimensions(item.reason)) return true;
+    const dims = item.packageDimensions;
+    if (!dims) return false;
+    return [dims.length, dims.width, dims.height, dims.weight].every((value) => {
+      const parsed = parseFloat(value);
+      return Number.isFinite(parsed) && parsed > 0;
+    });
+  }
+
   debugPost('config_loaded', { settings: portalConfig?.settings || null });
   const state: PortalState = {
     step: 'lookup',
@@ -363,7 +377,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
           </div>`;
 
         // Package dimensions section
-        const showDimensions = dimensionCollectionEnabled && selected.reason && collectDimensionsForReasons.includes(selected.reason);
+        const showDimensions = requiresDimensions(selected.reason);
         const dims = selected.packageDimensions || { length: '', width: '', height: '', weight: '' };
         const dimensionSection = showDimensions ? `
           <div class="srp-dimensions" style="margin-top:8px;padding:10px 12px;border-radius:6px;border:1px solid rgba(197,160,89,0.2);background:rgba(197,160,89,0.04);">
@@ -429,6 +443,8 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       if (!si.reason) return false;
       // Check photo requirement
       if (requirePhotosForReasons.includes(si.reason) && si.photoUrls.length === 0) return false;
+      // Check package dimensions
+      if (!hasRequiredDimensions(si)) return false;
       // Check exchange variant
       if (si.resolutionType === 'exchange' && !si.exchangeVariant?.trim()) return false;
       return true;
@@ -837,6 +853,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
       const allValid = Array.from(state.selectedItems.values()).every(si => {
         if (!si.reason) return false;
         if (requirePhotosForReasons.includes(si.reason) && si.photoUrls.length === 0) return false;
+        if (!hasRequiredDimensions(si)) return false;
         if (si.resolutionType === 'exchange' && !si.exchangeVariant?.trim()) return false;
         return true;
       });
@@ -868,6 +885,7 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     const allValid = Array.from(state.selectedItems.values()).every(si => {
       if (!si.reason) return false;
       if (requirePhotosForReasons.includes(si.reason) && si.photoUrls.length === 0) return false;
+      if (!hasRequiredDimensions(si)) return false;
       if (si.resolutionType === 'exchange' && !si.exchangeVariant?.trim()) return false;
       return true;
     });
@@ -976,15 +994,15 @@ function createPortal(container: HTMLElement, backendUrl: string, brandSlug: str
     if (window.__SRP_DEBUG) {
       const mockRefId = 'dbg-' + Math.random().toString(36).slice(2, 10);
       state.referenceId = mockRefId;
-      state.resultStatus = 'approved';
+      state.resultStatus = 'pending_review';
       state.step = 'success';
       state.loading = false;
 
       debugPost('submit_result', {
-        status: 'approved',
+        status: 'pending_review',
         ref_id: mockRefId,
         mock: true,
-        ai_recommendation: { decision: 'approve', confidence: 0.92, reasoning: 'Debug mock — auto-approved', suggested_resolution: 'refund' },
+        ai_recommendation: { decision: 'approve', confidence: 0.92, reasoning: 'Debug mock — manual review required before approval', suggested_resolution: 'refund' },
       });
       debugPost('step_change', { step: 'success' });
       render();

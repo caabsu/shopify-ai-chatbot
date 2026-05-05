@@ -40,12 +40,42 @@ export async function GET(
     .order('created_at', { ascending: false })
     .limit(10);
 
+  let shippingAddress: {
+    address1: string | null;
+    city: string | null;
+    province: string | null;
+    zip: string | null;
+    country: string | null;
+    phone: string | null;
+  } | null = null;
+
+  try {
+    const params = new URLSearchParams({
+      order_number: returnRequest.order_number,
+      email: returnRequest.customer_email,
+    });
+    const lookupRes = await fetch(`${BACKEND_URL}/api/returns/lookup?${params.toString()}`, {
+      headers: { 'x-brand': session.brandId },
+      cache: 'no-store',
+    });
+    if (lookupRes.ok) {
+      const lookup = await lookupRes.json() as {
+        shippingAddress?: typeof shippingAddress;
+      };
+      shippingAddress = lookup.shippingAddress ?? null;
+    }
+  } catch {
+    // Non-fatal. The return detail page can still render and the label modal
+    // will ask for address fields if Shopify lookup is unavailable.
+  }
+
   return NextResponse.json({
     returnRequest: {
       ...returnRequest,
       items: items ?? [],
     },
     relatedTickets: tickets ?? [],
+    shippingAddress,
   });
 }
 

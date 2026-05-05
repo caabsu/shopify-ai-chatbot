@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getSession, getToken } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
@@ -7,6 +7,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:300
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const token = await getToken();
 
   const { searchParams } = req.nextUrl;
   const action = searchParams.get('action');
@@ -15,7 +16,10 @@ export async function GET(req: NextRequest) {
   if (action === 'inventory' || action === 'warehouses' || action === 'inbound' || action === 'analytics') {
     try {
       const res = await fetch(`${BACKEND_URL}/api/rma/${action}`, {
-        headers: { 'x-brand': session.brandId },
+        headers: {
+          'x-brand': session.brandId,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
       const data = await res.json() as Record<string, unknown>;
       return NextResponse.json(data, { status: res.status });
@@ -28,7 +32,10 @@ export async function GET(req: NextRequest) {
   if (action === 'test-connection') {
     try {
       const res = await fetch(`${BACKEND_URL}/api/rma/test-connection`, {
-        headers: { 'x-brand': session.brandId },
+        headers: {
+          'x-brand': session.brandId,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
       const data = await res.json() as Record<string, unknown>;
       return NextResponse.json(data, { status: res.status });
@@ -57,6 +64,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const token = await getToken();
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/rma/sync-now`, {
@@ -64,6 +72,7 @@ export async function POST(req: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         'x-brand': session.brandId,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
     const data = await res.json() as Record<string, unknown>;

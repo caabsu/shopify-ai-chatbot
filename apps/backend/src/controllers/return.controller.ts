@@ -20,6 +20,26 @@ import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
 
 export const returnRouter = Router();
 
+function hasValidPackageDimensions(value: unknown): value is { length: number; width: number; height: number; weight: number } {
+  if (!value || typeof value !== 'object') return false;
+  const dims = value as Record<string, unknown>;
+  return ['length', 'width', 'height', 'weight'].every((key) => {
+    const parsed = typeof dims[key] === 'number' ? dims[key] : Number(dims[key]);
+    return Number.isFinite(parsed) && parsed > 0;
+  });
+}
+
+function normalizePackageDimensions(value: unknown): { length: number; width: number; height: number; weight: number } | null {
+  if (!hasValidPackageDimensions(value)) return null;
+  const dims = value as Record<string, unknown>;
+  return {
+    length: Number(dims.length),
+    width: Number(dims.width),
+    height: Number(dims.height),
+    weight: Number(dims.weight),
+  };
+}
+
 // ── Ownership helper: verify return belongs to the agent's brand ──────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function verifyReturnOwnership(req: any, res: any) {
@@ -140,6 +160,18 @@ returnRouter.post('/submit', async (req, res) => {
     }
 
     const settings = await returnSettingsService.getReturnSettings(brandId);
+    const dimensionReasons = settings.collect_dimensions_for_reasons ?? ['defective', 'wrong_item', 'not_as_described'];
+    const requiresDimensions = (settings.dimension_collection_enabled ?? true) &&
+      items.some((item) => dimensionReasons.includes(item.reason));
+
+    if (requiresDimensions && !hasValidPackageDimensions(package_dimensions)) {
+      res.status(400).json({
+        error: 'Package dimensions are required for the selected return reason',
+      });
+      return;
+    }
+
+    const normalizedPackageDimensions = normalizePackageDimensions(package_dimensions);
 
     // 1. Create return request (include package_dimensions if provided)
     const returnRequest = await returnService.createReturnRequest({
@@ -150,7 +182,7 @@ returnRouter.post('/submit', async (req, res) => {
       customer_name,
       customer_phone,
       items,
-      package_dimensions: package_dimensions || null,
+      package_dimensions: normalizedPackageDimensions,
     });
 
     // 1a. Fetch customer name from Shopify if not provided
@@ -164,7 +196,7 @@ returnRouter.post('/submit', async (req, res) => {
     }
 
     // 1b. Estimate shipping cost if dimensions provided (fire-and-forget)
-    if (package_dimensions && package_dimensions.length > 0 && package_dimensions.weight > 0) {
+    if (normalizedPackageDimensions) {
       (async () => {
         try {
           const orderResult = await lookupOrder(order_number, customer_email, undefined, brandId);
@@ -176,10 +208,10 @@ returnRouter.post('/submit', async (req, res) => {
               customerState: orderResult.order.shippingProvince || '',
               customerZip: orderResult.order.shippingZip || '',
               customerCountry: orderResult.order.shippingCountry || 'US',
-              length: package_dimensions.length,
-              width: package_dimensions.width,
-              height: package_dimensions.height,
-              weight: package_dimensions.weight,
+              length: normalizedPackageDimensions.length,
+              width: normalizedPackageDimensions.width,
+              height: normalizedPackageDimensions.height,
+              weight: normalizedPackageDimensions.weight,
             });
             if (estimate.cheapestRate) {
               await supabase
@@ -226,46 +258,54 @@ returnRouter.post('/submit', async (req, res) => {
     // 3. Act on rule evaluation
     if (ruleResult.action === 'auto_approve') {
       const updated = await returnService.updateReturnRequest(returnRequest.id, {
-        status: 'approved',
+        status: 'pending_review',
         resolution_type: ruleResult.resolution_type ?? 'refund',
-        decided_at: new Date().toISOString(),
-        decided_by: 'system_rule',
+        ai_recommendation: {
+          decision: 'approve',
+          confidence: 1,
+          reasoning: ruleResult.rule
+            ? `Rule "${ruleResult.rule.name}" recommended approval. Manual review is required before approval.`
+            : 'A return rule recommended approval. Manual review is required before approval.',
+          suggested_resolution: ruleResult.resolution_type ?? 'refund',
+        },
       });
 
-      // Send approval email only — no separate confirmation when decision is instant
-      sendReturnApproved({
+      sendReturnConfirmation({
         to: customer_email,
         customerName: customer_name,
         returnRequestId: returnRequest.id,
         orderNumber: order_number,
         items: itemsSummary,
         brandId,
-        warehouseHint: returnRequest.estimated_return_warehouse ?? undefined,
-      }).catch((err) => console.error('[return.controller] Approval email failed:', err));
+      }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
 
-      res.status(201).json({ return_request: updated, status: 'approved' });
+      res.status(201).json({ return_request: updated, status: 'pending_review' });
       return;
     }
 
     if (ruleResult.action === 'auto_deny') {
       const updated = await returnService.updateReturnRequest(returnRequest.id, {
-        status: 'denied',
-        decided_at: new Date().toISOString(),
-        decided_by: 'system_rule',
+        status: 'pending_review',
+        ai_recommendation: {
+          decision: 'deny',
+          confidence: 1,
+          reasoning: ruleResult.rule
+            ? `Rule "${ruleResult.rule.name}" recommended denial. Manual review is required before denial.`
+            : 'A return rule recommended denial. Manual review is required before denial.',
+          suggested_resolution: ruleResult.resolution_type ?? undefined,
+        },
       });
 
-      // Send denial email only — no separate confirmation when decision is instant
-      sendReturnDenied({
+      sendReturnConfirmation({
         to: customer_email,
         customerName: customer_name,
         returnRequestId: returnRequest.id,
         orderNumber: order_number,
         items: itemsSummary,
-        reason: 'Your return request does not meet our return policy requirements.',
         brandId,
-      }).catch((err) => console.error('[return.controller] Denial email failed:', err));
+      }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
 
-      res.status(201).json({ return_request: updated, status: 'denied' });
+      res.status(201).json({ return_request: updated, status: 'pending_review' });
       return;
     }
 
@@ -287,53 +327,44 @@ returnRouter.post('/submit', async (req, res) => {
         },
       };
 
-      // If AI is confident enough, auto-execute
       if (aiRecommendation.confidence >= settings.ai_confidence_threshold && aiRecommendation.decision === 'approve') {
-        aiUpdatePayload.status = 'approved';
+        aiUpdatePayload.status = 'pending_review';
         aiUpdatePayload.resolution_type = aiRecommendation.suggested_resolution === 'exchange'
           ? 'exchange'
           : aiRecommendation.suggested_resolution === 'store_credit'
             ? 'store_credit'
             : 'refund';
-        aiUpdatePayload.decided_at = new Date().toISOString();
-        aiUpdatePayload.decided_by = 'ai_auto';
 
         const updated = await returnService.updateReturnRequest(returnRequest.id, aiUpdatePayload);
 
-        // Send approval email only — no separate confirmation when decision is instant
-        sendReturnApproved({
+        sendReturnConfirmation({
           to: customer_email,
           customerName: customer_name,
           returnRequestId: returnRequest.id,
           orderNumber: order_number,
           items: itemsSummary,
           brandId,
-          warehouseHint: returnRequest.estimated_return_warehouse ?? undefined,
-        }).catch((err) => console.error('[return.controller] Approval email failed:', err));
+        }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
 
-        res.status(201).json({ return_request: updated, status: 'approved' });
+        res.status(201).json({ return_request: updated, status: 'pending_review' });
         return;
       }
 
       if (aiRecommendation.confidence >= settings.ai_confidence_threshold && aiRecommendation.decision === 'deny') {
-        aiUpdatePayload.status = 'denied';
-        aiUpdatePayload.decided_at = new Date().toISOString();
-        aiUpdatePayload.decided_by = 'ai_auto';
+        aiUpdatePayload.status = 'pending_review';
 
         const updated = await returnService.updateReturnRequest(returnRequest.id, aiUpdatePayload);
 
-        // Send denial email only — no separate confirmation when decision is instant
-        sendReturnDenied({
+        sendReturnConfirmation({
           to: customer_email,
           customerName: customer_name,
           returnRequestId: returnRequest.id,
           orderNumber: order_number,
           items: itemsSummary,
-          reason: aiRecommendation.reasoning,
           brandId,
-        }).catch((err) => console.error('[return.controller] Denial email failed:', err));
+        }).catch((err) => console.error('[return.controller] Confirmation email failed:', err));
 
-        res.status(201).json({ return_request: updated, status: 'denied' });
+        res.status(201).json({ return_request: updated, status: 'pending_review' });
         return;
       }
 
@@ -590,14 +621,14 @@ returnRouter.get('/emails', agentAuthMiddleware, async (req, res) => {
 returnRouter.get('/emails/:type', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = req.agent!.brandId;
-    const validTypes = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
+    const validTypes = ['confirmation', 'approved', 'approved_no_label', 'approved_no_return', 'denied', 'refunded'];
     if (!validTypes.includes(req.params.type as string)) {
       res.status(400).json({ error: 'Invalid template type' });
       return;
     }
     const template = await returnEmailTemplateService.getTemplate(
       brandId,
-      req.params.type as 'confirmation' | 'approved' | 'approved_no_return' | 'denied' | 'refunded',
+      req.params.type as 'confirmation' | 'approved' | 'approved_no_label' | 'approved_no_return' | 'denied' | 'refunded',
     );
     if (!template) {
       res.status(404).json({ error: 'Template not found' });
@@ -615,14 +646,14 @@ returnRouter.get('/emails/:type', agentAuthMiddleware, async (req, res) => {
 returnRouter.put('/emails/:type', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = req.agent!.brandId;
-    const validTypes = ['confirmation', 'approved', 'approved_no_return', 'denied', 'refunded'];
+    const validTypes = ['confirmation', 'approved', 'approved_no_label', 'approved_no_return', 'denied', 'refunded'];
     if (!validTypes.includes(req.params.type as string)) {
       res.status(400).json({ error: 'Invalid template type' });
       return;
     }
     const updated = await returnEmailTemplateService.updateTemplate(
       brandId,
-      req.params.type as 'confirmation' | 'approved' | 'approved_no_return' | 'denied' | 'refunded',
+      req.params.type as 'confirmation' | 'approved' | 'approved_no_label' | 'approved_no_return' | 'denied' | 'refunded',
       req.body,
     );
     res.json(updated);
@@ -750,6 +781,34 @@ returnRouter.post('/:id/create-label', agentAuthMiddleware, async (req, res) => 
 
     const brandId = req.agent!.brandId;
 
+    if (returnRequest.return_label_url) {
+      if (req.body.send_email !== false) {
+        const itemsSummary = (returnRequest.items ?? [])
+          .map((i) => `${i.product_title} (x${i.quantity})`)
+          .join(', ');
+
+        sendReturnApproved({
+          to: returnRequest.customer_email,
+          customerName: returnRequest.customer_name ?? undefined,
+          returnRequestId: returnRequest.id,
+          orderNumber: returnRequest.order_number,
+          items: itemsSummary,
+          labelUrl: returnRequest.return_label_url,
+          trackingNumber: returnRequest.return_tracking_number ?? undefined,
+          brandId,
+        }).catch((err) => console.error('[return.controller] Existing label email failed:', err));
+      }
+
+      res.json({
+        labelUrl: returnRequest.return_label_url,
+        trackingNumber: returnRequest.return_tracking_number,
+        carrier: returnRequest.return_carrier,
+        rate: returnRequest.return_shipping_cost,
+        alreadyCreated: true,
+      });
+      return;
+    }
+
     const { customer_address, package_dimensions } = req.body as {
       customer_address: {
         name: string;
@@ -769,6 +828,7 @@ returnRouter.post('/:id/create-label', agentAuthMiddleware, async (req, res) => 
         weight_unit?: string;
         dimension_unit?: string;
       };
+      send_email?: boolean;
     };
 
     if (!customer_address?.name || !customer_address?.street1 || !customer_address?.city ||
@@ -842,6 +902,23 @@ returnRouter.post('/:id/create-label', agentAuthMiddleware, async (req, res) => 
       console.error('[return.controller] Failed to store label info:', updateError.message);
     }
 
+    if (req.body.send_email !== false) {
+      const itemsSummary = (returnRequest.items ?? [])
+        .map((i) => `${i.product_title} (x${i.quantity})`)
+        .join(', ');
+
+      sendReturnApproved({
+        to: returnRequest.customer_email,
+        customerName: returnRequest.customer_name ?? undefined,
+        returnRequestId: returnRequest.id,
+        orderNumber: returnRequest.order_number,
+        items: itemsSummary,
+        labelUrl: result.labelUrl,
+        trackingNumber: result.trackingNumber,
+        brandId,
+      }).catch((err) => console.error('[return.controller] Label email failed:', err));
+    }
+
     res.json({
       labelUrl: result.labelUrl,
       trackingNumber: result.trackingNumber,
@@ -866,7 +943,7 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
     const settings = await returnSettingsService.getReturnSettings(brandId);
     const { resolution_type, refund_amount, admin_notes } = req.body;
 
-    const updated = await returnService.updateReturnRequest(req.params.id as string, {
+    let updated = await returnService.updateReturnRequest(req.params.id as string, {
       status: 'approved',
       resolution_type: resolution_type ?? 'refund',
       refund_amount: refund_amount ?? null,
@@ -882,6 +959,7 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
     // Auto-create prepaid return label
     let labelUrl: string | null = null;
     let labelTrackingNumber: string | null = null;
+    let labelError: string | null = null;
 
     const returnReason = updated.items?.[0]?.reason;
     const prepaidReasons = settings.provide_prepaid_label_for_reasons ?? ['defective', 'wrong_item', 'not_as_described'];
@@ -926,7 +1004,7 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
             labelUrl = labelResult.labelUrl ?? null;
             labelTrackingNumber = labelResult.trackingNumber ?? null;
 
-            await returnService.updateReturnRequest(req.params.id as string, {
+            updated = await returnService.updateReturnRequest(req.params.id as string, {
               return_label_url: labelUrl,
               return_tracking_number: labelTrackingNumber,
               return_carrier: labelResult.carrier ?? null,
@@ -935,12 +1013,15 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
 
             console.log(`[return.controller] Auto-label created: ${labelTrackingNumber}, carrier: ${labelResult.carrier}, cost: $${labelResult.rate}`);
           } else {
+            labelError = labelResult.error ?? 'Label creation failed';
             console.error(`[return.controller] Auto-label FAILED: ${labelResult.error}`);
           }
         } else {
+          labelError = 'Shopify order lookup failed while creating label';
           console.error(`[return.controller] Shopify order lookup failed for ${updated.order_number}`);
         }
       } catch (labelErr) {
+        labelError = labelErr instanceof Error ? labelErr.message : String(labelErr);
         console.error('[return.controller] Auto-label creation error:', labelErr instanceof Error ? labelErr.message : labelErr);
       }
     }
@@ -972,7 +1053,11 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
       warehouseHint,
     }).catch((err) => console.error('[return.controller] Approval email failed:', err));
 
-    res.json({ returnRequest: updated, label: labelUrl ? { url: labelUrl, trackingNumber: labelTrackingNumber } : null });
+    res.json({
+      returnRequest: updated,
+      label: labelUrl ? { url: labelUrl, trackingNumber: labelTrackingNumber } : null,
+      labelError,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[return.controller] POST /:id/approve error:', message);

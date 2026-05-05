@@ -57,10 +57,20 @@ interface RelatedTicket {
   created_at: string;
 }
 
+interface ShippingAddress {
+  address1: string | null;
+  city: string | null;
+  province: string | null;
+  zip: string | null;
+  country: string | null;
+  phone: string | null;
+}
+
 export default function ReturnDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [data, setData] = useState<ReturnRequest | null>(null);
   const [relatedTickets, setRelatedTickets] = useState<RelatedTicket[]>([]);
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Notes
@@ -117,6 +127,31 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  function hydrateLabelDefaults(returnRequest: ReturnRequest | null, address?: ShippingAddress | null) {
+    if (!returnRequest) return;
+
+    setLabelAddress((prev) => ({
+      ...prev,
+      name: prev.name || returnRequest.customer_name || returnRequest.customer_email || '',
+      street1: prev.street1 || address?.address1 || '',
+      city: prev.city || address?.city || '',
+      state: prev.state || address?.province || '',
+      zip: prev.zip || address?.zip || '',
+      country: prev.country || address?.country || 'US',
+    }));
+
+    const dims = returnRequest.package_dimensions;
+    if (dims) {
+      setLabelDims((prev) => ({
+        ...prev,
+        length: prev.length || String(dims.length),
+        width: prev.width || String(dims.width),
+        height: prev.height || String(dims.height),
+        weight: prev.weight || String(dims.weight),
+      }));
+    }
+  }
+
   useEffect(() => {
     fetch(`/api/returns/${id}`)
       .then((r) => r.json())
@@ -124,10 +159,8 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
         setData(d.returnRequest ?? null);
         setNotes(d.returnRequest?.admin_notes ?? '');
         setRelatedTickets(d.relatedTickets ?? []);
-        // Pre-fill label address with customer name
-        if (d.returnRequest?.customer_name) {
-          setLabelAddress((prev) => ({ ...prev, name: d.returnRequest.customer_name ?? '' }));
-        }
+        setShippingAddress(d.shippingAddress ?? null);
+        hydrateLabelDefaults(d.returnRequest ?? null, d.shippingAddress ?? null);
         // Pre-fill label result if label already exists
         if (d.returnRequest?.return_label_url) {
           setLabelResult({
@@ -184,6 +217,15 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
       const result = await res.json();
       if (res.ok) {
         setData(result.returnRequest);
+        if (result.label) {
+          setLabelResult({
+            labelUrl: result.label.url,
+            trackingNumber: result.label.trackingNumber ?? '',
+          });
+        }
+        if (result.labelError) {
+          setActionError(`Approved, but label creation failed: ${result.labelError}`);
+        }
       } else {
         setActionError(result.error || 'Approval failed');
       }
@@ -289,7 +331,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
     // Include dimensions if all filled
     if (labelDims.length && labelDims.width && labelDims.height && labelDims.weight) {
-      body.package_dimensions = {
+        body.package_dimensions = {
         length: parseFloat(labelDims.length),
         width: parseFloat(labelDims.width),
         height: parseFloat(labelDims.height),
@@ -298,6 +340,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
         dimension_unit: labelDims.dimension_unit,
       };
     }
+    body.send_email = true;
 
     try {
       const res = await fetch(`/api/returns/${id}/create-label`, {
@@ -313,7 +356,11 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
         setShowLabelModal(false);
         // Refresh data to show label info on the return
         const refreshed = await fetch(`/api/returns/${id}`).then((r) => r.json());
-        if (refreshed.returnRequest) setData(refreshed.returnRequest);
+        if (refreshed.returnRequest) {
+          setData(refreshed.returnRequest);
+          setShippingAddress(refreshed.shippingAddress ?? shippingAddress);
+          hydrateLabelDefaults(refreshed.returnRequest, refreshed.shippingAddress ?? shippingAddress);
+        }
       } else {
         setLabelError(result.error ?? 'Failed to create label');
       }
@@ -759,6 +806,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                 <>
                   <button
                     onClick={() => {
+                      hydrateLabelDefaults(data, shippingAddress);
                       setLabelError(null);
                       setShowLabelModal(true);
                     }}
@@ -766,7 +814,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                     className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
                     style={{ backgroundColor: '#0ea5e9' }}
                   >
-                    <Tag size={12} /> Create Return Label
+                    <Tag size={12} /> Create & Send Label
                   </button>
                   <button
                     onClick={() => updateReturn({ status: 'shipped' })}
@@ -1369,7 +1417,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
               Create Return Shipping Label
             </h3>
             <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
-              A prepaid return label will be generated via Shippo and sent to {data.customer_email}.
+              Review the prefilled shipping address and package dimensions, then generate a prepaid label and email it to {data.customer_email}.
             </p>
 
             {labelError && (
@@ -1470,7 +1518,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
               <p className="text-xs font-semibold uppercase tracking-wider mt-2" style={{ color: 'var(--text-tertiary)' }}>
                 Package Dimensions
                 <span className="ml-1 normal-case font-normal" style={{ color: 'var(--text-tertiary)' }}>
-                  (leave blank to use SKU preset)
+                  (prefilled from customer submission when available)
                 </span>
               </p>
 
@@ -1545,7 +1593,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                 className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white disabled:opacity-50"
                 style={{ backgroundColor: '#0ea5e9' }}
               >
-                {labelLoading ? 'Creating...' : <><Tag size={12} /> Generate Label</>}
+                {labelLoading ? 'Creating...' : <><Tag size={12} /> Create & Send Label</>}
               </button>
             </div>
           </div>
