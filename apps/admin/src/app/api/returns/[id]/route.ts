@@ -44,8 +44,10 @@ export async function GET(
     address1: string | null;
     city: string | null;
     province: string | null;
+    provinceCode: string | null;
     zip: string | null;
     country: string | null;
+    countryCode: string | null;
     phone: string | null;
   } | null = null;
 
@@ -61,8 +63,27 @@ export async function GET(
     if (lookupRes.ok) {
       const lookup = await lookupRes.json() as {
         shippingAddress?: typeof shippingAddress;
+        items?: Array<{
+          id: string;
+          price?: string;
+          originalUnitPrice?: string;
+          originalTotal?: string;
+          discountedTotal?: string;
+        }>;
       };
       shippingAddress = lookup.shippingAddress ?? null;
+      if (lookup.items?.length && items?.length) {
+        const paidByLineItemId = new Map(lookup.items.map((item) => [item.id, item]));
+        for (const item of items as Array<Record<string, unknown>>) {
+          const paid = paidByLineItemId.get(String(item.line_item_id));
+          if (!paid) continue;
+          const unitPaid = parseFloat(String(paid.price ?? '0').replace(/[^0-9.-]/g, ''));
+          if (!Number.isNaN(unitPaid)) item.price = unitPaid;
+          item.original_unit_price = paid.originalUnitPrice ? parseFloat(paid.originalUnitPrice) : null;
+          item.original_total = paid.originalTotal ? parseFloat(paid.originalTotal) : null;
+          item.discounted_total = paid.discountedTotal ? parseFloat(paid.discountedTotal) : null;
+        }
+      }
     }
   } catch {
     // Non-fatal. The return detail page can still render and the label modal

@@ -45,7 +45,7 @@ async function getOrderNumericId(
                   title
                   quantity
                   refundableQuantity
-                  originalUnitPriceSet {
+                  discountedTotalSet {
                     shopMoney {
                       amount
                     }
@@ -72,7 +72,7 @@ async function getOrderNumericId(
                 title: string;
                 quantity: number;
                 refundableQuantity: number;
-                originalUnitPriceSet: { shopMoney: { amount: string } };
+                discountedTotalSet: { shopMoney: { amount: string } };
               };
             }>;
           };
@@ -92,7 +92,7 @@ async function getOrderNumericId(
         id: e.node.id,
         title: e.node.title,
         quantity: e.node.refundableQuantity,
-        price: e.node.originalUnitPriceSet.shopMoney.amount,
+        price: (parseFloat(e.node.discountedTotalSet.shopMoney.amount || '0') / Math.max(1, e.node.quantity)).toFixed(2),
       })),
   };
 }
@@ -106,7 +106,7 @@ async function getOrderNumericId(
  * @param exemptReasons        Return reasons that are exempt from the restocking fee
  * @param returnReason         The reason for the return (to check fee exemption)
  * @param dryRun               If true, calculates but does not submit the refund
- * @param lineItemGids         Optional list of Shopify line item GIDs to refund (if omitted, refunds ALL refundable items)
+ * @param lineItemsToRefund    Optional selected Shopify line item GIDs and quantities to refund (if omitted, refunds ALL refundable items)
  */
 export async function processRefund(params: {
   orderNumber: string;
@@ -116,6 +116,8 @@ export async function processRefund(params: {
   returnReason?: string;
   dryRun?: boolean;
   lineItemGids?: string[];
+  lineItemsToRefund?: Array<{ lineItemId: string; quantity: number }>;
+  refundAmountOverride?: number;
 }): Promise<ProcessRefundResult> {
   const {
     orderNumber,
@@ -125,6 +127,8 @@ export async function processRefund(params: {
     returnReason,
     dryRun = false,
     lineItemGids,
+    lineItemsToRefund,
+    refundAmountOverride,
   } = params;
 
   try {
@@ -136,10 +140,22 @@ export async function processRefund(params: {
 
     const { numericId, lineItems: allLineItems } = orderData;
 
-    // Filter to specific line items if requested
-    const lineItems = lineItemGids
-      ? allLineItems.filter((item) => lineItemGids.includes(item.id))
-      : allLineItems;
+    const requestedQuantityByLineId = new Map(
+      (lineItemsToRefund ?? []).map((item) => [item.lineItemId, Math.max(1, item.quantity)])
+    );
+    const selectedLineItemIds = lineItemsToRefund?.length
+      ? new Set(lineItemsToRefund.map((item) => item.lineItemId))
+      : lineItemGids
+        ? new Set(lineItemGids)
+        : null;
+
+    const lineItems = (selectedLineItemIds
+      ? allLineItems.filter((item) => selectedLineItemIds.has(item.id))
+      : allLineItems
+    ).map((item) => ({
+      ...item,
+      quantity: Math.min(item.quantity, requestedQuantityByLineId.get(item.id) ?? item.quantity),
+    }));
 
     if (lineItems.length === 0) {
       return { success: false, error: lineItemGids
@@ -158,12 +174,15 @@ export async function processRefund(params: {
 
     const feeMultiplier = isExempt ? 0 : restockingFeePercent / 100;
     const restockingFeeAmount = totalItemValue * feeMultiplier;
-    const refundAmount = Math.max(0, totalItemValue - restockingFeeAmount);
+    const calculatedRefundAmount = Math.max(0, totalItemValue - restockingFeeAmount);
+    const refundAmount = refundAmountOverride != null
+      ? Math.max(0, refundAmountOverride)
+      : calculatedRefundAmount;
 
     console.log(
       `[refund] Order ${orderNumber}: total=$${totalItemValue.toFixed(2)}, ` +
       `restocking fee=${isExempt ? 'exempt' : `${restockingFeePercent}%`} ($${restockingFeeAmount.toFixed(2)}), ` +
-      `refund=$${refundAmount.toFixed(2)}, dry_run=${dryRun}`
+      `refund=$${refundAmount.toFixed(2)}${refundAmountOverride != null ? ' (manual override)' : ''}, dry_run=${dryRun}`
     );
 
     if (dryRun) {

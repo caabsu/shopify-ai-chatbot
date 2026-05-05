@@ -100,6 +100,9 @@ export interface OrderLookupResult {
       title: string;
       quantity: number;
       price: string;
+      originalUnitPrice: string;
+      originalTotal: string;
+      discountedTotal: string;
       imageUrl: string | null;
       sku: string | null;
       variantTitle: string | null;
@@ -107,8 +110,10 @@ export interface OrderLookupResult {
     shippingAddress1: string | null;
     shippingCity: string | null;
     shippingProvince: string | null;
+    shippingProvinceCode: string | null;
     shippingZip: string | null;
     shippingCountry: string | null;
+    shippingCountryCode: string | null;
     shippingPhone: string | null;
     createdAt: string;
     totalPrice: string | null;
@@ -181,6 +186,16 @@ export async function lookupOrder(
                       amount
                     }
                   }
+                  originalTotalSet {
+                    shopMoney {
+                      amount
+                    }
+                  }
+                  discountedTotalSet {
+                    shopMoney {
+                      amount
+                    }
+                  }
                   image {
                     url
                   }
@@ -191,8 +206,10 @@ export async function lookupOrder(
               address1
               city
               province
+              provinceCode
               zip
               country
+              countryCodeV2
               phone
             }
             totalPriceSet {
@@ -250,12 +267,14 @@ export async function lookupOrder(
                 sku: string | null;
                 variant: { title: string } | null;
                 originalUnitPriceSet: { shopMoney: { amount: string } };
+                originalTotalSet: { shopMoney: { amount: string } };
+                discountedTotalSet: { shopMoney: { amount: string } };
                 image: { url: string } | null;
               };
             }>;
           };
           customer: { displayName: string } | null;
-          shippingAddress: { address1: string | null; city: string; province: string | null; zip: string | null; country: string; phone: string | null } | null;
+          shippingAddress: { address1: string | null; city: string; province: string | null; provinceCode: string | null; zip: string | null; country: string; countryCodeV2: string | null; phone: string | null } | null;
           totalPriceSet: { shopMoney: { amount: string } } | null;
           refunds: Array<{ totalRefundedSet: { shopMoney: { amount: string } } }>;
         };
@@ -331,7 +350,10 @@ export async function lookupOrder(
         id: e.node.id,
         title: e.node.title,
         quantity: e.node.quantity,
-        price: e.node.originalUnitPriceSet.shopMoney.amount,
+        price: (parseFloat(e.node.discountedTotalSet.shopMoney.amount || '0') / Math.max(1, e.node.quantity)).toFixed(2),
+        originalUnitPrice: e.node.originalUnitPriceSet.shopMoney.amount,
+        originalTotal: e.node.originalTotalSet.shopMoney.amount,
+        discountedTotal: e.node.discountedTotalSet.shopMoney.amount,
         imageUrl: e.node.image?.url ?? null,
         sku: e.node.sku ?? null,
         variantTitle: e.node.variant?.title ?? null,
@@ -339,8 +361,10 @@ export async function lookupOrder(
       shippingAddress1: order.shippingAddress?.address1 ?? null,
       shippingCity: order.shippingAddress?.city ?? null,
       shippingProvince: order.shippingAddress?.province ?? null,
+      shippingProvinceCode: order.shippingAddress?.provinceCode ?? null,
       shippingZip: order.shippingAddress?.zip ?? null,
       shippingCountry: order.shippingAddress?.country ?? null,
+      shippingCountryCode: order.shippingAddress?.countryCodeV2 ?? null,
       shippingPhone: order.shippingAddress?.phone ?? null,
       createdAt: order.createdAt,
       totalPrice: order.totalPriceSet?.shopMoney?.amount ?? null,

@@ -90,6 +90,20 @@ interface ReturnEmailOpts {
   warehouseHint?: string;
 }
 
+export interface ReturnEmailSendResult {
+  messageId?: string;
+  error?: string;
+  skipped?: boolean;
+  email?: {
+    to: string;
+    from: string;
+    subject: string;
+    text: string;
+    html: string;
+    templateType?: 'approved' | 'approved_no_label';
+  };
+}
+
 // US states grouped by which Red Stag warehouse is closer
 const UTAH_CLOSER_STATES = new Set([
   'wa', 'or', 'ca', 'nv', 'id', 'mt', 'wy', 'ut', 'co', 'az', 'nm',
@@ -197,7 +211,7 @@ ${brand} Team`;
   }
 }
 
-export async function sendReturnApproved(opts: ReturnEmailOpts): Promise<{ messageId?: string; error?: string; skipped?: boolean }> {
+export async function sendReturnApproved(opts: ReturnEmailOpts): Promise<ReturnEmailSendResult> {
   const config = await getBrandEmailConfig(opts.brandId);
   if (!config) return { error: 'Email not configured' };
 
@@ -208,6 +222,7 @@ export async function sendReturnApproved(opts: ReturnEmailOpts): Promise<{ messa
   const refId = returnRequestId.slice(0, 8).toUpperCase();
 
   const hasLabel = !!labelUrl;
+  let templateType: 'approved' | 'approved_no_label' | undefined;
 
   let emailSubject = `Your return has been approved — Order #${escapeHtml(orderNumber)}`;
 
@@ -270,10 +285,9 @@ ${brand} Team`;
   // Try DB template — use different template based on whether we have a prepaid label
   if (brandId) {
     try {
-      const templateType = hasLabel ? 'approved' : 'approved_no_label';
+      templateType = hasLabel ? 'approved' : 'approved_no_label';
       const tpl = await getTemplate(brandId, templateType);
       if (tpl) {
-        if (!tpl.enabled) return { skipped: true };
         const vars: Record<string, string> = {
           greeting: firstName ? `Hi ${firstName},` : 'Hi,',
           ref_id: refId,
@@ -295,32 +309,54 @@ ${brand} Team`;
         emailSubject = renderTemplate(tpl.subject, vars);
         htmlBody = renderTemplate(tpl.body_html, vars);
         textBody = renderTemplate(tpl.body_text, vars);
+        if (!tpl.enabled) {
+          return {
+            skipped: true,
+            email: {
+              to,
+              from: config.fromAddress,
+              subject: emailSubject,
+              text: textBody,
+              html: htmlBody,
+              templateType,
+            },
+          };
+        }
       }
     } catch (err) {
       console.error('[email] Failed to load template, using defaults:', err instanceof Error ? err.message : err);
     }
   }
 
+  const email = {
+    to,
+    from: config.fromAddress,
+    subject: emailSubject,
+    text: textBody,
+    html: htmlBody,
+    templateType,
+  };
+
   try {
     const { data, error } = await config.resend.emails.send({
-      from: config.fromAddress,
+      from: email.from,
       to: [to],
-      subject: emailSubject,
-      text: textBody,
-      html: htmlBody,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
     });
 
     if (error) {
       console.error('[email] Resend error:', error);
-      return { error: error.message };
+      return { error: error.message, email };
     }
 
     console.log(`[email] Sent return approved #${refId} to ${to} (from: ${config.fromAddress})`);
-    return { messageId: data?.id };
+    return { messageId: data?.id, email };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[email] Failed to send return approved:', msg);
-    return { error: msg };
+    return { error: msg, email };
   }
 }
 

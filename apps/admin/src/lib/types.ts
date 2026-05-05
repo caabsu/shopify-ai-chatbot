@@ -115,6 +115,9 @@ export interface ReturnItem {
   product_image_url: string | null;
   quantity: number;
   price: number;
+  original_unit_price?: number | null;
+  original_total?: number | null;
+  discounted_total?: number | null;
   reason: string;
   reason_details: string | null;
   photo_urls: string[] | null;

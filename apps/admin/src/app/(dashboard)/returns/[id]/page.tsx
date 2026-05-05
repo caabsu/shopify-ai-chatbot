@@ -48,6 +48,74 @@ const TIMELINE_STATUSES = [
   { key: 'refunded', label: 'Refunded', icon: DollarSign },
 ];
 
+const US_STATE_CODES: Record<string, string> = {
+  alabama: 'AL',
+  alaska: 'AK',
+  arizona: 'AZ',
+  arkansas: 'AR',
+  california: 'CA',
+  colorado: 'CO',
+  connecticut: 'CT',
+  delaware: 'DE',
+  florida: 'FL',
+  georgia: 'GA',
+  hawaii: 'HI',
+  idaho: 'ID',
+  illinois: 'IL',
+  indiana: 'IN',
+  iowa: 'IA',
+  kansas: 'KS',
+  kentucky: 'KY',
+  louisiana: 'LA',
+  maine: 'ME',
+  maryland: 'MD',
+  massachusetts: 'MA',
+  michigan: 'MI',
+  minnesota: 'MN',
+  mississippi: 'MS',
+  missouri: 'MO',
+  montana: 'MT',
+  nebraska: 'NE',
+  nevada: 'NV',
+  'new hampshire': 'NH',
+  'new jersey': 'NJ',
+  'new mexico': 'NM',
+  'new york': 'NY',
+  'north carolina': 'NC',
+  'north dakota': 'ND',
+  ohio: 'OH',
+  oklahoma: 'OK',
+  oregon: 'OR',
+  pennsylvania: 'PA',
+  'rhode island': 'RI',
+  'south carolina': 'SC',
+  'south dakota': 'SD',
+  tennessee: 'TN',
+  texas: 'TX',
+  utah: 'UT',
+  vermont: 'VT',
+  virginia: 'VA',
+  washington: 'WA',
+  'west virginia': 'WV',
+  wisconsin: 'WI',
+  wyoming: 'WY',
+  'district of columbia': 'DC',
+};
+
+function normalizeCountryCode(country?: string | null): string {
+  if (!country) return 'US';
+  const trimmed = country.trim();
+  if (/^(us|usa|united states|united states of america)$/i.test(trimmed)) return 'US';
+  return trimmed.toUpperCase();
+}
+
+function normalizeStateCode(state?: string | null): string {
+  if (!state) return '';
+  const trimmed = state.trim();
+  if (/^[A-Za-z]{2}$/.test(trimmed)) return trimmed.toUpperCase();
+  return US_STATE_CODES[trimmed.toLowerCase()] ?? trimmed;
+}
+
 interface RelatedTicket {
   id: string;
   ticket_number: number;
@@ -61,9 +129,26 @@ interface ShippingAddress {
   address1: string | null;
   city: string | null;
   province: string | null;
+  provinceCode: string | null;
   zip: string | null;
   country: string | null;
+  countryCode: string | null;
   phone: string | null;
+}
+
+interface ReturnLabelEmail {
+  sent: boolean;
+  messageId?: string;
+  error?: string;
+  skipped?: boolean;
+  preview?: {
+    to: string;
+    from: string;
+    subject: string;
+    text: string;
+    html: string;
+    templateType?: string;
+  };
 }
 
 export default function ReturnDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -104,7 +189,10 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
     trackingUrl?: string;
     carrier?: string;
     rate?: number;
+    alreadyCreated?: boolean;
+    email?: ReturnLabelEmail | null;
   } | null>(null);
+  const [labelNotice, setLabelNotice] = useState<{ type: 'success' | 'warning'; message: string } | null>(null);
   const [labelAddress, setLabelAddress] = useState({
     name: '',
     street1: '',
@@ -126,6 +214,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
   // Action loading
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'warning'; message: string } | null>(null);
 
   function hydrateLabelDefaults(returnRequest: ReturnRequest | null, address?: ShippingAddress | null) {
     if (!returnRequest) return;
@@ -135,9 +224,9 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
       name: prev.name || returnRequest.customer_name || returnRequest.customer_email || '',
       street1: prev.street1 || address?.address1 || '',
       city: prev.city || address?.city || '',
-      state: prev.state || address?.province || '',
+      state: prev.state || address?.provinceCode || normalizeStateCode(address?.province),
       zip: prev.zip || address?.zip || '',
-      country: prev.country || address?.country || 'US',
+      country: prev.country || address?.countryCode || normalizeCountryCode(address?.country),
     }));
 
     const dims = returnRequest.package_dimensions;
@@ -177,6 +266,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
   async function updateReturn(updates: Record<string, unknown>) {
     setActionLoading(true);
     setActionError(null);
+    setActionNotice(null);
     try {
       const res = await fetch(`/api/returns/${id}`, {
         method: 'PATCH',
@@ -204,6 +294,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
   async function handleApprove() {
     setActionLoading(true);
     setActionError(null);
+    setActionNotice(null);
     try {
       const res = await fetch(`/api/returns/${id}/approve`, {
         method: 'POST',
@@ -221,6 +312,17 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
           setLabelResult({
             labelUrl: result.label.url,
             trackingNumber: result.label.trackingNumber ?? '',
+            email: result.email ?? null,
+          });
+        }
+        if (result.email?.sent) {
+          setLabelNotice({ type: 'success', message: `Return approved, label created, and email sent to ${result.email.preview?.to ?? data?.customer_email}.` });
+        } else if (result.email?.error || result.email?.skipped) {
+          setLabelNotice({
+            type: 'warning',
+            message: result.email.skipped
+              ? 'Return approved and label created, but the approval email template is disabled.'
+              : `Return approved and label created, but email failed: ${result.email.error}`,
           });
         }
         if (result.labelError) {
@@ -250,6 +352,11 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
         setData(result.returnRequest);
         if (result.refund && !result.refund.success) {
           setActionError(`Approved but Shopify refund failed: ${result.refund.error}`);
+        } else if (result.refund?.success) {
+          setActionNotice({
+            type: 'success',
+            message: `Green return approved and Shopify refund processed for $${Number(result.refund.amount ?? 0).toFixed(2)}.`,
+          });
         }
       } else {
         setActionError(result.error || 'Approve-no-return failed');
@@ -268,6 +375,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
     }
     setActionLoading(true);
     setActionError(null);
+    setActionNotice(null);
     try {
       const res = await fetch(`/api/returns/${id}/deny`, {
         method: 'POST',
@@ -295,11 +403,34 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
   }
 
   async function handleProcessRefund() {
-    await updateReturn({
-      status: 'refunded',
-      refund_amount: refundAmount ? parseFloat(refundAmount) : data?.refund_amount,
-    });
-    setShowRefundModal(false);
+    setActionLoading(true);
+    setActionError(null);
+    setActionNotice(null);
+    try {
+      const res = await fetch(`/api/returns/${id}/refund`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          decided_by: 'admin',
+          refund_amount: refundAmount ? parseFloat(refundAmount) : undefined,
+        }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setData(result.returnRequest);
+        setActionNotice({
+          type: 'success',
+          message: `Shopify refund processed for $${Number(result.refund?.amount ?? 0).toFixed(2)}.`,
+        });
+      } else {
+        setActionError(result.refund?.error || result.error || 'Refund failed');
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Refund failed');
+    } finally {
+      setActionLoading(false);
+      setShowRefundModal(false);
+    }
   }
 
   async function updateItemStatus(itemId: string, newStatus: string) {
@@ -316,6 +447,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
     setLabelLoading(true);
     setLabelError(null);
+    setLabelNotice(null);
 
     const body: Record<string, unknown> = {
       customer_address: {
@@ -353,6 +485,18 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
       if (res.ok) {
         setLabelResult(result);
+        if (result.email?.sent) {
+          setLabelNotice({
+            type: 'success',
+            message: `${result.alreadyCreated ? 'Existing label found' : 'Label created'} and email sent to ${result.email.preview?.to ?? data?.customer_email ?? 'the customer'}.`,
+          });
+        } else if (result.email?.skipped) {
+          setLabelNotice({ type: 'warning', message: 'Label created, but the approval email template is disabled.' });
+        } else if (result.email?.error) {
+          setLabelNotice({ type: 'warning', message: `Label created, but email failed: ${result.email.error}` });
+        } else {
+          setLabelNotice({ type: 'success', message: `${result.alreadyCreated ? 'Existing label found' : 'Label created'} successfully.` });
+        }
         setShowLabelModal(false);
         // Refresh data to show label info on the return
         const refreshed = await fetch(`/api/returns/${id}`).then((r) => r.json());
@@ -393,6 +537,8 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
   const statusStyle = STATUS_STYLES[data.status] || STATUS_STYLES.closed;
   const totalItemValue = data.items?.reduce((sum, item) => sum + item.price * item.quantity, 0) ?? 0;
+  const originalItemValue = data.items?.reduce((sum, item) => sum + (item.original_total ?? item.price * item.quantity), 0) ?? totalItemValue;
+  const hasDiscountedItems = originalItemValue > totalItemValue + 0.01;
 
   // Determine current timeline step
   const statusOrder = ['pending_review', 'approved', 'partially_approved', 'shipped', 'received', 'refunded', 'closed'];
@@ -424,6 +570,34 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
             onClick={() => setActionError(null)}
             className="ml-auto text-xs px-2 py-1 rounded"
             style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+      {actionNotice && (
+        <div
+          className="rounded-xl p-3 flex items-center gap-2"
+          style={{
+            backgroundColor: actionNotice.type === 'success' ? 'rgba(34,197,94,0.10)' : 'rgba(245,158,11,0.10)',
+            border: `1px solid ${actionNotice.type === 'success' ? 'rgba(34,197,94,0.24)' : 'rgba(245,158,11,0.24)'}`,
+          }}
+        >
+          {actionNotice.type === 'success' ? (
+            <Check size={14} style={{ color: '#22c55e' }} />
+          ) : (
+            <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
+          )}
+          <span
+            className="text-sm"
+            style={{ color: actionNotice.type === 'success' ? '#15803d' : '#b45309' }}
+          >
+            {actionNotice.message}
+          </span>
+          <button
+            onClick={() => setActionNotice(null)}
+            className="ml-auto text-xs px-2 py-1 rounded"
+            style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer' }}
           >
             Dismiss
           </button>
@@ -467,7 +641,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="flex items-center gap-3 mt-2">
           <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            {data.items?.length ?? 0} {(data.items?.length ?? 0) === 1 ? 'item' : 'items'} -- ${totalItemValue.toFixed(2)}
+            {data.items?.length ?? 0} {(data.items?.length ?? 0) === 1 ? 'item' : 'items'} -- ${totalItemValue.toFixed(2)} paid
           </span>
           <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
             Submitted {formatDate(data.created_at)}
@@ -573,8 +747,13 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
                           <div className="flex items-center gap-3 mt-1">
                             <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                              Qty: {item.quantity} x ${item.price.toFixed(2)}
+                              Qty: {item.quantity} x ${item.price.toFixed(2)} paid
                             </span>
+                            {item.original_unit_price != null && item.original_unit_price > item.price + 0.01 && (
+                              <span className="text-xs line-through" style={{ color: 'var(--text-tertiary)' }}>
+                                ${item.original_unit_price.toFixed(2)}
+                              </span>
+                            )}
                             <span
                               className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
                               style={{
@@ -908,8 +1087,13 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                 </span>
               </div>
               <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                Total return value: ${totalItemValue.toFixed(2)}
+                Paid item value: ${totalItemValue.toFixed(2)}
               </p>
+              {hasDiscountedItems && (
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Original item value before discounts: ${originalItemValue.toFixed(2)}
+                </p>
+              )}
               {data.refund_amount != null && (
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                   Refund amount: ${data.refund_amount.toFixed(2)}
@@ -996,6 +1180,27 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                 Return Label
               </h3>
               <div className="space-y-2">
+                {labelNotice && (
+                  <div
+                    className="rounded-lg p-3 flex items-start gap-2"
+                    style={{
+                      backgroundColor: labelNotice.type === 'success' ? 'rgba(34,197,94,0.10)' : 'rgba(245,158,11,0.10)',
+                      border: `1px solid ${labelNotice.type === 'success' ? 'rgba(34,197,94,0.24)' : 'rgba(245,158,11,0.24)'}`,
+                    }}
+                  >
+                    {labelNotice.type === 'success' ? (
+                      <Check size={14} style={{ color: '#22c55e', marginTop: 1 }} />
+                    ) : (
+                      <AlertTriangle size={14} style={{ color: '#f59e0b', marginTop: 1 }} />
+                    )}
+                    <span
+                      className="text-xs leading-relaxed"
+                      style={{ color: labelNotice.type === 'success' ? '#15803d' : '#b45309' }}
+                    >
+                      {labelNotice.message}
+                    </span>
+                  </div>
+                )}
                 {labelResult.carrier && (
                   <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                     <span style={{ color: 'var(--text-tertiary)' }}>Carrier:</span> {labelResult.carrier}
@@ -1035,6 +1240,48 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                   >
                     <ExternalLink size={12} /> Track Package
                   </a>
+                )}
+                {labelResult.email?.preview && (
+                  <details
+                    className="rounded-lg mt-3"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-secondary)' }}
+                    open
+                  >
+                    <summary className="cursor-pointer px-3 py-2 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                      Email sent details
+                    </summary>
+                    <div className="px-3 pb-3 space-y-3">
+                      <div className="space-y-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        <p><span style={{ color: 'var(--text-tertiary)' }}>To:</span> {labelResult.email.preview.to}</p>
+                        <p><span style={{ color: 'var(--text-tertiary)' }}>From:</span> {labelResult.email.preview.from}</p>
+                        <p><span style={{ color: 'var(--text-tertiary)' }}>Subject:</span> {labelResult.email.preview.subject}</p>
+                        {labelResult.email.messageId && (
+                          <p><span style={{ color: 'var(--text-tertiary)' }}>Resend ID:</span> <span className="font-mono">{labelResult.email.messageId}</span></p>
+                        )}
+                        {labelResult.email.preview.templateType && (
+                          <p><span style={{ color: 'var(--text-tertiary)' }}>Template:</span> {labelResult.email.preview.templateType}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>Text Body</p>
+                        <pre
+                          className="text-[11px] whitespace-pre-wrap rounded-lg p-3 max-h-48 overflow-auto"
+                          style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-secondary)', color: 'var(--text-secondary)' }}
+                        >
+                          {labelResult.email.preview.text}
+                        </pre>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>HTML Preview</p>
+                        <iframe
+                          title="Return approval email preview"
+                          srcDoc={labelResult.email.preview.html}
+                          className="w-full rounded-lg"
+                          style={{ minHeight: 280, backgroundColor: '#fff', border: '1px solid var(--border-secondary)' }}
+                        />
+                      </div>
+                    </div>
+                  </details>
                 )}
               </div>
             </div>
@@ -1305,7 +1552,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                 <strong>Items:</strong> {data.items?.map((i) => `${i.product_title} (x${i.quantity})`).join(', ')}
               </p>
               <p className="text-xs mt-1" style={{ color: '#3b82f6' }}>
-                <strong>Value:</strong> ${totalItemValue.toFixed(2)} (restocking fee may be applied based on settings)
+                <strong>Paid item value:</strong> ${totalItemValue.toFixed(2)}{hasDiscountedItems ? ` after discounts (original ${originalItemValue.toFixed(2)})` : ''} (restocking fee may be applied based on settings)
               </p>
             </div>
 

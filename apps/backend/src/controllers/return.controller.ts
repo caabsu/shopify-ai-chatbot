@@ -441,6 +441,9 @@ returnRouter.get('/lookup', async (req, res) => {
         sku: li.sku ?? null,
         quantity: li.quantity,
         price: `$${parseFloat(li.price).toFixed(2)}`,
+        originalUnitPrice: li.originalUnitPrice,
+        originalTotal: li.originalTotal,
+        discountedTotal: li.discountedTotal,
         image: li.imageUrl ?? null,
         eligible: eligibilityInfo?.eligible ?? false,
         eligibility_reason: eligibilityInfo?.reason ?? 'Unknown',
@@ -463,8 +466,10 @@ returnRouter.get('/lookup', async (req, res) => {
         address1: orderResult.order.shippingAddress1 ?? null,
         city: orderResult.order.shippingCity ?? null,
         province: orderResult.order.shippingProvince ?? null,
+        provinceCode: orderResult.order.shippingProvinceCode ?? null,
         zip: orderResult.order.shippingZip ?? null,
         country: orderResult.order.shippingCountry ?? null,
+        countryCode: orderResult.order.shippingCountryCode ?? null,
         phone: orderResult.order.shippingPhone ?? null,
       },
       items: eligibleItems,
@@ -780,14 +785,14 @@ returnRouter.post('/:id/create-label', agentAuthMiddleware, async (req, res) => 
     }
 
     const brandId = req.agent!.brandId;
+    const itemsSummary = (returnRequest.items ?? [])
+      .map((i) => `${i.product_title} (x${i.quantity})`)
+      .join(', ');
 
     if (returnRequest.return_label_url) {
+      let emailResult: Awaited<ReturnType<typeof sendReturnApproved>> | null = null;
       if (req.body.send_email !== false) {
-        const itemsSummary = (returnRequest.items ?? [])
-          .map((i) => `${i.product_title} (x${i.quantity})`)
-          .join(', ');
-
-        sendReturnApproved({
+        emailResult = await sendReturnApproved({
           to: returnRequest.customer_email,
           customerName: returnRequest.customer_name ?? undefined,
           returnRequestId: returnRequest.id,
@@ -796,7 +801,7 @@ returnRouter.post('/:id/create-label', agentAuthMiddleware, async (req, res) => 
           labelUrl: returnRequest.return_label_url,
           trackingNumber: returnRequest.return_tracking_number ?? undefined,
           brandId,
-        }).catch((err) => console.error('[return.controller] Existing label email failed:', err));
+        });
       }
 
       res.json({
@@ -805,6 +810,13 @@ returnRouter.post('/:id/create-label', agentAuthMiddleware, async (req, res) => 
         carrier: returnRequest.return_carrier,
         rate: returnRequest.return_shipping_cost,
         alreadyCreated: true,
+        email: emailResult ? {
+          sent: !!emailResult.messageId && !emailResult.error && !emailResult.skipped,
+          messageId: emailResult.messageId,
+          error: emailResult.error,
+          skipped: emailResult.skipped,
+          preview: emailResult.email,
+        } : null,
       });
       return;
     }
@@ -902,12 +914,9 @@ returnRouter.post('/:id/create-label', agentAuthMiddleware, async (req, res) => 
       console.error('[return.controller] Failed to store label info:', updateError.message);
     }
 
+    let emailResult: Awaited<ReturnType<typeof sendReturnApproved>> | null = null;
     if (req.body.send_email !== false) {
-      const itemsSummary = (returnRequest.items ?? [])
-        .map((i) => `${i.product_title} (x${i.quantity})`)
-        .join(', ');
-
-      sendReturnApproved({
+      emailResult = await sendReturnApproved({
         to: returnRequest.customer_email,
         customerName: returnRequest.customer_name ?? undefined,
         returnRequestId: returnRequest.id,
@@ -916,7 +925,7 @@ returnRouter.post('/:id/create-label', agentAuthMiddleware, async (req, res) => 
         labelUrl: result.labelUrl,
         trackingNumber: result.trackingNumber,
         brandId,
-      }).catch((err) => console.error('[return.controller] Label email failed:', err));
+      });
     }
 
     res.json({
@@ -925,6 +934,13 @@ returnRouter.post('/:id/create-label', agentAuthMiddleware, async (req, res) => 
       trackingUrl: result.trackingUrl,
       carrier: result.carrier,
       rate: result.rate,
+      email: emailResult ? {
+        sent: !!emailResult.messageId && !emailResult.error && !emailResult.skipped,
+        messageId: emailResult.messageId,
+        error: emailResult.error,
+        skipped: emailResult.skipped,
+        preview: emailResult.email,
+      } : null,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -989,9 +1005,9 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
             customerName: updated.customer_name || orderResult.customerEmail || 'Customer',
             customerStreet1: order.shippingAddress1 || '',
             customerCity: order.shippingCity || '',
-            customerState: order.shippingProvince || '',
+            customerState: order.shippingProvinceCode || order.shippingProvince || '',
             customerZip: order.shippingZip || '',
-            customerCountry: order.shippingCountry || 'US',
+            customerCountry: order.shippingCountryCode || order.shippingCountry || 'US',
             customerEmail: updated.customer_email || orderResult.customerEmail || '',
             customerPhone: updated.customer_phone || order.shippingPhone || '',
             length: dims.length,
@@ -1041,7 +1057,7 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
       }
     }
 
-    sendReturnApproved({
+    const emailResult = await sendReturnApproved({
       to: updated.customer_email,
       customerName: updated.customer_name ?? undefined,
       returnRequestId: updated.id,
@@ -1051,12 +1067,19 @@ returnRouter.post('/:id/approve', agentAuthMiddleware, async (req, res) => {
       trackingNumber: labelTrackingNumber ?? undefined,
       brandId,
       warehouseHint,
-    }).catch((err) => console.error('[return.controller] Approval email failed:', err));
+    });
 
     res.json({
       returnRequest: updated,
       label: labelUrl ? { url: labelUrl, trackingNumber: labelTrackingNumber } : null,
       labelError,
+      email: {
+        sent: !!emailResult.messageId && !emailResult.error && !emailResult.skipped,
+        messageId: emailResult.messageId,
+        error: emailResult.error,
+        skipped: emailResult.skipped,
+        preview: emailResult.email,
+      },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -1091,6 +1114,11 @@ returnRouter.post('/:id/approve-no-return', agentAuthMiddleware, async (req, res
         exemptReasons: settings.restocking_fee_exempt_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
         returnReason,
         dryRun: false,
+        lineItemsToRefund: (current.items ?? []).map((item) => ({
+          lineItemId: item.line_item_id,
+          quantity: item.quantity,
+        })),
+        refundAmountOverride: typeof req.body.refund_amount === 'number' ? req.body.refund_amount : undefined,
       });
     } catch (err) {
       console.error('[return.controller] Shopify refund failed:', err instanceof Error ? err.message : err);
@@ -1147,6 +1175,74 @@ returnRouter.post('/:id/approve-no-return', agentAuthMiddleware, async (req, res
     const message = err instanceof Error ? err.message : String(err);
     console.error('[return.controller] POST /:id/approve-no-return error:', message);
     res.status(500).json({ error: 'Failed to process approve-no-return' });
+  }
+});
+
+// ── POST /:id/refund — Process Shopify refund for a reviewed return ──────
+returnRouter.post('/:id/refund', agentAuthMiddleware, async (req, res) => {
+  try {
+    const current = await verifyReturnOwnership(req, res);
+    if (!current) return;
+
+    if (!['approved', 'partially_approved', 'received'].includes(current.status)) {
+      res.status(400).json({ error: 'Return must be approved or received before processing a refund' });
+      return;
+    }
+
+    const brandId = req.agent!.brandId;
+    const settings = await returnSettingsService.getReturnSettings(brandId);
+    const returnReason = current.items?.[0]?.reason ?? undefined;
+
+    const refundResult = await processRefund({
+      orderNumber: current.order_number,
+      brandId,
+      restockingFeePercent: settings.restocking_fee_percent ?? 20,
+      exemptReasons: settings.restocking_fee_exempt_reasons ?? ['defective', 'wrong_item', 'not_as_described'],
+      returnReason,
+      dryRun: false,
+      lineItemsToRefund: (current.items ?? []).map((item) => ({
+        lineItemId: item.line_item_id,
+        quantity: item.quantity,
+      })),
+      refundAmountOverride: typeof req.body.refund_amount === 'number' ? req.body.refund_amount : undefined,
+    });
+
+    if (!refundResult.success) {
+      res.status(502).json({ refund: { success: false, error: refundResult.error } });
+      return;
+    }
+
+    const updated = await returnService.updateReturnRequest(req.params.id as string, {
+      status: 'refunded',
+      resolution_type: current.resolution_type ?? 'refund',
+      refund_amount: refundResult.amount ?? null,
+      shopify_return_id: refundResult.refundId ?? null,
+      decided_at: current.decided_at ?? new Date().toISOString(),
+      decided_by: req.body.decided_by ?? current.decided_by ?? 'admin',
+    });
+
+    const itemsSummary = (updated.items ?? [])
+      .map((i) => `${i.product_title} (x${i.quantity})`)
+      .join(', ');
+
+    sendReturnRefunded({
+      to: updated.customer_email,
+      customerName: updated.customer_name ?? undefined,
+      returnRequestId: updated.id,
+      orderNumber: updated.order_number,
+      items: itemsSummary,
+      refundAmount: refundResult.amount,
+      brandId,
+    }).catch((err) => console.error('[return.controller] Refund email failed:', err));
+
+    res.json({
+      returnRequest: updated,
+      refund: { success: true, refundId: refundResult.refundId, amount: refundResult.amount },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[return.controller] POST /:id/refund error:', message);
+    res.status(500).json({ error: 'Failed to process refund' });
   }
 });
 

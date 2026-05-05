@@ -39,6 +39,88 @@ function shippoHeaders(): Record<string, string> {
   };
 }
 
+const US_STATE_CODES: Record<string, string> = {
+  alabama: 'AL',
+  alaska: 'AK',
+  arizona: 'AZ',
+  arkansas: 'AR',
+  california: 'CA',
+  colorado: 'CO',
+  connecticut: 'CT',
+  delaware: 'DE',
+  florida: 'FL',
+  georgia: 'GA',
+  hawaii: 'HI',
+  idaho: 'ID',
+  illinois: 'IL',
+  indiana: 'IN',
+  iowa: 'IA',
+  kansas: 'KS',
+  kentucky: 'KY',
+  louisiana: 'LA',
+  maine: 'ME',
+  maryland: 'MD',
+  massachusetts: 'MA',
+  michigan: 'MI',
+  minnesota: 'MN',
+  mississippi: 'MS',
+  missouri: 'MO',
+  montana: 'MT',
+  nebraska: 'NE',
+  nevada: 'NV',
+  'new hampshire': 'NH',
+  'new jersey': 'NJ',
+  'new mexico': 'NM',
+  'new york': 'NY',
+  'north carolina': 'NC',
+  'north dakota': 'ND',
+  ohio: 'OH',
+  oklahoma: 'OK',
+  oregon: 'OR',
+  pennsylvania: 'PA',
+  'rhode island': 'RI',
+  'south carolina': 'SC',
+  'south dakota': 'SD',
+  tennessee: 'TN',
+  texas: 'TX',
+  utah: 'UT',
+  vermont: 'VT',
+  virginia: 'VA',
+  washington: 'WA',
+  'west virginia': 'WV',
+  wisconsin: 'WI',
+  wyoming: 'WY',
+  'district of columbia': 'DC',
+};
+
+function normalizeCountry(country: string): string {
+  const trimmed = country.trim();
+  if (/^(us|usa|united states|united states of america)$/i.test(trimmed)) return 'US';
+  return trimmed.toUpperCase();
+}
+
+function normalizeState(state: string, country: string): string {
+  const trimmed = state.trim();
+  if (normalizeCountry(country) !== 'US') return trimmed;
+  if (/^[A-Za-z]{2}$/.test(trimmed)) return trimmed.toUpperCase();
+  return US_STATE_CODES[trimmed.toLowerCase()] ?? trimmed;
+}
+
+function getParcelLimitError(length: number, width: number, height: number, dimensionUnit: string): string | null {
+  if (dimensionUnit.toLowerCase() !== 'in') return null;
+
+  const sides = [length, width, height].sort((a, b) => b - a);
+  const longest = sides[0];
+  const girth = 2 * (sides[1] + sides[2]);
+  const lengthPlusGirth = longest + girth;
+
+  if (longest > 108 || lengthPlusGirth > 165) {
+    return `Package dimensions exceed standard parcel carrier limits (${longest} in length, ${lengthPlusGirth} in length + girth). Use a smaller carton or handle this return with freight/manual shipping.`;
+  }
+
+  return null;
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────
 
 export interface CreateReturnLabelParams {
@@ -107,14 +189,21 @@ export async function createReturnLabel(
   } = params;
 
   try {
+    const normalizedCountry = normalizeCountry(customerCountry);
+    const normalizedState = normalizeState(customerState, normalizedCountry);
+    const parcelLimitError = getParcelLimitError(length, width, height, dimensionUnit);
+    if (parcelLimitError) {
+      return { success: false, error: parcelLimitError };
+    }
+
     const customerAddress = {
       name: customerName,
       street1: customerStreet1,
       street2: customerStreet2 ?? '',
       city: customerCity,
-      state: customerState,
+      state: normalizedState,
       zip: customerZip,
-      country: customerCountry,
+      country: normalizedCountry,
       email: customerEmail || 'returns@outlight.us',
       phone: customerPhone || '8653268763',
     };
