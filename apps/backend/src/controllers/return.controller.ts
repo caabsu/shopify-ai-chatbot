@@ -1119,6 +1119,7 @@ returnRouter.post('/:id/approve-no-return', agentAuthMiddleware, async (req, res
           quantity: item.quantity,
         })),
         refundAmountOverride: typeof req.body.refund_amount === 'number' ? req.body.refund_amount : undefined,
+        restockType: 'no_restock',
       });
     } catch (err) {
       console.error('[return.controller] Shopify refund failed:', err instanceof Error ? err.message : err);

@@ -14,6 +14,8 @@ export interface RefundLineItem {
   reason?: string;
 }
 
+type ShopifyRestockType = 'no_restock' | 'return' | 'cancel';
+
 export interface ProcessRefundResult {
   success: boolean;
   refundId?: string;
@@ -118,6 +120,7 @@ export async function processRefund(params: {
   lineItemGids?: string[];
   lineItemsToRefund?: Array<{ lineItemId: string; quantity: number }>;
   refundAmountOverride?: number;
+  restockType?: ShopifyRestockType;
 }): Promise<ProcessRefundResult> {
   const {
     orderNumber,
@@ -129,6 +132,7 @@ export async function processRefund(params: {
     lineItemGids,
     lineItemsToRefund,
     refundAmountOverride,
+    restockType = 'return',
   } = params;
 
   try {
@@ -195,20 +199,23 @@ export async function processRefund(params: {
     const apiVersion = config.shopify.apiVersion;
     const url = `https://${brandConfig.shop}.myshopify.com/admin/api/${apiVersion}/orders/${numericId}/refunds.json`;
 
-    // Fetch primary inventory location for restocking
-    const locUrl = `https://${brandConfig.shop}.myshopify.com/admin/api/${apiVersion}/locations.json`;
-    const locRes = await fetch(locUrl, {
-      headers: { 'X-Shopify-Access-Token': token },
-    });
     let locationId: string | undefined;
-    if (locRes.ok) {
-      const locData = (await locRes.json()) as { locations?: Array<{ id: number; active: boolean; legacy: boolean }> };
-      const primary = locData.locations?.find(l => l.active && !l.legacy) ?? locData.locations?.[0];
-      if (primary) locationId = String(primary.id);
+    if (restockType !== 'no_restock') {
+      // Shopify requires a location_id when refund_line_items restock inventory.
+      const locUrl = `https://${brandConfig.shop}.myshopify.com/admin/api/${apiVersion}/locations.json`;
+      const locRes = await fetch(locUrl, {
+        headers: { 'X-Shopify-Access-Token': token },
+      });
+      if (locRes.ok) {
+        const locData = (await locRes.json()) as { locations?: Array<{ id: number; active: boolean; legacy: boolean }> };
+        const primary = locData.locations?.find(l => l.active && !l.legacy) ?? locData.locations?.[0];
+        if (primary) locationId = String(primary.id);
+      }
+      if (!locationId) {
+        console.warn(`[refund] Could not find location for ${brandConfig.shop}; using no_restock to avoid Shopify refund rejection`);
+      }
     }
-    if (!locationId) {
-      console.warn(`[refund] Could not find location for ${brandConfig.shop}, restocking without location`);
-    }
+    const effectiveRestockType: ShopifyRestockType = restockType === 'no_restock' || !locationId ? 'no_restock' : restockType;
 
     const refundLineItems = lineItems.map((item) => {
       // Convert GID to numeric ID for REST API: gid://shopify/LineItem/123 -> 123
@@ -216,8 +223,8 @@ export async function processRefund(params: {
       return {
         line_item_id: numericLineItemId,
         quantity: item.quantity,
-        restock_type: 'return',
-        ...(locationId ? { location_id: locationId } : {}),
+        restock_type: effectiveRestockType,
+        ...(effectiveRestockType !== 'no_restock' && locationId ? { location_id: locationId } : {}),
       };
     });
 
