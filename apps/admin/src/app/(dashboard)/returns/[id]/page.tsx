@@ -537,6 +537,17 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
 
   const statusStyle = STATUS_STYLES[data.status] || STATUS_STYLES.closed;
   const totalItemValue = data.items?.reduce((sum, item) => sum + item.price * item.quantity, 0) ?? 0;
+  const isRefundableStatus = ['approved', 'partially_approved', 'received'].includes(data.status);
+  const hasFailedShopifyRefund =
+    data.status === 'approved' &&
+    data.approved_no_return &&
+    !data.shopify_return_id &&
+    /Shopify refund failed/i.test(data.admin_notes ?? '');
+  const refundButtonLabel = hasFailedShopifyRefund
+    ? 'Retry Shopify Refund'
+    : data.approved_no_return
+      ? 'Process Shopify Refund'
+      : 'Process Refund';
 
   // Determine current timeline step
   const statusOrder = ['pending_review', 'approved', 'partially_approved', 'shipped', 'received', 'refunded', 'closed'];
@@ -598,6 +609,36 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
             style={{ color: 'inherit', background: 'none', border: 'none', cursor: 'pointer' }}
           >
             Dismiss
+          </button>
+        </div>
+      )}
+      {hasFailedShopifyRefund && (
+        <div
+          className="rounded-xl p-4 flex items-start gap-3"
+          style={{
+            backgroundColor: 'rgba(245,158,11,0.10)',
+            border: '1px solid rgba(245,158,11,0.26)',
+          }}
+        >
+          <AlertTriangle size={18} style={{ color: '#f59e0b', marginTop: 2, flexShrink: 0 }} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Shopify refund still needs to be retried
+            </p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+              This green return was approved, but the first refund attempt failed before the no-restock fix was deployed.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setRefundAmount(data.refund_amount?.toFixed(2) || totalItemValue.toFixed(2));
+              setShowRefundModal(true);
+            }}
+            disabled={actionLoading}
+            className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-semibold text-white transition-colors disabled:opacity-50"
+            style={{ backgroundColor: '#22c55e' }}
+          >
+            <DollarSign size={12} /> Retry Refund
           </button>
         </div>
       )}
@@ -979,7 +1020,20 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                   </div>
                 </>
               )}
-              {(data.status === 'approved' || data.status === 'partially_approved') && (
+              {isRefundableStatus && (data.approved_no_return || data.status === 'received') && (
+                <button
+                  onClick={() => {
+                    setRefundAmount(data.refund_amount?.toFixed(2) || totalItemValue.toFixed(2));
+                    setShowRefundModal(true);
+                  }}
+                  disabled={actionLoading}
+                  className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-semibold text-white transition-colors disabled:opacity-50"
+                  style={{ backgroundColor: '#22c55e' }}
+                >
+                  <DollarSign size={12} /> {refundButtonLabel}
+                </button>
+              )}
+              {(data.status === 'approved' || data.status === 'partially_approved') && !data.approved_no_return && (
                 <>
                   <button
                     onClick={() => {
@@ -1011,19 +1065,6 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                   style={{ backgroundColor: '#a855f7' }}
                 >
                   <Package size={12} /> Mark as Received
-                </button>
-              )}
-              {data.status === 'received' && (
-                <button
-                  onClick={() => {
-                    setRefundAmount(data.refund_amount?.toFixed(2) || totalItemValue.toFixed(2));
-                    setShowRefundModal(true);
-                  }}
-                  disabled={actionLoading}
-                  className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                  style={{ backgroundColor: '#22c55e' }}
-                >
-                  <DollarSign size={12} /> Process Refund
                 </button>
               )}
             </div>
@@ -1852,7 +1893,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
             }}
           >
             <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-              Process Refund
+              {refundButtonLabel}
             </h3>
 
             <div>
@@ -1895,7 +1936,7 @@ export default function ReturnDetailPage({ params }: { params: Promise<{ id: str
                 className="text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
                 style={{ backgroundColor: '#22c55e' }}
               >
-                {actionLoading ? 'Processing...' : 'Process Refund'}
+                {actionLoading ? 'Processing...' : refundButtonLabel}
               </button>
             </div>
           </div>

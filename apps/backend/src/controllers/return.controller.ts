@@ -1206,6 +1206,7 @@ returnRouter.post('/:id/refund', agentAuthMiddleware, async (req, res) => {
         quantity: item.quantity,
       })),
       refundAmountOverride: typeof req.body.refund_amount === 'number' ? req.body.refund_amount : undefined,
+      restockType: current.approved_no_return ? 'no_restock' : undefined,
     });
 
     if (!refundResult.success) {
