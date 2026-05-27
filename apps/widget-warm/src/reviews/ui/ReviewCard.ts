@@ -1,5 +1,6 @@
 import { type Review, markHelpful } from '../api/client';
 import { starsHtml } from './stars';
+import { openLightbox } from './Lightbox';
 
 function formatDate(iso: string): string {
   const date = new Date(iso);
@@ -25,8 +26,8 @@ export function renderReviewCard(review: Review): HTMLElement {
       media.length
         ? `<div class="wbd-rv-photos">${media
             .map(
-              (m) =>
-                `<a class="wbd-rv-ph" href="${escapeAttr(m.url)}" target="_blank" rel="noreferrer" style="background-image:url('${escapeAttr(m.url)}')"></a>`,
+              (m, idx) =>
+                `<button type="button" class="wbd-rv-ph" data-ph-index="${idx}" aria-label="Open review photo ${idx + 1}" style="background-image:url('${escapeAttr(m.url)}')"></button>`,
             )
             .join('')}</div>`
         : ''
@@ -35,6 +36,17 @@ export function renderReviewCard(review: Review): HTMLElement {
       <a href="#" data-helpful><b>${review.helpful_count}</b>Helpful</a>
     </div>
   `;
+
+  if (media.length) {
+    const imageUrls = media.map((m) => m.url);
+    el.querySelectorAll<HTMLButtonElement>('.wbd-rv-ph[data-ph-index]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        const idx = Number(btn.dataset.phIndex ?? '0');
+        openLightbox({ images: imageUrls, startIndex: idx, alt: 'Review photo' });
+      });
+    });
+  }
 
   const helpful = el.querySelector<HTMLAnchorElement>('[data-helpful]');
   helpful?.addEventListener('click', async (event) => {
