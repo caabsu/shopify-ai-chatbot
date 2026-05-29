@@ -154,6 +154,15 @@ function parseCSVRow(line: string): string[] {
   return values;
 }
 
+function safeISO(value: string | undefined | null): string | null {
+  if (!value) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  const d = new Date(trimmed);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 // ── Image Download ─────────────────────────────────────────────────────────
 
 async function downloadImageToStorage(imageUrl: string, reviewId: string): Promise<string | null> {

@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
 import type { ReturnRequest, ReturnItem } from '../types/index.js';
+import { loadSupportContext } from './support-context.service.js';
 
 const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
 
@@ -39,6 +40,7 @@ export async function getAIRecommendation(
     const { data: docs, error } = await supabase
       .from('knowledge_documents')
       .select('title, content')
+      .eq('brand_id', returnRequest.brand_id)
       .eq('category', 'return_policy')
       .eq('enabled', true)
       .order('priority', { ascending: false });
@@ -51,7 +53,12 @@ export async function getAIRecommendation(
   }
 
   // Build the evaluation prompt
-  const systemPrompt = buildSystemPrompt(returnPolicy);
+  const supportContext = await loadSupportContext(
+    returnRequest.brand_id,
+    `${returnRequest.order_number}\n${returnItems.map((item) => `${item.product_title} ${item.reason} ${item.reason_details ?? ''}`).join('\n')}`,
+  ).catch(() => '');
+
+  const systemPrompt = buildSystemPrompt(returnPolicy, supportContext);
   const userPrompt = buildUserPrompt(returnRequest, returnItems, orderData, customerHistory);
 
   try {
@@ -89,14 +96,15 @@ export async function getAIRecommendation(
 }
 
 // ── Build System Prompt ───────────────────────────────────────────────────
-function buildSystemPrompt(returnPolicy: string): string {
+function buildSystemPrompt(returnPolicy: string, supportContext: string): string {
   const policySection = returnPolicy
     ? `\n\n## Store Return Policy\n${returnPolicy}`
     : '\n\n## Store Return Policy\nNo specific return policy found. Use standard e-commerce best practices (30-day return window, items must be unused, etc.).';
 
   return `You are a return request evaluation assistant. Your job is to analyze return requests and provide a recommendation.
 
-You must evaluate each return based on the store's return policy, order details, and customer history.${policySection}
+You must evaluate each return based on the store's return policy, locked support facts, order details, and customer history.${policySection}
+${supportContext}
 
 ## Response Format
 

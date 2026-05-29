@@ -3,6 +3,7 @@ import { config } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
 import * as ticketService from './ticket.service.js';
 import * as customerProfileService from './customer-profile.service.js';
+import { loadSupportContext } from './support-context.service.js';
 
 const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
 
@@ -59,6 +60,7 @@ export async function draftReply(ticketId: string, brandId?: string): Promise<st
   const { ticket, messages, customerProfile } = await loadTicketContext(ticketId);
   const brandVoice = await loadBrandVoice(brandId ?? ticket.brand_id);
   const threadText = buildThreadText(messages);
+  const supportContext = await loadSupportContext(brandId ?? ticket.brand_id, `${ticket.subject}\n\n${threadText}`).catch(() => '');
 
   let customerContext = '';
   if (customerProfile) {
@@ -81,6 +83,7 @@ Ticket Details:
 - Priority: ${ticket.priority}
 - Category: ${ticket.category ?? 'General'}
 - Customer: ${ticket.customer_name ?? ticket.customer_email}${customerContext}
+${supportContext}
 
 Write a professional, empathetic reply that addresses the customer's concern. Be concise but thorough. Do not include any preamble or meta-commentary — just the reply text that would be sent to the customer.`;
 
@@ -148,6 +151,7 @@ export async function suggestNextSteps(ticketId: string, brandId?: string): Prom
   const { ticket, messages, customerProfile } = await loadTicketContext(ticketId);
   const brandVoice = await loadBrandVoice(brandId ?? ticket.brand_id);
   const threadText = buildThreadText(messages);
+  const supportContext = await loadSupportContext(brandId ?? ticket.brand_id, `${ticket.subject}\n\n${threadText}`).catch(() => '');
 
   let customerContext = '';
   if (customerProfile) {
@@ -155,6 +159,7 @@ export async function suggestNextSteps(ticketId: string, brandId?: string): Prom
   }
 
   const systemPrompt = `You are a support team assistant. Based on the ticket conversation, suggest 3-5 actionable next steps the agent should take. Be specific and practical.${customerContext}
+${supportContext}
 
 Respond with ONLY a JSON array of strings, like: ["Step 1", "Step 2", "Step 3"]. No other text.`;
 

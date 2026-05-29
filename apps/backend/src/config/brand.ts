@@ -50,15 +50,11 @@ async function loadBrands(): Promise<Brand[]> {
 }
 
 /**
- * Resolve the brand_id from a request. Strategy:
- * 1. Authenticated agent brand, when route auth has populated req.agent
- * 2. Query param ?brand=<slug>
- * 3. X-Brand or X-Brand-Id header (slug or id)
- * 4. Shopify webhook shop-domain header
- * 5. Origin/Referer header matched against brands.shopify_shop or brands.settings.domain
- * 6. Default to Outlight
+ * Resolve the brand_id from an explicit request signal without falling back.
+ * This is useful for routes where assigning the default brand would be unsafe,
+ * such as inbound email webhooks.
  */
-export async function resolveBrandId(req: Request): Promise<string> {
+export async function resolveOptionalBrandId(req: Request): Promise<string | null> {
   if (req.agent?.brandId) {
     return req.agent.brandId;
   }
@@ -108,6 +104,22 @@ export async function resolveBrandId(req: Request): Promise<string> {
       }
     }
   }
+
+  return null;
+}
+
+/**
+ * Resolve the brand_id from a request. Strategy:
+ * 1. Authenticated agent brand, when route auth has populated req.agent
+ * 2. Query param ?brand=<slug>
+ * 3. X-Brand or X-Brand-Id header (slug or id)
+ * 4. Shopify webhook shop-domain header
+ * 5. Origin/Referer header matched against brands.shopify_shop or brands.settings.domain
+ * 6. Default to Outlight
+ */
+export async function resolveBrandId(req: Request): Promise<string> {
+  const resolved = await resolveOptionalBrandId(req);
+  if (resolved) return resolved;
 
   // 6. Default to Outlight
   return DEFAULT_BRAND_ID;

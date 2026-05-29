@@ -8,6 +8,7 @@ import { getBrand } from '../config/brand.js';
 import { graphql } from './shopify-admin.service.js';
 import * as knowledgeService from './knowledge.service.js';
 import * as conversationService from './conversation.service.js';
+import { loadSupportContext } from './support-context.service.js';
 import type { AiResponse, NavigationButton, ProductCard, CartData } from '../types/index.js';
 
 const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
@@ -448,10 +449,11 @@ export async function processMessage(
   const startTime = Date.now();
 
   // 1. Load config
-  const [aiConfig, brandContext, pageContext] = await Promise.all([
+  const [aiConfig, brandContext, pageContext, supportContext] = await Promise.all([
     loadAiConfig(context?.brandId),
     loadBrandContext(context?.brandId),
     loadPageContext(context?.pageUrl, context?.brandId),
+    context?.brandId ? loadSupportContext(context.brandId, `${userMessage}\n${context.pageUrl ?? ''}`).catch(() => '') : Promise.resolve(''),
   ]);
 
   // 2. Load relevant knowledge
@@ -479,6 +481,9 @@ export async function processMessage(
   }
   if (kbContext) {
     systemPrompt += kbContext;
+  }
+  if (supportContext) {
+    systemPrompt += supportContext;
   }
   if (aiConfig.promotions) {
     systemPrompt += `\n\n## Active Promotions\n${aiConfig.promotions}`;

@@ -263,6 +263,7 @@ export async function addTicketMessage(
     content_html?: string;
     is_internal_note?: boolean;
     attachments?: unknown[];
+    email_message_id?: string;
     ai_generated?: boolean;
     metadata?: Record<string, unknown>;
   }
@@ -278,6 +279,7 @@ export async function addTicketMessage(
       content_html: data.content_html ?? null,
       is_internal_note: data.is_internal_note ?? false,
       attachments: data.attachments ?? [],
+      email_message_id: data.email_message_id ?? null,
       ai_generated: data.ai_generated ?? false,
       metadata: data.metadata ?? null,
     })
@@ -285,6 +287,17 @@ export async function addTicketMessage(
     .single();
 
   if (error) {
+    if (data.email_message_id && error.code === '23505') {
+      const { data: existing } = await supabase
+        .from('ticket_messages')
+        .select()
+        .eq('ticket_id', ticketId)
+        .eq('email_message_id', data.email_message_id)
+        .single();
+
+      if (existing) return existing as TicketMessage;
+    }
+
     console.error('[ticket.service] addTicketMessage error:', error.message);
     throw new Error('Failed to add ticket message');
   }

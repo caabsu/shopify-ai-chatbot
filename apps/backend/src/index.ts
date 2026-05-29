@@ -19,12 +19,11 @@ import { contactFormSettingsRouter } from './controllers/contact-form-settings.c
 import { processScheduledEmails, processScheduledReminders, expireOldRequests } from './services/review-email.service.js';
 import { registerWebhooks as registerReviewWebhooks } from './services/product-sync.service.js';
 import { supabase } from './config/supabase.js';
-import { resolveBrandId, getBrandWidgetUrl, getBrand } from './config/brand.js';
+import { resolveBrandId, resolveOptionalBrandId, getBrandWidgetUrl, getBrand } from './config/brand.js';
 import { getToken } from './services/shopify-auth.service.js';
 import * as ticketService from './services/ticket.service.js';
 import { sendTicketConfirmation } from './services/email.service.js';
-import { classifyEmail } from './services/email-classifier.service.js';
-import { getConfiguredSenderAddresses } from './services/brand-email-config.service.js';
+import { processInboundEmailWebhook } from './services/inbound-email.service.js';
 
 const app = express();
 
@@ -1943,182 +1942,12 @@ app.post('/api/webhooks/email', async (req, res) => {
       return;
     }
 
-    // Support multiple webhook formats
-    const {
-      from, from_email, sender,          // sender email
-      from_name, sender_name,            // sender name
-      subject, to, to_email, recipient,  // recipient / subject
-      text, body, plain, html,           // body content
-      message_id, email_message_id,      // message ID for threading
-      thread_messages,                   // full thread history from Google Apps Script
-    } = req.body;
-
-    const senderEmail = (from_email || from || sender || '').toLowerCase().trim();
-    const senderName = from_name || sender_name || '';
-    const emailSubject = subject || '(No Subject)';
-    const emailBody = text || plain || body || '';
-    const messageId = message_id || email_message_id || '';
-
-    if (!senderEmail || !emailBody) {
-      res.status(400).json({ error: 'from/from_email and text/body are required' });
-      return;
-    }
-
-    // ── Loop Prevention: reject emails from our own support addresses ──
-    const ownAddresses = await getConfiguredSenderAddresses();
-    // Also check common noreply patterns
-    if (senderEmail.includes('noreply@') || senderEmail.includes('no-reply@')) {
-      ownAddresses.add(senderEmail); // will match below
-    }
-
-    if (ownAddresses.has(senderEmail)) {
-      console.log(`[webhook] Ignoring email from own address: ${senderEmail} (loop prevention)`);
-      res.json({ success: true, action: 'ignored', reason: 'Email from own support address — loop prevention' });
-      return;
-    }
-
-    // ── Loop Prevention: reject ticket confirmation bounce-backs ──
-    if (emailSubject.match(/^\[Ticket #\d+\]/) && emailBody.includes("We've received your message and created ticket")) {
-      console.log(`[webhook] Ignoring ticket confirmation bounce-back from ${senderEmail}`);
-      res.json({ success: true, action: 'ignored', reason: 'Ticket confirmation bounce-back' });
-      return;
-    }
-
-    // Resolve brand from the "to" address or default
-    const brandId = await resolveBrandId(req);
-
-    // Check if this is a reply to an existing ticket
-    // Strategy 1: Subject contains [Ticket #123]
-    const ticketMatch = emailSubject.match(/\[Ticket #(\d+)\]/);
-    if (ticketMatch) {
-      const ticketNumber = parseInt(ticketMatch[1], 10);
-      const { data: existingTicket } = await supabase
-        .from('tickets')
-        .select('id, status')
-        .eq('ticket_number', ticketNumber)
-        .single();
-
-      if (existingTicket) {
-        await ticketService.addTicketMessage(existingTicket.id, {
-          sender_type: 'customer',
-          sender_name: senderName || undefined,
-          sender_email: senderEmail,
-          content: emailBody,
-          metadata: messageId ? { email_message_id: messageId } : undefined,
-        });
-
-        if (existingTicket.status === 'resolved' || existingTicket.status === 'closed') {
-          await ticketService.updateTicket(existingTicket.id, { status: 'open' });
-        }
-
-        console.log(`[webhook] Email reply added to ticket #${ticketNumber} from ${senderEmail}`);
-        res.json({ success: true, action: 'reply_added', ticketNumber });
-        return;
-      }
-    }
-
-    // Strategy 2: Match by Re:/Fwd: subject + same customer email (recent open/pending ticket)
-    if (!ticketMatch && (emailSubject.startsWith('Re:') || emailSubject.startsWith('RE:') || emailSubject.startsWith('Fwd:'))) {
-      const cleanSubject = emailSubject.replace(/^(Re:|RE:|Fwd:|FW:)\s*/i, '').trim();
-      const { data: recentTicket } = await supabase
-        .from('tickets')
-        .select('id, status, ticket_number')
-        .eq('customer_email', senderEmail)
-        .eq('brand_id', brandId)
-        .in('status', ['open', 'pending'])
-        .ilike('subject', `%${cleanSubject.slice(0, 80)}%`)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (recentTicket) {
-        await ticketService.addTicketMessage(recentTicket.id, {
-          sender_type: 'customer',
-          sender_name: senderName || undefined,
-          sender_email: senderEmail,
-          content: emailBody,
-          metadata: messageId ? { email_message_id: messageId } : undefined,
-        });
-
-        if (recentTicket.status === 'resolved' || recentTicket.status === 'closed') {
-          await ticketService.updateTicket(recentTicket.id, { status: 'open' });
-        }
-
-        console.log(`[webhook] Email reply matched to ticket #${recentTicket.ticket_number} by subject from ${senderEmail}`);
-        res.json({ success: true, action: 'reply_added', ticketNumber: recentTicket.ticket_number });
-        return;
-      }
-    }
-
-    // Classify the inbound email with AI
-    const classification = await classifyEmail({
-      from: senderEmail,
-      subject: emailSubject,
-      body: emailBody,
+    const result = await processInboundEmailWebhook({
+      payload: req.body as Record<string, unknown>,
+      explicitBrandId: await resolveOptionalBrandId(req),
     });
 
-    console.log(`[webhook] Email from ${senderEmail} classified as: ${classification.classification} (confidence: ${classification.confidence.toFixed(2)})`);
-
-    // Only create tickets for customer support emails (or low-confidence classifications)
-    if (classification.classification !== 'customer_support' && classification.confidence >= 0.8) {
-      console.log(`[webhook] Discarding non-support email from ${senderEmail}: ${classification.classification} — ${classification.reason}`);
-      res.json({ success: true, action: 'discarded', classification: classification.classification, reason: classification.reason });
-      return;
-    }
-
-    // New ticket from email
-    const ticket = await ticketService.createTicket({
-      source: 'email',
-      subject: emailSubject,
-      customer_email: senderEmail,
-      customer_name: senderName || undefined,
-      priority: 'medium',
-      brand_id: brandId,
-      classification: classification.classification,
-      classification_confidence: classification.confidence,
-    });
-
-    // If thread_messages provided, store the full thread history (oldest first)
-    if (Array.isArray(thread_messages) && thread_messages.length > 0) {
-      for (const tm of thread_messages) {
-        const tmFrom = (tm.from_email || '').toLowerCase().trim();
-        const isOwnAddress = ownAddresses.has(tmFrom);
-        await ticketService.addTicketMessage(ticket.id, {
-          sender_type: isOwnAddress ? 'agent' : 'customer',
-          sender_name: tm.from_name || undefined,
-          sender_email: tmFrom || undefined,
-          content: tm.text || tm.body || '',
-          metadata: {
-            ...(tm.message_id ? { email_message_id: tm.message_id } : {}),
-            sent_at: tm.date || undefined,
-            is_thread_history: true,
-          },
-        });
-      }
-    } else {
-      // Single message — just store it
-      await ticketService.addTicketMessage(ticket.id, {
-        sender_type: 'customer',
-        sender_name: senderName || undefined,
-        sender_email: senderEmail,
-        content: emailBody,
-        metadata: messageId ? { email_message_id: messageId } : undefined,
-      });
-    }
-
-    // Send confirmation only for customer support emails
-    if (classification.classification === 'customer_support') {
-      sendTicketConfirmation({
-        to: senderEmail,
-        customerName: senderName || undefined,
-        ticketNumber: ticket.ticket_number,
-        subject: emailSubject,
-        brandId,
-      }).catch((err) => console.error('[webhook] Confirmation email failed:', err));
-    }
-
-    console.log(`[webhook] Email ticket #${ticket.ticket_number} created from ${senderEmail}`);
-    res.status(201).json({ success: true, action: 'ticket_created', ticketNumber: ticket.ticket_number, classification: classification.classification });
+    res.status(result.statusCode).json(result.body);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[webhook] POST /api/webhooks/email error:', message);
