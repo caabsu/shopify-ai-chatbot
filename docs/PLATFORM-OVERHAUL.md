@@ -171,9 +171,14 @@ heavy gradients); fast, legible tables; confident primary CTAs with clear hierar
   per-bundle configs → a shared `vite.shared.ts` (cssInjectPlugin + `widgetLib` factory) per
   app; each config is now ~3 lines. Verified **byte-identical** output bundles (md5 match),
   so zero storefront risk. ✅ **Canonical brand-token source** — `apps/admin/src/lib/brand-tokens.ts`
-  defines each brand's palette once (consumed by the admin's accent fallback). 🔲 **Deferred**
-  (needs storefront visual QA): generating the widget CSS vars (`--aicb-*`, `--wbd-*`) from the
-  canonical source instead of hardcoding them — safe to retrofit only with the live widgets viewable.
+  defines each brand's palette once (consumed by the admin's accent fallback). ✅ **Visual QA loop**
+  established via the backend's `/widget/preview-*` routes + Claude Preview (computed-style
+  inspection; screenshots hang on the widgets' open connections). Verified live: Outlight chatbot
+  FAB = `#C5A059`, Warm = `#F5BC70` — both match the canonical tokens. ✅ **Cache-bleed bug fixed**
+  (found via the QA): the 6 `public`-cached brand-keyed config endpoints lacked `Vary: X-Brand`,
+  so a shared cache could serve one brand's config to another (the Warm chatbot rendered
+  Outlight's gold). Added `varyByBrand(res)`. 🔲 **Deferred** (low value — rendered output is
+  identical, values already agree): generating the widget CSS vars from the canonical source.
 - **Stage 6 — Backend hardening**: shared `@types` package, typed API client, split
   `index.ts` preview HTML into templates, require webhook secret in prod, Misu inbox.
 
