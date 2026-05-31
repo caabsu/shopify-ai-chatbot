@@ -6,10 +6,10 @@ import { ArrowLeft, Save, Check } from 'lucide-react';
 import type { SlaRule } from '@/lib/types';
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: '#ef4444',
-  high: '#f97316',
-  medium: '#3b82f6',
-  low: '#9ca3af',
+  urgent: 'var(--color-priority-urgent)',
+  high: 'var(--color-priority-high)',
+  medium: 'var(--color-priority-medium)',
+  low: 'var(--color-priority-low)',
 };
 
 export default function SlaRulesPage() {

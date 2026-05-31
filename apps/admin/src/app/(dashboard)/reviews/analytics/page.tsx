@@ -44,10 +44,12 @@ interface AnalyticsData {
   action_items: ActionItem[];
 }
 
+const mix = (v: string, pct: number) => `color-mix(in srgb, ${v} ${pct}%, transparent)`;
+
 const PRIORITY_COLORS: Record<string, { bg: string; border: string; color: string }> = {
-  high: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)', color: '#ef4444' },
-  medium: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', color: '#f59e0b' },
-  low: { bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.25)', color: '#22c55e' },
+  high: { bg: mix('var(--color-danger)', 8), border: mix('var(--color-danger)', 25), color: 'var(--color-danger)' },
+  medium: { bg: mix('var(--color-warning)', 8), border: mix('var(--color-warning)', 25), color: 'var(--color-warning)' },
+  low: { bg: mix('var(--color-success)', 8), border: mix('var(--color-success)', 25), color: 'var(--color-success)' },
 };
 
 export default function ReviewAnalyticsPage() {
