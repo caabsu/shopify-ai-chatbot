@@ -7,6 +7,7 @@ import {
   AlertCircle, Star, TrendingUp, CalendarClock, User,
 } from 'lucide-react';
 import { formatNumber } from '@/lib/utils';
+import { StatusPill } from '@/components/ui/StatusPill';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -540,16 +541,6 @@ export default function ReviewEmailsPage() {
               (e) => activityFilter === 'all' || e.status === activityFilter,
             );
 
-            const STATUS_STYLES: Record<string, { color: string; bg: string; label: string }> = {
-              scheduled: { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', label: 'Scheduled' },
-              sent: { color: '#3b82f6', bg: 'rgba(59,130,246,0.10)', label: 'Sent' },
-              reminded: { color: '#8b5cf6', bg: 'rgba(139,92,246,0.10)', label: 'Reminded' },
-              completed: { color: '#22c55e', bg: 'rgba(34,197,94,0.10)', label: 'Completed' },
-              bounced: { color: '#ef4444', bg: 'rgba(239,68,68,0.10)', label: 'Bounced' },
-              expired: { color: '#9ca3af', bg: 'rgba(156,163,175,0.10)', label: 'Expired' },
-              cancelled: { color: '#6b7280', bg: 'rgba(107,114,128,0.10)', label: 'Cancelled' },
-            };
-
             if (entries.length === 0) {
               return (
                 <Card>
@@ -588,7 +579,6 @@ export default function ReviewEmailsPage() {
                 {/* Table rows */}
                 <div className="divide-y" style={{ borderColor: 'var(--border-secondary)' }}>
                   {entries.map((entry) => {
-                    const st = STATUS_STYLES[entry.status] || STATUS_STYLES.expired;
                     const isTest = entry.order_id?.startsWith('test-');
                     return (
                       <div
@@ -625,12 +615,7 @@ export default function ReviewEmailsPage() {
                         </div>
                         {/* Status */}
                         <div>
-                          <span
-                            className="text-[10px] font-medium px-2 py-1 rounded-full inline-block"
-                            style={{ backgroundColor: st.bg, color: st.color }}
-                          >
-                            {st.label}
-                          </span>
+                          <StatusPill kind="reviewEmail" value={entry.status} />
                         </div>
                         {/* Scheduled */}
                         <div>

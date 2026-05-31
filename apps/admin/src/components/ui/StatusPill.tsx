@@ -83,12 +83,13 @@ const TOKENS: Record<Kind, Record<string, string>> = {
     archived: 'var(--color-status-closed)',
   },
   reviewEmail: {
-    scheduled: 'var(--color-info)',
-    sent: 'var(--color-success)',
+    scheduled: 'var(--color-warning)',
+    sent: 'var(--color-info)',
     reminded: 'var(--color-source-ai)',
     completed: 'var(--color-success)',
     bounced: 'var(--color-danger)',
     expired: 'var(--color-status-closed)',
+    cancelled: 'var(--color-status-closed)',
   },
 };
 
