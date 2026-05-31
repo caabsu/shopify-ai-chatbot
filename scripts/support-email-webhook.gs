@@ -118,6 +118,22 @@ function processSupportEmails() {
   console.log('Support email sync complete: ' + JSON.stringify(totals));
 }
 
+/**
+ * One-time helper: label every matching thread as Processed WITHOUT forwarding,
+ * to establish a clean baseline before enabling the trigger (avoids backfilling
+ * old mail). Not needed for the Outlight recovery — there you WANT to forward the
+ * backlog, so run processSupportEmails instead.
+ */
+function markAllExistingAsProcessed() {
+  var processedLabel = getOrCreateLabel(PROCESSED_LABEL);
+  var count = 0;
+  for (var b = 0; b < BRANDS.length; b++) {
+    var threads = GmailApp.search('to:' + BRANDS[b].supportEmail + ' -label:' + PROCESSED_LABEL, 0, 100);
+    for (var t = 0; t < threads.length; t++) { threads[t].addLabel(processedLabel); count++; }
+  }
+  console.log('Marked ' + count + ' threads as processed (no forwarding).');
+}
+
 function getOrCreateLabel(name) {
   return GmailApp.getUserLabelByName(name) || GmailApp.createLabel(name);
 }
