@@ -48,17 +48,32 @@ function processSupportEmails() {
   var backfillDays = parseInt(props.getProperty('BACKFILL_DAYS') || '7', 10);
   if (!(backfillDays > 0)) backfillDays = 7;
 
-  var processedLabel = getOrCreateLabel(PROCESSED_LABEL);
-  var failedLabel = getOrCreateLabel(FAILED_LABEL);
-
   var totals = { forwarded: 0, skipped: 0, failed: 0 };
+  var quotaHit = false;
 
-  for (var b = 0; b < BRANDS.length; b++) {
+  // Label creation can itself hit the daily Gmail quota — fail soft, not red.
+  var processedLabel, failedLabel;
+  try {
+    processedLabel = getOrCreateLabel(PROCESSED_LABEL);
+    failedLabel = getOrCreateLabel(FAILED_LABEL);
+  } catch (err) {
+    console.warn('Gmail daily quota reached before processing — nothing done, retry next trigger. ' + err);
+    return;
+  }
+
+  for (var b = 0; b < BRANDS.length && !quotaHit; b++) {
     var brand = BRANDS[b];
     var query = 'to:' + brand.supportEmail + ' newer_than:' + backfillDays + 'd -label:' + PROCESSED_LABEL;
-    var threads = GmailApp.search(query, 0, MAX_THREADS_PER_BRAND);
+    var threads;
+    try {
+      threads = GmailApp.search(query, 0, MAX_THREADS_PER_BRAND);
+    } catch (err) {
+      if (isQuotaError(err)) { console.warn('Gmail quota reached during search — stopping; retry next trigger.'); break; }
+      console.error('[' + brand.slug + '] search failed: ' + err);
+      continue;
+    }
 
-    for (var t = 0; t < threads.length; t++) {
+    for (var t = 0; t < threads.length && !quotaHit; t++) {
       var thread = threads[t];
       try {
         var messages = thread.getMessages();
@@ -119,9 +134,14 @@ function processSupportEmails() {
         thread.removeLabel(failedLabel);
         totals.forwarded++;
       } catch (err) {
-        console.error('[' + brand.slug + '] ' + err);
-        thread.addLabel(failedLabel);
-        totals.failed++;
+        if (isQuotaError(err)) {
+          quotaHit = true;
+          console.warn('Gmail daily quota reached — stopping; this + remaining threads retry next trigger. ' + err);
+        } else {
+          console.error('[' + brand.slug + '] ' + err);
+          thread.addLabel(failedLabel);
+          totals.failed++;
+        }
       }
     }
   }
@@ -143,6 +163,17 @@ function markAllExistingAsProcessed() {
     for (var t = 0; t < threads.length; t++) { threads[t].addLabel(processedLabel); count++; }
   }
   console.log('Marked ' + count + ' threads as processed (no forwarding).');
+}
+
+// True for Gmail daily-quota / rate-limit exceptions, so a run can stop cleanly
+// (leaving unprocessed threads unlabeled to retry next trigger) instead of
+// mislabeling good threads as Failed.
+function isQuotaError(err) {
+  var m = String(err).toLowerCase();
+  return m.indexOf('too many times') !== -1
+    || m.indexOf('limit exceeded') !== -1
+    || m.indexOf('rate limit') !== -1
+    || m.indexOf('quota') !== -1;
 }
 
 function getOrCreateLabel(name) {
