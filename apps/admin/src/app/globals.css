@@ -23,6 +23,7 @@
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
   --color-info: #3b82f6;
+  --color-star: #e0a93f; /* review stars — brand-neutral gold */
 
   /* Priority colors */
   --color-priority-urgent: #ef4444;

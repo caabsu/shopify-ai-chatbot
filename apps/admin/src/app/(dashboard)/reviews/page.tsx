@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { useBrand } from '@/components/brand-context';
+import { StatusPill } from '@/components/ui/StatusPill';
 
 interface ReviewMedia {
   id: string;
@@ -71,11 +72,12 @@ interface FilterCounts {
   with_photos: number;
 }
 
-const STATUS_STYLES: Record<string, { bg: string; color: string; text: string }> = {
-  published: { bg: 'rgba(34,197,94,0.12)', color: '#22c55e', text: 'Published' },
-  pending: { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b', text: 'Pending' },
-  rejected: { bg: 'rgba(239,68,68,0.12)', color: '#ef4444', text: 'Rejected' },
-  archived: { bg: 'rgba(107,114,128,0.12)', color: '#6b7880', text: 'Archived' },
+// Human labels for review statuses. Colors come from the design tokens (StatusPill).
+const REVIEW_LABELS: Record<string, string> = {
+  published: 'Published',
+  pending: 'Pending',
+  rejected: 'Rejected',
+  archived: 'Archived',
 };
 
 function timeAgo(dateStr: string): string {
@@ -96,8 +98,8 @@ function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
         <Star
           key={i}
           size={size}
-          fill={i <= rating ? '#C4A265' : 'none'}
-          stroke={i <= rating ? '#C4A265' : 'var(--text-tertiary)'}
+          fill={i <= rating ? 'var(--color-star)' : 'none'}
+          stroke={i <= rating ? 'var(--color-star)' : 'var(--text-tertiary)'}
           strokeWidth={1.5}
         />
       ))}
@@ -752,7 +754,6 @@ export default function AllReviewsPage() {
 
                 <div className="divide-y" style={{ borderColor: 'var(--border-secondary)' }}>
                   {reviews.map((review) => {
-                    const statusStyle = STATUS_STYLES[review.status] || STATUS_STYLES.pending;
                     const isExpanded = expandedId === review.id;
                     const isSelected = selected.has(review.id);
 
@@ -821,15 +822,7 @@ export default function AllReviewsPage() {
                           {/* Right side */}
                           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                             <div className="flex items-center gap-1.5">
-                              <span
-                                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                                style={{
-                                  backgroundColor: statusStyle.bg,
-                                  color: statusStyle.color,
-                                }}
-                              >
-                                {statusStyle.text}
-                              </span>
+                              <StatusPill kind="review" value={review.status} label={REVIEW_LABELS[review.status]} />
                               {review.verified_purchase && (
                                 <span
                                   className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-0.5"

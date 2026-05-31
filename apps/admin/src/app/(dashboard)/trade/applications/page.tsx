@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, ChevronLeft, ChevronRight, ExternalLink, FileText, Archive, Trash2, MoreHorizontal } from 'lucide-react';
+import { StatusPill } from '@/components/ui/StatusPill';
 
 interface TradeApplication {
   id: string;
@@ -33,13 +34,6 @@ interface ApiResponse {
   totalPages: number;
   counts: ApplicationCounts;
 }
-
-const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  pending:  { bg: 'rgba(245,158,11,0.12)',  text: '#f59e0b' },
-  approved: { bg: 'rgba(34,197,94,0.12)',   text: '#22c55e' },
-  rejected: { bg: 'rgba(239,68,68,0.12)',   text: '#ef4444' },
-  archived: { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
-};
 
 const TABS = [
   { key: '',         label: 'All' },
@@ -447,7 +441,6 @@ export default function TradeApplicationsPage() {
               </tr>
             ) : (
               applications.map((app, idx) => {
-                const statusStyle = STATUS_STYLES[app.status] ?? STATUS_STYLES.pending;
                 const isHovered = hoveredRow === app.id;
                 const isLast = idx === applications.length - 1;
                 const isSelected = selectedIds.has(app.id);
@@ -550,20 +543,7 @@ export default function TradeApplicationsPage() {
                       style={{ padding: '12px 16px', cursor: 'pointer' }}
                       onClick={() => router.push(`/trade/applications/${app.id}`)}
                     >
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: '3px 8px',
-                          borderRadius: 9999,
-                          textTransform: 'capitalize',
-                          backgroundColor: statusStyle.bg,
-                          color: statusStyle.text,
-                        }}
-                      >
-                        {app.status}
-                      </span>
+                      <StatusPill kind="trade" value={app.status} />
                     </td>
 
                     {/* Actions menu */}
