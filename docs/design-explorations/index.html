@@ -1,14 +1,16 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>supportOS — Tickets redesign · 3 directions</title>
+<title>supportOS — Tickets redesign</title>
 <style>
  *{margin:0;padding:0;box-sizing:border-box}
  body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;background:#15161a;color:#e9eaee;min-height:100vh;padding:48px 28px}
  .wrap{max-width:1080px;margin:0 auto}
  h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
- .sub{color:#9aa0ad;margin:8px 0 34px;font-size:14px;line-height:1.6;max-width:640px}
- .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+ .sub{color:#9aa0ad;margin:8px 0 28px;font-size:14px;line-height:1.6;max-width:680px}
+ .sub b{color:#E0A93F}
  a.card{display:block;text-decoration:none;color:inherit;background:#1c1e24;border:1px solid #2a2d36;border-radius:16px;padding:22px;transition:.18s}
  a.card:hover{transform:translateY(-3px);border-color:#3a3e4a;box-shadow:0 24px 50px -28px rgba(0,0,0,.7)}
+ .feat{border-color:#E0A93F;margin-bottom:18px}
+ .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
  .sw{height:70px;border-radius:10px;margin-bottom:16px;display:flex;align-items:center;gap:8px;padding:0 16px;font-weight:600}
  .tag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8b909c;font-weight:600}
  .nm{font-size:18px;font-weight:700;margin:6px 0 8px;letter-spacing:-.01em}
@@ -16,26 +18,29 @@
  .go{margin-top:16px;font-size:13px;font-weight:600;color:#E0A93F}
  @media(max-width:780px){.grid{grid-template-columns:1fr}}
 </style></head><body><div class="wrap">
- <h1>Ticket Inbox — 3 visual directions</h1>
- <p class="sub">Same data, same features — three different design languages. Pick the one that feels right (or mix), and I'll apply it across the whole admin. The brand accent shown is Outlight's gold; every direction re-themes per brand.</p>
+ <h1>Ticket Inbox — visual directions</h1>
+ <p class="sub"><b>C2 is the refined pick</b> — Soft Cards, made cleaner & more professional. The original three are below for reference. Every direction re-themes per brand.</p>
+ <a class="card feat" href="tickets/direction-c2.html">
+  <div class="sw" style="background:#F7F8FA;color:#101319;justify-content:space-between"><span>Cc&nbsp; Refined</span><span style="color:#B4863E;font-size:13px">★ recommended</span></div>
+  <div class="tag" style="color:#E0A93F">Direction C2 · refined</div><div class="nm">Soft Cards — Professional</div>
+  <div class="ds">The clean look you liked, elevated: crisp hairline borders + subtle elevation (no heavy shadows), refined neutral palette, Onest type, a segmented filter bar, KPI strip, grouped list ("Needs attention / Today"), tidy avatar + status treatment. Premium product, not toy.</div>
+  <div class="go">Open C2 →</div>
+ </a>
  <div class="grid">
+  <a class="card" href="tickets/direction-c.html">
+   <div class="sw" style="background:#F4F5F8;color:#181A20">Cc · Soft cards</div>
+   <div class="tag">Direction C</div><div class="nm">Soft Cards (original)</div>
+   <div class="ds">The friendly version you picked. C2 above is its refined evolution.</div><div class="go">Open C →</div>
+  </a>
   <a class="card" href="tickets/direction-a.html">
    <div class="sw" style="background:#FBF9F4;color:#B0863C;font-family:Georgia,serif;font-style:italic">Aa — Editorial</div>
    <div class="tag">Direction A</div><div class="nm">Editorial Warm</div>
-   <div class="ds">Light, warm paper canvas. Serif display headings (Fraunces) + clean sans. Generous space, refined hairline rows. Premium, "designed", on-brand for lighting/home.</div>
-   <div class="go">Open A →</div>
+   <div class="ds">Light, serif display headings, generous space. Premium & on-brand.</div><div class="go">Open A →</div>
   </a>
   <a class="card" href="tickets/direction-b.html">
    <div class="sw" style="background:#0C0D10;color:#E0A93F;font-family:ui-monospace,monospace">B_ Console</div>
    <div class="tag">Direction B</div><div class="nm">Focused Console</div>
-   <div class="ds">Dark, dense, technical. Compact table rows (more tickets per screen), mono ticket #s + SLA timers, vivid status colors, priority edge-bars. For agents who live in the queue.</div>
-   <div class="go">Open B →</div>
-  </a>
-  <a class="card" href="tickets/direction-c.html">
-   <div class="sw" style="background:#F4F5F8;color:#181A20">Cc · Soft cards</div>
-   <div class="tag">Direction C</div><div class="nm">Soft Cards</div>
-   <div class="ds">Light, friendly, visual. Rounded cards with soft shadows, customer avatars + priority rings, stat tiles, pill filters. Approachable modern SaaS with character.</div>
-   <div class="go">Open C →</div>
+   <div class="ds">Dark, dense, technical. Mono SLA timers, compact rows for power users.</div><div class="go">Open B →</div>
   </a>
  </div>
 </div></body></html>
