@@ -150,22 +150,35 @@ heavy gradients); fast, legible tables; confident primary CTAs with clear hierar
 (primary / secondary / ghost / destructive). Light + dark, AA contrast.
 
 ### Execution stages
-- **Stage 0 — Design system foundation** _(start now)_: expand `globals.css` into a full,
-  documented token layer (color/space/type/radii/shadow/motion) + per-brand accent
-  theming; add `design-system.css` utility/component classes. Additive & non-breaking.
-- **Stage 1 — Shared primitives**: `components/ui/*` (Button, StatusPill, Card, Table,
-  Modal, Input, Tabs, Toast) consuming tokens. Replace the per-page color objects with
-  `<StatusPill kind="status|priority|source|classification" value=… />`.
-- **Stage 2 — Shell + navigation rebrand**: sidebar, top nav, dashboard-shell, login —
-  the highest-visibility surfaces — to the new system + name.
-- **Stage 3 — Page-by-page migration**: tickets → returns → reviews → tracking → chatbot →
-  trade → insights, deleting inline styles as each adopts primitives.
-- **Stage 4 — Brand theming from DB**: read `brands.settings.theme` → inject CSS vars;
-  brand switcher live-reskins the OS.
+- **Stage 0 — Design system foundation** ✅ DONE: `globals.css` token layer
+  (color/space/type/radii/shadow/motion) + per-brand accent theming via `[data-brand]`
+  (wired in `brand-context`). Component classes `.ds-pill` / `.ds-btn` / `.ds-card`.
+- **Stage 1 — Shared primitives** ✅ (core) `components/ui/StatusPill` + `Button`.
+  StatusPill is the single source of truth for status taxonomies — kinds: `status`,
+  `priority`, `source`, `classification`, `return`, `review`, `trade`. (Card/Table/Modal/
+  Toast/Input still to add as pages need them.)
+- **Stage 2 — Shell + rebrand** ✅ DONE: sidebar, nav, login, titles, README, package →
+  **supportOS**.
+- **Stage 3 — Page migration** 🔄 IN PROGRESS: ✅ tickets, ✅ returns, ✅ reviews,
+  ✅ trade/applications. 🔲 remaining: tracking/insights, trade/members(+[id]),
+  trade/applications/[id], chatbot/conversations, reviews/products, reviews/analytics,
+  returns/[id], tickets/[id], insights, settings/*.
+- **Stage 4 — Brand theming from DB**: read `brands.settings.theme` → inject the
+  `[data-brand]` CSS vars from data (today the per-brand accents are hardcoded in
+  globals.css); brand switcher then live-reskins.
 - **Stage 5 — Widget unification**: move widgets onto the shared token layer; consolidate
   Vite configs; shared base CSS.
 - **Stage 6 — Backend hardening**: shared `@types` package, typed API client, split
   `index.ts` preview HTML into templates, require webhook secret in prod, Misu inbox.
+
+### Migration recipe (per page — now mechanical)
+1. Delete the page's local `*_STYLES` / `TAG_COLORS` color object(s).
+2. `import { StatusPill } from '@/components/ui/StatusPill'` (and `Button` if it has
+   action buttons). Replace status/badge spans with `<StatusPill kind=… value=… />`
+   (add a new `kind` to StatusPill's `TOKENS` if the taxonomy is new).
+3. Replace hardcoded `#hex` / `rgba()` with token vars (`var(--color-*)`, `var(--text-*)`,
+   `var(--bg-*)`); wrap list containers in `.ds-card`.
+4. `npx tsc --noEmit` then `npx next build`; commit per batch.
 
 ### Decisions needed to execute the bulk (owner: you)
 1. **Product name** — Beacon / Lumen / Hearth / other?
