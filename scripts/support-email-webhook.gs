@@ -126,6 +126,14 @@ function processSupportEmails() {
         });
 
         var status = response.getResponseCode();
+        if (status === 401 || status === 403) {
+          // Auth failure is account-wide (wrong/missing EMAIL_WEBHOOK_SECRET) — every
+          // thread would fail the same way. Stop the run cleanly instead of burning
+          // quota and mislabeling good threads; this thread stays unlabeled to retry.
+          console.error('Webhook auth failed (' + status + '). Set the EMAIL_WEBHOOK_SECRET script property to match the backend, then re-run. Stopping run.');
+          quotaHit = true;
+          continue;
+        }
         if (status < 200 || status >= 300) {
           throw new Error('Webhook returned ' + status + ' for ' + brand.slug + ': ' + response.getContentText());
         }
