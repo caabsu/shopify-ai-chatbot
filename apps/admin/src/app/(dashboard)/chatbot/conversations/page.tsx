@@ -6,6 +6,13 @@ import { Search } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import type { Conversation } from '@/lib/types';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { api } from '@/lib/api';
+
+interface ConversationList {
+  conversations?: Conversation[];
+  total?: number;
+  totalPages?: number;
+}
 
 export default function ChatbotConversationsPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -18,16 +25,20 @@ export default function ChatbotConversationsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({ page: String(page) });
-    if (status) params.set('status', status);
-    if (search) params.set('search', search);
-
-    const res = await fetch(`/api/conversations?${params}`);
-    const data = await res.json();
-    setConversations(data.conversations ?? []);
-    setTotal(data.total ?? 0);
-    setTotalPages(data.totalPages ?? 1);
-    setLoading(false);
+    try {
+      const data = await api.get<ConversationList>('/conversations', {
+        page,
+        status: status || undefined,
+        search: search || undefined,
+      });
+      setConversations(data.conversations ?? []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
+    } catch {
+      setConversations([]);
+    } finally {
+      setLoading(false);
+    }
   }, [page, status, search]);
 
   useEffect(() => { load(); }, [load]);
