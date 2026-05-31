@@ -12,7 +12,7 @@
  */
 import type { CSSProperties, ReactNode } from 'react';
 
-type Kind = 'status' | 'priority' | 'source' | 'classification' | 'return' | 'review' | 'trade' | 'member' | 'conversation';
+type Kind = 'status' | 'priority' | 'source' | 'classification' | 'return' | 'review' | 'trade' | 'member' | 'conversation' | 'product' | 'reviewEmail';
 
 // Maps each semantic value to a CSS token (var) defined in globals.css.
 const TOKENS: Record<Kind, Record<string, string>> = {
@@ -77,9 +77,32 @@ const TOKENS: Record<Kind, Record<string, string>> = {
     closed: 'var(--color-status-closed)',
     escalated: 'var(--color-danger)',
   },
+  product: {
+    active: 'var(--color-success)',
+    draft: 'var(--color-warning)',
+    archived: 'var(--color-status-closed)',
+  },
+  reviewEmail: {
+    scheduled: 'var(--color-info)',
+    sent: 'var(--color-success)',
+    reminded: 'var(--color-source-ai)',
+    completed: 'var(--color-success)',
+    bounced: 'var(--color-danger)',
+    expired: 'var(--color-status-closed)',
+  },
 };
 
 const FALLBACK = 'var(--text-secondary)';
+
+/**
+ * Token color for a status value — the single source of truth, for the places a
+ * pill won't fit (status-tinted banners, borders, dots on detail pages). Returns
+ * a CSS var string, e.g. `var(--color-success)`.
+ */
+export function statusColor(kind: Kind, value: string | null | undefined): string {
+  if (!value) return FALLBACK;
+  return TOKENS[kind][value] ?? FALLBACK;
+}
 
 function humanize(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());

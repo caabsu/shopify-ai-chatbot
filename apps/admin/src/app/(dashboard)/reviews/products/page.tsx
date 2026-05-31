@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Package, RefreshCw, Star, Loader2 } from 'lucide-react';
 import { useBrand } from '@/components/brand-context';
+import { StatusPill } from '@/components/ui/StatusPill';
 
 interface Product {
   id: string;
@@ -72,12 +73,6 @@ export default function ReviewProductsPage() {
     }
     setSyncing(false);
   }
-
-  const STATUS_STYLES: Record<string, { bg: string; color: string; text: string }> = {
-    active: { bg: 'rgba(34,197,94,0.12)', color: '#22c55e', text: 'Active' },
-    draft: { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b', text: 'Draft' },
-    archived: { bg: 'rgba(107,114,128,0.12)', color: '#6b7880', text: 'Archived' },
-  };
 
   if (loading) {
     return (
@@ -173,7 +168,6 @@ export default function ReviewProductsPage() {
             </thead>
             <tbody className="divide-y" style={{ borderColor: 'var(--border-secondary)' }}>
               {products.map((product) => {
-                const statusStyle = STATUS_STYLES[product.status] || STATUS_STYLES.draft;
                 return (
                   <tr
                     key={product.id}
@@ -229,15 +223,7 @@ export default function ReviewProductsPage() {
                       <Stars rating={product.average_rating} />
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span
-                        className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                        style={{
-                          backgroundColor: statusStyle.bg,
-                          color: statusStyle.color,
-                        }}
-                      >
-                        {statusStyle.text}
-                      </span>
+                      <StatusPill kind="product" value={product.status} />
                     </td>
                   </tr>
                 );
