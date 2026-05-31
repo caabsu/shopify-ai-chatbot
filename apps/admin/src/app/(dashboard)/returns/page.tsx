@@ -1,20 +1,24 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { Search, RotateCcw, Sparkles, ChevronLeft, ChevronRight, Package } from 'lucide-react';
 import type { ReturnRequest } from '@/lib/types';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { Button } from '@/components/ui/Button';
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  pending_review: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', label: 'Pending Review' },
-  approved: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6', label: 'Approved' },
-  partially_approved: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6', label: 'Partial' },
-  denied: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', label: 'Denied' },
-  shipped: { bg: 'rgba(99,102,241,0.12)', text: '#6366f1', label: 'Shipped' },
-  received: { bg: 'rgba(168,85,247,0.12)', text: '#a855f7', label: 'Received' },
-  refunded: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e', label: 'Refunded' },
-  closed: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af', label: 'Closed' },
-  cancelled: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af', label: 'Cancelled' },
+// Human labels for return statuses. Colors come from the design tokens (StatusPill).
+const RETURN_LABELS: Record<string, string> = {
+  pending_review: 'Pending Review',
+  approved: 'Approved',
+  partially_approved: 'Partial',
+  denied: 'Denied',
+  shipped: 'Shipped',
+  received: 'Received',
+  refunded: 'Refunded',
+  closed: 'Closed',
+  cancelled: 'Cancelled',
 };
 
 interface FilterCounts {
@@ -41,16 +45,13 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-function getAiBadge(rec: ReturnRequest['ai_recommendation']): { text: string; bg: string; color: string } | null {
+// AI recommendation badge → design token color.
+function getAiBadge(rec: ReturnRequest['ai_recommendation']): { text: string; color: string } | null {
   if (!rec) return null;
   const pct = Math.round(rec.confidence * 100);
-  if (rec.decision === 'approve') {
-    return { text: `AI: Approve (${pct}%)`, bg: 'rgba(34,197,94,0.12)', color: '#22c55e' };
-  }
-  if (rec.decision === 'deny') {
-    return { text: `AI: Deny (${pct}%)`, bg: 'rgba(239,68,68,0.12)', color: '#ef4444' };
-  }
-  return { text: `AI: Review (${pct}%)`, bg: 'rgba(245,158,11,0.12)', color: '#f59e0b' };
+  if (rec.decision === 'approve') return { text: `AI: Approve (${pct}%)`, color: 'var(--color-success)' };
+  if (rec.decision === 'deny') return { text: `AI: Deny (${pct}%)`, color: 'var(--color-danger)' };
+  return { text: `AI: Review (${pct}%)`, color: 'var(--color-warning)' };
 }
 
 export default function ReturnsPage() {
@@ -181,10 +182,7 @@ export default function ReturnsPage() {
                     }}
                   >
                     <span>{f.label}</span>
-                    <span
-                      className="text-[11px] min-w-[20px] text-center"
-                      style={{ color: 'var(--text-tertiary)' }}
-                    >
+                    <span className="text-[11px] min-w-[20px] text-center" style={{ color: 'var(--text-tertiary)' }}>
                       {f.count}
                     </span>
                   </button>
@@ -196,14 +194,7 @@ export default function ReturnsPage() {
 
         {/* Return List */}
         <div className="flex-1 min-w-0">
-          <div
-            className="rounded-xl overflow-hidden"
-            style={{
-              backgroundColor: 'var(--bg-primary)',
-              border: '1px solid var(--border-primary)',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
+          <div className="ds-card overflow-hidden">
             {loading ? (
               <div className="p-8 text-center">
                 <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Loading...</p>
@@ -217,7 +208,6 @@ export default function ReturnsPage() {
             ) : (
               <div className="divide-y" style={{ borderColor: 'var(--border-secondary)' }}>
                 {returns.map((ret) => {
-                  const statusStyle = STATUS_STYLES[ret.status] || STATUS_STYLES.closed;
                   const aiBadge = getAiBadge(ret.ai_recommendation);
                   const itemCount = ret.items?.length ?? 0;
                   const totalAmount = ret.items?.reduce((sum, item) => sum + item.price * item.quantity, 0) ?? 0;
@@ -228,21 +218,14 @@ export default function ReturnsPage() {
                       href={`/returns/${ret.id}`}
                       className="block px-4 py-3 transition-colors"
                       style={{ backgroundColor: 'transparent' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
                       <div className="flex items-start gap-3">
                         {/* Pending dot */}
                         <div className="pt-1.5 w-2 flex-shrink-0">
                           {ret.status === 'pending_review' && (
-                            <div
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: '#f59e0b' }}
-                            />
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-warning)' }} />
                           )}
                         </div>
 
@@ -252,10 +235,7 @@ export default function ReturnsPage() {
                             <span className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
                               #{ret.order_number}
                             </span>
-                            <span
-                              className="text-sm font-medium truncate"
-                              style={{ color: 'var(--text-primary)' }}
-                            >
+                            <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                               {ret.customer_name || ret.customer_email}
                             </span>
                           </div>
@@ -266,11 +246,8 @@ export default function ReturnsPage() {
                             </span>
                             {aiBadge && (
                               <span
-                                className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
-                                style={{
-                                  backgroundColor: aiBadge.bg,
-                                  color: aiBadge.color,
-                                }}
+                                className="ds-pill"
+                                style={{ ['--pill-color' as keyof CSSProperties]: aiBadge.color } as CSSProperties}
                               >
                                 <Sparkles size={10} />
                                 {aiBadge.text}
@@ -281,15 +258,7 @@ export default function ReturnsPage() {
 
                         {/* Right side */}
                         <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                          <span
-                            className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                            style={{
-                              backgroundColor: statusStyle.bg,
-                              color: statusStyle.text,
-                            }}
-                          >
-                            {statusStyle.label}
-                          </span>
+                          <StatusPill kind="return" value={ret.status} label={RETURN_LABELS[ret.status]} />
                           <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
                             {timeAgo(ret.created_at)}
                           </span>
@@ -309,30 +278,12 @@ export default function ReturnsPage() {
                 Page {page} of {totalPages}
               </span>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(Math.max(1, page - 1))}
-                  disabled={page === 1}
-                  className="p-2 rounded-lg transition-colors disabled:opacity-30"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
+                <Button variant="secondary" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} aria-label="Previous page">
                   <ChevronLeft size={14} />
-                </button>
-                <button
-                  onClick={() => setPage(Math.min(totalPages, page + 1))}
-                  disabled={page === totalPages}
-                  className="p-2 rounded-lg transition-colors disabled:opacity-30"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} aria-label="Next page">
                   <ChevronRight size={14} />
-                </button>
+                </Button>
               </div>
             </div>
           )}
