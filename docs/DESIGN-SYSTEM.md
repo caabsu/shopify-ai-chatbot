@@ -30,8 +30,13 @@ changes tokens in one place and propagates everywhere.
 `globals.css` defines `[data-brand="outlight|warm-by-design|misu"]` blocks that
 override `--color-accent*`. `BrandProvider` (`components/brand-context.tsx`) sets
 `document.documentElement.dataset.brand` from the session, so the whole OS
-re-skins to the active brand's accent. To add a brand: add one `[data-brand]`
-block (or, future, drive it from `brands.settings.theme`).
+re-skins to the active brand's accent.
+
+**DB-driven override (config, not fork):** set `brands.settings.console_accent` to
+either a hex string or `{ accent, strong?, light?, foreground? }`. The dashboard
+layout reads it server-side and `BrandProvider` applies it as inline CSS vars,
+overriding the `[data-brand]` default — so a 4th brand themes the console from
+config with no code change. Absent → falls back to the `[data-brand]` block.
 
 ## Component classes
 

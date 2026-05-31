@@ -3,6 +3,13 @@
 import { createContext, useContext, useEffect } from 'react';
 import type { UserRole } from '@/lib/auth';
 
+export interface ThemeAccent {
+  accent: string;
+  strong?: string;
+  light?: string;
+  foreground?: string;
+}
+
 interface BrandSession {
   brandId: string;
   brandName: string;
@@ -10,6 +17,7 @@ interface BrandSession {
   role: UserRole;
   userName?: string;
   userEmail?: string;
+  themeAccent?: ThemeAccent | null;
 }
 
 const BrandContext = createContext<BrandSession>({
@@ -26,14 +34,31 @@ export function BrandProvider({
   children: React.ReactNode;
   value: BrandSession;
 }) {
-  // Drive per-brand accent theming: globals.css defines [data-brand="..."] overrides
-  // so the whole OS re-skins to the active brand's accent.
+  // Drive per-brand accent theming. globals.css defines [data-brand="..."] defaults;
+  // a DB-driven themeAccent (brands.settings.console_accent) overrides them via inline
+  // CSS vars, so a new brand themes the console from config instead of a code fork.
+  const accentKey = value.themeAccent ? JSON.stringify(value.themeAccent) : '';
   useEffect(() => {
-    if (value.brandSlug) {
-      document.documentElement.dataset.brand = value.brandSlug;
+    const root = document.documentElement;
+    if (value.brandSlug) root.dataset.brand = value.brandSlug;
+
+    const a = value.themeAccent;
+    if (a?.accent) {
+      root.style.setProperty('--color-accent', a.accent);
+      if (a.strong) root.style.setProperty('--color-accent-strong', a.strong);
+      if (a.light) root.style.setProperty('--color-accent-light', a.light);
+      if (a.foreground) root.style.setProperty('--color-accent-foreground', a.foreground);
     }
-    return () => { delete document.documentElement.dataset.brand; };
-  }, [value.brandSlug]);
+
+    return () => {
+      delete root.dataset.brand;
+      root.style.removeProperty('--color-accent');
+      root.style.removeProperty('--color-accent-strong');
+      root.style.removeProperty('--color-accent-light');
+      root.style.removeProperty('--color-accent-foreground');
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.brandSlug, accentKey]);
 
   return <BrandContext.Provider value={value}>{children}</BrandContext.Provider>;
 }

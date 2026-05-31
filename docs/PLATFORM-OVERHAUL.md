@@ -163,9 +163,10 @@ heavy gradients); fast, legible tables; confident primary CTAs with clear hierar
   ✅ trade/applications. 🔲 remaining: tracking/insights, trade/members(+[id]),
   trade/applications/[id], chatbot/conversations, reviews/products, reviews/analytics,
   returns/[id], tickets/[id], insights, settings/*.
-- **Stage 4 — Brand theming from DB**: read `brands.settings.theme` → inject the
-  `[data-brand]` CSS vars from data (today the per-brand accents are hardcoded in
-  globals.css); brand switcher then live-reskins.
+- **Stage 4 — Brand theming from DB** ✅ DONE: `brands.settings.console_accent`
+  (hex or `{accent,strong?,light?,foreground?}`) → read server-side in the
+  dashboard layout → applied as inline CSS vars by `BrandProvider`, overriding the
+  hardcoded `[data-brand]` defaults. A 4th brand themes the console from config.
 - **Stage 5 — Widget unification**: move widgets onto the shared token layer; consolidate
   Vite configs; shared base CSS.
 - **Stage 6 — Backend hardening**: shared `@types` package, typed API client, split
