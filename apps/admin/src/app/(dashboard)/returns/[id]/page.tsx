@@ -11,33 +11,36 @@ import {
 import { formatDate } from '@/lib/utils';
 import type { ReturnRequest, ReturnItem, Ticket } from '@/lib/types';
 
+// Token-driven (see globals.css). bg = soft tint of the same token via color-mix.
+const tint = (v: string) => `color-mix(in srgb, ${v} 12%, transparent)`;
+
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  pending_review: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', label: 'Pending Review' },
-  approved: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6', label: 'Approved' },
-  partially_approved: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6', label: 'Partially Approved' },
-  denied: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', label: 'Denied' },
-  shipped: { bg: 'rgba(99,102,241,0.12)', text: '#6366f1', label: 'Shipped' },
-  received: { bg: 'rgba(168,85,247,0.12)', text: '#a855f7', label: 'Received' },
-  refunded: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e', label: 'Refunded' },
-  closed: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af', label: 'Closed' },
-  cancelled: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af', label: 'Cancelled' },
+  pending_review: { bg: tint('var(--color-warning)'), text: 'var(--color-warning)', label: 'Pending Review' },
+  approved: { bg: tint('var(--color-info)'), text: 'var(--color-info)', label: 'Approved' },
+  partially_approved: { bg: tint('var(--color-info)'), text: 'var(--color-info)', label: 'Partially Approved' },
+  denied: { bg: tint('var(--color-danger)'), text: 'var(--color-danger)', label: 'Denied' },
+  shipped: { bg: tint('var(--color-source-email)'), text: 'var(--color-source-email)', label: 'Shipped' },
+  received: { bg: tint('var(--color-source-ai)'), text: 'var(--color-source-ai)', label: 'Received' },
+  refunded: { bg: tint('var(--color-success)'), text: 'var(--color-success)', label: 'Refunded' },
+  closed: { bg: tint('var(--color-status-closed)'), text: 'var(--color-status-closed)', label: 'Closed' },
+  cancelled: { bg: tint('var(--color-status-closed)'), text: 'var(--color-status-closed)', label: 'Cancelled' },
 };
 
 const ITEM_STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  pending: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', label: 'Pending' },
-  approved: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e', label: 'Approved' },
-  denied: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', label: 'Denied' },
+  pending: { bg: tint('var(--color-warning)'), text: 'var(--color-warning)', label: 'Pending' },
+  approved: { bg: tint('var(--color-success)'), text: 'var(--color-success)', label: 'Approved' },
+  denied: { bg: tint('var(--color-danger)'), text: 'var(--color-danger)', label: 'Denied' },
 };
 
 const REASON_STYLES: Record<string, { bg: string; text: string }> = {
-  defective: { bg: 'rgba(239,68,68,0.10)', text: '#ef4444' },
-  wrong_item: { bg: 'rgba(249,115,22,0.10)', text: '#f97316' },
-  not_as_described: { bg: 'rgba(245,158,11,0.10)', text: '#f59e0b' },
-  changed_mind: { bg: 'rgba(59,130,246,0.10)', text: '#3b82f6' },
-  too_small: { bg: 'rgba(168,85,247,0.10)', text: '#a855f7' },
-  too_large: { bg: 'rgba(168,85,247,0.10)', text: '#a855f7' },
-  arrived_late: { bg: 'rgba(99,102,241,0.10)', text: '#6366f1' },
-  other: { bg: 'rgba(156,163,175,0.10)', text: '#9ca3af' },
+  defective: { bg: tint('var(--color-danger)'), text: 'var(--color-danger)' },
+  wrong_item: { bg: tint('var(--color-priority-high)'), text: 'var(--color-priority-high)' },
+  not_as_described: { bg: tint('var(--color-warning)'), text: 'var(--color-warning)' },
+  changed_mind: { bg: tint('var(--color-info)'), text: 'var(--color-info)' },
+  too_small: { bg: tint('var(--color-source-ai)'), text: 'var(--color-source-ai)' },
+  too_large: { bg: tint('var(--color-source-ai)'), text: 'var(--color-source-ai)' },
+  arrived_late: { bg: tint('var(--color-source-email)'), text: 'var(--color-source-email)' },
+  other: { bg: tint('var(--color-status-closed)'), text: 'var(--color-status-closed)' },
 };
 
 const TIMELINE_STATUSES = [

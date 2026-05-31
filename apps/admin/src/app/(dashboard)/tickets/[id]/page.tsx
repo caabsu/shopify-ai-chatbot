@@ -13,24 +13,27 @@ import {
 import { formatDate, cn } from '@/lib/utils';
 import type { Ticket, TicketMessage, TicketEvent, CannedResponse, Message } from '@/lib/types';
 
+// Token-driven (see globals.css). bg = soft tint of the same token via color-mix.
+const tint = (v: string) => `color-mix(in srgb, ${v} 12%, transparent)`;
+
 const PRIORITY_STYLES: Record<string, { bg: string; text: string }> = {
-  urgent: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444' },
-  high: { bg: 'rgba(249,115,22,0.12)', text: '#f97316' },
-  medium: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
-  low: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' },
+  urgent: { bg: tint('var(--color-priority-urgent)'), text: 'var(--color-priority-urgent)' },
+  high: { bg: tint('var(--color-priority-high)'), text: 'var(--color-priority-high)' },
+  medium: { bg: tint('var(--color-priority-medium)'), text: 'var(--color-priority-medium)' },
+  low: { bg: tint('var(--color-priority-low)'), text: 'var(--color-priority-low)' },
 };
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  open: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
-  pending: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
-  resolved: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e' },
-  closed: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' },
+  open: { bg: tint('var(--color-status-open)'), text: 'var(--color-status-open)' },
+  pending: { bg: tint('var(--color-status-pending)'), text: 'var(--color-status-pending)' },
+  resolved: { bg: tint('var(--color-status-resolved)'), text: 'var(--color-status-resolved)' },
+  closed: { bg: tint('var(--color-status-closed)'), text: 'var(--color-status-closed)' },
 };
 
 const SOURCE_META: Record<string, { icon: typeof Mail; label: string; color: string }> = {
-  email: { icon: Mail, label: 'Email', color: '#6366f1' },
-  form: { icon: FormInput, label: 'Form', color: '#10b981' },
-  ai_escalation: { icon: Sparkles, label: 'AI Escalation', color: '#a855f7' },
+  email: { icon: Mail, label: 'Email', color: 'var(--color-source-email)' },
+  form: { icon: FormInput, label: 'Form', color: 'var(--color-source-form)' },
+  ai_escalation: { icon: Sparkles, label: 'AI Escalation', color: 'var(--color-source-ai)' },
 };
 
 const TAG_COLORS = [
@@ -43,20 +46,20 @@ const TAG_COLORS = [
 ];
 
 const FINANCIAL_STATUS_COLORS: Record<string, string> = {
-  PAID: '#22c55e',
-  PARTIALLY_PAID: '#f59e0b',
-  PENDING: '#f59e0b',
-  REFUNDED: '#a855f7',
-  PARTIALLY_REFUNDED: '#a855f7',
-  VOIDED: '#9ca3af',
-  AUTHORIZED: '#3b82f6',
+  PAID: 'var(--color-success)',
+  PARTIALLY_PAID: 'var(--color-warning)',
+  PENDING: 'var(--color-warning)',
+  REFUNDED: 'var(--color-source-ai)',
+  PARTIALLY_REFUNDED: 'var(--color-source-ai)',
+  VOIDED: 'var(--color-status-closed)',
+  AUTHORIZED: 'var(--color-info)',
 };
 
 const FULFILLMENT_STATUS_COLORS: Record<string, string> = {
-  FULFILLED: '#22c55e',
-  UNFULFILLED: '#f59e0b',
-  PARTIALLY_FULFILLED: '#3b82f6',
-  IN_PROGRESS: '#3b82f6',
+  FULFILLED: 'var(--color-success)',
+  UNFULFILLED: 'var(--color-warning)',
+  PARTIALLY_FULFILLED: 'var(--color-info)',
+  IN_PROGRESS: 'var(--color-info)',
 };
 
 function getTagColor(i: number) { return TAG_COLORS[i % TAG_COLORS.length]; }
