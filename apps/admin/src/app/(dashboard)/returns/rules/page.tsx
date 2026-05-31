@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Save, Check, X, ChevronUp, ChevronDown } from 'lucide-react';
 import type { ReturnRule } from '@/lib/types';
 
+const tint = (v: string) => `color-mix(in srgb, ${v} 12%, transparent)`;
+
 const ACTION_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  auto_approve: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e', label: 'Auto Approve' },
-  auto_deny: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', label: 'Auto Deny' },
-  flag_review: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', label: 'Flag for Review' },
-  ai_review: { bg: 'rgba(168,85,247,0.12)', text: '#a855f7', label: 'AI Review' },
+  auto_approve: { bg: tint('var(--color-success)'), text: 'var(--color-success)', label: 'Auto Approve' },
+  auto_deny: { bg: tint('var(--color-danger)'), text: 'var(--color-danger)', label: 'Auto Deny' },
+  flag_review: { bg: tint('var(--color-warning)'), text: 'var(--color-warning)', label: 'Flag for Review' },
+  ai_review: { bg: tint('var(--color-source-ai)'), text: 'var(--color-source-ai)', label: 'AI Review' },
 };
 
 interface ReasonOption {

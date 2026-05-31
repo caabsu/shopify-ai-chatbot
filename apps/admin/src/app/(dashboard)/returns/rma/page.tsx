@@ -49,23 +49,26 @@ interface ConnectionStatus {
   loading: boolean;
 }
 
+// Token-driven (see globals.css). bg = soft tint of the same token.
+const tint = (v: string) => `color-mix(in srgb, ${v} 12%, transparent)`;
+
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  new: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' },
-  accepting: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
-  accepted: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
-  ready_to_process: { bg: 'rgba(14,165,233,0.12)', text: '#0ea5e9' },
-  processing: { bg: 'rgba(99,102,241,0.12)', text: '#6366f1' },
-  processing_exception: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444' },
-  processed: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
-  putting_away: { bg: 'rgba(168,85,247,0.12)', text: '#a855f7' },
-  put_away: { bg: 'rgba(168,85,247,0.12)', text: '#a855f7' },
-  complete: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e' },
+  new: { bg: tint('var(--color-status-closed)'), text: 'var(--color-status-closed)' },
+  accepting: { bg: tint('var(--color-warning)'), text: 'var(--color-warning)' },
+  accepted: { bg: tint('var(--color-warning)'), text: 'var(--color-warning)' },
+  ready_to_process: { bg: tint('var(--color-info)'), text: 'var(--color-info)' },
+  processing: { bg: tint('var(--color-source-email)'), text: 'var(--color-source-email)' },
+  processing_exception: { bg: tint('var(--color-danger)'), text: 'var(--color-danger)' },
+  processed: { bg: tint('var(--color-info)'), text: 'var(--color-info)' },
+  putting_away: { bg: tint('var(--color-source-ai)'), text: 'var(--color-source-ai)' },
+  put_away: { bg: tint('var(--color-source-ai)'), text: 'var(--color-source-ai)' },
+  complete: { bg: tint('var(--color-success)'), text: 'var(--color-success)' },
 };
 
 const FULFILLMENT_COLORS: Record<string, { bg: string; text: string }> = {
-  FULFILLED: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e' },
-  PARTIALLY_FULFILLED: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
-  UNFULFILLED: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' },
+  FULFILLED: { bg: tint('var(--color-success)'), text: 'var(--color-success)' },
+  PARTIALLY_FULFILLED: { bg: tint('var(--color-warning)'), text: 'var(--color-warning)' },
+  UNFULFILLED: { bg: tint('var(--color-status-closed)'), text: 'var(--color-status-closed)' },
 };
 
 function timeAgo(dateStr: string): string {

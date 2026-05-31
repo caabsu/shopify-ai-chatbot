@@ -28,14 +28,16 @@ interface InsightsData {
 
 // ── Status helpers ─────────────────────────────────────────────────────────
 
+const tint = (v: string) => `color-mix(in srgb, ${v} 12%, transparent)`;
+
 const STATUS_COLORS: Record<string, { bg: string; color: string; label: string }> = {
-  delivered:       { bg: 'rgba(34,197,94,0.12)',  color: '#22c55e', label: 'Delivered' },
-  in_transit:      { bg: 'rgba(59,130,246,0.12)',  color: '#3b82f6', label: 'In Transit' },
-  out_for_delivery:{ bg: 'rgba(99,102,241,0.12)',  color: '#6366f1', label: 'Out for Delivery' },
-  info_received:   { bg: 'rgba(245,158,11,0.12)',  color: '#f59e0b', label: 'Info Received' },
-  not_found:       { bg: 'rgba(107,114,128,0.12)', color: '#6b7280', label: 'Not Found' },
-  exception:       { bg: 'rgba(239,68,68,0.12)',   color: '#ef4444', label: 'Exception' },
-  expired:         { bg: 'rgba(156,163,175,0.12)', color: '#9ca3af', label: 'Expired' },
+  delivered:       { bg: tint('var(--color-success)'),       color: 'var(--color-success)', label: 'Delivered' },
+  in_transit:      { bg: tint('var(--color-info)'),          color: 'var(--color-info)', label: 'In Transit' },
+  out_for_delivery:{ bg: tint('var(--color-source-email)'),  color: 'var(--color-source-email)', label: 'Out for Delivery' },
+  info_received:   { bg: tint('var(--color-warning)'),       color: 'var(--color-warning)', label: 'Info Received' },
+  not_found:       { bg: tint('var(--color-status-closed)'), color: 'var(--color-status-closed)', label: 'Not Found' },
+  exception:       { bg: tint('var(--color-danger)'),        color: 'var(--color-danger)', label: 'Exception' },
+  expired:         { bg: tint('var(--color-status-closed)'), color: 'var(--color-status-closed)', label: 'Expired' },
 };
 
 function statusStyle(status: string) {

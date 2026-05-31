@@ -84,12 +84,12 @@ const TAB_CONFIG: Record<Tab, { label: string; icon: React.ElementType }> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending_review: '#f59e0b', approved: '#3b82f6', partially_approved: '#3b82f6',
-  denied: '#ef4444', shipped: '#6366f1', received: '#a855f7',
-  refunded: '#22c55e', closed: '#9ca3af', cancelled: '#9ca3af',
-  new: '#9ca3af', accepting: '#f59e0b', ready_to_process: '#0ea5e9',
-  processing: '#6366f1', processing_exception: '#ef4444', processed: '#3b82f6',
-  put_away: '#a855f7', complete: '#22c55e',
+  pending_review: 'var(--color-warning)', approved: 'var(--color-info)', partially_approved: 'var(--color-info)',
+  denied: 'var(--color-danger)', shipped: 'var(--color-source-email)', received: 'var(--color-source-ai)',
+  refunded: 'var(--color-success)', closed: 'var(--color-status-closed)', cancelled: 'var(--color-status-closed)',
+  new: 'var(--color-status-closed)', accepting: 'var(--color-warning)', ready_to_process: 'var(--color-info)',
+  processing: 'var(--color-source-email)', processing_exception: 'var(--color-danger)', processed: 'var(--color-info)',
+  put_away: 'var(--color-source-ai)', complete: 'var(--color-success)',
 };
 
 const REASON_LABELS: Record<string, string> = {
