@@ -8,6 +8,7 @@ import {
   AlertTriangle, XCircle, ChevronDown, Save,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { StatusPill } from '@/components/ui/StatusPill';
 
 interface TradeMemberDetail {
   id: string;
@@ -38,12 +39,6 @@ interface MemberDetailResponse {
   member: TradeMemberDetail;
   activity_log: ActivityEvent[];
 }
-
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  active: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e', label: 'Active' },
-  suspended: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', label: 'Suspended' },
-  revoked: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', label: 'Revoked' },
-};
 
 const PAYMENT_TERMS_OPTIONS = [
   { value: 'DUE_ON_FULFILLMENT', label: 'Due on fulfillment' },
@@ -190,7 +185,6 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   }
 
   const { member, activity_log } = data;
-  const statusStyle = STATUS_STYLES[member.status] ?? { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af', label: member.status };
 
   return (
     <div className="space-y-4">
@@ -230,15 +224,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                   <h1 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {member.contact_name}
                   </h1>
-                  <span
-                    className="text-[11px] font-medium px-2 py-0.5 rounded-full"
-                    style={{
-                      backgroundColor: statusStyle.bg,
-                      color: statusStyle.text,
-                    }}
-                  >
-                    {statusStyle.label}
-                  </span>
+                  <StatusPill kind="member" value={member.status} />
                 </div>
               </div>
             </div>

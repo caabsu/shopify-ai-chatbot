@@ -9,6 +9,7 @@ import {
   Archive, Trash2,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { StatusPill, statusColor } from '@/components/ui/StatusPill';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,13 +49,6 @@ interface DetailData {
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-
-const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  pending:  { bg: 'rgba(245,158,11,0.12)',  text: '#f59e0b' },
-  approved: { bg: 'rgba(34,197,94,0.12)',   text: '#22c55e' },
-  rejected: { bg: 'rgba(239,68,68,0.12)',   text: '#ef4444' },
-  archived: { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' },
-};
 
 const PAYMENT_TERMS = [
   { value: 'DUE_ON_FULFILLMENT', label: 'Due on fulfillment' },
@@ -242,7 +236,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
   }
 
   const { application, activityLog } = data;
-  const statusStyle = STATUS_STYLES[application.status] ?? STATUS_STYLES.pending;
+  const sColor = statusColor('trade', application.status);
   const isPending   = application.status === 'pending';
   const canManage   = application.status !== 'approved';
   const displayName = application.full_name || `${application.first_name || ''} ${application.last_name || ''}`.trim();
@@ -299,12 +293,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                   {application.company_name}
                 </p>
               </div>
-              <span
-                className="text-xs font-semibold px-3 py-1 rounded-full capitalize"
-                style={{ backgroundColor: statusStyle.bg, color: statusStyle.text }}
-              >
-                {application.status}
-              </span>
+              <StatusPill kind="trade" value={application.status} />
             </div>
 
             {/* Fields */}
@@ -510,16 +499,16 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                 <div
                   className="flex items-center gap-2 px-4 py-3 rounded-lg"
                   style={{
-                    backgroundColor: statusStyle.bg,
-                    border: `1px solid color-mix(in srgb, ${statusStyle.text} 25%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${sColor} 12%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${sColor} 25%, transparent)`,
                   }}
                 >
                   {application.status === 'approved' ? (
-                    <CheckCircle size={15} style={{ color: statusStyle.text, flexShrink: 0 }} />
+                    <CheckCircle size={15} style={{ color: sColor, flexShrink: 0 }} />
                   ) : (
-                    <XCircle size={15} style={{ color: statusStyle.text, flexShrink: 0 }} />
+                    <XCircle size={15} style={{ color: sColor, flexShrink: 0 }} />
                   )}
-                  <p className="text-sm font-medium capitalize" style={{ color: statusStyle.text }}>
+                  <p className="text-sm font-medium capitalize" style={{ color: sColor }}>
                     Application {application.status}
                   </p>
                 </div>
