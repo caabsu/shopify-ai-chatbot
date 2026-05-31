@@ -34,3 +34,20 @@ See `.env.example` for the full list.
 - Backend deploys to Railway
 - Widget JS/CSS served as static assets from the backend
 - Add `<script src="https://YOUR-RAILWAY-DOMAIN/widget/widget.js" defer></script>` to Shopify theme
+
+## Monitoring
+
+Support tickets reach the system via three channels — **Google** (Gmail Apps Script →
+`/api/webhooks/email`, see [scripts/support-email-webhook.gs](scripts/support-email-webhook.gs)),
+the **contact form** (`/api/tickets/form`), and **AI escalation** (`/api/tickets/escalate`).
+A silent stall in any of them is easy to miss (Outlight's email inflow once died ~3 weeks
+unnoticed), so run the inflow health check:
+
+```bash
+npm run health:inflow            # per-brand last-ticket age, source mix, inbox config
+STALE_HOURS=24 npm run health:inflow
+```
+
+It exits non-zero if any enabled brand has had no ticket within `STALE_HOURS` (default 48),
+so it can drive an alert. Schedule it (cron / GitHub Action / Railway cron) to catch stalls
+early. Reads Supabase creds from `apps/backend/.env`.
