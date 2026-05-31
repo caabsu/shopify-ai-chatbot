@@ -3,14 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
-import { formatDate, cn } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import type { Conversation } from '@/lib/types';
-
-const statusColors: Record<string, { bg: string; text: string }> = {
-  active: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e' },
-  closed: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' },
-  escalated: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444' },
-};
+import { StatusPill } from '@/components/ui/StatusPill';
 
 export default function ChatbotConversationsPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -107,7 +102,6 @@ export default function ChatbotConversationsPage() {
                 </td>
               </tr>
             ) : conversations.map((c) => {
-              const sc = statusColors[c.status] || statusColors.closed;
               return (
                 <tr
                   key={c.id}
@@ -122,12 +116,7 @@ export default function ChatbotConversationsPage() {
                     </Link>
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className="px-2 py-0.5 rounded-full text-xs font-medium"
-                      style={{ backgroundColor: sc.bg, color: sc.text }}
-                    >
-                      {c.status}
-                    </span>
+                    <StatusPill kind="conversation" value={c.status} />
                   </td>
                   <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{c.message_count}</td>
                   <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{formatDate(c.created_at)}</td>
