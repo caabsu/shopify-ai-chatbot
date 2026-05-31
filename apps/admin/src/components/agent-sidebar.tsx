@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Inbox, Headphones } from 'lucide-react';
+import { Inbox, Headphones, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -28,6 +28,7 @@ export function AgentSidebar({ userName }: { userName?: string }) {
 
   const navItems: NavItem[] = [
     { href: '/agent/tickets', label: 'Ticket Inbox', icon: Inbox, badge: openTicketCount || undefined },
+    { href: '/agent/returns', label: 'Returns', icon: Package },
   ];
 
   return (
