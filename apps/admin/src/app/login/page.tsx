@@ -41,7 +41,7 @@ export default function LoginPortalPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md mx-4">
         <div className="text-center mb-8">
-          <h1 className="text-lg font-semibold text-gray-900">Support Hub</h1>
+          <h1 className="text-lg font-semibold text-gray-900">supportOS</h1>
           <p className="text-sm text-gray-500 mt-1">Select your brand portal</p>
         </div>
 

@@ -51,7 +51,7 @@ export function AgentSidebar({ userName }: { userName?: string }) {
         </div>
         <div>
           <h1 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Support Hub
+            supportOS
           </h1>
           <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
             Agent Workspace

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import type { UserRole } from '@/lib/auth';
 
 interface BrandSession {
@@ -26,6 +26,15 @@ export function BrandProvider({
   children: React.ReactNode;
   value: BrandSession;
 }) {
+  // Drive per-brand accent theming: globals.css defines [data-brand="..."] overrides
+  // so the whole OS re-skins to the active brand's accent.
+  useEffect(() => {
+    if (value.brandSlug) {
+      document.documentElement.dataset.brand = value.brandSlug;
+    }
+    return () => { delete document.documentElement.dataset.brand; };
+  }, [value.brandSlug]);
+
   return <BrandContext.Provider value={value}>{children}</BrandContext.Provider>;
 }
 

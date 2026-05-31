@@ -1,11 +1,21 @@
-# Shopify AI Customer Support Chatbot
+# supportOS
 
-AI-powered customer support chatbot for Shopify stores. Uses Claude AI with tool-use to handle product searches, order tracking, returns, policy questions, and more.
+**supportOS** is a multi-brand customer-experience platform for Shopify brands — AI chat,
+ticketing/helpdesk, returns & RMA automation, product reviews, order tracking, and a trade
+program — operated from one dashboard with per-brand theming and data separation.
+
+> Formerly "Shopify AI Customer Support Chatbot." Renaming infra/repo to `supportos` is a
+> staged migration — see [docs/RENAME-RUNBOOK.md](docs/RENAME-RUNBOOK.md).
 
 ## Architecture
 
-- **Backend** — Node.js + Express + TypeScript. Orchestrates Claude AI conversations, integrates with Shopify Admin API and Storefront MCP, stores data in Supabase. Deployed on Railway.
-- **Widget** — Lightweight vanilla JS/CSS chat widget embedded on the Shopify storefront via script tag.
+- **Backend** — Node.js + Express + TypeScript. Orchestrates Claude AI conversations,
+  integrates with Shopify Admin API and Storefront MCP, stores data in Supabase. Multi-brand
+  (Outlight, Warm by Design, Misu) with brand-scoped queries. Deployed on Railway.
+- **Admin (supportOS console)** — Next.js 15 / React 19, unified design-system tokens with
+  per-brand accent theming. Deployed on Vercel.
+- **Widgets** — Vanilla JS/CSS bundles (chatbot, returns portal, contact form, reviews,
+  tracking) embedded on each storefront.
 
 ## Setup
 

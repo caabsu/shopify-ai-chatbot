@@ -35,8 +35,8 @@ export async function GET(
 
   try {
     const [profile, orders] = await Promise.all([
-      getCustomerByEmail(ticket.customer_email).catch(() => null),
-      getCustomerOrders(ticket.customer_email, 5).catch(() => []),
+      getCustomerByEmail(ticket.customer_email, session.brandSlug).catch(() => null),
+      getCustomerOrders(ticket.customer_email, 5, session.brandSlug).catch(() => []),
     ]);
 
     // Auto-update ticket customer_name from Shopify if it's missing or generic

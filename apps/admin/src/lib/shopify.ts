@@ -1,37 +1,117 @@
 // Shopify Admin API helper for the admin app
 // Uses client credentials grant — token cached in memory
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
+import { supabase } from './supabase';
+
+let cachedToken: { token: string; expiresAt: number; shop: string } | null = null;
 
 // Strip trailing literal \n and whitespace (Vercel env vars can have these)
 function cleanEnv(val: string): string {
   return val.replace(/\\n/g, '').replace(/\n/g, '').trim();
 }
 
-function getShopifyConfig() {
+interface ShopifyConfig {
+  shop: string;
+  clientId: string;
+  clientSecret: string;
+  apiVersion: string;
+  trackingPageUrl: string;
+}
+
+function normalizeShopifyShop(shop: string): string {
+  return cleanEnv(shop)
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/.*$/, '')
+    .replace(/\.myshopify\.com$/i, '')
+    .toLowerCase();
+}
+
+function normalizeDomain(value: string): string {
+  return cleanEnv(value)
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/.*$/, '')
+    .toLowerCase();
+}
+
+function stringSetting(settings: Record<string, unknown>, key: string): string | undefined {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+async function getShopifyConfig(brandSlug?: string): Promise<ShopifyConfig> {
   const shop = cleanEnv(process.env.SHOPIFY_SHOP || 'put1rp-iq');
   const clientId = process.env.SHOPIFY_CLIENT_ID ? cleanEnv(process.env.SHOPIFY_CLIENT_ID) : undefined;
   const clientSecret = process.env.SHOPIFY_CLIENT_SECRET ? cleanEnv(process.env.SHOPIFY_CLIENT_SECRET) : undefined;
   const apiVersion = cleanEnv(process.env.SHOPIFY_API_VERSION || '2025-01');
+
+  if (brandSlug && brandSlug !== 'outlight') {
+    const { data: brand, error } = await supabase
+      .from('brands')
+      .select('shopify_shop, settings')
+      .eq('slug', brandSlug)
+      .eq('enabled', true)
+      .single();
+
+    if (error || !brand) {
+      throw new Error(`Shopify brand configuration not found for ${brandSlug}`);
+    }
+
+    const settings = (brand.settings ?? {}) as Record<string, unknown>;
+    const brandShop = typeof brand.shopify_shop === 'string' ? brand.shopify_shop : '';
+    const brandClientId = stringSetting(settings, 'shopify_client_id') || stringSetting(settings, 'shopifyClientId');
+    const brandClientSecret = stringSetting(settings, 'shopify_client_secret') || stringSetting(settings, 'shopifyClientSecret');
+
+    if (!brandShop || !brandClientId || !brandClientSecret) {
+      throw new Error(`Shopify credentials are not configured for ${brandSlug}`);
+    }
+
+    const normalizedShop = normalizeShopifyShop(brandShop);
+    const explicitTrackingUrl =
+      stringSetting(settings, 'tracking_page_url') ||
+      stringSetting(settings, 'trackingPageUrl') ||
+      stringSetting(settings, 'tracking_url') ||
+      stringSetting(settings, 'trackingUrl');
+    const storefrontDomain =
+      stringSetting(settings, 'domain') ||
+      stringSetting(settings, 'storefront_domain') ||
+      stringSetting(settings, 'storefrontDomain');
+    const trackingDomain = storefrontDomain ? normalizeDomain(storefrontDomain) : `${normalizedShop}.myshopify.com`;
+
+    return {
+      shop: normalizedShop,
+      clientId: brandClientId,
+      clientSecret: brandClientSecret,
+      apiVersion,
+      trackingPageUrl: explicitTrackingUrl || `https://${trackingDomain}/pages/tracking-page`,
+    };
+  }
+
   if (!clientId || !clientSecret) {
     throw new Error('Missing SHOPIFY_CLIENT_ID or SHOPIFY_CLIENT_SECRET');
   }
-  return { shop, clientId, clientSecret, apiVersion };
+  const normalizedShop = normalizeShopifyShop(shop);
+  return {
+    shop: normalizedShop,
+    clientId,
+    clientSecret,
+    apiVersion,
+    trackingPageUrl: `https://${normalizedShop}.myshopify.com/pages/tracking-page`,
+  };
 }
 
-async function getAccessToken(): Promise<string> {
-  if (cachedToken && Date.now() < cachedToken.expiresAt - 60_000) {
-    return cachedToken.token;
+async function getAccessToken(brandSlug?: string): Promise<{ token: string; config: ShopifyConfig }> {
+  const config = await getShopifyConfig(brandSlug);
+  if (cachedToken && cachedToken.shop === config.shop && Date.now() < cachedToken.expiresAt - 60_000) {
+    return { token: cachedToken.token, config };
   }
 
-  const { shop, clientId, clientSecret } = getShopifyConfig();
-  const res = await fetch(`https://${shop}.myshopify.com/admin/oauth/access_token`, {
+  const res = await fetch(`https://${config.shop}.myshopify.com/admin/oauth/access_token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
     }),
   });
 
@@ -44,16 +124,16 @@ async function getAccessToken(): Promise<string> {
   cachedToken = {
     token: data.access_token,
     expiresAt: Date.now() + (data.expires_in ?? 86399) * 1000,
+    shop: config.shop,
   };
-  return cachedToken.token;
+  return { token: cachedToken.token, config };
 }
 
-export async function shopifyGraphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
-  const { shop, apiVersion } = getShopifyConfig();
-  const token = await getAccessToken();
+export async function shopifyGraphql<T>(query: string, variables?: Record<string, unknown>, brandSlug?: string): Promise<T> {
+  const { token, config } = await getAccessToken(brandSlug);
 
   const res = await fetch(
-    `https://${shop}.myshopify.com/admin/api/${apiVersion}/graphql.json`,
+    `https://${config.shop}.myshopify.com/admin/api/${config.apiVersion}/graphql.json`,
     {
       method: 'POST',
       headers: {
@@ -92,7 +172,7 @@ export interface CustomerProfile {
   state: string;
 }
 
-export async function getCustomerByEmail(email: string): Promise<CustomerProfile | null> {
+export async function getCustomerByEmail(email: string, brandSlug?: string): Promise<CustomerProfile | null> {
   // Shopify 2025-01 API: ordersCount → numberOfOrders, totalSpentV2 → amountSpent
   const data = await shopifyGraphql<{
     customers: {
@@ -122,7 +202,8 @@ export async function getCustomerByEmail(email: string): Promise<CustomerProfile
         }}
       }
     }`,
-    { q: `email:${email}` }
+    { q: `email:${email}` },
+    brandSlug
   );
 
   const node = data.customers.edges[0]?.node;
@@ -162,7 +243,8 @@ export interface OrderSummary {
   closedAt: string | null;
 }
 
-export async function getCustomerOrders(email: string, limit = 5): Promise<OrderSummary[]> {
+export async function getCustomerOrders(email: string, limit = 5, brandSlug?: string): Promise<OrderSummary[]> {
+  const config = await getShopifyConfig(brandSlug);
   const data = await shopifyGraphql<{
     orders: {
       edges: Array<{
@@ -200,15 +282,15 @@ export async function getCustomerOrders(email: string, limit = 5): Promise<Order
         }}
       }
     }`,
-    { q: `email:${email}`, first: limit }
+    { q: `email:${email}`, first: limit },
+    brandSlug
   );
 
   return data.orders.edges.map(({ node: o }) => {
     const tracking: OrderSummary['tracking'] = [];
     for (const f of o.fulfillments) {
       for (const t of f.trackingInfo) {
-        // Always use the correct Outlight tracking page instead of Shopify's 17track proxy URLs
-        tracking.push({ number: t.number, url: 'https://outlight.us/pages/tracking-page', company: t.company });
+        tracking.push({ number: t.number, url: config.trackingPageUrl, company: t.company });
       }
     }
     return {
@@ -226,7 +308,7 @@ export async function getCustomerOrders(email: string, limit = 5): Promise<Order
       fulfillments: o.fulfillments.map((f) => ({
         status: f.status,
         createdAt: f.createdAt,
-        trackingInfo: f.trackingInfo.map((t) => ({ number: t.number, url: 'https://outlight.us/pages/tracking-page', company: t.company })),
+        trackingInfo: f.trackingInfo.map((t) => ({ number: t.number, url: config.trackingPageUrl, company: t.company })),
       })),
       createdAt: o.createdAt,
       cancelledAt: o.cancelledAt,
@@ -291,7 +373,8 @@ export interface OrderDetail {
   }>;
 }
 
-export async function getOrderDetails(orderId: string): Promise<OrderDetail> {
+export async function getOrderDetails(orderId: string, brandSlug?: string): Promise<OrderDetail> {
+  const config = await getShopifyConfig(brandSlug);
   const data = await shopifyGraphql<{
     order: {
       id: string;
@@ -380,7 +463,8 @@ export async function getOrderDetails(orderId: string): Promise<OrderDetail> {
         fulfillments { status createdAt trackingInfo { number url company } }
       }
     }`,
-    { id: orderId }
+    { id: orderId },
+    brandSlug
   );
 
   const o = data.order;
@@ -437,7 +521,7 @@ export async function getOrderDetails(orderId: string): Promise<OrderDetail> {
     fulfillments: o.fulfillments.map((f) => ({
       status: f.status,
       createdAt: f.createdAt,
-      trackingInfo: f.trackingInfo.map((t) => ({ number: t.number, url: 'https://outlight.us/pages/tracking-page', company: t.company })),
+      trackingInfo: f.trackingInfo.map((t) => ({ number: t.number, url: config.trackingPageUrl, company: t.company })),
     })),
   };
 }
@@ -447,7 +531,8 @@ export async function cancelOrder(
   orderId: string,
   reason: string = 'CUSTOMER',
   refund: boolean = true,
-  restock: boolean = true
+  restock: boolean = true,
+  brandSlug?: string
 ): Promise<{ success: boolean; message: string }> {
   const data = await shopifyGraphql<{
     orderCancel: {
@@ -459,7 +544,8 @@ export async function cancelOrder(
         orderCancelUserErrors { field message }
       }
     }`,
-    { orderId, reason, refund, restock }
+    { orderId, reason, refund, restock },
+    brandSlug
   );
 
   const errors = data.orderCancel.orderCancelUserErrors;
@@ -474,7 +560,8 @@ export async function refundOrder(
   orderId: string,
   amount: number,
   reason: string = 'Customer requested refund',
-  notify: boolean = true
+  notify: boolean = true,
+  brandSlug?: string
 ): Promise<{ success: boolean; message: string; refundId?: string }> {
   const data = await shopifyGraphql<{
     refundCreate: {
@@ -503,7 +590,8 @@ export async function refundOrder(
           orderId,
         }],
       },
-    }
+    },
+    brandSlug
   );
 
   const errors = data.refundCreate.userErrors;

@@ -238,6 +238,7 @@ export function Navigation() {
 
   const activeModule = getActiveModule(pathname);
   const moduleColor = activeModule?.color ?? '#6366f1';
+  const brandInitial = (brand.brandName || brand.brandSlug || 'B').slice(0, 1).toUpperCase();
   const allSubItems = [...(activeModule?.items ?? []), ...(activeModule?.configItems ?? [])];
   const hasSubNav = activeModule && activeModule.id !== 'overview' && !pathname.startsWith('/settings');
 
@@ -289,15 +290,15 @@ export function Navigation() {
           <Link href="/overview" className="flex items-center gap-2.5 mr-5 flex-shrink-0">
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white"
-              style={{ backgroundColor: '#6366f1' }}
+              style={{ backgroundColor: moduleColor }}
             >
-              O
+              {brandInitial}
             </div>
             <span
               className="text-sm font-semibold hidden sm:block"
               style={{ color: 'var(--text-primary)' }}
             >
-              Outlight
+              {brand.brandName || 'Support'}
             </span>
           </Link>
 

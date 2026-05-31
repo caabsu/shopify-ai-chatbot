@@ -21,13 +21,13 @@ function emailWrapper(content: string): string {
     <tr><td align="center" style="padding:40px 16px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;">
         <tr><td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid #f0ece6;">
-          <span style="font-size:22px;font-weight:700;letter-spacing:2px;color:#131314;">OUTLIGHT</span>
+          <span style="font-size:22px;font-weight:700;letter-spacing:2px;color:#131314;">{{brand_name}}</span>
         </td></tr>
         <tr><td style="padding:32px 40px;color:#131314;font-size:15px;line-height:1.7;">
           ${content}
         </td></tr>
         <tr><td style="padding:24px 40px 32px;background-color:#f4f0eb;text-align:center;">
-          <p style="margin:0 0 4px;font-size:13px;color:#131314;font-weight:600;">Outlight Team</p>
+          <p style="margin:0 0 4px;font-size:13px;color:#131314;font-weight:600;">{{brand_name}} Team</p>
           <p style="margin:0;font-size:12px;color:#888;">Questions? Reply to this email or contact support.</p>
         </td></tr>
       </table>
@@ -54,7 +54,7 @@ export const DEFAULT_RETURN_EMAIL_TEMPLATES: Record<
           <p style="margin:0 0 8px;font-size:13px;color:#888;"><strong>What happens next?</strong></p>
           <p style="margin:0;font-size:13px;color:#888;">You'll receive an email once your return has been reviewed with instructions on next steps.</p>
     `),
-    body_text: `{{greeting}}\n\nWe've received your return request #{{ref_id}} for order {{order_number}}.\n\nItems: {{items}}\n\nOur team is reviewing your request. We'll get back to you shortly with an update.\n\nWhat happens next?\nYou'll receive an email once your return has been reviewed with instructions on next steps.\n\n---\nOutlight Team`,
+    body_text: `{{greeting}}\n\nWe've received your return request #{{ref_id}} for order {{order_number}}.\n\nItems: {{items}}\n\nOur team is reviewing your request. We'll get back to you shortly with an update.\n\nWhat happens next?\nYou'll receive an email once your return has been reviewed with instructions on next steps.\n\n---\n{{brand_name}} Team`,
   },
 
   approved: {
@@ -75,7 +75,7 @@ export const DEFAULT_RETURN_EMAIL_TEMPLATES: Record<
           </table>
           <p style="margin:0;font-size:13px;color:#888;">Your refund will be processed within 5-7 business days of receiving your return.</p>
     `),
-    body_text: `{{greeting}}\n\nGreat news! Your return for order #{{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\n{{label_section}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Write your order number #{{order_number}} on a piece of paper and include it inside the package.\n3. Attach the prepaid label and drop off at any carrier location.\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\nOutlight Team`,
+    body_text: `{{greeting}}\n\nGreat news! Your return for order #{{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\n{{label_section}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Write your order number #{{order_number}} on a piece of paper and include it inside the package.\n3. Attach the prepaid label and drop off at any carrier location.\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\n{{brand_name}} Team`,
   },
 
   approved_no_label: {
@@ -99,7 +99,7 @@ export const DEFAULT_RETURN_EMAIL_TEMPLATES: Record<
           </table>
           <p style="margin:0;font-size:13px;color:#888;">Your refund will be processed within 5-7 business days of receiving your return.</p>
     `),
-    body_text: `{{greeting}}\n\nGreat news! Your return for order #{{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\nShip your return to:\n{{warehouse_address}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Write your order number #{{order_number}} on a piece of paper and include it inside the package.\n3. Ship the package to the address above using any carrier of your choice.\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\nOutlight Team`,
+    body_text: `{{greeting}}\n\nGreat news! Your return for order #{{order_number}} has been approved.\n\nItems approved for return: {{items}}\n\nShip your return to:\n{{warehouse_address}}\n\nNext steps:\n1. Pack item(s) securely in their original packaging if possible.\n2. Write your order number #{{order_number}} on a piece of paper and include it inside the package.\n3. Ship the package to the address above using any carrier of your choice.\n\nYour refund will be processed within 5-7 business days of receiving your return.\n\n---\n{{brand_name}} Team`,
   },
 
   approved_no_return: {
@@ -119,7 +119,7 @@ export const DEFAULT_RETURN_EMAIL_TEMPLATES: Record<
           </div>
           <p style="margin:0;font-size:13px;color:#888;">Your refund will appear in your original payment method within 5-10 business days, depending on your bank or payment provider.</p>
     `),
-    body_text: `{{greeting}}\n\nWe've reviewed your return request #{{ref_id}} for order {{order_number}} and are processing your refund.\n\nItems being refunded: {{items}}\nRefund amount: {{refund_amount}}\n\nNo need to return the items.\nBased on the nature of your request, we're processing a refund without requiring a return.\n\nYour refund will appear in your original payment method within 5-10 business days, depending on your bank or payment provider.\n\n---\nOutlight Team`,
+    body_text: `{{greeting}}\n\nWe've reviewed your return request #{{ref_id}} for order {{order_number}} and are processing your refund.\n\nItems being refunded: {{items}}\nRefund amount: {{refund_amount}}\n\nNo need to return the items.\nBased on the nature of your request, we're processing a refund without requiring a return.\n\nYour refund will appear in your original payment method within 5-10 business days, depending on your bank or payment provider.\n\n---\n{{brand_name}} Team`,
   },
 
   denied: {
@@ -138,7 +138,7 @@ export const DEFAULT_RETURN_EMAIL_TEMPLATES: Record<
           <p style="margin:0 0 8px;">We understand this may not be the outcome you were hoping for.</p>
           <p style="margin:0;font-size:13px;color:#888;">If you have questions or believe this was made in error, please reply to this email and we'll be happy to take another look.</p>
     `),
-    body_text: `{{greeting}}\n\nThank you for reaching out about your return request #{{ref_id}} for order {{order_number}}.\n\nItems: {{items}}\n\nAfter reviewing your request, we're unable to process this return at this time.\n\n{{denial_reason}}\n\nWe understand this may not be the outcome you were hoping for. If you have questions or believe this was made in error, please reply to this email and we'll be happy to take another look.\n\n---\nOutlight Team`,
+    body_text: `{{greeting}}\n\nThank you for reaching out about your return request #{{ref_id}} for order {{order_number}}.\n\nItems: {{items}}\n\nAfter reviewing your request, we're unable to process this return at this time.\n\n{{denial_reason}}\n\nWe understand this may not be the outcome you were hoping for. If you have questions or believe this was made in error, please reply to this email and we'll be happy to take another look.\n\n---\n{{brand_name}} Team`,
   },
 
   refunded: {
@@ -158,6 +158,6 @@ export const DEFAULT_RETURN_EMAIL_TEMPLATES: Record<
           <p style="margin:0 0 8px;font-size:13px;color:#888;">Please allow 5-10 business days for the refund to appear on your statement, depending on your bank or payment provider.</p>
           <p style="margin:0;font-size:14px;color:#131314;">Thank you for your patience!</p>
     `),
-    body_text: `{{greeting}}\n\nYour refund for return request #{{ref_id}} (order {{order_number}}) has been processed.\n\nItems refunded: {{items}}\nRefund amount: {{refund_amount}}\n\nRefund issued to your original payment method.\nPlease allow 5-10 business days for the refund to appear on your statement, depending on your bank or payment provider.\n\nThank you for your patience!\n\n---\nOutlight Team`,
+    body_text: `{{greeting}}\n\nYour refund for return request #{{ref_id}} (order {{order_number}}) has been processed.\n\nItems refunded: {{items}}\nRefund amount: {{refund_amount}}\n\nRefund issued to your original payment method.\nPlease allow 5-10 business days for the refund to appear on your statement, depending on your bank or payment provider.\n\nThank you for your patience!\n\n---\n{{brand_name}} Team`,
   },
 };

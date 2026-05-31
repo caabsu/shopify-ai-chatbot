@@ -135,7 +135,7 @@ export default function BrandLoginPage() {
               {brand.name}
             </h1>
             <p className="text-xs uppercase tracking-widest" style={{ color: `${accentColor}99` }}>
-              Support Hub
+              supportOS
             </p>
           </div>
 

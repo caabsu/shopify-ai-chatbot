@@ -3,8 +3,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Support Hub — Admin Dashboard',
-  description: 'AI-powered customer support management',
+  title: 'supportOS — Multi-brand support platform',
+  description: 'supportOS — AI-powered, multi-brand customer support, returns, reviews & tracking',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

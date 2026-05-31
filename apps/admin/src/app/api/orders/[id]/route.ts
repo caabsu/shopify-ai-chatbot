@@ -13,7 +13,7 @@ export async function GET(
   const orderId = `gid://shopify/Order/${id}`;
 
   try {
-    const order = await getOrderDetails(orderId);
+    const order = await getOrderDetails(orderId, session.brandSlug);
     return NextResponse.json({ order });
   } catch (err) {
     console.error(`[orders/${id}] getOrderDetails failed:`, err instanceof Error ? err.message : err);
@@ -42,7 +42,8 @@ export async function POST(
         orderId,
         body.reason || 'CUSTOMER',
         body.refund !== false,
-        body.restock !== false
+        body.restock !== false,
+        session.brandSlug
       );
       return NextResponse.json(result);
     } catch (err) {
@@ -64,7 +65,8 @@ export async function POST(
         orderId,
         amount,
         body.reason || 'Customer requested refund',
-        body.notify !== false
+        body.notify !== false,
+        session.brandSlug
       );
       return NextResponse.json(result);
     } catch (err) {

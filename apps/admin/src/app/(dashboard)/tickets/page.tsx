@@ -3,49 +3,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Search, Inbox, Mail, FormInput, Sparkles, AlertCircle, Clock, ChevronLeft, ChevronRight, CheckSquare, Square, XCircle, Zap, Trash2, Archive } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import type { Ticket } from '@/lib/types';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { Button } from '@/components/ui/Button';
 
-const TAG_COLORS = [
-  { bg: 'rgba(59,130,246,0.1)', text: '#3b82f6' },
-  { bg: 'rgba(34,197,94,0.1)', text: '#22c55e' },
-  { bg: 'rgba(168,85,247,0.1)', text: '#a855f7' },
-  { bg: 'rgba(249,115,22,0.1)', text: '#f97316' },
-  { bg: 'rgba(236,72,153,0.1)', text: '#ec4899' },
-  { bg: 'rgba(20,184,166,0.1)', text: '#14b8a6' },
-];
-
-function getTagColor(index: number) {
-  return TAG_COLORS[index % TAG_COLORS.length];
-}
-
-const PRIORITY_STYLES: Record<string, { bg: string; text: string }> = {
-  urgent: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444' },
-  high: { bg: 'rgba(249,115,22,0.12)', text: '#f97316' },
-  medium: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
-  low: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' },
+// Source icon + human label. Colors live in the design tokens (see StatusPill).
+const SOURCE_META: Record<string, { icon: typeof Mail; label: string }> = {
+  email: { icon: Mail, label: 'Email' },
+  form: { icon: FormInput, label: 'Form' },
+  ai_escalation: { icon: Sparkles, label: 'AI Escalation' },
 };
 
-const SOURCE_STYLES: Record<string, { bg: string; text: string; icon: typeof Mail; label: string }> = {
-  email: { bg: 'rgba(99,102,241,0.1)', text: '#6366f1', icon: Mail, label: 'Email' },
-  form: { bg: 'rgba(16,185,129,0.1)', text: '#10b981', icon: FormInput, label: 'Form' },
-  ai_escalation: { bg: 'rgba(168,85,247,0.1)', text: '#a855f7', icon: Sparkles, label: 'AI Escalation' },
+const CLASSIFICATION_LABELS: Record<string, string> = {
+  customer_support: 'Support',
+  promotional: 'Promo',
+  transactional: 'Transactional',
+  automated: 'Automated',
+  spam: 'Spam',
+  internal: 'Internal',
 };
 
-const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  open: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6' },
-  pending: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b' },
-  resolved: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e' },
-  closed: { bg: 'rgba(156,163,175,0.12)', text: '#9ca3af' },
-};
-
-const CLASSIFICATION_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  customer_support: { bg: 'rgba(34,197,94,0.1)', text: '#22c55e', label: 'Support' },
-  promotional: { bg: 'rgba(249,115,22,0.1)', text: '#f97316', label: 'Promo' },
-  transactional: { bg: 'rgba(59,130,246,0.1)', text: '#3b82f6', label: 'Transactional' },
-  automated: { bg: 'rgba(156,163,175,0.1)', text: '#9ca3af', label: 'Automated' },
-  spam: { bg: 'rgba(239,68,68,0.1)', text: '#ef4444', label: 'Spam' },
-  internal: { bg: 'rgba(168,85,247,0.1)', text: '#a855f7', label: 'Internal' },
+// Priority dot color → design token (used by the priority filter list).
+const PRIORITY_DOT: Record<string, string> = {
+  urgent: 'var(--color-priority-urgent)',
+  high: 'var(--color-priority-high)',
+  medium: 'var(--color-priority-medium)',
+  low: 'var(--color-priority-low)',
 };
 
 interface FilterCounts {
@@ -77,19 +60,19 @@ function timeAgo(dateStr: string): string {
 
 function slaDisplay(ticket: Ticket): { text: string; color: string } | null {
   if (!ticket.sla_deadline) return null;
-  if (ticket.sla_breached) return { text: 'BREACHED', color: '#ef4444' };
+  if (ticket.sla_breached) return { text: 'BREACHED', color: 'var(--color-danger)' };
   if (ticket.status === 'resolved' || ticket.status === 'closed') return null;
 
   const diff = new Date(ticket.sla_deadline).getTime() - Date.now();
-  if (diff <= 0) return { text: 'BREACHED', color: '#ef4444' };
+  if (diff <= 0) return { text: 'BREACHED', color: 'var(--color-danger)' };
 
   const minutes = Math.floor(diff / 60000);
   if (minutes < 60) {
-    return { text: `${minutes}m left`, color: minutes < 30 ? '#f97316' : '#22c55e' };
+    return { text: `${minutes}m left`, color: minutes < 30 ? 'var(--color-warning)' : 'var(--color-success)' };
   }
   const hours = Math.floor(minutes / 60);
   const remainingMins = minutes % 60;
-  return { text: `${hours}h ${remainingMins}m left`, color: hours < 2 ? '#f97316' : '#22c55e' };
+  return { text: `${hours}h ${remainingMins}m left`, color: hours < 2 ? 'var(--color-warning)' : 'var(--color-success)' };
 }
 
 export default function TicketInboxPage() {
@@ -370,10 +353,16 @@ export default function TicketInboxPage() {
 
   const allSelected = tickets.length > 0 && selectedIds.size === tickets.length;
 
+  const filterRowStyle = (active: boolean): React.CSSProperties => ({
+    backgroundColor: active ? 'color-mix(in srgb, var(--color-accent) 10%, transparent)' : 'transparent',
+    color: active ? 'var(--color-accent)' : 'var(--text-secondary)',
+    fontWeight: active ? 500 : 400,
+  });
+
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Inbox size={20} style={{ color: 'var(--text-primary)' }} />
           <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -383,52 +372,23 @@ export default function TicketInboxPage() {
             {total} {total === 1 ? 'ticket' : 'tickets'}
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Close All */}
-          <button
-            onClick={closeAllVisible}
-            disabled={bulkLoading || total === 0}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
-            style={{
-              backgroundColor: 'rgba(156,163,175,0.1)',
-              color: '#9ca3af',
-              border: '1px solid rgba(156,163,175,0.2)',
-            }}
-            title="Close all tickets matching current filter"
-          >
-            <Archive size={14} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="secondary" size="sm" onClick={closeAllVisible} disabled={bulkLoading || total === 0} leadingIcon={<Archive size={14} />} title="Close all tickets matching current filter">
             Close All
-          </button>
-          {/* Delete All Email Tickets (one-time cleanup) */}
-          <button
-            onClick={deleteAllEmailTickets}
-            disabled={deleteLoading}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
-            style={{
-              backgroundColor: 'rgba(239,68,68,0.1)',
-              color: '#ef4444',
-              border: '1px solid rgba(239,68,68,0.2)',
-            }}
-            title="PERMANENTLY delete all email tickets (one-time cleanup)"
-          >
-            <Trash2 size={14} />
+          </Button>
+          <Button variant="danger" size="sm" onClick={deleteAllEmailTickets} disabled={deleteLoading} leadingIcon={<Trash2 size={14} />} title="PERMANENTLY delete all email tickets (one-time cleanup)">
             {deleteLoading ? 'Deleting...' : 'Delete All Emails'}
-          </button>
-          {/* AI Auto-Close Button */}
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={aiAutoClose}
             disabled={aiAutoCloseLoading}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
-            style={{
-              backgroundColor: 'rgba(168,85,247,0.1)',
-              color: '#a855f7',
-              border: '1px solid rgba(168,85,247,0.2)',
-            }}
+            leadingIcon={<Zap size={14} style={{ color: 'var(--color-source-ai)' }} />}
             title="Use AI to classify and auto-close non-support emails"
           >
-            <Zap size={14} />
             {aiAutoCloseLoading ? 'Processing...' : 'AI Clean Up'}
-          </button>
+          </Button>
           {/* Search */}
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
@@ -469,9 +429,9 @@ export default function TicketInboxPage() {
         <div
           className="px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2"
           style={{
-            backgroundColor: actionMessage.type === 'success' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-            color: actionMessage.type === 'success' ? '#22c55e' : '#ef4444',
-            border: `1px solid ${actionMessage.type === 'success' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
+            backgroundColor: `color-mix(in srgb, ${actionMessage.type === 'success' ? 'var(--color-success)' : 'var(--color-danger)'} 12%, transparent)`,
+            color: actionMessage.type === 'success' ? 'var(--color-success)' : 'var(--color-danger)',
+            border: `1px solid color-mix(in srgb, ${actionMessage.type === 'success' ? 'var(--color-success)' : 'var(--color-danger)'} 24%, transparent)`,
           }}
         >
           {actionMessage.type === 'success' ? <CheckSquare size={14} /> : <AlertCircle size={14} />}
@@ -492,39 +452,15 @@ export default function TicketInboxPage() {
             {selectedIds.size} selected
           </span>
           <div className="flex items-center gap-2 ml-auto">
-            <button
-              onClick={bulkResolve}
-              disabled={bulkLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-              style={{
-                backgroundColor: 'rgba(34,197,94,0.1)',
-                color: '#22c55e',
-                border: '1px solid rgba(34,197,94,0.2)',
-              }}
-            >
-              <CheckSquare size={12} />
+            <Button variant="secondary" size="sm" onClick={bulkResolve} disabled={bulkLoading} leadingIcon={<CheckSquare size={12} style={{ color: 'var(--color-success)' }} />}>
               Resolve
-            </button>
-            <button
-              onClick={bulkClose}
-              disabled={bulkLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-              style={{
-                backgroundColor: 'rgba(156,163,175,0.1)',
-                color: '#9ca3af',
-                border: '1px solid rgba(156,163,175,0.2)',
-              }}
-            >
-              <XCircle size={12} />
+            </Button>
+            <Button variant="secondary" size="sm" onClick={bulkClose} disabled={bulkLoading} leadingIcon={<XCircle size={12} />}>
               Close
-            </button>
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="text-xs px-2 py-1.5 rounded-lg"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
               Clear
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -548,17 +484,10 @@ export default function TicketInboxPage() {
                     key={f.key}
                     onClick={() => handleViewFilter(f.key)}
                     className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[13px] transition-colors"
-                    style={{
-                      backgroundColor: active ? 'color-mix(in srgb, var(--color-accent) 10%, transparent)' : 'transparent',
-                      color: active ? 'var(--color-accent)' : 'var(--text-secondary)',
-                      fontWeight: active ? 500 : 400,
-                    }}
+                    style={filterRowStyle(active)}
                   >
                     <span>{f.label}</span>
-                    <span
-                      className="text-[11px] min-w-[20px] text-center"
-                      style={{ color: 'var(--text-tertiary)' }}
-                    >
+                    <span className="text-[11px] min-w-[20px] text-center" style={{ color: 'var(--text-tertiary)' }}>
                       {f.count}
                     </span>
                   </button>
@@ -580,11 +509,7 @@ export default function TicketInboxPage() {
                     key={f.key}
                     onClick={() => { setSourceFilter(active ? '' : f.key); setPage(1); }}
                     className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[13px] transition-colors"
-                    style={{
-                      backgroundColor: active ? 'color-mix(in srgb, var(--color-accent) 10%, transparent)' : 'transparent',
-                      color: active ? 'var(--color-accent)' : 'var(--text-secondary)',
-                      fontWeight: active ? 500 : 400,
-                    }}
+                    style={filterRowStyle(active)}
                   >
                     <span>{f.label}</span>
                     <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{f.count}</span>
@@ -602,23 +527,15 @@ export default function TicketInboxPage() {
             <div className="space-y-0.5">
               {priorityFilters.map((f) => {
                 const active = priorityFilter === f.key;
-                const pStyle = PRIORITY_STYLES[f.key];
                 return (
                   <button
                     key={f.key}
                     onClick={() => { setPriorityFilter(active ? '' : f.key); setPage(1); }}
                     className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[13px] transition-colors"
-                    style={{
-                      backgroundColor: active ? 'color-mix(in srgb, var(--color-accent) 10%, transparent)' : 'transparent',
-                      color: active ? 'var(--color-accent)' : 'var(--text-secondary)',
-                      fontWeight: active ? 500 : 400,
-                    }}
+                    style={filterRowStyle(active)}
                   >
                     <span className="flex items-center gap-2">
-                      <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: pStyle.text }}
-                      />
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: PRIORITY_DOT[f.key] }} />
                       {f.label}
                     </span>
                     <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{f.count}</span>
@@ -631,20 +548,10 @@ export default function TicketInboxPage() {
 
         {/* Ticket List */}
         <div className="flex-1 min-w-0">
-          <div
-            className="rounded-xl overflow-hidden"
-            style={{
-              backgroundColor: 'var(--bg-primary)',
-              border: '1px solid var(--border-primary)',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
+          <div className="ds-card overflow-hidden">
             {/* Select All Header */}
             {tickets.length > 0 && (
-              <div
-                className="flex items-center gap-3 px-4 py-2 border-b"
-                style={{ borderColor: 'var(--border-secondary)' }}
-              >
+              <div className="flex items-center gap-3 px-4 py-2 border-b" style={{ borderColor: 'var(--border-secondary)' }}>
                 <button onClick={selectAll} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   {allSelected ? <CheckSquare size={14} style={{ color: 'var(--color-accent)' }} /> : <Square size={14} />}
                   <span>{allSelected ? 'Deselect all' : 'Select all'}</span>
@@ -666,25 +573,19 @@ export default function TicketInboxPage() {
               <div className="divide-y" style={{ borderColor: 'var(--border-secondary)' }}>
                 {tickets.map((ticket) => {
                   const sla = slaDisplay(ticket);
-                  const source = SOURCE_STYLES[ticket.source];
-                  const priority = PRIORITY_STYLES[ticket.priority];
+                  const sourceMeta = SOURCE_META[ticket.source];
+                  const SourceIcon = sourceMeta?.icon;
                   const hasNoAgentReply = !ticket.first_response_at && ticket.status === 'open';
                   const isSelected = selectedIds.has(ticket.id);
-                  const cls = ticket.classification ? CLASSIFICATION_STYLES[ticket.classification] : null;
+                  const showClassification = ticket.classification && ticket.classification !== 'customer_support';
 
                   return (
                     <div
                       key={ticket.id}
                       className="flex items-start gap-0 transition-colors"
-                      style={{
-                        backgroundColor: isSelected ? 'color-mix(in srgb, var(--color-accent) 5%, transparent)' : 'transparent',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = isSelected ? 'color-mix(in srgb, var(--color-accent) 5%, transparent)' : 'transparent';
-                      }}
+                      style={{ backgroundColor: isSelected ? 'color-mix(in srgb, var(--color-accent) 5%, transparent)' : 'transparent' }}
+                      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = isSelected ? 'color-mix(in srgb, var(--color-accent) 5%, transparent)' : 'transparent'; }}
                     >
                       {/* Checkbox */}
                       <button
@@ -696,18 +597,12 @@ export default function TicketInboxPage() {
                       </button>
 
                       {/* Ticket Content — Link */}
-                      <Link
-                        href={`/tickets/${ticket.id}`}
-                        className="flex-1 min-w-0 px-2 py-3"
-                      >
+                      <Link href={`/tickets/${ticket.id}`} className="flex-1 min-w-0 px-2 py-3">
                         <div className="flex items-start gap-3">
                           {/* Unread dot */}
                           <div className="pt-1.5 w-2 flex-shrink-0">
                             {hasNoAgentReply && (
-                              <div
-                                className="w-2 h-2 rounded-full"
-                                style={{ backgroundColor: 'var(--color-accent)' }}
-                              />
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-accent)' }} />
                             )}
                           </div>
 
@@ -718,17 +613,9 @@ export default function TicketInboxPage() {
                                 #{ticket.ticket_number}
                               </span>
                               {ticket.tags?.includes('trade-member') && (
-                                <span
-                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide"
-                                  style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)' }}
-                                >
-                                  Trade
-                                </span>
+                                <StatusPill kind="source" value="ai_escalation" label="Trade" />
                               )}
-                              <span
-                                className="text-sm font-medium truncate"
-                                style={{ color: 'var(--text-primary)' }}
-                              >
+                              <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                                 {ticket.subject}
                               </span>
                             </div>
@@ -737,39 +624,34 @@ export default function TicketInboxPage() {
                               <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                                 {ticket.customer_name || ticket.customer_email}
                               </span>
-                              {source && (
-                                <span
-                                  className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
-                                  style={{ backgroundColor: source.bg, color: source.text }}
-                                >
-                                  <source.icon size={10} />
-                                  {source.label}
-                                </span>
+                              {sourceMeta && (
+                                <StatusPill
+                                  kind="source"
+                                  value={ticket.source}
+                                  label={sourceMeta.label}
+                                  icon={SourceIcon ? <SourceIcon size={10} /> : undefined}
+                                />
                               )}
-                              {cls && ticket.classification !== 'customer_support' && (
-                                <span
-                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                                  style={{ backgroundColor: cls.bg, color: cls.text }}
-                                >
-                                  {cls.label}
-                                </span>
+                              {showClassification && (
+                                <StatusPill
+                                  kind="classification"
+                                  value={ticket.classification!}
+                                  label={CLASSIFICATION_LABELS[ticket.classification!] ?? undefined}
+                                />
                               )}
                             </div>
 
                             {ticket.tags && ticket.tags.length > 0 && (
                               <div className="flex items-center gap-1 flex-wrap">
-                                {ticket.tags.map((tag, i) => {
-                                  const tc = getTagColor(i);
-                                  return (
-                                    <span
-                                      key={tag}
-                                      className="text-[10px] px-1.5 py-0.5 rounded"
-                                      style={{ backgroundColor: tc.bg, color: tc.text }}
-                                    >
-                                      {tag}
-                                    </span>
-                                  );
-                                })}
+                                {ticket.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="text-[10px] px-1.5 py-0.5 rounded"
+                                    style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
                               </div>
                             )}
                           </div>
@@ -777,28 +659,12 @@ export default function TicketInboxPage() {
                           {/* Right side */}
                           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                             <div className="flex items-center gap-1.5">
-                              <span
-                                className="text-[10px] font-medium px-2 py-0.5 rounded-full capitalize"
-                                style={{
-                                  backgroundColor: STATUS_STYLES[ticket.status]?.bg || 'rgba(156,163,175,0.12)',
-                                  color: STATUS_STYLES[ticket.status]?.text || '#9ca3af',
-                                }}
-                              >
-                                {ticket.status}
-                              </span>
-                              <span
-                                className="text-[10px] font-medium px-2 py-0.5 rounded-full uppercase"
-                                style={{ backgroundColor: priority.bg, color: priority.text }}
-                              >
-                                {ticket.priority}
-                              </span>
+                              <StatusPill kind="status" value={ticket.status} />
+                              <StatusPill kind="priority" value={ticket.priority} />
                             </div>
 
                             {sla && (
-                              <span
-                                className="text-[10px] font-medium flex items-center gap-1"
-                                style={{ color: sla.color }}
-                              >
+                              <span className="text-[10px] font-medium flex items-center gap-1" style={{ color: sla.color }}>
                                 {sla.text === 'BREACHED' ? <AlertCircle size={10} /> : <Clock size={10} />}
                                 {sla.text}
                               </span>
@@ -824,30 +690,12 @@ export default function TicketInboxPage() {
                 Page {page} of {totalPages}
               </span>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(Math.max(1, page - 1))}
-                  disabled={page === 1}
-                  className="p-2 rounded-lg transition-colors disabled:opacity-30"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
+                <Button variant="secondary" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} aria-label="Previous page">
                   <ChevronLeft size={14} />
-                </button>
-                <button
-                  onClick={() => setPage(Math.min(totalPages, page + 1))}
-                  disabled={page === totalPages}
-                  className="p-2 rounded-lg transition-colors disabled:opacity-30"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} aria-label="Next page">
                   <ChevronRight size={14} />
-                </button>
+                </Button>
               </div>
             </div>
           )}

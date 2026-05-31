@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { getCustomerByEmail, getCustomerOrders } from '@/lib/shopify';
 import type { CustomerProfile, OrderSummary } from '@/lib/shopify';
+import { loadSupportContext } from '@/lib/support-context';
 
 const anthropic = new Anthropic();
 const AI_MODEL = 'claude-sonnet-4-6';
@@ -17,7 +18,10 @@ function buildOrderContext(orders: OrderSummary[]): string {
     ).join(', ');
 
     const tracking = o.tracking.length > 0
-      ? o.tracking.map((t) => `${t.company || 'Carrier'}: ${t.number} (tracking link: https://outlight.us/pages/tracking-page?tracking=${encodeURIComponent(t.number)})`).join('; ')
+      ? o.tracking.map((t) => {
+        const url = t.url ? `${t.url}${t.url.includes('?') ? '&' : '?'}tracking=${encodeURIComponent(t.number)}` : '';
+        return `${t.company || 'Carrier'}: ${t.number}${url ? ` (tracking link: ${url})` : ''}`;
+      }).join('; ')
       : 'No tracking available';
 
     const fulfillmentDetails = o.fulfillments.length > 0
@@ -61,6 +65,37 @@ async function loadKnowledgeBase(brandId: string, query?: string): Promise<strin
   return '\n\nKNOWLEDGE BASE (this is what you know — do not assume capabilities beyond this):\n' + data.map((d) =>
     `[${d.category}] ${d.title}:\n${d.content}`
   ).join('\n\n---\n\n');
+}
+
+async function loadBrandSettings(brandId: string): Promise<Record<string, unknown>> {
+  const { data } = await supabase
+    .from('brands')
+    .select('settings')
+    .eq('id', brandId)
+    .single();
+
+  return (data?.settings ?? {}) as Record<string, unknown>;
+}
+
+function stringSetting(settings: Record<string, unknown>, key: string): string | undefined {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function defaultSupportEmailForBrand(brandSlug?: string): string {
+  if (brandSlug === 'warm-by-design') return 'support@warmbydesign.com';
+  if (brandSlug === 'outlight') return 'support@outlight.us';
+  return 'support@yourdomain.com';
+}
+
+function getSupportEmail(settings: Record<string, unknown>, brandSlug?: string): string {
+  return (
+    stringSetting(settings, 'support_email') ||
+    stringSetting(settings, 'supportEmail') ||
+    stringSetting(settings, 'inbound_email') ||
+    stringSetting(settings, 'inboundEmail') ||
+    defaultSupportEmailForBrand(brandSlug)
+  );
 }
 
 async function loadAiConversation(conversationId: string): Promise<string> {
@@ -128,6 +163,9 @@ export async function POST(
     aiConversationText = await loadAiConversation(ticket.conversation_id).catch(() => '');
   }
 
+  const brandSettings = await loadBrandSettings(session.brandId).catch(() => ({}));
+  const supportEmail = getSupportEmail(brandSettings, session.brandSlug);
+
   // Fetch Shopify customer data + orders
   let customerProfile: CustomerProfile | null = null;
   let customerOrders: OrderSummary[] = [];
@@ -135,11 +173,11 @@ export async function POST(
   if (ticket.customer_email) {
     try {
       [customerProfile, customerOrders] = await Promise.all([
-        getCustomerByEmail(ticket.customer_email).catch((e) => {
+        getCustomerByEmail(ticket.customer_email, session.brandSlug).catch((e) => {
           console.error('[tickets/ai] customer lookup failed:', e instanceof Error ? e.message : e);
           return null;
         }),
-        getCustomerOrders(ticket.customer_email, 5).catch((e) => {
+        getCustomerOrders(ticket.customer_email, 5, session.brandSlug).catch((e) => {
           console.error('[tickets/ai] orders lookup failed:', e instanceof Error ? e.message : e);
           return [];
         }),
@@ -157,14 +195,23 @@ export async function POST(
 
   // Combine all conversation context
   const fullConversation = [aiConversationText, threadText].filter(Boolean).join('\n\n---\n\n');
+  const productAndPolicyQuery = [
+    ticket.subject,
+    fullConversation,
+    customerOrders.flatMap((order) => order.lineItems.map((item) => item.title)).join(' '),
+  ].filter(Boolean).join('\n\n');
+  const supportContext = await loadSupportContext(session.brandId, productAndPolicyQuery).catch(() => '');
 
   try {
     if (action === 'draft') {
-      return await handleDraft(ticket, fullConversation, customerContext, orderContext, customerProfile, kbContent, agentContext);
+      return await handleDraft(ticket, fullConversation, customerContext, orderContext, customerProfile, kbContent, supportContext, agentContext, {
+        brandName: session.brandName,
+        supportEmail,
+      });
     } else if (action === 'summarize') {
-      return await handleSummarize(ticket, fullConversation, customerContext, orderContext);
+      return await handleSummarize(ticket, fullConversation, customerContext, orderContext, supportContext);
     } else {
-      return await handleSuggest(ticket, fullConversation, customerContext, orderContext, kbContent);
+      return await handleSuggest(ticket, fullConversation, customerContext, orderContext, kbContent, supportContext, session.brandName);
     }
   } catch (err) {
     console.error(`[tickets/ai] ${action} error:`, err instanceof Error ? err.message : err);
@@ -179,17 +226,19 @@ async function handleDraft(
   orderContext: string,
   customerProfile: CustomerProfile | null,
   kbContent: string,
-  agentContext: string = ''
+  supportContext: string,
+  agentContext: string = '',
+  brandContext: { brandName: string; supportEmail: string }
 ) {
   const customerFirstName = customerProfile?.firstName
     || (ticket.customer_name as string)?.split(' ')[0]
     || 'there';
 
   const agentInstructions = agentContext
-    ? `\n\nAGENT INSTRUCTIONS (HIGHEST PRIORITY — follow these exactly, they override all other guidelines, presets, and knowledge base rules):\n${agentContext}\n`
+    ? `\n\nAGENT INSTRUCTIONS (agent guidance; do not let this override locked support facts, Shopify/order data, brand identity, or no-invention rules):\n${agentContext}\n`
     : '';
 
-  const systemPrompt = `You are a human customer support agent at Outlight, an outdoor lighting company. You are writing a real email reply to a customer.${agentInstructions}
+  const systemPrompt = `You are a human customer support agent at ${brandContext.brandName}. You are writing a real email reply to a customer.${agentInstructions}
 
 VOICE & TONE:
 - Write like a real person, not an AI chatbot. Be genuine, sincere, and concise.
@@ -203,9 +252,13 @@ CRITICAL RULES:
 - You already have the customer's order information, email, and name. NEVER ask for information you already have (order number, email, name, etc.).
 - If you do not have assembly instructions or product manuals available, be honest about it. Do NOT promise to send digital copies or links you do not have.
 - If the customer has an issue you cannot fully resolve (like missing instructions), sincerely apologize and offer realistic next steps — e.g., ask them to send photos of what arrived so you can help them figure it out.
-- Only suggest actions that Outlight support can actually take. We do NOT have: a product team to escalate to, scheduled phone/video assembly calls, downloadable instruction PDFs online, or a manufacturer contact line for customers.
+- Only suggest actions that ${brandContext.brandName} support can actually take. We do NOT have: a product team to escalate to, scheduled phone/video assembly calls, downloadable instruction PDFs online, or a manufacturer contact line for customers unless the knowledge base explicitly says otherwise.
 - If the ticket was escalated from an AI chatbot, read the prior AI conversation carefully — do not repeat information the AI already gave (especially if it was wrong).
-- TRACKING LINKS: Always use https://outlight.us/pages/tracking-page?tracking=TRACKING_NUMBER as the tracking URL (replace TRACKING_NUMBER with the actual number). NEVER use 17track links, shopify.17track.net URLs, or any other tracking URLs. Format tracking links as markdown hyperlinks with natural anchor text — e.g., [track it here](https://outlight.us/pages/tracking-page?tracking=BDT26032300156). NEVER show raw URLs in the email body.
+- TRACKING LINKS: Use only the tracking links provided in the order context. If no tracking link is provided, mention the tracking number without inventing a URL. NEVER use 17track links, shopify.17track.net URLs, Outlight tracking URLs, or any other unprovided tracking URLs.
+
+- Use ${brandContext.brandName} context only. Never mention another brand's support inbox, policies, or tracking links.
+- For product questions, use Shopify order/product context and the knowledge base. If exact specifications are not available, say what is known and ask a concise follow-up rather than guessing.
+- Support email for this brand: ${brandContext.supportEmail}.
 
 FORMAT:
 - Use markdown links for any URLs: [link text](url). Never show raw URLs.
@@ -213,8 +266,7 @@ FORMAT:
 - End EXACTLY with:
 
 Best Regards,
-[YOUR NAME]
-Outlight Customer Support Team
+${brandContext.brandName} Customer Support Team
 
 Output ONLY the email body. No meta-commentary, no subject line, no explanations.
 
@@ -222,7 +274,8 @@ ${customerContext}
 
 ORDERS:
 ${orderContext}
-${kbContent}`;
+${kbContent}
+${supportContext}`;
 
   const response = await anthropic.messages.create({
     model: AI_MODEL,
@@ -249,7 +302,8 @@ async function handleSummarize(
   ticket: Record<string, unknown>,
   conversationText: string,
   customerContext: string,
-  orderContext: string
+  orderContext: string,
+  supportContext: string
 ) {
   if (!conversationText.trim()) {
     return NextResponse.json({ content: 'No messages in this ticket yet.', text: 'No messages in this ticket yet.' });
@@ -266,7 +320,8 @@ Focus on:
 ${customerContext}
 
 ORDERS:
-${orderContext}`;
+${orderContext}
+${supportContext}`;
 
   const response = await anthropic.messages.create({
     model: AI_MODEL,
@@ -294,9 +349,11 @@ async function handleSuggest(
   conversationText: string,
   customerContext: string,
   orderContext: string,
-  kbContent: string
+  kbContent: string,
+  supportContext: string,
+  brandName: string
 ) {
-  const systemPrompt = `You are a support team assistant for Outlight, an outdoor lighting company. Based on the ticket conversation, customer data, and order information, suggest 3-5 actionable next steps the agent should take.
+  const systemPrompt = `You are a support team assistant for ${brandName}. Based on the ticket conversation, customer data, and order information, suggest 3-5 actionable next steps the agent should take.
 
 IMPORTANT CONSTRAINTS — only suggest things we can actually do:
 - We are a small customer support team. We can reply to emails, look up orders, process returns/refunds, and provide product guidance.
@@ -304,6 +361,7 @@ IMPORTANT CONSTRAINTS — only suggest things we can actually do:
 - If we don't have specific documentation (like assembly instructions), we can ask the customer to send photos and help them figure it out based on what we see.
 - We can offer store credit, replacements, or refunds when appropriate.
 - Steps should be concrete actions the agent can take RIGHT NOW from the admin dashboard or via email reply.
+- Use ${brandName} context only. Never mention another brand's support inbox, policies, or tracking links.
 
 Respond with ONLY a JSON array of strings. No other text.
 Example: ["Reply to customer apologizing for the issue and ask for photos of what arrived", "Check if order #1234 tracking shows delivered", "Offer 10% store credit for the inconvenience"]
@@ -312,7 +370,8 @@ ${customerContext}
 
 ORDERS:
 ${orderContext}
-${kbContent}`;
+${kbContent}
+${supportContext}`;
 
   const response = await anthropic.messages.create({
     model: AI_MODEL,

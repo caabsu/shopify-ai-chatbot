@@ -32,6 +32,7 @@ import {
   Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useBrand } from './brand-context';
 
 interface NavItem {
   href: string;
@@ -143,6 +144,8 @@ const navGroups: NavGroup[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const brand = useBrand();
+  const brandInitial = (brand.brandName || brand.brandSlug || 'B').slice(0, 1).toUpperCase();
   const [openTicketCount, setOpenTicketCount] = useState(0);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -198,14 +201,14 @@ export function Sidebar() {
           className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white"
           style={{ backgroundColor: 'var(--color-accent)' }}
         >
-          O
+          {brandInitial}
         </div>
         <div>
           <h1 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-            Outlight
+            {brand.brandName || 'Support'}
           </h1>
           <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-            Support Hub
+            supportOS
           </p>
         </div>
       </div>
@@ -323,7 +326,7 @@ export function Sidebar() {
           color: 'var(--text-tertiary)',
         }}
       >
-        Outlight Support Hub v2.0
+        {brand.brandName || 'Support'} supportOS
       </div>
     </aside>
   );

@@ -1,5 +1,5 @@
 {
-  "name": "shopify-ai-chatbot",
+  "name": "supportos",
   "version": "1.0.1",
   "private": true,
   "workspaces": [
@@ -16,6 +16,9 @@
     "build:backend": "npm run build --workspace=apps/backend",
     "build:widget": "npm run build --workspace=apps/widget",
     "build:admin": "npm run build --workspace=apps/admin",
+    "db:warm-support:migrate": "npx supabase db query --linked --file docs/migrations/009-warm-support-data.sql",
+    "seed:warm-support": "node scripts/seed-warm-support-data.mjs",
+    "seed:warm-support:dry-run": "node scripts/seed-warm-support-data.mjs --dry-run",
     "start": "npm run start --workspace=apps/backend"
   },
   "dependencies": {

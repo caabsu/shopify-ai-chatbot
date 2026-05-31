@@ -61,6 +61,11 @@ const FULFILLMENT_STATUS_COLORS: Record<string, string> = {
 
 function getTagColor(i: number) { return TAG_COLORS[i % TAG_COLORS.length]; }
 
+function buildTrackingUrl(url: string | null, trackingNumber: string): string | null {
+  if (!url) return null;
+  return `${url}${url.includes('?') ? '&' : '?'}tracking=${encodeURIComponent(trackingNumber)}`;
+}
+
 interface ShopifyCustomerProfile {
   id: string;
   firstName: string | null;
@@ -1392,7 +1397,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                                             {f.trackingInfo.map((t, ti) => (
                                               <div key={ti} className="flex items-center gap-1.5 mt-0.5 ml-2">
                                                 <Package size={9} style={{ color: 'var(--text-tertiary)' }} />
-                                                <a href={`https://outlight.us/pages/tracking-page?tracking=${encodeURIComponent(t.number)}`} target="_blank" rel="noopener noreferrer" className="text-[10px] underline" style={{ color: 'var(--color-accent)' }}>
+                                                <a href={buildTrackingUrl(t.url, t.number) ?? '#'} target="_blank" rel="noopener noreferrer" className="text-[10px] underline" style={{ color: 'var(--color-accent)' }}>
                                                   {t.company ? `${t.company}: ` : ''}{t.number}
                                                 </a>
                                               </div>
