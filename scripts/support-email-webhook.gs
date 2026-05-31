@@ -35,7 +35,12 @@ var BRANDS = [
 
 var PROCESSED_LABEL = 'AI-Tickets/Processed';
 var FAILED_LABEL = 'AI-Tickets/Failed';
-var MAX_THREADS_PER_BRAND = 25;
+// Keep this small: each thread costs many Gmail API calls, and consumer/Workspace
+// accounts have a daily Gmail quota ("Service invoked too many times"). 10/run with
+// a 5–10 min trigger clears a backlog over a few hours without exhausting quota.
+var MAX_THREADS_PER_BRAND = 10;
+// Cap how many prior messages of a thread we forward as history (newest kept).
+var MAX_THREAD_HISTORY = 12;
 
 function processSupportEmails() {
   var props = PropertiesService.getScriptProperties();
@@ -64,9 +69,14 @@ function processSupportEmails() {
           continue;
         }
 
+        // Cache getFrom()/getPlainBody() — each is a Gmail API call. Cap history.
+        var latestFrom = latest.getFrom();
+        var recentMessages = messages.length > MAX_THREAD_HISTORY
+          ? messages.slice(messages.length - MAX_THREAD_HISTORY)
+          : messages;
         var payload = {
-          from_email: extractEmail(latest.getFrom()),
-          from_name: extractName(latest.getFrom()),
+          from_email: extractEmail(latestFrom),
+          from_name: extractName(latestFrom),
           to_email: brand.supportEmail,
           recipient: brand.supportEmail,
           subject: latest.getSubject() || '(No Subject)',
@@ -75,13 +85,14 @@ function processSupportEmails() {
           message_id: latest.getHeader('Message-ID') || latest.getId(),
           in_reply_to: latest.getHeader('In-Reply-To') || '',
           references: latest.getHeader('References') || '',
-          thread_messages: messages.map(function (message) {
+          thread_messages: recentMessages.map(function (message) {
+            var from = message.getFrom();
+            var plain = message.getPlainBody() || '';
             return {
-              from_email: extractEmail(message.getFrom()),
-              from_name: extractName(message.getFrom()),
-              text: message.getPlainBody() || '',
-              body: message.getPlainBody() || '',
-              html: message.getBody() || '',
+              from_email: extractEmail(from),
+              from_name: extractName(from),
+              text: plain,
+              body: plain,
               message_id: message.getHeader('Message-ID') || message.getId(),
               date: message.getDate().toISOString(),
             };
