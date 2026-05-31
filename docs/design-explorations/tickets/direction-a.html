@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>supportOS — Tickets · Direction A (Editorial Warm)</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBF9F4; --card:#FFFFFF; --ink:#1C160C; --ink-2:#6B6354; --ink-3:#9A917F;
+    --line:#EAE3D6; --line-2:#F2ECE0; --hover:#F6F1E7;
+    --gold:#B0863C; --gold-soft:#F3E9D6;
+    --green:#5C7A53; --amber:#B07B2C; --red:#A8453A; --blue:#496B86; --violet:#6E5E86; --grey:#9A917F;
+    --r:10px; --shadow:0 1px 2px rgba(28,22,12,.04), 0 8px 28px -16px rgba(28,22,12,.18);
+    --sans:"Instrument Sans",-apple-system,system-ui,sans-serif;
+    --serif:"Fraunces",Georgia,serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--sans);background:var(--paper);color:var(--ink);font-size:14px;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 1px 1px, rgba(28,22,12,.025) 1px, transparent 0);background-size:22px 22px;}
+  .app{display:grid;grid-template-columns:74px 1fr;height:100vh}
+
+  /* ── Left rail (global nav) ── */
+  .rail{background:var(--ink);display:flex;flex-direction:column;align-items:center;padding:18px 0;gap:6px}
+  .rail .mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(150deg,var(--gold),#8c6a2f);display:grid;place-items:center;
+    font-family:var(--serif);font-weight:600;color:#fff;font-size:19px;margin-bottom:18px;box-shadow:0 4px 14px -4px rgba(176,134,60,.6)}
+  .rail a{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;color:#8f8779;transition:.18s;position:relative}
+  .rail a svg{width:20px;height:20px}
+  .rail a:hover{background:rgba(255,255,255,.06);color:#e9e1d0}
+  .rail a.on{background:rgba(176,134,60,.16);color:var(--gold-soft)}
+  .rail a.on::before{content:"";position:absolute;left:-18px;top:11px;bottom:11px;width:3px;border-radius:3px;background:var(--gold)}
+  .rail .sp{flex:1}
+  .rail .me{width:34px;height:34px;border-radius:50%;background:#cdbf9f;color:#3a3220;display:grid;place-items:center;font-weight:600;font-size:12px}
+
+  /* ── Workspace ── */
+  .work{display:grid;grid-template-rows:auto 1fr;min-width:0}
+  .top{display:flex;align-items:center;gap:18px;padding:20px 30px 16px;border-bottom:1px solid var(--line)}
+  .crumbs{font-size:12px;color:var(--ink-3);letter-spacing:.04em;text-transform:uppercase}
+  .crumbs b{color:var(--ink-2);font-weight:500}
+  .h1{font-family:var(--serif);font-weight:400;font-size:27px;letter-spacing:-.01em;line-height:1}
+  .h1 em{font-style:italic;color:var(--gold)}
+  .count{font-size:13px;color:var(--ink-3);margin-top:5px}
+  .top .grow{flex:1}
+  .search{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:9px 15px;width:280px;color:var(--ink-3)}
+  .search svg{width:15px;height:15px}
+  .search input{border:0;background:0;outline:0;font-family:var(--sans);font-size:13px;color:var(--ink);width:100%}
+  .btn{display:inline-flex;align-items:center;gap:7px;border-radius:99px;font-size:12.5px;font-weight:500;padding:9px 15px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-2);transition:.16s}
+  .btn:hover{border-color:#d9cfbb;color:var(--ink)}
+  .btn svg{width:14px;height:14px}
+  .btn.gold{background:var(--ink);border-color:var(--ink);color:#fff}
+  .btn.gold:hover{background:#000}
+  .btn.ai{color:var(--violet);border-color:#e3dcef;background:#faf8fd}
+
+  .body{display:grid;grid-template-columns:212px 1fr;min-height:0}
+  /* ── Filter sub-rail ── */
+  .filters{padding:22px 16px;border-right:1px solid var(--line);overflow:auto}
+  .fgroup{margin-bottom:26px}
+  .flabel{font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);padding:0 8px;margin-bottom:9px}
+  .fitem{display:flex;align-items:center;justify-content:space-between;padding:7px 9px;border-radius:8px;color:var(--ink-2);cursor:pointer;font-size:13.5px;transition:.14s;margin-bottom:1px}
+  .fitem:hover{background:var(--hover)}
+  .fitem.on{background:#fff;color:var(--ink);font-weight:500;box-shadow:var(--shadow)}
+  .fitem .n{font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .fitem.on .n{color:var(--gold)}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:9px}
+  .fitem .l{display:flex;align-items:center}
+
+  /* ── List ── */
+  .list-wrap{overflow:auto;padding:8px 0 40px}
+  .list-head{display:flex;align-items:center;gap:10px;padding:10px 30px;color:var(--ink-3);font-size:12px}
+  .list-head .chk{width:15px;height:15px;border:1.5px solid var(--line);border-radius:5px}
+  .row{display:grid;grid-template-columns:30px 8px 1fr auto;align-items:start;gap:14px;padding:15px 30px;border-bottom:1px solid var(--line-2);cursor:pointer;transition:.14s;position:relative}
+  .row:hover{background:var(--hover)}
+  .row.sel{background:#fff}
+  .row.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--gold)}
+  .chk{width:16px;height:16px;border:1.5px solid #d8cfbb;border-radius:5px;margin-top:2px}
+  .row.sel .chk{background:var(--gold);border-color:var(--gold)}
+  .unread{width:8px;height:8px;border-radius:50%;background:var(--gold);margin-top:6px}
+  .main{min-width:0}
+  .ln1{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+  .tnum{font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .subj{font-family:var(--serif);font-weight:500;font-size:15.5px;letter-spacing:-.005em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ln2{display:flex;align-items:center;gap:9px;color:var(--ink-2);font-size:12.5px}
+  .who{color:var(--ink-2)}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:500;padding:2px 9px;border-radius:99px;letter-spacing:.01em}
+  .pill svg{width:10px;height:10px}
+  .trade{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold-soft);background:#fdfaf2;padding:1px 7px;border-radius:99px}
+  .right{display:flex;flex-direction:column;align-items:flex-end;gap:7px;white-space:nowrap}
+  .meta-row{display:flex;align-items:center;gap:7px}
+  .sla{font-size:11px;font-weight:500;display:flex;align-items:center;gap:4px}
+  .sla svg{width:11px;height:11px}
+  .ago{font-size:11px;color:var(--ink-3)}
+  .tone-green{color:var(--green);background:#eef2ea}
+  .tone-amber{color:var(--amber);background:#f7efe0}
+  .tone-red{color:var(--red);background:#f7eae8}
+  .tone-blue{color:var(--blue);background:#eaf0f4}
+  .tone-violet{color:var(--violet);background:#f0ecf6}
+  .tone-grey{color:var(--grey);background:#f1ede4}
+  .seg{display:flex;gap:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- global rail -->
+  <nav class="rail">
+    <div class="mark">s</div>
+    <a class="on" title="Tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></a>
+    <a title="Conversations"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></a>
+    <a title="Returns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></a>
+    <a title="Reviews"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 15 9l7 .5-5.5 4.5 2 7L12 17l-6.5 4 2-7L2 9.5 9 9z"/></svg></a>
+    <a title="Insights"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></a>
+    <div class="sp"></div>
+    <a title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
+    <div class="me">CA</div>
+  </nav>
+
+  <div class="work">
+    <header class="top">
+      <div>
+        <div class="crumbs">Outlight · <b>Support</b></div>
+        <h1 class="h1">Ticket <em>Inbox</em></h1>
+        <div class="count">28 open · 4 awaiting first reply</div>
+      </div>
+      <div class="grow"></div>
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input placeholder="Search subject or customer…">
+      </div>
+      <button class="btn ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>AI Clean Up</button>
+      <button class="btn gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Compose</button>
+    </header>
+
+    <div class="body">
+      <aside class="filters">
+        <div class="fgroup">
+          <div class="flabel">Views</div>
+          <div class="fitem on"><span class="l">Open</span><span class="n">28</span></div>
+          <div class="fitem"><span class="l">All tickets</span><span class="n">746</span></div>
+          <div class="fitem"><span class="l">Unassigned</span><span class="n">11</span></div>
+          <div class="fitem"><span class="l">Pending</span><span class="n">6</span></div>
+          <div class="fitem"><span class="l">Resolved</span><span class="n">53</span></div>
+          <div class="fitem"><span class="l">Closed</span><span class="n">659</span></div>
+        </div>
+        <div class="fgroup">
+          <div class="flabel">Source</div>
+          <div class="fitem"><span class="l"><span class="dot" style="background:var(--blue)"></span>Email</span><span class="n">24</span></div>
+          <div class="fitem"><span class="l"><span class="dot" style="background:var(--green)"></span>Form</span><span class="n">3</span></div>
+          <div class="fitem"><span class="l"><span class="dot" style="background:var(--violet)"></span>AI escalation</span><span class="n">1</span></div>
+        </div>
+        <div class="fgroup">
+          <div class="flabel">Priority</div>
+          <div class="fitem"><span class="l"><span class="dot" style="background:var(--red)"></span>Urgent</span><span class="n">2</span></div>
+          <div class="fitem"><span class="l"><span class="dot" style="background:#C17A2B"></span>High</span><span class="n">5</span></div>
+          <div class="fitem"><span class="l"><span class="dot" style="background:var(--blue)"></span>Medium</span><span class="n">16</span></div>
+          <div class="fitem"><span class="l"><span class="dot" style="background:var(--grey)"></span>Low</span><span class="n">5</span></div>
+        </div>
+      </aside>
+
+      <main class="list-wrap">
+        <div class="list-head"><span class="chk"></span> Select all · sorted by <b style="color:var(--ink-2);font-weight:500">SLA urgency</b></div>
+
+        <div class="row sel">
+          <span class="chk"></span><span class="unread"></span>
+          <div class="main">
+            <div class="ln1"><span class="tnum">#2999</span><span class="subj">Order number 1053 — wrong shade arrived</span></div>
+            <div class="ln2"><span class="who">Natt Autiva</span><span class="pill tone-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>Email</span></div>
+          </div>
+          <div class="right"><div class="meta-row"><span class="pill tone-red">Urgent</span><span class="pill tone-blue">Open</span></div><span class="sla" style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>SLA breached</span></div>
+        </div>
+
+        <div class="row">
+          <span class="chk"></span><span class="unread"></span>
+          <div class="main">
+            <div class="ln1"><span class="tnum">#3001</span><span class="subj">Tracking info — order shows no movement</span></div>
+            <div class="ln2"><span class="who">Hanna Pisera</span><span class="pill tone-blue">Email</span></div>
+          </div>
+          <div class="right"><div class="meta-row"><span class="pill tone-amber">High</span><span class="pill tone-blue">Open</span></div><span class="sla" style="color:var(--amber)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>38m left</span></div>
+        </div>
+
+        <div class="row">
+          <span class="chk"></span><span style="width:8px"></span>
+          <div class="main">
+            <div class="ln1"><span class="tnum">#3007</span><span class="subj">Re: Order #1064 confirmed</span></div>
+            <div class="ln2"><span class="who">Sonaro Roy</span><span class="pill tone-blue">Email</span></div>
+          </div>
+          <div class="right"><div class="meta-row"><span class="pill tone-blue">Medium</span><span class="pill tone-blue">Open</span></div><span class="sla" style="color:var(--green)">4h 10m left</span></div>
+        </div>
+
+        <div class="row">
+          <span class="chk"></span><span style="width:8px"></span>
+          <div class="main">
+            <div class="ln1"><span class="tnum">#2997</span><span class="trade">Trade</span><span class="subj">Re: Order #1045 confirmed</span></div>
+            <div class="ln2"><span class="who">Jordan Bowen</span><span class="pill tone-blue">Email</span></div>
+          </div>
+          <div class="right"><div class="meta-row"><span class="pill tone-amber">High</span><span class="pill tone-amber">Pending</span></div><span class="ago">2h ago</span></div>
+        </div>
+
+        <div class="row">
+          <span class="chk"></span><span style="width:8px"></span>
+          <div class="main">
+            <div class="ln1"><span class="tnum">#3002</span><span class="subj">Question about integrated LED serviceability</span></div>
+            <div class="ln2"><span class="who">Igor Bandeira</span><span class="pill tone-blue">Email</span></div>
+          </div>
+          <div class="right"><div class="meta-row"><span class="pill tone-blue">Medium</span><span class="pill tone-blue">Open</span></div><span class="ago">5h ago</span></div>
+        </div>
+
+        <div class="row">
+          <span class="chk"></span><span style="width:8px"></span>
+          <div class="main">
+            <div class="ln1"><span class="tnum">#2994</span><span class="subj">Request — change delivery address</span></div>
+            <div class="ln2"><span class="who">Michael R.</span><span class="pill tone-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/></svg>Form</span></div>
+          </div>
+          <div class="right"><div class="meta-row"><span class="pill tone-grey">Low</span><span class="pill tone-amber">Pending</span></div><span class="ago">1d ago</span></div>
+        </div>
+
+        <div class="row">
+          <span class="chk"></span><span style="width:8px"></span>
+          <div class="main">
+            <div class="ln1"><span class="tnum">#2990</span><span class="subj">Help choosing a fixture for a 4m ceiling</span></div>
+            <div class="ln2"><span class="who">neolavish359</span><span class="pill tone-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>AI escalation</span></div>
+          </div>
+          <div class="right"><div class="meta-row"><span class="pill tone-grey">Low</span><span class="pill tone-blue">Open</span></div><span class="ago">1d ago</span></div>
+        </div>
+
+        <div class="row">
+          <span class="chk"></span><span style="width:8px"></span>
+          <div class="main">
+            <div class="ln1"><span class="tnum">#2962</span><span class="subj">Return of Order #682 — defective dimmer</span></div>
+            <div class="ln2"><span class="who">Michael Sheeran</span><span class="pill tone-blue">Email</span></div>
+          </div>
+          <div class="right"><div class="meta-row"><span class="pill tone-blue">Medium</span><span class="pill tone-green">Resolved</span></div><span class="ago">2d ago</span></div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+</body>
+</html>
