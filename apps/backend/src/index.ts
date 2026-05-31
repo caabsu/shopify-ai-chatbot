@@ -36,7 +36,16 @@ function timingSafeStringEqual(a: string, b: string): boolean {
 
 function verifyEmailWebhookSecret(req: express.Request): boolean {
   const expected = process.env.EMAIL_WEBHOOK_SECRET || process.env.RESEND_WEBHOOK_SECRET;
-  if (!expected) return true;
+  if (!expected) {
+    // Fail closed in production: an unauthenticated inbound-email webhook is an
+    // open ticket-injection vector. Only allow the no-secret path outside prod
+    // (local dev / tests). Configure EMAIL_WEBHOOK_SECRET on Railway to enable it.
+    if (config.server.nodeEnv === 'production') {
+      console.error('[webhook] EMAIL_WEBHOOK_SECRET not configured — rejecting inbound email webhook in production.');
+      return false;
+    }
+    return true;
+  }
 
   const authHeader = req.headers.authorization;
   const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : '';
