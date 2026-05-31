@@ -19,6 +19,7 @@
     "db:warm-support:migrate": "npx supabase db query --linked --file docs/migrations/009-warm-support-data.sql",
     "seed:warm-support": "node scripts/seed-warm-support-data.mjs",
     "seed:warm-support:dry-run": "node scripts/seed-warm-support-data.mjs --dry-run",
+    "health:inflow": "node scripts/diagnostics/check-ticket-inflow.mjs",
     "start": "npm run start --workspace=apps/backend"
   },
   "dependencies": {
