@@ -517,7 +517,7 @@ export default function WarehouseDashboard() {
                         {s.carrier_name} &middot; {s.items?.length || 0} SKUs &middot; {s.items?.reduce((sum, i) => sum + parseFloat(i.qty || '0'), 0)} units
                       </p>
                     </div>
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s.status] ? `${STATUS_COLORS[s.status]}20` : 'var(--bg-tertiary)', color: STATUS_COLORS[s.status] || 'var(--text-tertiary)' }}>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s.status] ? `color-mix(in srgb, ${STATUS_COLORS[s.status]} 12%, transparent)` : 'var(--bg-tertiary)', color: STATUS_COLORS[s.status] || 'var(--text-tertiary)' }}>
                       {s.status}
                     </span>
                   </div>
