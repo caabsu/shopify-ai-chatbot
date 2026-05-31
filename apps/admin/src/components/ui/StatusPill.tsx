@@ -12,7 +12,7 @@
  */
 import type { CSSProperties, ReactNode } from 'react';
 
-type Kind = 'status' | 'priority' | 'source' | 'classification' | 'return' | 'review' | 'trade';
+type Kind = 'status' | 'priority' | 'source' | 'classification' | 'return' | 'review' | 'trade' | 'member';
 
 // Maps each semantic value to a CSS token (var) defined in globals.css.
 const TOKENS: Record<Kind, Record<string, string>> = {
@@ -66,6 +66,11 @@ const TOKENS: Record<Kind, Record<string, string>> = {
     approved: 'var(--color-success)',
     rejected: 'var(--color-danger)',
     archived: 'var(--color-status-closed)',
+  },
+  member: {
+    active: 'var(--color-success)',
+    suspended: 'var(--color-warning)',
+    revoked: 'var(--color-danger)',
   },
 };
 

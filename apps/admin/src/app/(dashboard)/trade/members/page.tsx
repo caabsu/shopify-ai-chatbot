@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Users, ChevronLeft, ChevronRight } from 'lucide-react';
+import { StatusPill } from '@/components/ui/StatusPill';
 
 interface TradeMember {
   id: string;
@@ -22,12 +23,6 @@ interface MembersResponse {
   page: number;
   totalPages: number;
 }
-
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  active: { bg: 'rgba(34,197,94,0.12)', text: '#22c55e', label: 'Active' },
-  suspended: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', label: 'Suspended' },
-  revoked: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', label: 'Revoked' },
-};
 
 function formatCurrency(cents: number): string {
   const dollars = Math.round(cents / 100);
@@ -223,12 +218,6 @@ export default function TradeMembersPage() {
             ) : (
               <div className="divide-y" style={{ borderColor: 'var(--border-secondary)' }}>
                 {members.map((member) => {
-                  const statusStyle = STATUS_STYLES[member.status] ?? {
-                    bg: 'rgba(156,163,175,0.12)',
-                    text: '#9ca3af',
-                    label: member.status,
-                  };
-
                   return (
                     <div
                       key={member.id}
@@ -283,15 +272,7 @@ export default function TradeMembersPage() {
 
                       {/* Status */}
                       <div>
-                        <span
-                          className="text-[11px] font-medium px-2 py-0.5 rounded-full"
-                          style={{
-                            backgroundColor: statusStyle.bg,
-                            color: statusStyle.text,
-                          }}
-                        >
-                          {statusStyle.label}
-                        </span>
+                        <StatusPill kind="member" value={member.status} />
                       </div>
 
                       {/* Orders */}
