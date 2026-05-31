@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { resolveBrandId } from '../config/brand.js';
+import { resolveBrandId, varyByBrand } from '../config/brand.js';
 import * as returnService from '../services/return.service.js';
 import * as returnRulesService from '../services/return-rules.service.js';
 import * as returnAIService from '../services/return-ai.service.js';
@@ -731,6 +731,7 @@ returnRouter.put('/portal-design', agentAuthMiddleware, async (req, res) => {
 returnRouter.get('/portal-config', async (req, res) => {
   // Allow short browser caching to avoid repeated fetches on page loads
   res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  varyByBrand(res);
   try {
     const brandId = await resolveBrandId(req);
     const [settings, designRow] = await Promise.all([

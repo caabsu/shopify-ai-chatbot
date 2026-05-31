@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import { resolveBrandId } from '../config/brand.js';
+import { resolveBrandId, varyByBrand } from '../config/brand.js';
 import { supabase } from '../config/supabase.js';
 import { getBrandShopifyConfig } from '../config/brand-shopify.js';
 import * as reviewService from '../services/review.service.js';
@@ -54,6 +54,7 @@ reviewRouter.get('/product/:handle', async (req, res) => {
     });
 
     res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    varyByBrand(res);
     res.json({
       ...result,
       totalPages: Math.ceil((result.total || 0) / perPage),
@@ -75,6 +76,7 @@ reviewRouter.get('/product/:handle/summary', async (req, res) => {
     const summary = await reviewService.getReviewSummary(handle, brandId);
 
     res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    varyByBrand(res);
     res.json(summary);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -333,6 +335,7 @@ reviewRouter.get('/widget/config', async (req, res) => {
     const settings = await reviewSettingsService.getReviewSettings(brandId);
 
     res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
+    varyByBrand(res);
     res.json({
       widget_design: settings.widget_design,
       reviews_per_page: settings.reviews_per_page,

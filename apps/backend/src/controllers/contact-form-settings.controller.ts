@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { resolveBrandId } from '../config/brand.js';
+import { resolveBrandId, varyByBrand } from '../config/brand.js';
 import * as contactFormSettingsService from '../services/contact-form-settings.service.js';
 import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
 
@@ -13,6 +13,7 @@ contactFormSettingsRouter.get('/widget/config', async (req, res) => {
     const settings = await contactFormSettingsService.getContactFormSettings(brandId);
 
     res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
+    varyByBrand(res);
     res.json({
       widget_design: settings.widget_design,
       form_config: settings.form_config,

@@ -19,7 +19,7 @@ import { contactFormSettingsRouter } from './controllers/contact-form-settings.c
 import { processScheduledEmails, processScheduledReminders, expireOldRequests } from './services/review-email.service.js';
 import { registerWebhooks as registerReviewWebhooks } from './services/product-sync.service.js';
 import { supabase } from './config/supabase.js';
-import { resolveBrandId, resolveOptionalBrandId, getBrandWidgetUrl, getBrand } from './config/brand.js';
+import { resolveBrandId, resolveOptionalBrandId, getBrandWidgetUrl, getBrand, varyByBrand } from './config/brand.js';
 import { getToken } from './services/shopify-auth.service.js';
 import * as ticketService from './services/ticket.service.js';
 import { sendTicketConfirmation } from './services/email.service.js';
@@ -2172,6 +2172,7 @@ app.get('/api/activity', (_req, res) => {
 app.get('/api/widget/config', async (req, res) => {
   // Allow short browser caching to avoid repeated fetches on page loads
   res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  varyByBrand(res); // body depends on resolved brand — don't let caches bleed across brands
   try {
     const brandId = await resolveBrandId(req);
 

@@ -1,6 +1,19 @@
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { supabase } from './supabase.js';
 import type { Brand } from '../types/index.js';
+
+/**
+ * Mark a cacheable response as varying by the brand-resolution request headers.
+ * Brand-keyed config endpoints (widget/contact/returns/reviews/tracking) set
+ * `Cache-Control: public` but their body depends on the resolved brand — which
+ * comes from these headers. Without this, a shared cache (browser/CDN) serves
+ * one brand's config to another. `res.vary` appends, preserving `Vary: Origin`.
+ */
+export function varyByBrand(res: Response): void {
+  res.vary('X-Brand');
+  res.vary('X-Brand-Id');
+  res.vary('X-Shopify-Shop-Domain');
+}
 
 // Default brand ID (Outlight) for backward compat
 const DEFAULT_BRAND_ID = '883e4a28-9f2e-4850-a527-29f297d8b6f8';

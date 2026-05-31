@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { resolveBrandId } from '../config/brand.js';
+import { resolveBrandId, varyByBrand } from '../config/brand.js';
 import * as trackingService from '../services/tracking.service.js';
 import * as trackingSettingsService from '../services/tracking-settings.service.js';
 import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
@@ -91,6 +91,7 @@ trackingRouter.get('/widget/config', async (req, res) => {
     const settings = await trackingSettingsService.getTrackingSettings(brandId);
 
     res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
+    varyByBrand(res);
     res.json({ widget_design: settings.widget_design });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
