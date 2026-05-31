@@ -34,9 +34,16 @@ re-skins to the active brand's accent.
 
 **DB-driven override (config, not fork):** set `brands.settings.console_accent` to
 either a hex string or `{ accent, strong?, light?, foreground? }`. The dashboard
-layout reads it server-side and `BrandProvider` applies it as inline CSS vars,
-overriding the `[data-brand]` default — so a 4th brand themes the console from
-config with no code change. Absent → falls back to the `[data-brand]` block.
+layout reads it server-side and `BrandProvider` applies it as inline CSS vars.
+
+**Accent precedence:** DB `console_accent` → canonical `BRAND_TOKENS`
+([apps/admin/src/lib/brand-tokens.ts](../apps/admin/src/lib/brand-tokens.ts)) →
+the `[data-brand]` block in globals.css. `brand-tokens.ts` is the **single source of
+truth** for each brand's palette; the same accent is currently mirrored (and should
+agree) in `apps/widget/src/styles/widget.css` (`--aicb-gold`/`--aicb-primary`) and
+`apps/widget-warm/src/.../*.css` (`--wbd-accent`). Wiring those widget CSS vars to
+generate from `brand-tokens.ts` is deferred until the storefront widgets can be
+visually verified (see PLATFORM-OVERHAUL Stage 5).
 
 ## Component classes
 

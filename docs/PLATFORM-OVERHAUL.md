@@ -167,8 +167,13 @@ heavy gradients); fast, legible tables; confident primary CTAs with clear hierar
   (hex or `{accent,strong?,light?,foreground?}`) → read server-side in the
   dashboard layout → applied as inline CSS vars by `BrandProvider`, overriding the
   hardcoded `[data-brand]` defaults. A 4th brand themes the console from config.
-- **Stage 5 — Widget unification**: move widgets onto the shared token layer; consolidate
-  Vite configs; shared base CSS.
+- **Stage 5 — Widget unification** 🔄: ✅ **Vite configs consolidated** — 11 near-identical
+  per-bundle configs → a shared `vite.shared.ts` (cssInjectPlugin + `widgetLib` factory) per
+  app; each config is now ~3 lines. Verified **byte-identical** output bundles (md5 match),
+  so zero storefront risk. ✅ **Canonical brand-token source** — `apps/admin/src/lib/brand-tokens.ts`
+  defines each brand's palette once (consumed by the admin's accent fallback). 🔲 **Deferred**
+  (needs storefront visual QA): generating the widget CSS vars (`--aicb-*`, `--wbd-*`) from the
+  canonical source instead of hardcoding them — safe to retrofit only with the live widgets viewable.
 - **Stage 6 — Backend hardening**: shared `@types` package, typed API client, split
   `index.ts` preview HTML into templates, require webhook secret in prod, Misu inbox.
 
