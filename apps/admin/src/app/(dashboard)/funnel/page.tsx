@@ -61,14 +61,16 @@ function timeAgo(d: string): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
+const tint = (v: string) => `color-mix(in srgb, ${v} 12%, transparent)`;
+
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  started: { bg: 'rgba(107,114,128,0.12)', color: '#6b7280', label: 'Started' },
-  in_progress: { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6', label: 'In Progress' },
-  completed: { bg: 'rgba(34,197,94,0.12)', color: '#22c55e', label: 'Completed' },
-  abandoned: { bg: 'rgba(239,68,68,0.12)', color: '#ef4444', label: 'Abandoned' },
+  started: { bg: tint('var(--color-status-closed)'), color: 'var(--color-status-closed)', label: 'Started' },
+  in_progress: { bg: tint('var(--color-info)'), color: 'var(--color-info)', label: 'In Progress' },
+  completed: { bg: tint('var(--color-success)'), color: 'var(--color-success)', label: 'Completed' },
+  abandoned: { bg: tint('var(--color-danger)'), color: 'var(--color-danger)', label: 'Abandoned' },
 };
 
-const ACCENT = '#10b981';
+const ACCENT = 'var(--color-accent)';
 
 // ── Main Page ───────────────────────────────────────────────────────────────
 

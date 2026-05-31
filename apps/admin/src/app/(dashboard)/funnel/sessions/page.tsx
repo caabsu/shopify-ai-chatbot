@@ -30,16 +30,18 @@ interface ConceptCounts {
   'style-profile': number;
 }
 
+const tint = (v: string) => `color-mix(in srgb, ${v} 12%, transparent)`;
+
 const STATUS_STYLES: Record<string, { backgroundColor: string; color: string }> = {
-  started:     { backgroundColor: 'color-mix(in srgb, #6b7280 12%, transparent)', color: '#6b7280' },
-  in_progress: { backgroundColor: 'color-mix(in srgb, #3b82f6 12%, transparent)', color: '#3b82f6' },
-  completed:   { backgroundColor: 'color-mix(in srgb, #10b981 12%, transparent)', color: '#10b981' },
-  abandoned:   { backgroundColor: 'color-mix(in srgb, #ef4444 12%, transparent)', color: '#ef4444' },
+  started:     { backgroundColor: tint('var(--color-status-closed)'), color: 'var(--color-status-closed)' },
+  in_progress: { backgroundColor: tint('var(--color-info)'), color: 'var(--color-info)' },
+  completed:   { backgroundColor: tint('var(--color-success)'), color: 'var(--color-success)' },
+  abandoned:   { backgroundColor: tint('var(--color-danger)'), color: 'var(--color-danger)' },
 };
 
 const CONCEPT_STYLES: Record<string, { backgroundColor: string; color: string; label: string }> = {
-  reveal:          { backgroundColor: 'color-mix(in srgb, #f59e0b 12%, transparent)', color: '#f59e0b', label: 'The Reveal' },
-  'style-profile': { backgroundColor: 'color-mix(in srgb, #8b5cf6 12%, transparent)', color: '#8b5cf6', label: 'The Style Profile' },
+  reveal:          { backgroundColor: tint('var(--color-warning)'), color: 'var(--color-warning)', label: 'The Reveal' },
+  'style-profile': { backgroundColor: tint('var(--color-source-ai)'), color: 'var(--color-source-ai)', label: 'The Style Profile' },
 };
 
 function timeAgo(dateStr: string): string {

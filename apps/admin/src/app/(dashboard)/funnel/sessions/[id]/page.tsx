@@ -34,29 +34,31 @@ interface SessionDetail {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-const ACCENT = '#10b981';
+const ACCENT = 'var(--color-accent)';
+
+const tint = (v: string) => `color-mix(in srgb, ${v} 12%, transparent)`;
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  started:     { bg: 'rgba(107,114,128,0.12)', color: '#6b7280', label: 'Started' },
-  in_progress: { bg: 'rgba(59,130,246,0.12)',  color: '#3b82f6', label: 'In Progress' },
-  completed:   { bg: 'rgba(34,197,94,0.12)',   color: '#22c55e', label: 'Completed' },
-  abandoned:   { bg: 'rgba(239,68,68,0.12)',   color: '#ef4444', label: 'Abandoned' },
+  started:     { bg: tint('var(--color-status-closed)'), color: 'var(--color-status-closed)', label: 'Started' },
+  in_progress: { bg: tint('var(--color-info)'),          color: 'var(--color-info)', label: 'In Progress' },
+  completed:   { bg: tint('var(--color-success)'),       color: 'var(--color-success)', label: 'Completed' },
+  abandoned:   { bg: tint('var(--color-danger)'),        color: 'var(--color-danger)', label: 'Abandoned' },
 };
 
 const CONCEPT_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  reveal:          { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b', label: 'The Reveal' },
-  'style-profile': { bg: 'rgba(139,92,246,0.12)', color: '#8b5cf6', label: 'The Style Profile' },
+  reveal:          { bg: tint('var(--color-warning)'), color: 'var(--color-warning)', label: 'The Reveal' },
+  'style-profile': { bg: tint('var(--color-source-ai)'), color: 'var(--color-source-ai)', label: 'The Style Profile' },
 };
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  quiz_started:    '#3b82f6',
+  quiz_started:    'var(--color-info)',
   step_completed:  ACCENT,
-  step_viewed:     '#8b5cf6',
-  email_captured:  '#f59e0b',
-  photo_uploaded:  '#ec4899',
-  quiz_completed:  '#22c55e',
-  quiz_abandoned:  '#ef4444',
-  recommendation:  '#6366f1',
+  step_viewed:     'var(--color-source-ai)',
+  email_captured:  'var(--color-warning)',
+  photo_uploaded:  'var(--color-priority-high)',
+  quiz_completed:  'var(--color-success)',
+  quiz_abandoned:  'var(--color-danger)',
+  recommendation:  'var(--color-source-email)',
 };
 
 function formatDate(d: string): string {
