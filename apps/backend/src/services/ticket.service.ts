@@ -287,13 +287,17 @@ export async function addTicketMessage(
     .single();
 
   if (error) {
+    // The unique constraint `ticket_messages_email_message_id_key` is on
+    // email_message_id ALONE (global), so the same message-id can collide from a
+    // DIFFERENT ticket — e.g. a reply that appears in another thread's history, or
+    // a re-imported email. Look the duplicate up globally (not scoped to this
+    // ticket) and treat the insert as idempotent instead of 500-ing forever.
     if (data.email_message_id && error.code === '23505') {
       const { data: existing } = await supabase
         .from('ticket_messages')
         .select()
-        .eq('ticket_id', ticketId)
         .eq('email_message_id', data.email_message_id)
-        .single();
+        .maybeSingle();
 
       if (existing) return existing as TicketMessage;
     }
