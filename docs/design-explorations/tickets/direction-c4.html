@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>supportOS — Tickets · C4 (Clean Professional)</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F9FAFB; --card:#FFFFFF; --ink:#0E1116; --ink-2:#4B515E; --ink-3:#717784; --ink-4:#A2A8B4;
+    --line:#EAECF0; --line-2:#F2F4F7; --hover:#FAFBFC;
+    --accent:#B07F33; --accent-700:#946A29; --accent-soft:#F7F1E6; --accent-ring:#E7D9BE;
+    --green:#067A52; --green-bg:#E7F5EF; --amber:#B27214; --amber-bg:#FBF1DF; --red:#C8453B; --red-bg:#FBEBE9;
+    --blue:#2F6FE0; --blue-bg:#ECF1FD; --violet:#6D55C9; --violet-bg:#EFEBFA; --grey:#6B7280; --grey-bg:#F2F4F7;
+    --r:12px;
+    --sh:0 1px 2px rgba(14,17,22,.05);
+    --sh-md:0 1px 2px rgba(14,17,22,.06),0 8px 24px -12px rgba(14,17,22,.16);
+    --f:"Hanken Grotesk",-apple-system,system-ui,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  ::selection{background:var(--accent-soft);color:var(--accent-700)}
+  body{font-family:var(--f);background:var(--bg);color:var(--ink);font-size:13.5px;-webkit-font-smoothing:antialiased;letter-spacing:-.006em}
+  .app{display:grid;grid-template-columns:228px 1fr;height:100vh}
+
+  .side{background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 12px}
+  .brand{display:flex;align-items:center;gap:10px;padding:8px 8px 18px}
+  .brand .mk{width:30px;height:30px;border-radius:8px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px}
+  .brand .nm{font-weight:700;font-size:15px;letter-spacing:-.02em}
+  .brand .nm span{color:var(--accent)}
+  .nlabel{font-size:10.5px;font-weight:600;color:var(--ink-4);letter-spacing:.06em;padding:14px 10px 6px;text-transform:uppercase}
+  .nav a{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:8px;color:var(--ink-2);font-weight:500;font-size:13.5px;cursor:pointer;transition:.13s;margin-bottom:1px}
+  .nav a svg{width:17px;height:17px;color:var(--ink-3)}
+  .nav a:hover{background:var(--hover);color:var(--ink)}
+  .nav a.on{background:var(--accent-soft);color:var(--accent-700)}
+  .nav a.on svg{color:var(--accent)}
+  .nav a .badge{margin-left:auto;font-size:11px;font-weight:600;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .nav a.on .badge{color:var(--accent-700)}
+  .me{margin-top:auto;display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px}
+  .me:hover{background:var(--hover)}
+  .me .av{width:30px;height:30px;border-radius:8px;background:var(--accent-soft);color:var(--accent-700);display:grid;place-items:center;font-weight:600;font-size:12px}
+  .me .nm{font-size:13px;font-weight:600}.me .rl{font-size:11px;color:var(--ink-3)}
+
+  .main{display:flex;flex-direction:column;min-width:0;overflow:auto}
+  .head{display:flex;align-items:center;gap:14px;padding:22px 28px 16px}
+  .head h1{font-size:21px;font-weight:700;letter-spacing:-.03em}
+  .head .sub{font-size:12.5px;color:var(--ink-3);margin-top:3px}
+  .grow{flex:1}
+  .search{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 12px;width:240px;color:var(--ink-3);transition:.15s}
+  .search:focus-within{border-color:var(--accent-ring);box-shadow:0 0 0 3px var(--accent-soft)}
+  .search svg{width:15px;height:15px}.search input{border:0;outline:0;background:0;font-family:var(--f);font-size:13px;color:var(--ink);width:100%}
+  .btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;font-size:12.5px;font-weight:600;padding:8px 13px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink-2);transition:.14s}
+  .btn:hover{background:var(--hover);color:var(--ink)}
+  .btn svg{width:15px;height:15px}
+  .btn.pri{background:var(--ink);border-color:var(--ink);color:#fff}
+  .btn.pri:hover{background:#000}
+  .btn.ai{color:var(--ink-2)}
+  .btn.ai svg{color:var(--accent)}
+
+  /* Clean stat cards — restrained, no color flood */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 28px 18px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--sh)}
+  .stat .v{font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+  .stat .k{font-size:12px;color:var(--ink-3);margin-top:6px;font-weight:500}
+  .stat .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex-shrink:0}
+  .stat .ic svg{width:17px;height:17px}
+
+  .bar{display:flex;align-items:center;gap:8px;padding:0 28px 16px}
+  .seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg button{border:0;background:0;font-family:var(--f);font-size:12.5px;font-weight:600;color:var(--ink-2);padding:6px 12px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.13s}
+  .seg button.on{background:var(--ink);color:#fff}
+  .seg button .n{font-size:11px;color:var(--ink-4);font-variant-numeric:tabular-nums}
+  .seg button.on .n{color:rgba(255,255,255,.6)}
+  .pillf{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--ink-2);padding:8px 11px;border:1px solid var(--line);border-radius:9px;cursor:pointer;background:var(--card)}
+  .pillf svg{width:13px;height:13px;color:var(--ink-3)}
+
+  /* Soft ticket cards */
+  .list{padding:0 28px 30px;display:flex;flex-direction:column;gap:9px}
+  .grp{font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:.02em;padding:8px 2px 2px;display:flex;align-items:center;gap:8px}
+  .grp::after{content:"";flex:1;height:1px;background:var(--line)}
+  .tk{display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:13px 16px;cursor:pointer;transition:.15s;box-shadow:var(--sh)}
+  .tk:hover{box-shadow:var(--sh-md);border-color:#e0e3e9}
+  .tk.sel{border-color:var(--accent-ring);box-shadow:0 0 0 3px var(--accent-soft)}
+  .av{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-weight:600;font-size:13px;position:relative}
+  .av .pr{position:absolute;right:-2px;bottom:-2px;width:12px;height:12px;border-radius:50%;border:2.5px solid #fff}
+  .cell{min-width:0}
+  .l1{display:flex;align-items:center;gap:9px;margin-bottom:3px}
+  .tnum{font-size:11.5px;color:var(--ink-4);font-variant-numeric:tabular-nums}
+  .subj{font-weight:600;font-size:14px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .trade{font-size:9.5px;font-weight:700;color:var(--accent-700);background:var(--accent-soft);border:1px solid var(--accent-ring);padding:1px 7px;border-radius:5px;letter-spacing:.03em}
+  .l2{display:flex;align-items:center;gap:9px;color:var(--ink-3);font-size:12.5px}
+  .src{display:inline-flex;align-items:center;gap:5px}.src svg{width:12px;height:12px}
+  .right{display:flex;align-items:center;gap:16px}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:7px}
+  .pill .pd{width:6px;height:6px;border-radius:50%}
+  .sla{font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;min-width:84px;justify-content:flex-end;font-variant-numeric:tabular-nums}
+  .sla svg{width:13px;height:13px}
+  .ago{font-size:11.5px;color:var(--ink-4);min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+  .g{color:var(--green);background:var(--green-bg)}.a{color:var(--amber);background:var(--amber-bg)}.r{color:var(--red);background:var(--red-bg)}
+  .b{color:var(--blue);background:var(--blue-bg)}.v{color:var(--violet);background:var(--violet-bg)}.gr{color:var(--grey);background:var(--grey-bg)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="mk">s</div><div class="nm">support<span>OS</span></div></div>
+    <div class="nlabel">Support</div>
+    <div class="nav">
+      <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>Ticket Inbox<span class="badge">28</span></a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Conversations</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Knowledge Base</a>
+    </div>
+    <div class="nlabel">Operations</div>
+    <div class="nav">
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Returns<span class="badge">5</span></a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 15 9l7 .5-5.5 4.5 2 7L12 17l-6.5 4 2-7L2 9.5 9 9z"/></svg>Reviews</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Tracking</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>Insights</a>
+    </div>
+    <div class="me"><div class="av">CA</div><div><div class="nm">Caabs</div><div class="rl">Admin · Outlight</div></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="head">
+      <div><h1>Ticket Inbox</h1><div class="sub">Outlight Support</div></div>
+      <div class="grow"></div>
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input placeholder="Search…"></div>
+      <button class="btn ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>AI Clean Up</button>
+      <button class="btn pri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>New ticket</button>
+    </header>
+
+    <section class="stats">
+      <div class="stat"><div><div class="v">28</div><div class="k">Open tickets</div></div><div class="ic" style="background:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div></div>
+      <div class="stat"><div><div class="v">4</div><div class="k">Awaiting first reply</div></div><div class="ic" style="background:var(--amber-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div></div>
+      <div class="stat"><div><div class="v" style="color:var(--red)">1</div><div class="k">SLA breached</div></div><div class="ic" style="background:var(--red-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div></div>
+      <div class="stat"><div><div class="v">53</div><div class="k">Resolved this week</div></div><div class="ic" style="background:var(--green-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg></div></div>
+    </section>
+
+    <div class="bar">
+      <div class="seg">
+        <button class="on">Open <span class="n">28</span></button>
+        <button>Unassigned <span class="n">11</span></button>
+        <button>Pending <span class="n">6</span></button>
+        <button>All</button>
+      </div>
+      <div class="pillf">All sources <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+      <div class="pillf">Any priority <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+      <div class="grow"></div>
+      <div class="pillf">Sort: SLA urgency <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+    </div>
+
+    <div class="list">
+      <div class="grp">Needs attention</div>
+
+      <div class="tk sel">
+        <div class="av" style="background:var(--red-bg);color:var(--red)">NA<span class="pr" style="background:var(--red)"></span></div>
+        <div class="cell"><div class="l1"><span class="tnum">#2999</span><span class="subj">Order number 1053 — wrong shade arrived</span></div><div class="l2"><span>Natt Autiva</span><span class="src"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>Email</span></div></div>
+        <div class="right"><span class="pill r"><span class="pd" style="background:var(--red)"></span>Urgent</span><span class="sla" style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Breached</span><span class="ago">2m</span></div>
+      </div>
+
+      <div class="tk">
+        <div class="av" style="background:var(--amber-bg);color:var(--amber)">HP<span class="pr" style="background:var(--amber)"></span></div>
+        <div class="cell"><div class="l1"><span class="tnum">#3001</span><span class="subj">Tracking info — no movement in 6 days</span></div><div class="l2"><span>Hanna Pisera</span><span class="src">Email</span></div></div>
+        <div class="right"><span class="pill a"><span class="pd" style="background:var(--amber)"></span>High</span><span class="sla" style="color:var(--amber)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>38m left</span><span class="ago">14m</span></div>
+      </div>
+
+      <div class="grp">Today</div>
+
+      <div class="tk">
+        <div class="av" style="background:var(--blue-bg);color:var(--blue)">SR<span class="pr" style="background:var(--blue)"></span></div>
+        <div class="cell"><div class="l1"><span class="tnum">#3007</span><span class="subj">Re: Order #1064 confirmed</span></div><div class="l2"><span>Sonaro Roy</span><span class="src">Email</span></div></div>
+        <div class="right"><span class="pill b"><span class="pd" style="background:var(--blue)"></span>Medium</span><span class="sla" style="color:var(--green)">4h 10m</span><span class="ago">1h</span></div>
+      </div>
+
+      <div class="tk">
+        <div class="av" style="background:var(--accent-soft);color:var(--accent-700)">JB<span class="pr" style="background:var(--amber)"></span></div>
+        <div class="cell"><div class="l1"><span class="tnum">#2997</span><span class="trade">TRADE</span><span class="subj">Re: Order #1045 confirmed</span></div><div class="l2"><span>Jordan Bowen</span><span class="src">Email</span></div></div>
+        <div class="right"><span class="pill a"><span class="pd" style="background:var(--amber)"></span>High</span><span class="sla" style="color:var(--ink-4)">—</span><span class="ago">2h</span></div>
+      </div>
+
+      <div class="tk">
+        <div class="av" style="background:var(--blue-bg);color:var(--blue)">IB<span class="pr" style="background:var(--blue)"></span></div>
+        <div class="cell"><div class="l1"><span class="tnum">#3002</span><span class="subj">Question about integrated LED serviceability</span></div><div class="l2"><span>Igor Bandeira</span><span class="src">Email</span></div></div>
+        <div class="right"><span class="pill b"><span class="pd" style="background:var(--blue)"></span>Medium</span><span class="sla" style="color:var(--green)">11h 20m</span><span class="ago">5h</span></div>
+      </div>
+
+      <div class="tk">
+        <div class="av" style="background:var(--green-bg);color:var(--green)">MR<span class="pr" style="background:var(--grey)"></span></div>
+        <div class="cell"><div class="l1"><span class="tnum">#2994</span><span class="subj">Request — change delivery address</span></div><div class="l2"><span>Michael R.</span><span class="src"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/></svg>Form</span></div></div>
+        <div class="right"><span class="pill gr"><span class="pd" style="background:var(--grey)"></span>Low</span><span class="sla" style="color:var(--ink-4)">—</span><span class="ago">1d</span></div>
+      </div>
+
+      <div class="tk">
+        <div class="av" style="background:var(--violet-bg);color:var(--violet)">N<span class="pr" style="background:var(--violet)"></span></div>
+        <div class="cell"><div class="l1"><span class="tnum">#2990</span><span class="subj">Help choosing a fixture for a 4m ceiling</span></div><div class="l2"><span>neolavish359</span><span class="src"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>AI escalation</span></div></div>
+        <div class="right"><span class="pill gr"><span class="pd" style="background:var(--grey)"></span>Low</span><span class="sla" style="color:var(--ink-4)">—</span><span class="ago">1d</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

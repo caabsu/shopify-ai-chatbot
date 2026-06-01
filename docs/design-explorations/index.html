@@ -1,35 +1,34 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>supportOS — Tickets redesign</title>
 <style>
- *{margin:0;padding:0;box-sizing:border-box}
+ *{margin:0;padding:0;box-sizing:border-box}::selection{background:#F1E6CE;color:#946A29}
  body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;background:#15161a;color:#e9eaee;min-height:100vh;padding:48px 28px}
  .wrap{max-width:1080px;margin:0 auto}
  h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
- .sub{color:#9aa0ad;margin:8px 0 26px;font-size:14px;line-height:1.6;max-width:700px}
- .sub b{color:#C79A4A}
+ .sub{color:#9aa0ad;margin:8px 0 26px;font-size:14px;line-height:1.6;max-width:720px}.sub b{color:#C79A4A}
  a.card{display:block;text-decoration:none;color:inherit;background:#1c1e24;border:1px solid #2a2d36;border-radius:16px;padding:22px;transition:.18s}
  a.card:hover{transform:translateY(-3px);border-color:#3a3e4a;box-shadow:0 24px 50px -28px rgba(0,0,0,.7)}
  .feat{border-color:#C79A4A;margin-bottom:18px}
- .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
- .sw{height:64px;border-radius:10px;margin-bottom:14px;display:flex;align-items:center;gap:8px;padding:0 16px;font-weight:600}
- .tag{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#8b909c;font-weight:600}
- .nm{font-size:16px;font-weight:700;margin:5px 0 7px;letter-spacing:-.01em}
- .ds{font-size:12.5px;color:#9aa0ad;line-height:1.5}
- .go{margin-top:14px;font-size:12.5px;font-weight:600;color:#C79A4A}
- @media(max-width:880px){.grid{grid-template-columns:1fr 1fr}}
+ .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+ .sw{height:60px;border-radius:9px;margin-bottom:13px;display:flex;align-items:center;gap:8px;padding:0 14px;font-weight:600;font-size:13px}
+ .tag{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8b909c;font-weight:600}
+ .nm{font-size:15px;font-weight:700;margin:5px 0 6px;letter-spacing:-.01em}.ds{font-size:12px;color:#9aa0ad;line-height:1.5}
+ .go{margin-top:12px;font-size:12px;font-weight:600;color:#C79A4A}
+ @media(max-width:980px){.grid{grid-template-columns:1fr 1fr}}
 </style></head><body><div class="wrap">
  <h1>Ticket Inbox — design rounds</h1>
- <p class="sub"><b>C3 is the newest</b> — warm & professional: serif title, proper stat cards (not the flat strip from C2), confident gold accent. Earlier rounds kept below for reference.</p>
- <a class="card feat" href="tickets/direction-c3.html">
-  <div class="sw" style="background:#F6F4EF;color:#A87A2E;font-family:Georgia,serif;font-style:italic;justify-content:space-between"><span>Aa &nbsp;Warm Professional</span><span style="font-style:normal;font-size:13px">★ newest</span></div>
-  <div class="tag" style="color:#C79A4A">Direction C3</div><div class="nm">Warm Professional</div>
-  <div class="ds">Warm paper canvas, Fraunces serif headings + Hanken Grotesk body. Real stat cards with accent bars + icons (fixes the weak C2 strip). Soft, crafted ticket cards, refined avatars, confident gold. Premium & friendly.</div>
-  <div class="go">Open C3 →</div>
+ <p class="sub"><b>C4 is the newest</b> — clean & professional: cool neutral base, white cards, restrained gold accent (no color-flood), strong type. The purple band you saw was your browser's text-selection highlight, not the design — now styled to a soft gold so it never looks off.</p>
+ <a class="card feat" href="tickets/direction-c4.html">
+  <div class="sw" style="background:#F9FAFB;color:#0E1116;justify-content:space-between"><span>·· Clean Professional</span><span style="color:#B07F33;font-size:12px">★ newest</span></div>
+  <div class="tag" style="color:#C79A4A">Direction C4</div><div class="nm">Clean Professional</div>
+  <div class="ds">Cool neutral surfaces, hairline borders, subtle shadows. Gold used sparingly (active nav, selection, trade). Near-black primary button, tabular numbers, soft ticket cards. Linear/Stripe-light energy.</div>
+  <div class="go">Open C4 →</div>
  </a>
  <div class="grid">
-  <a class="card" href="tickets/direction-c2.html"><div class="sw" style="background:#F7F8FA;color:#101319">C2 · refined</div><div class="tag">C2</div><div class="nm">Soft Cards (flat)</div><div class="ds">The cleaner-but-sterile one you didn't like.</div><div class="go">Open →</div></a>
-  <a class="card" href="tickets/direction-c.html"><div class="sw" style="background:#F4F5F8;color:#181A20">Cc · soft</div><div class="tag">C</div><div class="nm">Soft Cards (orig)</div><div class="ds">The friendly original.</div><div class="go">Open →</div></a>
-  <a class="card" href="tickets/direction-a.html"><div class="sw" style="background:#FBF9F4;color:#B0863C;font-family:Georgia,serif;font-style:italic">Aa</div><div class="tag">A</div><div class="nm">Editorial Warm</div><div class="ds">Light, serif, generous.</div><div class="go">Open →</div></a>
-  <a class="card" href="tickets/direction-b.html"><div class="sw" style="background:#0C0D10;color:#E0A93F;font-family:ui-monospace,monospace">B_</div><div class="tag">B</div><div class="nm">Focused Console</div><div class="ds">Dark, dense, technical.</div><div class="go">Open →</div></a>
+  <a class="card" href="tickets/direction-c3.html"><div class="sw" style="background:#F6F4EF;color:#A87A2E;font-family:Georgia,serif;font-style:italic">C3 warm</div><div class="tag">C3</div><div class="nm">Warm Pro</div><div class="ds">Too warm/gold.</div></a>
+  <a class="card" href="tickets/direction-c2.html"><div class="sw" style="background:#F7F8FA;color:#101319">C2</div><div class="tag">C2</div><div class="nm">Flat</div><div class="ds">Too sterile.</div></a>
+  <a class="card" href="tickets/direction-c.html"><div class="sw" style="background:#F4F5F8;color:#181A20">C</div><div class="tag">C</div><div class="nm">Soft orig</div><div class="ds">Friendly original.</div></a>
+  <a class="card" href="tickets/direction-a.html"><div class="sw" style="background:#FBF9F4;color:#B0863C;font-family:Georgia,serif;font-style:italic">Aa</div><div class="tag">A</div><div class="nm">Editorial</div><div class="ds">Serif, warm.</div></a>
+  <a class="card" href="tickets/direction-b.html"><div class="sw" style="background:#0C0D10;color:#E0A93F;font-family:ui-monospace,monospace">B_</div><div class="tag">B</div><div class="nm">Console</div><div class="ds">Dark, dense.</div></a>
  </div>
 </div></body></html>
