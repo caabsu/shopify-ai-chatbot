@@ -20,6 +20,7 @@ export async function GET() {
     lowRes,
     unassignedRes,
     breachingRes,
+    awaitingRes,
     emailRes,
     formRes,
     aiRes,
@@ -35,6 +36,7 @@ export async function GET() {
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('priority', 'low').in('status', ['open', 'pending']),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).is('assigned_to', null).in('status', ['open', 'pending']),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('sla_breached', true).in('status', ['open', 'pending']),
+    supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).is('first_response_at', null).in('status', ['open', 'pending']),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('source', 'email'),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('source', 'form'),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('source', 'ai_escalation'),
@@ -81,6 +83,7 @@ export async function GET() {
     urgentHighCount: (urgentRes.count ?? 0) + (highRes.count ?? 0),
     unassignedCount: unassignedRes.count ?? 0,
     breachingCount,
+    awaitingFirstReplyCount: awaitingRes.count ?? 0,
     avgFirstResponseMinutes,
     slaCompliancePercent,
     ticketsBySource: {

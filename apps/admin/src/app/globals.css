@@ -1,46 +1,45 @@
 @import "tailwindcss";
 
 /* ============================================================================
-   DESIGN SYSTEM — single source of truth (Stage 0 of the platform overhaul)
-   See docs/PLATFORM-OVERHAUL.md. Goal: kill the ~3,209 inline styles and the
-   per-page color objects (TAG_COLORS / PRIORITY_STYLES / STATUS_STYLES / …) by
-   funneling every surface through these tokens. All legacy variable names are
-   preserved so nothing breaks while pages migrate incrementally.
+   supportOS DESIGN SYSTEM — "Clean Professional" (design direction C4)
+   Single source of truth. Every page consumes these tokens, so changing values
+   here re-skins the whole admin. Per-brand accent via [data-brand]; soft/ring
+   accent shades are derived from --color-accent so a new brand needs only one hex.
    ============================================================================ */
 
 @theme {
-  /* ── Brand & accent (re-themeable per brand via --color-accent override) ── */
+  /* ── Brand & accent (re-themeable per brand) ── */
   --color-primary: #18181b;
   --color-primary-foreground: #ffffff;
-  --color-accent: #6366f1;
-  --color-accent-light: #818cf8;
-  --color-accent-strong: #4f46e5;
+  --color-accent: #b07f33;
+  --color-accent-strong: #946a29;
+  --color-accent-light: #cda85e;
   --color-accent-foreground: #ffffff;
-  --color-accent-subtle: #eef2ff;
+  --color-accent-subtle: #f7f1e6;
 
-  /* ── Semantic feedback ── */
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #3b82f6;
-  --color-star: #e0a93f; /* review stars — brand-neutral gold */
+  /* ── Semantic feedback (muted, professional) ── */
+  --color-success: #067a52;
+  --color-warning: #b27214;
+  --color-danger: #c8453b;
+  --color-info: #2f6fe0;
+  --color-star: #d9a73f; /* review stars — brand-neutral gold */
 
   /* Priority colors */
-  --color-priority-urgent: #ef4444;
-  --color-priority-high: #f97316;
-  --color-priority-medium: #3b82f6;
-  --color-priority-low: #9ca3af;
+  --color-priority-urgent: #c8453b;
+  --color-priority-high: #b27214;
+  --color-priority-medium: #2f6fe0;
+  --color-priority-low: #717784;
 
   /* Status colors */
-  --color-status-open: #3b82f6;
-  --color-status-pending: #f59e0b;
-  --color-status-resolved: #22c55e;
-  --color-status-closed: #9ca3af;
+  --color-status-open: #2f6fe0;
+  --color-status-pending: #b27214;
+  --color-status-resolved: #067a52;
+  --color-status-closed: #8a90a0;
 
   /* Source colors */
-  --color-source-email: #6366f1;
-  --color-source-form: #10b981;
-  --color-source-ai: #a855f7;
+  --color-source-email: #2f6fe0;
+  --color-source-form: #067a52;
+  --color-source-ai: #6d55c9;
 
   /* ── Spacing scale (4px base) ── */
   --spacing-1: 4px;
@@ -55,14 +54,14 @@
   --spacing-16: 64px;
 
   /* ── Radii ── */
-  --radius-sm: 6px;
-  --radius-md: 8px;
+  --radius-sm: 7px;
+  --radius-md: 9px;
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
 
   /* ── Typography ── */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-base: 14px;
@@ -78,86 +77,96 @@
 
   /* ── Motion ── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --duration-fast: 120ms;
+  --duration-fast: 130ms;
   --duration-base: 180ms;
 }
 
-/* Light mode defaults */
+/* Light mode defaults (clean cool neutrals) */
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --bg-tertiary: #f3f4f6;
-  --bg-hover: #f3f4f6;
-  --border-primary: #e5e7eb;
-  --border-secondary: #f3f4f6;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07),
-    0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --bg-primary: #ffffff;     /* cards / surfaces */
+  --bg-secondary: #f9fafb;   /* app canvas */
+  --bg-tertiary: #f2f4f7;
+  --bg-hover: #f7f8fa;
+  --border-primary: #eaecf0;
+  --border-secondary: #f2f4f7;
+  --text-primary: #0e1116;
+  --text-secondary: #4b515e;
+  --text-tertiary: #717784;
+  --text-quaternary: #a2a8b4;
+  --shadow-sm: 0 1px 2px rgba(14, 17, 22, 0.05);
+  --shadow-md: 0 1px 2px rgba(14, 17, 22, 0.06), 0 8px 24px -12px rgba(14, 17, 22, 0.16);
+  /* Derived accent shades — work for any brand accent */
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, #ffffff);
+  --color-accent-ring: color-mix(in srgb, var(--color-accent) 34%, #ffffff);
+  /* Dark, restrained primary button (accent stays for active/selected states) */
+  --btn-primary-bg: #16181d;
+  --btn-primary-fg: #ffffff;
 }
 
 /* Dark mode */
 .dark {
-  --bg-primary: #0f0f10;
-  --bg-secondary: #18181b;
-  --bg-tertiary: #27272a;
-  --bg-hover: #27272a;
-  --border-primary: #3f3f46;
-  --border-secondary: #27272a;
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3),
-    0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  --bg-primary: #15171c;
+  --bg-secondary: #0e1015;
+  --bg-tertiary: #1d2026;
+  --bg-hover: #1d2026;
+  --border-primary: #282c34;
+  --border-secondary: #1d2026;
+  --text-primary: #f3f4f6;
+  --text-secondary: #aab0bc;
+  --text-tertiary: #757c89;
+  --text-quaternary: #5b626e;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -14px rgba(0, 0, 0, 0.6);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 18%, #15171c);
+  --color-accent-ring: color-mix(in srgb, var(--color-accent) 40%, #15171c);
+  --btn-primary-bg: #f3f4f6;
+  --btn-primary-fg: #15171c;
 }
+
+::selection { background: var(--color-accent-soft); color: var(--color-accent-strong); }
 
 body {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-base);
+  letter-spacing: -0.006em;
 }
 
-/* ── Per-brand accent theming ──────────────────────────────────────────────
-   Set data-brand on <html> from BrandContext; eventually driven by
-   brands.settings.theme so a new brand is config, not a fork. */
+/* ── Per-brand accent theming (one hex per brand; soft/ring derived above) ── */
 [data-brand="outlight"] {
-  --color-accent: #c5a059;
-  --color-accent-strong: #a9843f;
-  --color-accent-light: #d9bd86;
-  --color-accent-foreground: #1a1a1a;
+  --color-accent: #b07f33;
+  --color-accent-strong: #946a29;
+  --color-accent-light: #cda85e;
+  --color-accent-foreground: #ffffff;
 }
 [data-brand="warm-by-design"] {
-  --color-accent: #f5bc70;
-  --color-accent-strong: #e0a24f;
-  --color-accent-light: #f8d199;
-  --color-accent-foreground: #131313;
+  --color-accent: #d89a4a;
+  --color-accent-strong: #bd8035;
+  --color-accent-light: #ecc488;
+  --color-accent-foreground: #1a1208;
 }
 [data-brand="misu"] {
-  --color-accent: #6366f1;
-  --color-accent-strong: #4f46e5;
+  --color-accent: #4f46e5;
+  --color-accent-strong: #4338ca;
   --color-accent-light: #818cf8;
   --color-accent-foreground: #ffffff;
 }
 
-/* ── Design-system component classes (consume tokens; replace inline styles) ── */
+/* ── Component classes (consume tokens) ── */
 .ds-pill {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-1);
-  padding: 2px 10px;
-  border-radius: var(--radius-full);
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   line-height: 1.5;
   white-space: nowrap;
-  /* --pill-color set inline per status; falls back to text-secondary */
+  letter-spacing: -0.003em;
   color: var(--pill-color, var(--text-secondary));
-  background: color-mix(in srgb, var(--pill-color, var(--text-secondary)) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--pill-color, var(--text-secondary)) 24%, transparent);
+  background: color-mix(in srgb, var(--pill-color, var(--text-secondary)) 11%, transparent);
 }
 
 .ds-btn {
@@ -166,29 +175,33 @@ body {
   justify-content: center;
   gap: var(--spacing-2);
   height: 36px;
-  padding: 0 var(--spacing-4);
+  padding: 0 14px;
   border-radius: var(--radius-md);
-  font-size: var(--text-base);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
   border: 1px solid transparent;
   transition: background var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
     opacity var(--duration-fast) var(--ease-out);
 }
 .ds-btn:disabled { opacity: 0.5; cursor: not-allowed !important; }
-.ds-btn--primary { background: var(--color-accent); color: var(--color-accent-foreground); }
-.ds-btn--primary:hover:not(:disabled) { background: var(--color-accent-strong); }
+.ds-btn--primary { background: var(--btn-primary-bg); color: var(--btn-primary-fg); }
+.ds-btn--primary:hover:not(:disabled) { filter: brightness(1.12); }
 .ds-btn--secondary {
   background: var(--bg-primary);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   border-color: var(--border-primary);
 }
-.ds-btn--secondary:hover:not(:disabled) { background: var(--bg-hover); }
+.ds-btn--secondary:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); border-color: #dfe2e8; }
 .ds-btn--ghost { background: transparent; color: var(--text-secondary); }
 .ds-btn--ghost:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
 .ds-btn--danger { background: var(--color-danger); color: #fff; }
 .ds-btn--danger:hover:not(:disabled) { filter: brightness(0.95); }
-.ds-btn--sm { height: 30px; padding: 0 var(--spacing-3); font-size: var(--text-sm); }
+.ds-btn--accent { background: var(--color-accent); color: var(--color-accent-foreground); }
+.ds-btn--accent:hover:not(:disabled) { background: var(--color-accent-strong); }
+.ds-btn--sm { height: 31px; padding: 0 var(--spacing-3); font-size: var(--text-sm); }
 
 .ds-card {
   background: var(--bg-primary);
@@ -197,7 +210,7 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-/* Ensure pointer cursor on all interactive elements — !important needed to override Tailwind v4 preflight */
+/* Pointer cursor on interactive elements (override Tailwind v4 preflight) */
 button,
 [role="button"],
 select,
@@ -212,17 +225,7 @@ input[type="button"] {
 }
 
 /* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border-primary);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
-}
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-quaternary); }
