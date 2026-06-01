@@ -172,6 +172,37 @@ function markAllExistingAsProcessed() {
   console.log('Marked ' + count + ' threads as processed (no forwarding).');
 }
 
+/**
+ * One-time backlog refresh: strip the Processed label from every thread so they
+ * re-import on the next run. Use AFTER deleting the existing email tickets in the
+ * admin, to re-pull the backlog with full bodies. Order:
+ *   1) Admin → Delete Emails   2) run unprocessAll()   3) run processSupportEmails
+ */
+function unprocessAll() {
+  var resp = Gmail.Users.Labels.list('me');
+  var labels = (resp && resp.labels) || [];
+  var pid = null;
+  for (var i = 0; i < labels.length; i++) if (labels[i].name === PROCESSED_LABEL) pid = labels[i].id;
+  if (!pid) { console.log('no Processed label found — nothing to do'); return; }
+  var count = 0;
+  for (var b = 0; b < BRANDS.length; b++) {
+    var pageToken = null;
+    do {
+      var r = Gmail.Users.Threads.list('me', {
+        q: 'to:' + BRANDS[b].supportEmail + ' label:' + PROCESSED_LABEL,
+        maxResults: 100, pageToken: pageToken,
+      });
+      var stubs = (r && r.threads) || [];
+      for (var t = 0; t < stubs.length; t++) {
+        Gmail.Users.Threads.modify({ removeLabelIds: [pid] }, 'me', stubs[t].id);
+        count++;
+      }
+      pageToken = r && r.nextPageToken;
+    } while (pageToken);
+  }
+  console.log('Un-processed ' + count + ' threads — run processSupportEmails to re-import with full bodies.');
+}
+
 // ── Gmail API helpers ────────────────────────────────────────────────────────
 
 var _labelCache = {};
