@@ -91,7 +91,7 @@ interface TradeAnalytics {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-const SOURCE_COLORS = ['#6366f1', '#10b981', '#a855f7'];
+const SOURCE_COLORS = ['var(--color-info)', 'var(--color-success)', 'var(--color-source-ai)'];
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -275,8 +275,8 @@ export default function OverviewPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <MiniStat icon={Inbox} label="Open Tickets" value={openCount} color="var(--color-status-open)" href="/tickets" />
         <MiniStat icon={AlertTriangle} label="Urgent / High" value={urgentHighCount} color="var(--color-priority-urgent)" href="/tickets" />
-        <MiniStat icon={Package} label="Pending Returns" value={pendingReturns} color="#f59e0b" href="/returns" />
-        <MiniStat icon={Star} label="Pending Reviews" value={pendingReviews} color="#eab308" href="/reviews" />
+        <MiniStat icon={Package} label="Pending Returns" value={pendingReturns} color="var(--color-warning)" href="/returns" />
+        <MiniStat icon={Star} label="Pending Reviews" value={pendingReviews} color="var(--color-star)" href="/reviews" />
         <MiniStat icon={Bot} label="AI Resolution" value={`${autoResolved}%`} color="var(--color-source-ai)" href="/chatbot/conversations" />
         <MiniStat icon={ShieldCheck} label="SLA Compliance" value={`${slaCompliance}%`} color="var(--color-status-resolved)" />
       </div>
@@ -323,9 +323,9 @@ export default function OverviewPage() {
         <Card>
           <CardHeader title="Returns" href="/returns" linkText="All returns" />
           <div className="grid grid-cols-3 gap-3">
-            <Metric value={pendingReturns} label="Pending" color={pendingReturns > 0 ? '#f59e0b' : undefined} />
+            <Metric value={pendingReturns} label="Pending" color={pendingReturns > 0 ? 'var(--color-warning)' : undefined} />
             <Metric value={returnStats?.approved ?? 0} label="Approved" />
-            <Metric value={returnStats?.refunded ?? 0} label="Refunded" color={returnStats?.refunded ? '#22c55e' : undefined} />
+            <Metric value={returnStats?.refunded ?? 0} label="Refunded" color={returnStats?.refunded ? 'var(--color-success)' : undefined} />
           </div>
           <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--border-secondary)' }}>
             <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -342,8 +342,8 @@ export default function OverviewPage() {
         <Card>
           <CardHeader title="Reviews" href="/reviews" linkText="Manage" />
           <div className="grid grid-cols-4 gap-3">
-            <Metric value={publishedReviews} label="Published" color="#22c55e" />
-            <Metric value={pendingReviews} label="Pending" color={pendingReviews > 0 ? '#eab308' : undefined} />
+            <Metric value={publishedReviews} label="Published" color="var(--color-success)" />
+            <Metric value={pendingReviews} label="Pending" color={pendingReviews > 0 ? 'var(--color-star)' : undefined} />
             <Metric value={reviewStats?.with_photos ?? 0} label="With Photos" />
             <Metric value={reviewStats?.with_replies ?? 0} label="Replied" />
           </div>
@@ -353,7 +353,7 @@ export default function OverviewPage() {
               <span>Total: <strong style={{ color: 'var(--text-secondary)' }}>{formatNumber(reviewStats?.all ?? 0)}</strong> reviews</span>
             </div>
             {(reviewStats?.rejected ?? 0) > 0 && (
-              <span className="text-[11px] flex items-center gap-1" style={{ color: '#ef4444' }}>
+              <span className="text-[11px] flex items-center gap-1" style={{ color: 'var(--color-danger)' }}>
                 <XCircle size={11} /> {reviewStats?.rejected} rejected
               </span>
             )}
@@ -364,8 +364,8 @@ export default function OverviewPage() {
         <Card>
           <CardHeader title="Trade Program" href="/trade" linkText="Manage" />
           <div className="grid grid-cols-3 gap-3">
-            <Metric value={activeMembers} label="Active Members" color="#6366f1" />
-            <Metric value={pendingApps} label="Pending Apps" color={pendingApps > 0 ? '#f59e0b' : undefined} />
+            <Metric value={activeMembers} label="Active Members" color="var(--color-info)" />
+            <Metric value={pendingApps} label="Pending Apps" color={pendingApps > 0 ? 'var(--color-warning)' : undefined} />
             <Metric value={tradeStats?.totalApplications ?? 0} label="Total Apps" />
           </div>
           <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--border-secondary)' }}>

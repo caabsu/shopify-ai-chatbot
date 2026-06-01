@@ -28,8 +28,8 @@ function Stars({ rating, size = 12 }: { rating: number | null; size?: number }) 
           <Star
             key={i}
             size={size}
-            fill={i <= Math.round(rating) ? '#f59e0b' : 'none'}
-            stroke={i <= Math.round(rating) ? '#f59e0b' : 'var(--text-tertiary)'}
+            fill={i <= Math.round(rating) ? 'var(--color-warning)' : 'none'}
+            stroke={i <= Math.round(rating) ? 'var(--color-warning)' : 'var(--text-tertiary)'}
             strokeWidth={1.5}
           />
         ))}

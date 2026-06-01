@@ -17,7 +17,7 @@ interface QuizConfig {
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const ACCENT = '#10b981';
+const ACCENT = 'var(--color-success)';
 
 const DEFAULT_CONFIG: QuizConfig = {
   active_concepts: 'reveal,style-profile',
@@ -164,7 +164,7 @@ export default function QuizSettingsPage() {
             fontSize: '13px',
             fontWeight: 500,
             color: '#fff',
-            backgroundColor: saved ? '#22c55e' : saving ? '#9ca3af' : ACCENT,
+            backgroundColor: saved ? 'var(--color-success)' : saving ? '#9ca3af' : ACCENT,
             border: 'none',
             borderRadius: '8px',
             cursor: saving ? 'not-allowed' : 'pointer',
@@ -189,7 +189,7 @@ export default function QuizSettingsPage() {
             borderRadius: '8px',
             fontSize: '13px',
             backgroundColor: 'rgba(239,68,68,0.08)',
-            color: '#ef4444',
+            color: 'var(--color-danger)',
             border: '1px solid rgba(239,68,68,0.2)',
           }}
         >
@@ -293,7 +293,7 @@ export default function QuizSettingsPage() {
                     backgroundColor: 'rgba(245,158,11,0.1)',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#f59e0b',
+                    color: 'var(--color-warning)',
                     minWidth: '70px',
                     justifyContent: 'center',
                   }}
@@ -310,7 +310,7 @@ export default function QuizSettingsPage() {
                     backgroundColor: 'rgba(139,92,246,0.1)',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: '#8b5cf6',
+                    color: 'var(--color-source-ai)',
                     minWidth: '70px',
                     justifyContent: 'center',
                   }}

@@ -64,7 +64,7 @@ export function Header({
           className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full uppercase tracking-wider"
           style={{
             backgroundColor: isAgent ? 'rgba(59,130,246,0.1)' : 'rgba(168,85,247,0.1)',
-            color: isAgent ? '#3b82f6' : '#a855f7',
+            color: isAgent ? 'var(--color-info)' : 'var(--color-source-ai)',
           }}
         >
           {isAgent ? <User size={10} /> : <Shield size={10} />}

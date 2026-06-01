@@ -72,21 +72,21 @@ const modules: Module[] = [
     id: 'overview',
     label: 'Home',
     icon: LayoutDashboard,
-    color: '#6366f1',
+    color: 'var(--color-info)',
     href: '/overview',
   },
   {
     id: 'activity',
     label: 'Activity',
     icon: Activity,
-    color: '#10b981',
+    color: 'var(--color-success)',
     href: '/activity',
   },
   {
     id: 'support',
     label: 'Support',
     icon: Headphones,
-    color: '#6366f1',
+    color: 'var(--color-info)',
     basePaths: ['/tickets', '/chatbot', '/knowledge', '/insights'],
     items: [
       { href: '/tickets', label: 'Tickets', icon: Inbox, badge: true },
@@ -107,7 +107,7 @@ const modules: Module[] = [
     id: 'returns',
     label: 'Returns',
     icon: RotateCcw,
-    color: '#f59e0b',
+    color: 'var(--color-warning)',
     basePaths: ['/returns'],
     items: [
       { href: '/returns', label: 'Requests', icon: Inbox },
@@ -128,7 +128,7 @@ const modules: Module[] = [
     id: 'reviews',
     label: 'Reviews',
     icon: Star,
-    color: '#eab308',
+    color: 'var(--color-star)',
     basePaths: ['/reviews'],
     items: [
       { href: '/reviews', label: 'Reviews', icon: Star },
@@ -146,7 +146,7 @@ const modules: Module[] = [
     id: 'tracking',
     label: 'Tracking',
     icon: Truck,
-    color: '#3b82f6',
+    color: 'var(--color-info)',
     basePaths: ['/tracking'],
     items: [
       { href: '/tracking/insights', label: 'Insights', icon: Search },
@@ -161,7 +161,7 @@ const modules: Module[] = [
     id: 'funnel',
     label: 'Funnel',
     icon: Sparkles,
-    color: '#10b981',
+    color: 'var(--color-success)',
     basePaths: ['/funnel'],
     items: [
       { href: '/funnel', label: 'Overview', icon: Activity },
@@ -178,7 +178,7 @@ const modules: Module[] = [
     id: 'trade',
     label: 'Trade',
     icon: Briefcase,
-    color: '#a855f7',
+    color: 'var(--color-source-ai)',
     basePaths: ['/trade'],
     items: [
       { href: '/trade', label: 'Overview', icon: Briefcase },
@@ -237,7 +237,7 @@ export function Navigation() {
   const userRef = useRef<HTMLDivElement>(null);
 
   const activeModule = getActiveModule(pathname);
-  const moduleColor = activeModule?.color ?? '#6366f1';
+  const moduleColor = activeModule?.color ?? 'var(--color-info)';
   const brandInitial = (brand.brandName || brand.brandSlug || 'B').slice(0, 1).toUpperCase();
   const allSubItems = [...(activeModule?.items ?? []), ...(activeModule?.configItems ?? [])];
   const hasSubNav = activeModule && activeModule.id !== 'overview' && !pathname.startsWith('/settings');
@@ -379,9 +379,9 @@ export function Navigation() {
               href="/settings"
               className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
               style={{
-                color: pathname.startsWith('/settings') ? '#6366f1' : 'var(--text-tertiary)',
+                color: pathname.startsWith('/settings') ? 'var(--color-info)' : 'var(--text-tertiary)',
                 backgroundColor: pathname.startsWith('/settings')
-                  ? 'color-mix(in srgb, #6366f1 10%, transparent)'
+                  ? 'color-mix(in srgb, var(--color-info) 10%, transparent)'
                   : 'transparent',
               }}
               onMouseEnter={(e) => {
@@ -414,7 +414,7 @@ export function Navigation() {
               >
                 <div
                   className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white"
-                  style={{ backgroundColor: '#6366f1' }}
+                  style={{ backgroundColor: 'var(--color-info)' }}
                 >
                   {(brand.userName ?? brand.brandName)?.[0]?.toUpperCase() ?? 'A'}
                 </div>
@@ -445,9 +445,9 @@ export function Navigation() {
                       style={{
                         backgroundColor:
                           brand.role === 'admin'
-                            ? 'color-mix(in srgb, #a855f7 12%, transparent)'
-                            : 'color-mix(in srgb, #3b82f6 12%, transparent)',
-                        color: brand.role === 'admin' ? '#a855f7' : '#3b82f6',
+                            ? 'color-mix(in srgb, var(--color-source-ai) 12%, transparent)'
+                            : 'color-mix(in srgb, var(--color-info) 12%, transparent)',
+                        color: brand.role === 'admin' ? 'var(--color-source-ai)' : 'var(--color-info)',
                       }}
                     >
                       {brand.role === 'admin' ? <Shield size={10} /> : <User size={10} />}

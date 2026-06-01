@@ -173,7 +173,7 @@ export default function GeneralSettingsPage() {
         </div>
       </div>
 
-      {error && <p className="text-sm" style={{ color: '#ef4444' }}>{error}</p>}
+      {error && <p className="text-sm" style={{ color: 'var(--color-danger)' }}>{error}</p>}
 
       <button
         onClick={handleSave}

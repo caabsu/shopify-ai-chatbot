@@ -148,7 +148,7 @@ export default function TeamPage() {
                         backgroundColor: agent.role === 'admin'
                           ? 'rgba(168,85,247,0.1)'
                           : 'color-mix(in srgb, var(--color-accent) 10%, transparent)',
-                        color: agent.role === 'admin' ? '#a855f7' : 'var(--color-accent)',
+                        color: agent.role === 'admin' ? 'var(--color-source-ai)' : 'var(--color-accent)',
                       }}
                     >
                       {agent.role}
@@ -157,11 +157,11 @@ export default function TeamPage() {
                   <td className="px-4 py-3">
                     <span
                       className="inline-flex items-center gap-1 text-xs"
-                      style={{ color: agent.is_active ? '#22c55e' : 'var(--text-tertiary)' }}
+                      style={{ color: agent.is_active ? 'var(--color-success)' : 'var(--text-tertiary)' }}
                     >
                       <span
                         className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: agent.is_active ? '#22c55e' : 'var(--text-tertiary)' }}
+                        style={{ backgroundColor: agent.is_active ? 'var(--color-success)' : 'var(--text-tertiary)' }}
                       />
                       {agent.is_active ? 'Active' : 'Inactive'}
                     </span>
@@ -267,7 +267,7 @@ export default function TeamPage() {
               </div>
             </div>
 
-            {formError && <p className="text-xs" style={{ color: '#ef4444' }}>{formError}</p>}
+            {formError && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{formError}</p>}
 
             <div className="flex justify-end gap-2">
               <button

@@ -174,7 +174,7 @@ export default function FunnelSessionsPage() {
               backgroundColor: 'var(--bg-primary)',
               border: '1px solid var(--border-primary)',
               color: 'var(--text-primary)',
-              '--tw-ring-color': '#10b981',
+              '--tw-ring-color': 'var(--color-success)',
             } as React.CSSProperties}
           />
         </div>
@@ -185,9 +185,9 @@ export default function FunnelSessionsPage() {
         <div
           className="px-4 py-2.5 rounded-lg text-sm"
           style={{
-            backgroundColor: 'color-mix(in srgb, #ef4444 8%, transparent)',
-            color: '#ef4444',
-            border: '1px solid color-mix(in srgb, #ef4444 20%, transparent)',
+            backgroundColor: 'color-mix(in srgb, var(--color-danger) 8%, transparent)',
+            color: 'var(--color-danger)',
+            border: '1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)',
           }}
         >
           {error}
@@ -215,8 +215,8 @@ export default function FunnelSessionsPage() {
                     onClick={() => setStatusFilter(f.key)}
                     className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[13px] transition-colors"
                     style={{
-                      backgroundColor: active ? 'color-mix(in srgb, #10b981 10%, transparent)' : 'transparent',
-                      color: active ? '#10b981' : 'var(--text-secondary)',
+                      backgroundColor: active ? 'color-mix(in srgb, var(--color-success) 10%, transparent)' : 'transparent',
+                      color: active ? 'var(--color-success)' : 'var(--text-secondary)',
                       fontWeight: active ? 500 : 400,
                     }}
                   >
@@ -250,8 +250,8 @@ export default function FunnelSessionsPage() {
                     onClick={() => setConceptFilter(active && f.key !== '' ? '' : f.key)}
                     className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[13px] transition-colors"
                     style={{
-                      backgroundColor: active ? 'color-mix(in srgb, #10b981 10%, transparent)' : 'transparent',
-                      color: active ? '#10b981' : 'var(--text-secondary)',
+                      backgroundColor: active ? 'color-mix(in srgb, var(--color-success) 10%, transparent)' : 'transparent',
+                      color: active ? 'var(--color-success)' : 'var(--text-secondary)',
                       fontWeight: active ? 500 : 400,
                     }}
                   >
@@ -361,7 +361,7 @@ export default function FunnelSessionsPage() {
                         <td style={{ padding: '12px 16px' }}>
                           <Link
                             href={`/funnel/sessions/${session.session_id || session.id}`}
-                            style={{ fontSize: 13, fontFamily: 'var(--font-mono, monospace)', color: '#10b981', textDecoration: 'none' }}
+                            style={{ fontSize: 13, fontFamily: 'var(--font-mono, monospace)', color: 'var(--color-success)', textDecoration: 'none' }}
                             onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
                             onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
                           >

@@ -402,7 +402,7 @@ export default function TradeSettingsPage() {
 
       {/* Error */}
       {error && (
-        <p className="text-sm" style={{ color: '#ef4444' }}>
+        <p className="text-sm" style={{ color: 'var(--color-danger)' }}>
           {error}
         </p>
       )}

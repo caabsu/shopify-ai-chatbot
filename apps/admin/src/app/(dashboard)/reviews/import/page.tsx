@@ -349,14 +349,14 @@ export default function ReviewImportPage() {
           </h3>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <CheckCircle size={16} style={{ color: '#22c55e' }} />
+              <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 <strong>{result.imported}</strong> imported
               </span>
             </div>
             {result.skipped > 0 && (
               <div className="flex items-center gap-2">
-                <AlertCircle size={16} style={{ color: '#f59e0b' }} />
+                <AlertCircle size={16} style={{ color: 'var(--color-warning)' }} />
                 <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                   <strong>{result.skipped}</strong> skipped (duplicates)
                 </span>
@@ -364,7 +364,7 @@ export default function ReviewImportPage() {
             )}
             {result.failed > 0 && (
               <div className="flex items-center gap-2">
-                <XCircle size={16} style={{ color: '#ef4444' }} />
+                <XCircle size={16} style={{ color: 'var(--color-danger)' }} />
                 <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                   <strong>{result.failed}</strong> failed
                 </span>
@@ -379,7 +379,7 @@ export default function ReviewImportPage() {
                 border: '1px solid rgba(239,68,68,0.15)',
               }}
             >
-              <p className="text-xs font-medium" style={{ color: '#ef4444' }}>
+              <p className="text-xs font-medium" style={{ color: 'var(--color-danger)' }}>
                 Errors
               </p>
               {result.errors.map((err, i) => (

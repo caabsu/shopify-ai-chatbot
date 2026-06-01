@@ -575,12 +575,12 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
             border: '1px solid rgba(239,68,68,0.2)',
           }}
         >
-          <AlertTriangle size={14} style={{ color: '#ef4444' }} />
-          <span className="text-sm" style={{ color: '#ef4444' }}>{actionError}</span>
+          <AlertTriangle size={14} style={{ color: 'var(--color-danger)' }} />
+          <span className="text-sm" style={{ color: 'var(--color-danger)' }}>{actionError}</span>
           <button
             onClick={() => setActionError(null)}
             className="ml-auto text-xs px-2 py-1 rounded"
-            style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+            style={{ color: 'var(--color-danger)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
             Dismiss
           </button>
@@ -595,9 +595,9 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
           }}
         >
           {actionNotice.type === 'success' ? (
-            <Check size={14} style={{ color: '#22c55e' }} />
+            <Check size={14} style={{ color: 'var(--color-success)' }} />
           ) : (
-            <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
+            <AlertTriangle size={14} style={{ color: 'var(--color-warning)' }} />
           )}
           <span
             className="text-sm"
@@ -622,7 +622,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
             border: '1px solid rgba(245,158,11,0.26)',
           }}
         >
-          <AlertTriangle size={18} style={{ color: '#f59e0b', marginTop: 2, flexShrink: 0 }} />
+          <AlertTriangle size={18} style={{ color: 'var(--color-warning)', marginTop: 2, flexShrink: 0 }} />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               Shopify refund still needs to be retried
@@ -638,7 +638,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
             }}
             disabled={actionLoading}
             className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-semibold text-white transition-colors disabled:opacity-50"
-            style={{ backgroundColor: '#22c55e' }}
+            style={{ backgroundColor: 'var(--color-success)' }}
           >
             <DollarSign size={12} /> Retry Refund
           </button>
@@ -664,7 +664,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
             {data.approved_no_return && (
               <span
                 className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22c55e' }}
+                style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: 'var(--color-success)' }}
               >
                 Refund Only
               </span>
@@ -688,7 +688,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
             Submitted {formatDate(data.created_at)}
           </span>
           {data.denial_reason && (
-            <span className="text-xs" style={{ color: '#ef4444' }}>
+            <span className="text-xs" style={{ color: 'var(--color-danger)' }}>
               Denial reason: {data.denial_reason}
             </span>
           )}
@@ -869,7 +869,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
             >
               <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-secondary)' }}>
                 <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                  <Sparkles size={14} style={{ color: '#a855f7' }} />
+                  <Sparkles size={14} style={{ color: 'var(--color-source-ai)' }} />
                   AI Recommendation
                 </h3>
               </div>
@@ -884,10 +884,10 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                         ? 'rgba(239,68,68,0.12)'
                         : 'rgba(245,158,11,0.12)',
                       color: data.ai_recommendation.decision === 'approve'
-                        ? '#22c55e'
+                        ? 'var(--color-success)'
                         : data.ai_recommendation.decision === 'deny'
-                        ? '#ef4444'
-                        : '#f59e0b',
+                        ? 'var(--color-danger)'
+                        : 'var(--color-warning)',
                     }}
                   >
                     {data.ai_recommendation.decision === 'approve' ? 'Approve' :
@@ -907,10 +907,10 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                         style={{
                           width: `${Math.round(data.ai_recommendation.confidence * 100)}%`,
                           backgroundColor: data.ai_recommendation.confidence >= 0.8
-                            ? '#22c55e'
+                            ? 'var(--color-success)'
                             : data.ai_recommendation.confidence >= 0.5
-                            ? '#f59e0b'
-                            : '#ef4444',
+                            ? 'var(--color-warning)'
+                            : 'var(--color-danger)',
                         }}
                       />
                     </div>
@@ -930,7 +930,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                     style={{
                       backgroundColor: 'rgba(168,85,247,0.06)',
                       border: '1px solid rgba(168,85,247,0.15)',
-                      color: '#a855f7',
+                      color: 'var(--color-source-ai)',
                     }}
                   >
                     Suggested: {data.ai_recommendation.suggested_resolution}
@@ -1015,7 +1015,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                       onClick={() => setShowDenyModal(true)}
                       disabled={actionLoading}
                       className="flex items-center gap-2 text-xs px-5 py-2.5 font-semibold uppercase tracking-wide transition-all disabled:opacity-50"
-                      style={{ border: '1px solid rgba(239,68,68,0.3)', backgroundColor: 'transparent', color: '#ef4444', letterSpacing: '0.08em' }}
+                      style={{ border: '1px solid rgba(239,68,68,0.3)', backgroundColor: 'transparent', color: 'var(--color-danger)', letterSpacing: '0.08em' }}
                     >
                       <X size={13} /> Deny
                     </button>
@@ -1030,7 +1030,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                   }}
                   disabled={actionLoading}
                   className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-semibold text-white transition-colors disabled:opacity-50"
-                  style={{ backgroundColor: '#22c55e' }}
+                  style={{ backgroundColor: 'var(--color-success)' }}
                 >
                   <DollarSign size={12} /> {refundButtonLabel}
                 </button>
@@ -1053,7 +1053,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                     onClick={() => updateReturn({ status: 'shipped' })}
                     disabled={actionLoading}
                     className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: '#6366f1' }}
+                    style={{ backgroundColor: 'var(--color-info)' }}
                   >
                     <Truck size={12} /> Mark as Shipped
                   </button>
@@ -1064,7 +1064,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                   onClick={handleMarkReceived}
                   disabled={actionLoading}
                   className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                  style={{ backgroundColor: '#a855f7' }}
+                  style={{ backgroundColor: 'var(--color-source-ai)' }}
                 >
                   <Package size={12} /> Mark as Received
                 </button>
@@ -1140,7 +1140,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                   className="inline-block text-[10px] font-medium px-2 py-0.5 rounded capitalize"
                   style={{
                     backgroundColor: 'rgba(59,130,246,0.10)',
-                    color: '#3b82f6',
+                    color: 'var(--color-info)',
                   }}
                 >
                   {data.resolution_type.replace(/_/g, ' ')}
@@ -1225,9 +1225,9 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                     }}
                   >
                     {labelNotice.type === 'success' ? (
-                      <Check size={14} style={{ color: '#22c55e', marginTop: 1 }} />
+                      <Check size={14} style={{ color: 'var(--color-success)', marginTop: 1 }} />
                     ) : (
-                      <AlertTriangle size={14} style={{ color: '#f59e0b', marginTop: 1 }} />
+                      <AlertTriangle size={14} style={{ color: 'var(--color-warning)', marginTop: 1 }} />
                     )}
                     <span
                       className="text-xs leading-relaxed"
@@ -1356,7 +1356,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                         }}
                       >
                         {isDenied ? (
-                          <XCircle size={12} style={{ color: '#ef4444' }} />
+                          <XCircle size={12} style={{ color: 'var(--color-danger)' }} />
                         ) : isComplete ? (
                           <step.icon size={12} style={{ color: 'var(--color-accent)' }} />
                         ) : (
@@ -1379,7 +1379,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                         className="text-xs font-medium"
                         style={{
                           color: isComplete || isCurrent
-                            ? isDenied ? '#ef4444' : 'var(--text-primary)'
+                            ? isDenied ? 'var(--color-danger)' : 'var(--text-primary)'
                             : 'var(--text-tertiary)',
                         }}
                       >
@@ -1435,8 +1435,8 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                         style={{
                           backgroundColor: ticket.status === 'open' ? 'rgba(245,158,11,0.12)' :
                             ticket.status === 'resolved' ? 'rgba(34,197,94,0.12)' : 'rgba(156,163,175,0.12)',
-                          color: ticket.status === 'open' ? '#f59e0b' :
-                            ticket.status === 'resolved' ? '#22c55e' : '#9ca3af',
+                          color: ticket.status === 'open' ? 'var(--color-warning)' :
+                            ticket.status === 'resolved' ? 'var(--color-success)' : '#9ca3af',
                         }}
                       >
                         {ticket.status}
@@ -1550,7 +1550,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                 onClick={handleApprove}
                 disabled={actionLoading}
                 className="text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                style={{ backgroundColor: '#22c55e' }}
+                style={{ backgroundColor: 'var(--color-success)' }}
               >
                 {actionLoading ? 'Approving...' : 'Approve'}
               </button>
@@ -1584,10 +1584,10 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                 border: '1px solid rgba(59,130,246,0.2)',
               }}
             >
-              <p className="text-xs" style={{ color: '#3b82f6' }}>
+              <p className="text-xs" style={{ color: 'var(--color-info)' }}>
                 <strong>Items:</strong> {data.items?.map((i) => `${i.product_title} (x${i.quantity})`).join(', ')}
               </p>
-              <p className="text-xs mt-1" style={{ color: '#3b82f6' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-info)' }}>
                 <strong>Amount paid:</strong> ${totalItemValue.toFixed(2)}. Refunds use the customer&apos;s actual paid amount after discounts/promotions.
               </p>
             </div>
@@ -1608,7 +1608,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                 onClick={handleApproveNoReturn}
                 disabled={actionLoading}
                 className="text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                style={{ backgroundColor: '#3b82f6' }}
+                style={{ backgroundColor: 'var(--color-info)' }}
               >
                 {actionLoading ? 'Processing...' : 'Approve & Refund'}
               </button>
@@ -1637,7 +1637,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
 
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>
-                Denial Reason <span style={{ color: '#ef4444' }}>*</span>
+                Denial Reason <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
               <textarea
                 value={denyReason}
@@ -1653,7 +1653,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                 } as React.CSSProperties}
               />
               {!denyReason.trim() && (
-                <p className="text-[10px] mt-1" style={{ color: '#ef4444' }}>
+                <p className="text-[10px] mt-1" style={{ color: 'var(--color-danger)' }}>
                   A reason is required and will be included in the customer email.
                 </p>
               )}
@@ -1675,7 +1675,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                 onClick={handleDeny}
                 disabled={actionLoading || !denyReason.trim()}
                 className="text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                style={{ backgroundColor: '#ef4444' }}
+                style={{ backgroundColor: 'var(--color-danger)' }}
               >
                 {actionLoading ? 'Denying...' : 'Deny Return'}
               </button>
@@ -1708,8 +1708,8 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                 className="rounded-lg p-3 mb-4 flex items-center gap-2"
                 style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
               >
-                <AlertTriangle size={13} style={{ color: '#ef4444' }} />
-                <span className="text-xs" style={{ color: '#ef4444' }}>{labelError}</span>
+                <AlertTriangle size={13} style={{ color: 'var(--color-danger)' }} />
+                <span className="text-xs" style={{ color: 'var(--color-danger)' }}>{labelError}</span>
               </div>
             )}
 
@@ -1719,7 +1719,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="col-span-2">
-                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>Full Name <span style={{ color: '#ef4444' }}>*</span></label>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>Full Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                   <input
                     type="text"
                     value={labelAddress.name}
@@ -1730,7 +1730,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>Street Address <span style={{ color: '#ef4444' }}>*</span></label>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>Street Address <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                   <input
                     type="text"
                     value={labelAddress.street1}
@@ -1752,7 +1752,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>City <span style={{ color: '#ef4444' }}>*</span></label>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>City <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                   <input
                     type="text"
                     value={labelAddress.city}
@@ -1763,7 +1763,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>State <span style={{ color: '#ef4444' }}>*</span></label>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>State <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                   <input
                     type="text"
                     value={labelAddress.state}
@@ -1774,7 +1774,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>ZIP <span style={{ color: '#ef4444' }}>*</span></label>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>ZIP <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                   <input
                     type="text"
                     value={labelAddress.zip}
@@ -1936,7 +1936,7 @@ export function ReturnDetail({ id, backHref = '/returns' }: { id: string; backHr
                 onClick={handleProcessRefund}
                 disabled={actionLoading}
                 className="text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50"
-                style={{ backgroundColor: '#22c55e' }}
+                style={{ backgroundColor: 'var(--color-success)' }}
               >
                 {actionLoading ? 'Processing...' : refundButtonLabel}
               </button>

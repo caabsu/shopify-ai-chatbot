@@ -26,7 +26,7 @@ interface InsightData {
   topIssues: Array<{ category: string; count: number; percentage: number }>;
 }
 
-const SOURCE_COLORS = ['#6366f1', '#10b981', '#a855f7'];
+const SOURCE_COLORS = ['var(--color-info)', 'var(--color-success)', 'var(--color-source-ai)'];
 const DATE_RANGES = [
   { label: '7d', days: 7 },
   { label: '30d', days: 30 },
@@ -170,8 +170,8 @@ export default function InsightsPage() {
                     color: 'var(--text-primary)',
                   }}
                 />
-                <Area type="monotone" dataKey="ai_resolved" stackId="1" stroke="#a855f7" fill="rgba(168,85,247,0.2)" name="AI Resolved" />
-                <Area type="monotone" dataKey="tickets" stackId="1" stroke="#6366f1" fill="rgba(99,102,241,0.2)" name="Tickets" />
+                <Area type="monotone" dataKey="ai_resolved" stackId="1" stroke="var(--color-source-ai)" fill="rgba(168,85,247,0.2)" name="AI Resolved" />
+                <Area type="monotone" dataKey="tickets" stackId="1" stroke="var(--color-info)" fill="rgba(99,102,241,0.2)" name="Tickets" />
                 <Legend />
               </AreaChart>
             </ResponsiveContainer>

@@ -265,9 +265,9 @@ export default function TrackingSettingsPage() {
                     border: '1px solid var(--border-primary)',
                     color:
                       testStatus === 'ok'
-                        ? '#22c55e'
+                        ? 'var(--color-success)'
                         : testStatus === 'fail'
-                          ? '#ef4444'
+                          ? 'var(--color-danger)'
                           : 'var(--text-secondary)',
                     backgroundColor:
                       testStatus === 'ok'
@@ -375,7 +375,7 @@ export default function TrackingSettingsPage() {
                     className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors"
                     style={{ color: 'var(--text-tertiary)' }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.color = '#ef4444';
+                      (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-danger)';
                       (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(239,68,68,0.08)';
                     }}
                     onMouseLeave={(e) => {

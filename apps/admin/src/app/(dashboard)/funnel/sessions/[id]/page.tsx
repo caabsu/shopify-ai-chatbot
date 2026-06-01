@@ -150,7 +150,7 @@ export default function SessionDetailPage() {
         >
           <ArrowLeft size={14} /> Back to Sessions
         </Link>
-        <p style={{ fontSize: '14px', color: '#ef4444' }}>{error || 'Session not found'}</p>
+        <p style={{ fontSize: '14px', color: 'var(--color-danger)' }}>{error || 'Session not found'}</p>
       </div>
     );
   }

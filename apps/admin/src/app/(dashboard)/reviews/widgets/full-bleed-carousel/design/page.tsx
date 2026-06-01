@@ -770,7 +770,7 @@ export default function FullBleedCarouselDesignPage() {
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors"
                         style={{
                           border: '1px solid var(--border-primary)',
-                          color: copiedProduct ? '#4caf50' : 'var(--text-secondary)',
+                          color: copiedProduct ? 'var(--color-success)' : 'var(--text-secondary)',
                         }}
                       >
                         {copiedProduct ? (
@@ -811,7 +811,7 @@ export default function FullBleedCarouselDesignPage() {
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors"
                         style={{
                           border: '1px solid var(--border-primary)',
-                          color: copiedAll ? '#4caf50' : 'var(--text-secondary)',
+                          color: copiedAll ? 'var(--color-success)' : 'var(--text-secondary)',
                         }}
                       >
                         {copiedAll ? (

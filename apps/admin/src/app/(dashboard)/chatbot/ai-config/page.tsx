@@ -69,7 +69,7 @@ export default function ChatbotAiConfigPage() {
                 {changed && (
                   <span
                     className="text-xs px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#d97706' }}
+                    style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: 'var(--color-warning)' }}
                   >
                     Unsaved
                   </span>

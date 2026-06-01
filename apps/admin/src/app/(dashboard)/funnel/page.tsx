@@ -137,7 +137,7 @@ export default function FunnelOverviewPage() {
             Quiz Funnel
           </h2>
         </div>
-        <p style={{ fontSize: '14px', color: '#ef4444' }}>{error}</p>
+        <p style={{ fontSize: '14px', color: 'var(--color-danger)' }}>{error}</p>
       </div>
     );
   }

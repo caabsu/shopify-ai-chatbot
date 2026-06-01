@@ -338,7 +338,7 @@ export default function ReturnRulesPage() {
                           {actionStyle.label}
                         </span>
                         {rule.resolution_type && (
-                          <span className="text-[10px] font-medium px-2 py-0.5 rounded capitalize" style={{ backgroundColor: 'rgba(59,130,246,0.10)', color: '#3b82f6' }}>
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded capitalize" style={{ backgroundColor: 'rgba(59,130,246,0.10)', color: 'var(--color-info)' }}>
                             {rule.resolution_type.replace(/_/g, ' ')}
                           </span>
                         )}
@@ -389,12 +389,12 @@ export default function ReturnRulesPage() {
                       {/* Delete */}
                       {deletingId === rule.id ? (
                         <div className="flex items-center gap-1">
-                          <button onClick={() => deleteRule(rule.id)} className="p-1.5 rounded-lg" style={{ color: '#ef4444' }}><Check size={13} /></button>
+                          <button onClick={() => deleteRule(rule.id)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-danger)' }}><Check size={13} /></button>
                           <button onClick={() => setDeletingId(null)} className="p-1.5 rounded-lg" style={{ color: 'var(--text-tertiary)' }}><X size={13} /></button>
                         </div>
                       ) : (
                         <button onClick={() => setDeletingId(rule.id)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--text-tertiary)' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = 'var(--color-danger)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text-tertiary)'; }}>
                           <Trash2 size={13} />
                         </button>

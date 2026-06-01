@@ -214,9 +214,9 @@ export default function RmaPage() {
             {connection.loading ? (
               <Clock size={16} style={{ color: 'var(--text-tertiary)' }} />
             ) : connection.connected ? (
-              <Wifi size={16} style={{ color: '#22c55e' }} />
+              <Wifi size={16} style={{ color: 'var(--color-success)' }} />
             ) : (
-              <WifiOff size={16} style={{ color: '#ef4444' }} />
+              <WifiOff size={16} style={{ color: 'var(--color-danger)' }} />
             )}
             <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
               Red Stag API
@@ -228,8 +228,8 @@ export default function RmaPage() {
               color: connection.loading
                 ? 'var(--text-secondary)'
                 : connection.connected
-                ? '#22c55e'
-                : '#ef4444',
+                ? 'var(--color-success)'
+                : 'var(--color-danger)',
             }}
           >
             {connection.loading ? 'Checking...' : connection.connected ? 'Connected' : 'Disconnected'}
@@ -246,9 +246,9 @@ export default function RmaPage() {
         {/* Stats */}
         {[
           { label: 'Total RMAs', value: entries.length, color: 'var(--text-primary)' },
-          { label: 'Refunded', value: totalRefunded, color: '#22c55e' },
-          { label: 'Pending', value: totalPending, color: '#f59e0b' },
-          { label: 'Errors', value: totalErrors, color: '#ef4444' },
+          { label: 'Refunded', value: totalRefunded, color: 'var(--color-success)' },
+          { label: 'Pending', value: totalPending, color: 'var(--color-warning)' },
+          { label: 'Errors', value: totalErrors, color: 'var(--color-danger)' },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -280,16 +280,16 @@ export default function RmaPage() {
         >
           {syncResult.error ? (
             <div className="flex items-center gap-2">
-              <XCircle size={16} style={{ color: '#ef4444' }} />
-              <span className="text-sm" style={{ color: '#ef4444' }}>
+              <XCircle size={16} style={{ color: 'var(--color-danger)' }} />
+              <span className="text-sm" style={{ color: 'var(--color-danger)' }}>
                 Sync failed: {syncResult.error}
               </span>
             </div>
           ) : syncResult.summary ? (
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <CheckCircle size={16} style={{ color: '#22c55e' }} />
-                <span className="text-sm font-medium" style={{ color: '#22c55e' }}>
+                <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
+                <span className="text-sm font-medium" style={{ color: 'var(--color-success)' }}>
                   Sync complete{syncResult.summary.dryRun ? ' (DRY RUN)' : ''}
                 </span>
               </div>
@@ -433,13 +433,13 @@ export default function RmaPage() {
                               className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full"
                               style={{
                                 backgroundColor: entry.match_method === 'order_number' ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)',
-                                color: entry.match_method === 'order_number' ? '#22c55e' : '#6366f1',
+                                color: entry.match_method === 'order_number' ? 'var(--color-success)' : 'var(--color-info)',
                               }}
                             >
                               {entry.match_method.replace(/_/g, ' ')}
                             </span>
                           ) : (
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: 'var(--color-danger)' }}>
                               unmatched
                             </span>
                           )}
@@ -449,7 +449,7 @@ export default function RmaPage() {
                         <td className="px-4 py-3">
                           <span
                             className="text-xs font-medium"
-                            style={{ color: age > 7 ? '#ef4444' : age > 3 ? '#f59e0b' : 'var(--text-secondary)' }}
+                            style={{ color: age > 7 ? 'var(--color-danger)' : age > 3 ? 'var(--color-warning)' : 'var(--text-secondary)' }}
                           >
                             {age}d
                           </span>
@@ -470,15 +470,15 @@ export default function RmaPage() {
                         <td className="px-4 py-3">
                           {entry.error ? (
                             <div className="flex items-center gap-1.5" title={entry.error}>
-                              <XCircle size={14} style={{ color: '#ef4444' }} />
-                              <span className="text-xs max-w-[100px] truncate" style={{ color: '#ef4444' }}>
+                              <XCircle size={14} style={{ color: 'var(--color-danger)' }} />
+                              <span className="text-xs max-w-[100px] truncate" style={{ color: 'var(--color-danger)' }}>
                                 Error
                               </span>
                             </div>
                           ) : entry.refund_processed ? (
                             <div className="flex items-center gap-1.5">
-                              <CheckCircle size={14} style={{ color: '#22c55e' }} />
-                              <span className="text-xs" style={{ color: '#22c55e' }}>Done</span>
+                              <CheckCircle size={14} style={{ color: 'var(--color-success)' }} />
+                              <span className="text-xs" style={{ color: 'var(--color-success)' }}>Done</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-1.5">
@@ -535,8 +535,8 @@ export default function RmaPage() {
                                       ? 'rgba(239,68,68,0.12)' : entry.match_method === 'order_number'
                                       ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)',
                                     color: !entry.match_method || entry.match_method === 'none'
-                                      ? '#ef4444' : entry.match_method === 'order_number'
-                                      ? '#22c55e' : '#6366f1',
+                                      ? 'var(--color-danger)' : entry.match_method === 'order_number'
+                                      ? 'var(--color-success)' : 'var(--color-info)',
                                   }}
                                 >
                                   {entry.match_method?.replace(/_/g, ' ') || 'unmatched'}
@@ -626,8 +626,8 @@ export default function RmaPage() {
                                             <td className="px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>{sku.qty_expected ?? sku.qty}</td>
                                             <td className="px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>{sku.qty_received ?? '\u2014'}</td>
                                             <td className="px-3 py-1.5" style={{ color: 'var(--text-secondary)' }}>{sku.qty_processed ?? '\u2014'}</td>
-                                            <td className="px-3 py-1.5" style={{ color: (sku.qty_shortage ?? 0) > 0 ? '#ef4444' : 'var(--text-secondary)' }}>{sku.qty_shortage ?? '\u2014'}</td>
-                                            <td className="px-3 py-1.5" style={{ color: (sku.qty_overage ?? 0) > 0 ? '#f59e0b' : 'var(--text-secondary)' }}>{sku.qty_overage ?? '\u2014'}</td>
+                                            <td className="px-3 py-1.5" style={{ color: (sku.qty_shortage ?? 0) > 0 ? 'var(--color-danger)' : 'var(--text-secondary)' }}>{sku.qty_shortage ?? '\u2014'}</td>
+                                            <td className="px-3 py-1.5" style={{ color: (sku.qty_overage ?? 0) > 0 ? 'var(--color-warning)' : 'var(--text-secondary)' }}>{sku.qty_overage ?? '\u2014'}</td>
                                           </tr>
                                         ))}
                                       </tbody>
@@ -639,14 +639,14 @@ export default function RmaPage() {
                               {/* Exceptions (damage reports, shortages) */}
                               {entry.exceptions && entry.exceptions.length > 0 && (
                                 <div className="col-span-4">
-                                  <p className="font-semibold mb-2 uppercase tracking-wider text-[10px]" style={{ color: '#f59e0b' }}>Warehouse Exceptions</p>
+                                  <p className="font-semibold mb-2 uppercase tracking-wider text-[10px]" style={{ color: 'var(--color-warning)' }}>Warehouse Exceptions</p>
                                   <div className="space-y-1.5">
                                     {entry.exceptions.map((exc, idx) => (
                                       <div key={idx} className="rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
                                         <div className="flex items-center gap-2">
-                                          <span className="font-medium" style={{ color: '#f59e0b' }}>{exc.reason.replace(/_/g, ' ')}</span>
+                                          <span className="font-medium" style={{ color: 'var(--color-warning)' }}>{exc.reason.replace(/_/g, ' ')}</span>
                                           {exc.sku && <span className="font-mono text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{exc.sku}</span>}
-                                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: exc.status === 'approved' ? 'rgba(34,197,94,0.12)' : 'rgba(156,163,175,0.12)', color: exc.status === 'approved' ? '#22c55e' : '#9ca3af' }}>{exc.status}</span>
+                                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: exc.status === 'approved' ? 'rgba(34,197,94,0.12)' : 'rgba(156,163,175,0.12)', color: exc.status === 'approved' ? 'var(--color-success)' : '#9ca3af' }}>{exc.status}</span>
                                           <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>qty: {exc.qty}</span>
                                         </div>
                                         {exc.comment && <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>{exc.comment}</p>}
@@ -686,7 +686,7 @@ export default function RmaPage() {
                               {/* Refund Details */}
                               <div className="col-span-2">
                                 <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Refund Amount</p>
-                                <p className="font-medium" style={{ color: entry.refund_amount != null ? '#22c55e' : 'var(--text-tertiary)' }}>
+                                <p className="font-medium" style={{ color: entry.refund_amount != null ? 'var(--color-success)' : 'var(--text-tertiary)' }}>
                                   {entry.refund_amount != null ? `$${entry.refund_amount.toFixed(2)}` : '\u2014'}
                                 </p>
                               </div>
@@ -701,8 +701,8 @@ export default function RmaPage() {
                               {/* Error */}
                               {entry.error && (
                                 <div className="col-span-4 rounded-lg p-3" style={{ backgroundColor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
-                                  <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: '#ef4444' }}>Error</p>
-                                  <p style={{ color: '#ef4444' }}>{entry.error}</p>
+                                  <p className="font-semibold mb-1 uppercase tracking-wider text-[10px]" style={{ color: 'var(--color-danger)' }}>Error</p>
+                                  <p style={{ color: 'var(--color-danger)' }}>{entry.error}</p>
                                 </div>
                               )}
 
@@ -735,7 +735,7 @@ export default function RmaPage() {
       <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
         Sync runs automatically every 15 minutes. RMAs with status &quot;processed&quot; or &quot;complete&quot; trigger a Shopify refund.
         {process.env.NEXT_PUBLIC_RMA_DRY_RUN === 'true' && (
-          <span style={{ color: '#f59e0b' }}> DRY RUN mode active -- no refunds are actually processed.</span>
+          <span style={{ color: 'var(--color-warning)' }}> DRY RUN mode active -- no refunds are actually processed.</span>
         )}
       </p>
     </div>

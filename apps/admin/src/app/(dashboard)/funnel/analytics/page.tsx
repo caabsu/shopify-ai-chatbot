@@ -6,7 +6,7 @@ import {
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 
-const ACCENT = '#10b981';
+const ACCENT = 'var(--color-success)';
 
 const DATE_RANGES = [
   { label: '7d', days: 7 },
@@ -226,7 +226,7 @@ export default function FunnelAnalyticsPage() {
               <Tooltip contentStyle={tooltipStyle} />
               <Legend />
               <Line type="monotone" dataKey="total" stroke="#9ca3af" strokeWidth={2} dot={false} name="Total" />
-              <Line type="monotone" dataKey="completed" stroke="#22c55e" strokeWidth={2} dot={false} name="Completed" />
+              <Line type="monotone" dataKey="completed" stroke="var(--color-success)" strokeWidth={2} dot={false} name="Completed" />
               <Line type="monotone" dataKey="converted" stroke={ACCENT} strokeWidth={2} dot={false} name="Converted" />
             </LineChart>
           </ResponsiveContainer>

@@ -58,7 +58,7 @@ interface TaggingStatus {
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const ACCENT = '#10b981';
+const ACCENT = 'var(--color-success)';
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 const ALL_MOOD_KEYS = [
@@ -375,7 +375,7 @@ export default function ProductPoolsPage() {
             <div style={{
               height: '100%',
               width: `${taggingStatus.progress ? (taggingStatus.progress.current / taggingStatus.progress.total * 100) : 0}%`,
-              backgroundColor: '#f59e0b', borderRadius: '2px', transition: 'width 500ms ease',
+              backgroundColor: 'var(--color-warning)', borderRadius: '2px', transition: 'width 500ms ease',
             }} />
           </div>
         </div>
@@ -859,7 +859,7 @@ function ProductDetailPanel({
                 style={{
                   display: 'flex', alignItems: 'center', gap: '4px',
                   padding: '7px 12px', fontSize: '12px', fontWeight: 500,
-                  color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.06)',
+                  color: 'var(--color-danger)', backgroundColor: 'rgba(239,68,68,0.06)',
                   border: '1px solid rgba(239,68,68,0.15)', borderRadius: '7px', cursor: 'pointer',
                 }}
               >

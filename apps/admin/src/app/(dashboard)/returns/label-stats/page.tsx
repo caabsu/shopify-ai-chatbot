@@ -73,10 +73,10 @@ export default function LabelStatsPage() {
       <div className="grid grid-cols-5 gap-4">
         {[
           { label: 'Total Labels', value: stats.totalLabels.toString(), icon: Tag, color: 'var(--text-primary)' },
-          { label: 'Total Shipping Cost', value: `$${stats.totalShippingCost.toFixed(2)}`, icon: DollarSign, color: '#22c55e' },
-          { label: 'Avg Cost / Return', value: `$${stats.avgCostPerReturn.toFixed(2)}`, icon: TrendingUp, color: '#6366f1' },
-          { label: 'Labels This Month', value: stats.labelsThisMonth.toString(), icon: Calendar, color: '#f59e0b' },
-          { label: 'Most Used Carrier', value: stats.mostUsedCarrier, icon: Truck, color: '#3b82f6' },
+          { label: 'Total Shipping Cost', value: `$${stats.totalShippingCost.toFixed(2)}`, icon: DollarSign, color: 'var(--color-success)' },
+          { label: 'Avg Cost / Return', value: `$${stats.avgCostPerReturn.toFixed(2)}`, icon: TrendingUp, color: 'var(--color-info)' },
+          { label: 'Labels This Month', value: stats.labelsThisMonth.toString(), icon: Calendar, color: 'var(--color-warning)' },
+          { label: 'Most Used Carrier', value: stats.mostUsedCarrier, icon: Truck, color: 'var(--color-info)' },
         ].map((stat) => (
           <div
             key={stat.label}

@@ -189,7 +189,7 @@ export default function CannedResponsesPage() {
                         <button
                           onClick={() => handleDelete(cr.id)}
                           className="text-[10px] px-2 py-1 rounded text-white"
-                          style={{ backgroundColor: '#ef4444' }}
+                          style={{ backgroundColor: 'var(--color-danger)' }}
                         >
                           Delete
                         </button>
@@ -208,7 +208,7 @@ export default function CannedResponsesPage() {
                         style={{ color: 'var(--text-tertiary)' }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-                          e.currentTarget.style.color = '#ef4444';
+                          e.currentTarget.style.color = 'var(--color-danger)';
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.backgroundColor = 'transparent';

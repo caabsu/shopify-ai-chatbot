@@ -53,13 +53,13 @@ function formatCurrency(cents: number): string {
 
 function getEventIcon(eventType: string) {
   if (eventType.includes('approved') || eventType.includes('activated') || eventType.includes('reactivated')) {
-    return { icon: CheckCircle, color: '#22c55e' };
+    return { icon: CheckCircle, color: 'var(--color-success)' };
   }
   if (eventType.includes('suspended')) {
-    return { icon: AlertTriangle, color: '#f59e0b' };
+    return { icon: AlertTriangle, color: 'var(--color-warning)' };
   }
   if (eventType.includes('revoked')) {
-    return { icon: XCircle, color: '#ef4444' };
+    return { icon: XCircle, color: 'var(--color-danger)' };
   }
   return { icon: Activity, color: 'var(--text-tertiary)' };
 }
@@ -403,7 +403,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 className="text-xs px-3 py-2 rounded-lg mb-3"
                 style={{
                   backgroundColor: statusMessage.type === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                  color: statusMessage.type === 'success' ? '#22c55e' : '#ef4444',
+                  color: statusMessage.type === 'success' ? 'var(--color-success)' : 'var(--color-danger)',
                   border: `1px solid ${statusMessage.type === 'success' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
                 }}
               >
@@ -424,7 +424,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                         onClick={() => handleStatusAction('suspend')}
                         disabled={statusSaving}
                         className="flex-1 text-xs px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                        style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706' }}
+                        style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: 'var(--color-warning)' }}
                       >
                         {statusSaving ? 'Saving...' : 'Confirm suspend'}
                       </button>
@@ -443,7 +443,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                     className="w-full text-xs px-3 py-2 rounded-lg font-medium text-left flex items-center gap-2 transition-colors"
                     style={{
                       backgroundColor: 'rgba(245,158,11,0.08)',
-                      color: '#d97706',
+                      color: 'var(--color-warning)',
                       border: '1px solid rgba(245,158,11,0.2)',
                     }}
                   >
@@ -462,7 +462,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                         onClick={() => handleStatusAction('revoke')}
                         disabled={statusSaving}
                         className="flex-1 text-xs px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                        style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+                        style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: 'var(--color-danger)' }}
                       >
                         {statusSaving ? 'Saving...' : 'Confirm revoke'}
                       </button>
@@ -481,7 +481,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                     className="w-full text-xs px-3 py-2 rounded-lg font-medium text-left flex items-center gap-2 transition-colors"
                     style={{
                       backgroundColor: 'rgba(239,68,68,0.08)',
-                      color: '#ef4444',
+                      color: 'var(--color-danger)',
                       border: '1px solid rgba(239,68,68,0.2)',
                     }}
                   >
@@ -504,7 +504,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                         onClick={() => handleStatusAction('reactivate')}
                         disabled={statusSaving}
                         className="flex-1 text-xs px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                        style={{ backgroundColor: 'rgba(34,197,94,0.15)', color: '#16a34a' }}
+                        style={{ backgroundColor: 'rgba(34,197,94,0.15)', color: 'var(--color-success)' }}
                       >
                         {statusSaving ? 'Saving...' : 'Confirm reactivate'}
                       </button>
@@ -523,7 +523,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                     className="w-full text-xs px-3 py-2 rounded-lg font-medium text-left flex items-center gap-2 transition-colors"
                     style={{
                       backgroundColor: 'rgba(34,197,94,0.08)',
-                      color: '#16a34a',
+                      color: 'var(--color-success)',
                       border: '1px solid rgba(34,197,94,0.2)',
                     }}
                   >
@@ -542,7 +542,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                         onClick={() => handleStatusAction('revoke')}
                         disabled={statusSaving}
                         className="flex-1 text-xs px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                        style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+                        style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: 'var(--color-danger)' }}
                       >
                         {statusSaving ? 'Saving...' : 'Confirm revoke'}
                       </button>
@@ -561,7 +561,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                     className="w-full text-xs px-3 py-2 rounded-lg font-medium text-left flex items-center gap-2 transition-colors"
                     style={{
                       backgroundColor: 'rgba(239,68,68,0.08)',
-                      color: '#ef4444',
+                      color: 'var(--color-danger)',
                       border: '1px solid rgba(239,68,68,0.2)',
                     }}
                   >

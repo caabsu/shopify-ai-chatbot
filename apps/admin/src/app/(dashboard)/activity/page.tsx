@@ -23,12 +23,12 @@ interface ActivityData {
 }
 
 const TYPE_CONFIG: Record<string, { icon: typeof Activity; color: string; label: string }> = {
-  'webhook.products': { icon: Package, color: '#6366f1', label: 'Product Sync' },
-  'webhook.orders': { icon: ShoppingCart, color: '#3b82f6', label: 'Order Webhook' },
-  'email.sent': { icon: Mail, color: '#22c55e', label: 'Email Sent' },
-  'email.failed': { icon: Mail, color: '#ef4444', label: 'Email Failed' },
-  'review.submitted': { icon: Zap, color: '#eab308', label: 'Review Submitted' },
-  'review.scheduled': { icon: Clock, color: '#f59e0b', label: 'Review Scheduled' },
+  'webhook.products': { icon: Package, color: 'var(--color-info)', label: 'Product Sync' },
+  'webhook.orders': { icon: ShoppingCart, color: 'var(--color-info)', label: 'Order Webhook' },
+  'email.sent': { icon: Mail, color: 'var(--color-success)', label: 'Email Sent' },
+  'email.failed': { icon: Mail, color: 'var(--color-danger)', label: 'Email Failed' },
+  'review.submitted': { icon: Zap, color: 'var(--color-star)', label: 'Review Submitted' },
+  'review.scheduled': { icon: Clock, color: 'var(--color-warning)', label: 'Review Scheduled' },
 };
 
 const STATUS_ICON: Record<string, typeof CheckCircle2> = {
@@ -38,9 +38,9 @@ const STATUS_ICON: Record<string, typeof CheckCircle2> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  success: '#22c55e',
-  error: '#ef4444',
-  info: '#6366f1',
+  success: 'var(--color-success)',
+  error: 'var(--color-danger)',
+  info: 'var(--color-info)',
 };
 
 function formatTime(ts: string): string {
@@ -125,7 +125,7 @@ export default function ActivityPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
             style={{
               backgroundColor: autoRefresh ? 'rgba(34,197,94,0.10)' : 'var(--bg-secondary)',
-              color: autoRefresh ? '#22c55e' : 'var(--text-tertiary)',
+              color: autoRefresh ? 'var(--color-success)' : 'var(--text-tertiary)',
               border: `1px solid ${autoRefresh ? 'rgba(34,197,94,0.25)' : 'var(--border-primary)'}`,
             }}
           >
@@ -150,10 +150,10 @@ export default function ActivityPage() {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { label: 'Total Events', value: events.length, color: 'var(--text-primary)', icon: Activity },
-          { label: 'Webhooks', value: webhookCount, color: '#6366f1', icon: Package },
-          { label: 'Emails', value: emailCount, color: '#3b82f6', icon: Mail },
-          { label: 'Errors', value: errorCount, color: '#ef4444', icon: XCircle },
-          { label: 'Server Uptime', value: formatUptime(data?.serverUptime ?? 0), color: '#22c55e', icon: Clock },
+          { label: 'Webhooks', value: webhookCount, color: 'var(--color-info)', icon: Package },
+          { label: 'Emails', value: emailCount, color: 'var(--color-info)', icon: Mail },
+          { label: 'Errors', value: errorCount, color: 'var(--color-danger)', icon: XCircle },
+          { label: 'Server Uptime', value: formatUptime(data?.serverUptime ?? 0), color: 'var(--color-success)', icon: Clock },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
@@ -181,10 +181,10 @@ export default function ActivityPage() {
       <div className="flex items-center gap-2 flex-wrap">
         {[
           { key: 'all', label: 'All', count: events.length },
-          { key: 'webhook', label: 'Webhooks', count: webhookCount, color: '#6366f1' },
-          { key: 'email', label: 'Emails', count: emailCount, color: '#3b82f6' },
-          { key: 'success', label: 'Success', count: successCount, color: '#22c55e' },
-          { key: 'error', label: 'Errors', count: errorCount, color: '#ef4444' },
+          { key: 'webhook', label: 'Webhooks', count: webhookCount, color: 'var(--color-info)' },
+          { key: 'email', label: 'Emails', count: emailCount, color: 'var(--color-info)' },
+          { key: 'success', label: 'Success', count: successCount, color: 'var(--color-success)' },
+          { key: 'error', label: 'Errors', count: errorCount, color: 'var(--color-danger)' },
         ].map((f) => (
           <button
             key={f.key}

@@ -8,10 +8,10 @@ import { ChatMarkdown } from '@/components/chat-markdown';
 import type { Conversation, Message } from '@/lib/types';
 
 const roleBadge: Record<string, { label: string; bg: string; text: string; icon: typeof User }> = {
-  user: { label: 'Customer', bg: 'rgba(59,130,246,0.12)', text: '#3b82f6', icon: User },
-  assistant: { label: 'AI', bg: 'rgba(168,85,247,0.12)', text: '#a855f7', icon: Bot },
+  user: { label: 'Customer', bg: 'rgba(59,130,246,0.12)', text: 'var(--color-info)', icon: User },
+  assistant: { label: 'AI', bg: 'rgba(168,85,247,0.12)', text: 'var(--color-source-ai)', icon: Bot },
   system: { label: 'System', bg: 'rgba(156,163,175,0.12)', text: '#9ca3af', icon: Cpu },
-  human_agent: { label: 'Agent', bg: 'rgba(249,115,22,0.12)', text: '#f97316', icon: User },
+  human_agent: { label: 'Agent', bg: 'rgba(249,115,22,0.12)', text: 'var(--color-warning)', icon: User },
 };
 
 export default function ChatbotConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {

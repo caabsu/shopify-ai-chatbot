@@ -185,8 +185,8 @@ export default function LabelPresetsPage() {
             border: '1px solid rgba(239,68,68,0.2)',
           }}
         >
-          <span className="text-sm" style={{ color: '#ef4444' }}>{error}</span>
-          <button onClick={() => setError(null)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>
+          <span className="text-sm" style={{ color: 'var(--color-danger)' }}>{error}</span>
+          <button onClick={() => setError(null)} style={{ color: 'var(--color-danger)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={14} />
           </button>
         </div>
@@ -208,7 +208,7 @@ export default function LabelPresetsPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>
-                SKU <span style={{ color: '#ef4444' }}>*</span>
+                SKU <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -247,7 +247,7 @@ export default function LabelPresetsPage() {
 
           <div className="mt-3">
             <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>
-              Dimensions (L x W x H) <span style={{ color: '#ef4444' }}>*</span>
+              Dimensions (L x W x H) <span style={{ color: 'var(--color-danger)' }}>*</span>
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -316,7 +316,7 @@ export default function LabelPresetsPage() {
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium block mb-1" style={{ color: 'var(--text-secondary)' }}>
-                Weight <span style={{ color: '#ef4444' }}>*</span>
+                Weight <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
               <div className="flex items-center gap-2">
                 <input
@@ -467,7 +467,7 @@ export default function LabelPresetsPage() {
                         style={{
                           backgroundColor: 'rgba(239,68,68,0.08)',
                           border: '1px solid rgba(239,68,68,0.2)',
-                          color: '#ef4444',
+                          color: 'var(--color-danger)',
                         }}
                       >
                         <Trash2 size={11} /> {deletingSkus.has(preset.sku) ? '...' : 'Delete'}

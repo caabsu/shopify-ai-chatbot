@@ -166,7 +166,7 @@ export default function ReviewAnalyticsPage() {
               {stat.change !== null && (
                 <span
                   className="flex items-center gap-0.5 text-[11px] font-medium mb-1"
-                  style={{ color: stat.change >= 0 ? '#22c55e' : '#ef4444' }}
+                  style={{ color: stat.change >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}
                 >
                   {stat.change >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
                   {stat.change >= 0 ? '+' : ''}
@@ -201,14 +201,14 @@ export default function ReviewAnalyticsPage() {
                     <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                       {star}
                     </span>
-                    <Star size={11} fill="#f59e0b" stroke="#f59e0b" />
+                    <Star size={11} fill="var(--color-warning)" stroke="var(--color-warning)" />
                   </div>
                   <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${maxCount > 0 ? (count / maxCount) * 100 : 0}%`,
-                        backgroundColor: '#f59e0b',
+                        backgroundColor: 'var(--color-warning)',
                         minWidth: count > 0 ? '4px' : '0',
                       }}
                     />
@@ -324,10 +324,10 @@ export default function ReviewAnalyticsPage() {
                         width: `${(theme.sentiment / 5) * 100}%`,
                         backgroundColor:
                           theme.sentiment >= 4
-                            ? '#22c55e'
+                            ? 'var(--color-success)'
                             : theme.sentiment >= 3
-                              ? '#f59e0b'
-                              : '#ef4444',
+                              ? 'var(--color-warning)'
+                              : 'var(--color-danger)',
                       }}
                     />
                   </div>

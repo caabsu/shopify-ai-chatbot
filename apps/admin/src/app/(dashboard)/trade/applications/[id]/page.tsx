@@ -261,7 +261,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
           style={{
             backgroundColor: 'rgba(34,197,94,0.1)',
             border: '1px solid rgba(34,197,94,0.25)',
-            color: '#22c55e',
+            color: 'var(--color-success)',
           }}
         >
           <CheckCircle size={15} />
@@ -450,7 +450,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                     onClick={handleApprove}
                     disabled={approving}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-50"
-                    style={{ backgroundColor: '#16a34a' }}
+                    style={{ backgroundColor: 'var(--color-success)' }}
                   >
                     <CheckCircle size={14} />
                     {approving ? 'Approving…' : 'Approve application'}
@@ -463,7 +463,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                 {/* Reject section */}
                 <div>
                   <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                    Rejection reason <span style={{ color: '#ef4444' }}>*</span>
+                    Rejection reason <span style={{ color: 'var(--color-danger)' }}>*</span>
                   </p>
                   <textarea
                     value={rejectReason}
@@ -473,19 +473,19 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                     className="w-full text-sm rounded-lg px-3 py-2 resize-y focus:outline-none focus:ring-2 mb-1"
                     style={{
                       backgroundColor: 'var(--bg-secondary)',
-                      border: rejectError ? '1px solid #ef4444' : '1px solid var(--border-primary)',
+                      border: rejectError ? '1px solid var(--color-danger)' : '1px solid var(--border-primary)',
                       color: 'var(--text-primary)',
-                      '--tw-ring-color': '#ef4444',
+                      '--tw-ring-color': 'var(--color-danger)',
                     } as React.CSSProperties}
                   />
                   {rejectError && (
-                    <p className="text-xs mb-2" style={{ color: '#ef4444' }}>{rejectError}</p>
+                    <p className="text-xs mb-2" style={{ color: 'var(--color-danger)' }}>{rejectError}</p>
                   )}
                   <button
                     onClick={handleReject}
                     disabled={rejecting}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-50"
-                    style={{ backgroundColor: '#dc2626' }}
+                    style={{ backgroundColor: 'var(--color-danger)' }}
                   >
                     <XCircle size={14} />
                     {rejecting ? 'Rejecting…' : 'Reject application'}
@@ -600,7 +600,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                         onClick={handleDelete}
                         disabled={deleting}
                         className="flex-1 px-3 py-1.5 text-xs font-medium rounded-lg text-white disabled:opacity-50"
-                        style={{ backgroundColor: '#dc2626' }}
+                        style={{ backgroundColor: 'var(--color-danger)' }}
                       >
                         {deleting ? 'Deleting...' : 'Delete'}
                       </button>
@@ -611,7 +611,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                     onClick={() => setShowDeleteConfirm(true)}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
                     style={{
-                      color: '#ef4444',
+                      color: 'var(--color-danger)',
                       backgroundColor: 'rgba(239,68,68,0.06)',
                       border: '1px solid rgba(239,68,68,0.15)',
                     }}

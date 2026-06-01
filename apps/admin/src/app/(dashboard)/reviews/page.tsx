@@ -525,7 +525,7 @@ export default function AllReviewsPage() {
                 className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                 style={{
                   backgroundColor: action === 'delete' ? 'rgba(239,68,68,0.12)' : 'var(--bg-primary)',
-                  color: action === 'delete' ? '#ef4444' : 'var(--text-secondary)',
+                  color: action === 'delete' ? 'var(--color-danger)' : 'var(--text-secondary)',
                   border: '1px solid var(--border-primary)',
                 }}
               >
@@ -828,7 +828,7 @@ export default function AllReviewsPage() {
                                   className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
                                   style={{
                                     backgroundColor: 'rgba(59,130,246,0.12)',
-                                    color: '#3b82f6',
+                                    color: 'var(--color-info)',
                                   }}
                                 >
                                   <ShieldCheck size={9} /> Verified
@@ -839,7 +839,7 @@ export default function AllReviewsPage() {
                               {review.media_count > 0 && (
                                 <span
                                   className="flex items-center gap-0.5 text-[10px] font-medium"
-                                  style={{ color: '#a855f7' }}
+                                  style={{ color: 'var(--color-source-ai)' }}
                                 >
                                   <Camera size={10} /> {review.media_count}
                                 </span>
@@ -914,7 +914,7 @@ export default function AllReviewsPage() {
                                     className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                                     style={{
                                       backgroundColor: 'rgba(34,197,94,0.12)',
-                                      color: '#22c55e',
+                                      color: 'var(--color-success)',
                                       border: '1px solid rgba(34,197,94,0.2)',
                                     }}
                                   >
@@ -927,7 +927,7 @@ export default function AllReviewsPage() {
                                     className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                                     style={{
                                       backgroundColor: 'rgba(239,68,68,0.12)',
-                                      color: '#ef4444',
+                                      color: 'var(--color-danger)',
                                       border: '1px solid rgba(239,68,68,0.2)',
                                     }}
                                   >
@@ -967,7 +967,7 @@ export default function AllReviewsPage() {
                                     className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors"
                                     style={{
                                       backgroundColor: 'rgba(168,85,247,0.10)',
-                                      color: '#a855f7',
+                                      color: 'var(--color-source-ai)',
                                       border: '1px solid rgba(168,85,247,0.2)',
                                     }}
                                   >

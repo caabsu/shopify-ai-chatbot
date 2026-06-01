@@ -136,7 +136,7 @@ function MiniChart({ data }: { data: Record<string, number> }) {
         <div
           key={i}
           className="flex-1 rounded-t-sm transition-all"
-          style={{ height: `${Math.max((v / max) * 100, 2)}%`, backgroundColor: v > 0 ? '#6366f1' : 'var(--bg-tertiary)' }}
+          style={{ height: `${Math.max((v / max) * 100, 2)}%`, backgroundColor: v > 0 ? 'var(--color-info)' : 'var(--bg-tertiary)' }}
           title={`${Object.keys(data)[i]}: ${v}`}
         />
       ))}
@@ -282,12 +282,12 @@ export default function WarehouseDashboard() {
         <div className="space-y-5">
           {/* Top Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-            <StatCard label="Total Returns" value={a.returns.total} icon={Package} color="#6366f1" />
-            <StatCard label="This Month" value={a.returns.thisMonth} icon={TrendingUp} color="#3b82f6" />
-            <StatCard label="Approval Rate" value={`${a.returns.approvalRate}%`} icon={CheckCircle} color="#22c55e" />
-            <StatCard label="Avg Refund" value={`$${a.returns.avgRefund.toFixed(0)}`} icon={DollarSign} color="#f59e0b" />
-            <StatCard label="Total Refunded" value={`$${a.returns.totalRefunded.toFixed(0)}`} icon={DollarSign} color="#ef4444" />
-            <StatCard label="Avg Processing" value={`${a.returns.avgProcessingHours.toFixed(0)}h`} icon={Clock} color="#a855f7" />
+            <StatCard label="Total Returns" value={a.returns.total} icon={Package} color="var(--color-info)" />
+            <StatCard label="This Month" value={a.returns.thisMonth} icon={TrendingUp} color="var(--color-info)" />
+            <StatCard label="Approval Rate" value={`${a.returns.approvalRate}%`} icon={CheckCircle} color="var(--color-success)" />
+            <StatCard label="Avg Refund" value={`$${a.returns.avgRefund.toFixed(0)}`} icon={DollarSign} color="var(--color-warning)" />
+            <StatCard label="Total Refunded" value={`$${a.returns.totalRefunded.toFixed(0)}`} icon={DollarSign} color="var(--color-danger)" />
+            <StatCard label="Avg Processing" value={`${a.returns.avgProcessingHours.toFixed(0)}h`} icon={Clock} color="var(--color-source-ai)" />
           </div>
 
           {/* Middle row: inventory + RMA stats */}
@@ -295,19 +295,19 @@ export default function WarehouseDashboard() {
             {/* Inventory Summary */}
             <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <Box size={14} style={{ color: '#6366f1' }} />
+                <Box size={14} style={{ color: 'var(--color-info)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Warehouse Inventory</h3>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Total SKUs</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{a.inventory.totalSkus}</span></div>
                 <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>On Hand</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{a.inventory.totalOnHand.toLocaleString()}</span></div>
-                <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Available</span><span className="font-semibold" style={{ color: '#22c55e' }}>{a.inventory.totalAvailable.toLocaleString()}</span></div>
-                <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Allocated</span><span className="font-semibold" style={{ color: '#f59e0b' }}>{a.inventory.totalAllocated}</span></div>
+                <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Available</span><span className="font-semibold" style={{ color: 'var(--color-success)' }}>{a.inventory.totalAvailable.toLocaleString()}</span></div>
+                <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Allocated</span><span className="font-semibold" style={{ color: 'var(--color-warning)' }}>{a.inventory.totalAllocated}</span></div>
                 {a.inventory.lowStock.length > 0 && (
-                  <div className="flex justify-between text-sm"><span style={{ color: '#ef4444' }}>Low Stock</span><span className="font-semibold" style={{ color: '#ef4444' }}>{a.inventory.lowStock.length} SKUs</span></div>
+                  <div className="flex justify-between text-sm"><span style={{ color: 'var(--color-danger)' }}>Low Stock</span><span className="font-semibold" style={{ color: 'var(--color-danger)' }}>{a.inventory.lowStock.length} SKUs</span></div>
                 )}
                 {a.inventory.outOfStock.length > 0 && (
-                  <div className="flex justify-between text-sm"><span style={{ color: '#ef4444' }}>Out of Stock</span><span className="font-semibold" style={{ color: '#ef4444' }}>{a.inventory.outOfStock.length} SKUs</span></div>
+                  <div className="flex justify-between text-sm"><span style={{ color: 'var(--color-danger)' }}>Out of Stock</span><span className="font-semibold" style={{ color: 'var(--color-danger)' }}>{a.inventory.outOfStock.length} SKUs</span></div>
                 )}
               </div>
             </div>
@@ -315,14 +315,14 @@ export default function WarehouseDashboard() {
             {/* RMA Summary */}
             <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <Package size={14} style={{ color: '#f59e0b' }} />
+                <Package size={14} style={{ color: 'var(--color-warning)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>RMA Pipeline</h3>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Total RMAs</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{a.rma.total}</span></div>
-                <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Refunded</span><span className="font-semibold" style={{ color: '#22c55e' }}>{a.rma.refunded}</span></div>
-                <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Pending</span><span className="font-semibold" style={{ color: '#f59e0b' }}>{a.rma.pending}</span></div>
-                <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Errors</span><span className="font-semibold" style={{ color: a.rma.errors > 0 ? '#ef4444' : 'var(--text-tertiary)' }}>{a.rma.errors}</span></div>
+                <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Refunded</span><span className="font-semibold" style={{ color: 'var(--color-success)' }}>{a.rma.refunded}</span></div>
+                <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Pending</span><span className="font-semibold" style={{ color: 'var(--color-warning)' }}>{a.rma.pending}</span></div>
+                <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Errors</span><span className="font-semibold" style={{ color: a.rma.errors > 0 ? 'var(--color-danger)' : 'var(--text-tertiary)' }}>{a.rma.errors}</span></div>
                 <div className="flex justify-between text-sm"><span style={{ color: 'var(--text-secondary)' }}>Avg Processing</span><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{a.rma.avgProcessingDays}d</span></div>
               </div>
               <div className="mt-3">
@@ -333,7 +333,7 @@ export default function WarehouseDashboard() {
             {/* Daily Returns Chart */}
             <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <TrendingUp size={14} style={{ color: '#3b82f6' }} />
+                <TrendingUp size={14} style={{ color: 'var(--color-info)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Daily Returns (30d)</h3>
               </div>
               <MiniChart data={a.returns.dailyReturns} />
@@ -358,7 +358,7 @@ export default function WarehouseDashboard() {
                         <span style={{ color: 'var(--text-primary)' }}>{count} ({total > 0 ? Math.round((count / total) * 100) : 0}%)</span>
                       </div>
                       <div className="h-1.5 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                        <div className="h-full rounded-full" style={{ width: `${total > 0 ? (count / total) * 100 : 0}%`, backgroundColor: '#6366f1' }} />
+                        <div className="h-full rounded-full" style={{ width: `${total > 0 ? (count / total) * 100 : 0}%`, backgroundColor: 'var(--color-info)' }} />
                       </div>
                     </div>
                   );
@@ -369,7 +369,7 @@ export default function WarehouseDashboard() {
             {/* Warehouse Exceptions */}
             <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
+                <AlertTriangle size={14} style={{ color: 'var(--color-warning)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Warehouse Exceptions</h3>
               </div>
               {Object.keys(a.rma.exceptionSummary).length === 0 ? (
@@ -379,7 +379,7 @@ export default function WarehouseDashboard() {
                   {Object.entries(a.rma.exceptionSummary).sort((x, y) => y[1] - x[1]).map(([reason, count]) => (
                     <div key={reason} className="flex justify-between items-center text-sm">
                       <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{reason.replace(/_/g, ' ')}</span>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>{count}</span>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: 'var(--color-warning)' }}>{count}</span>
                     </div>
                   ))}
                 </div>
@@ -389,7 +389,7 @@ export default function WarehouseDashboard() {
             {/* Warehouses */}
             <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <Warehouse size={14} style={{ color: '#a855f7' }} />
+                <Warehouse size={14} style={{ color: 'var(--color-source-ai)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Warehouses</h3>
               </div>
               <div className="space-y-3">
@@ -399,7 +399,7 @@ export default function WarehouseDashboard() {
                     <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                       {w.address.street1}, {w.address.city}, {w.address.region} {w.address.postcode}
                     </p>
-                    <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: w.is_active ? 'rgba(34,197,94,0.12)' : 'rgba(156,163,175,0.12)', color: w.is_active ? '#22c55e' : '#9ca3af' }}>
+                    <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: w.is_active ? 'rgba(34,197,94,0.12)' : 'rgba(156,163,175,0.12)', color: w.is_active ? 'var(--color-success)' : '#9ca3af' }}>
                       {w.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
@@ -415,7 +415,7 @@ export default function WarehouseDashboard() {
               <div className="flex flex-wrap gap-2">
                 {a.rma.skuReturnFrequency.map(([sku, count]) => (
                   <span key={sku} className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-secondary)', color: 'var(--text-primary)' }}>
-                    {sku} <span className="font-sans font-semibold" style={{ color: '#ef4444' }}>{count}x</span>
+                    {sku} <span className="font-sans font-semibold" style={{ color: 'var(--color-danger)' }}>{count}x</span>
                   </span>
                 ))}
               </div>
@@ -446,12 +446,12 @@ export default function WarehouseDashboard() {
               {a.inventory.outOfStock.length > 0 && (
                 <div className="rounded-xl p-3" style={{ backgroundColor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
                   <div className="flex items-center gap-2 mb-2">
-                    <XCircle size={14} style={{ color: '#ef4444' }} />
-                    <span className="text-xs font-semibold" style={{ color: '#ef4444' }}>Out of Stock ({a.inventory.outOfStock.length})</span>
+                    <XCircle size={14} style={{ color: 'var(--color-danger)' }} />
+                    <span className="text-xs font-semibold" style={{ color: 'var(--color-danger)' }}>Out of Stock ({a.inventory.outOfStock.length})</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {a.inventory.outOfStock.map(s => (
-                      <span key={s.sku} className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>{s.sku}</span>
+                      <span key={s.sku} className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--color-danger)' }}>{s.sku}</span>
                     ))}
                   </div>
                 </div>
@@ -459,12 +459,12 @@ export default function WarehouseDashboard() {
               {a.inventory.lowStock.length > 0 && (
                 <div className="rounded-xl p-3" style={{ backgroundColor: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
                   <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
-                    <span className="text-xs font-semibold" style={{ color: '#f59e0b' }}>Low Stock ({a.inventory.lowStock.length})</span>
+                    <AlertTriangle size={14} style={{ color: 'var(--color-warning)' }} />
+                    <span className="text-xs font-semibold" style={{ color: 'var(--color-warning)' }}>Low Stock ({a.inventory.lowStock.length})</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {a.inventory.lowStock.map(s => (
-                      <span key={s.sku} className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>{s.sku}: {s.available}</span>
+                      <span key={s.sku} className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(245,158,11,0.1)', color: 'var(--color-warning)' }}>{s.sku}: {s.available}</span>
                     ))}
                   </div>
                 </div>
@@ -488,15 +488,15 @@ export default function WarehouseDashboard() {
               rows={filteredInv.map(i => ({
                 sku: <span className="font-mono text-xs font-medium">{i.sku}</span>,
                 qty_on_hand: i.qty_on_hand,
-                qty_available: <span style={{ color: i.qty_available <= 0 ? '#ef4444' : i.qty_available <= 10 ? '#f59e0b' : '#22c55e' }}>{i.qty_available}</span>,
+                qty_available: <span style={{ color: i.qty_available <= 0 ? 'var(--color-danger)' : i.qty_available <= 10 ? 'var(--color-warning)' : 'var(--color-success)' }}>{i.qty_available}</span>,
                 qty_allocated: i.qty_allocated || <span style={{ color: 'var(--text-tertiary)' }}>0</span>,
                 qty_expected: i.qty_expected || <span style={{ color: 'var(--text-tertiary)' }}>0</span>,
-                qty_backordered: i.qty_backordered > 0 ? <span style={{ color: '#ef4444' }}>{i.qty_backordered}</span> : <span style={{ color: 'var(--text-tertiary)' }}>0</span>,
+                qty_backordered: i.qty_backordered > 0 ? <span style={{ color: 'var(--color-danger)' }}>{i.qty_backordered}</span> : <span style={{ color: 'var(--text-tertiary)' }}>0</span>,
                 status: i.qty_available <= 0 && i.qty_on_hand <= 0
-                  ? <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>Out of stock</span>
+                  ? <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: 'var(--color-danger)' }}>Out of stock</span>
                   : i.qty_available <= 10
-                  ? <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>Low stock</span>
-                  : <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22c55e' }}>In stock</span>,
+                  ? <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: 'var(--color-warning)' }}>Low stock</span>
+                  : <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: 'var(--color-success)' }}>In stock</span>,
               }))}
             />
           </div>
@@ -505,7 +505,7 @@ export default function WarehouseDashboard() {
           {inbound.length > 0 && (
             <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <Truck size={14} style={{ color: '#3b82f6' }} />
+                <Truck size={14} style={{ color: 'var(--color-info)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Inbound Shipments (ASN)</h3>
               </div>
               <div className="space-y-2">
@@ -532,11 +532,11 @@ export default function WarehouseDashboard() {
       {tab === 'rma' && a && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <StatCard label="Total RMAs" value={a.rma.total} icon={Package} color="#6366f1" />
-            <StatCard label="Refunded" value={a.rma.refunded} icon={CheckCircle} color="#22c55e" />
-            <StatCard label="Pending" value={a.rma.pending} icon={Clock} color="#f59e0b" />
-            <StatCard label="Errors" value={a.rma.errors} icon={XCircle} color="#ef4444" />
-            <StatCard label="Avg Processing" value={`${a.rma.avgProcessingDays}d`} icon={Clock} color="#a855f7" />
+            <StatCard label="Total RMAs" value={a.rma.total} icon={Package} color="var(--color-info)" />
+            <StatCard label="Refunded" value={a.rma.refunded} icon={CheckCircle} color="var(--color-success)" />
+            <StatCard label="Pending" value={a.rma.pending} icon={Clock} color="var(--color-warning)" />
+            <StatCard label="Errors" value={a.rma.errors} icon={XCircle} color="var(--color-danger)" />
+            <StatCard label="Avg Processing" value={`${a.rma.avgProcessingDays}d`} icon={Clock} color="var(--color-source-ai)" />
           </div>
 
           {/* RMA Status Breakdown */}
@@ -562,7 +562,7 @@ export default function WarehouseDashboard() {
               <div className="space-y-2">
                 {Object.entries(a.rma.byMatchMethod).sort((x, y) => y[1] - x[1]).map(([method, count]) => {
                   const total = a.rma.total;
-                  const color = method === 'order_number' ? '#22c55e' : method === 'none' ? '#ef4444' : '#6366f1';
+                  const color = method === 'order_number' ? 'var(--color-success)' : method === 'none' ? 'var(--color-danger)' : 'var(--color-info)';
                   return (
                     <div key={method}>
                       <div className="flex justify-between text-xs mb-0.5">
@@ -583,7 +583,7 @@ export default function WarehouseDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle size={14} style={{ color: '#f59e0b' }} />
+                <AlertTriangle size={14} style={{ color: 'var(--color-warning)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Warehouse Exceptions</h3>
               </div>
               {Object.keys(a.rma.exceptionSummary).length === 0 ? (
@@ -593,7 +593,7 @@ export default function WarehouseDashboard() {
                   {Object.entries(a.rma.exceptionSummary).sort((x, y) => y[1] - x[1]).map(([reason, count]) => (
                     <div key={reason} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.1)' }}>
                       <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{reason.replace(/_/g, ' ')}</span>
-                      <span className="text-xs font-bold" style={{ color: '#f59e0b' }}>{count}</span>
+                      <span className="text-xs font-bold" style={{ color: 'var(--color-warning)' }}>{count}</span>
                     </div>
                   ))}
                 </div>
@@ -602,7 +602,7 @@ export default function WarehouseDashboard() {
 
             <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <ArrowDown size={14} style={{ color: '#ef4444' }} />
+                <ArrowDown size={14} style={{ color: 'var(--color-danger)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Most Returned SKUs</h3>
               </div>
               {a.rma.skuReturnFrequency.length === 0 ? (
@@ -612,7 +612,7 @@ export default function WarehouseDashboard() {
                   {a.rma.skuReturnFrequency.slice(0, 10).map(([sku, count]) => (
                     <div key={sku} className="flex items-center justify-between text-xs">
                       <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{sku}</span>
-                      <span className="font-semibold" style={{ color: '#ef4444' }}>{count} returns</span>
+                      <span className="font-semibold" style={{ color: 'var(--color-danger)' }}>{count} returns</span>
                     </div>
                   ))}
                 </div>
@@ -626,10 +626,10 @@ export default function WarehouseDashboard() {
       {tab === 'refunds' && a && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label="Total Refunded" value={`$${a.returns.totalRefunded.toFixed(2)}`} icon={DollarSign} color="#ef4444" />
-            <StatCard label="Avg Refund" value={`$${a.returns.avgRefund.toFixed(2)}`} icon={DollarSign} color="#f59e0b" />
-            <StatCard label="Approval Rate" value={`${a.returns.approvalRate}%`} icon={CheckCircle} color="#22c55e" />
-            <StatCard label="Returns Total" value={a.returns.total} icon={Package} color="#6366f1" />
+            <StatCard label="Total Refunded" value={`$${a.returns.totalRefunded.toFixed(2)}`} icon={DollarSign} color="var(--color-danger)" />
+            <StatCard label="Avg Refund" value={`$${a.returns.avgRefund.toFixed(2)}`} icon={DollarSign} color="var(--color-warning)" />
+            <StatCard label="Approval Rate" value={`${a.returns.approvalRate}%`} icon={CheckCircle} color="var(--color-success)" />
+            <StatCard label="Returns Total" value={a.returns.total} icon={Package} color="var(--color-info)" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -663,7 +663,7 @@ export default function WarehouseDashboard() {
                         <span style={{ color: 'var(--text-primary)' }}>{count} ({total > 0 ? Math.round((count / total) * 100) : 0}%)</span>
                       </div>
                       <div className="h-1.5 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                        <div className="h-full rounded-full" style={{ width: `${total > 0 ? (count / total) * 100 : 0}%`, backgroundColor: '#a855f7' }} />
+                        <div className="h-full rounded-full" style={{ width: `${total > 0 ? (count / total) * 100 : 0}%`, backgroundColor: 'var(--color-source-ai)' }} />
                       </div>
                     </div>
                   );

@@ -219,7 +219,7 @@ export default function ReturnSettingsPage() {
                   onClick={() => removeReason(slug)}
                   className="p-1.5 rounded-lg transition-colors flex-shrink-0"
                   style={{ color: 'var(--text-tertiary)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-danger)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-tertiary)'; }}
                 >
                   <X size={13} />

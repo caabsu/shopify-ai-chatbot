@@ -37,10 +37,10 @@ const SOURCE_META: Record<string, { icon: typeof Mail; label: string; color: str
 };
 
 const TAG_COLORS = [
-  { bg: 'rgba(59,130,246,0.1)', text: '#3b82f6' },
-  { bg: 'rgba(34,197,94,0.1)', text: '#22c55e' },
-  { bg: 'rgba(168,85,247,0.1)', text: '#a855f7' },
-  { bg: 'rgba(249,115,22,0.1)', text: '#f97316' },
+  { bg: 'rgba(59,130,246,0.1)', text: 'var(--color-info)' },
+  { bg: 'rgba(34,197,94,0.1)', text: 'var(--color-success)' },
+  { bg: 'rgba(168,85,247,0.1)', text: 'var(--color-source-ai)' },
+  { bg: 'rgba(249,115,22,0.1)', text: 'var(--color-warning)' },
   { bg: 'rgba(236,72,153,0.1)', text: '#ec4899' },
   { bg: 'rgba(20,184,166,0.1)', text: '#14b8a6' },
 ];
@@ -552,7 +552,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             {ticket.tags?.includes('trade-member') && (
               <span
                 className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide"
-                style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)' }}
+                style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: 'var(--color-info)', border: '1px solid rgba(99,102,241,0.3)' }}
               >
                 Trade
               </span>
@@ -704,9 +704,9 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
           {/* SLA indicator */}
           {ticket.sla_deadline && (
             <span className="ml-auto flex items-center gap-1 text-xs font-medium" style={{
-              color: ticket.sla_breached ? '#ef4444' : (() => {
+              color: ticket.sla_breached ? 'var(--color-danger)' : (() => {
                 const diff = new Date(ticket.sla_deadline).getTime() - Date.now();
-                return diff < 3600000 ? '#f97316' : '#22c55e';
+                return diff < 3600000 ? 'var(--color-warning)' : 'var(--color-success)';
               })(),
             }}>
               {ticket.sla_breached ? <AlertCircle size={12} /> : <Clock size={12} />}
@@ -744,7 +744,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
                 <span className="flex items-center gap-2">
-                  <Bot size={14} style={{ color: '#a855f7' }} />
+                  <Bot size={14} style={{ color: 'var(--color-source-ai)' }} />
                   AI Conversation Context
                   {aiConversationMessages && (
                     <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -771,8 +771,8 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                             : 'rgba(156,163,175,0.12)',
                         }}
                       >
-                        {m.role === 'user' ? <User size={12} style={{ color: '#3b82f6' }} /> :
-                         m.role === 'assistant' ? <Bot size={12} style={{ color: '#a855f7' }} /> :
+                        {m.role === 'user' ? <User size={12} style={{ color: 'var(--color-info)' }} /> :
+                         m.role === 'assistant' ? <Bot size={12} style={{ color: 'var(--color-source-ai)' }} /> :
                          <Cpu size={12} style={{ color: '#9ca3af' }} />}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -847,10 +847,10 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                               : 'rgba(99,102,241,0.12)',
                           }}
                         >
-                          {isCustomer ? <User size={12} style={{ color: '#3b82f6' }} /> :
-                           isAiDraft ? <Bot size={12} style={{ color: '#a855f7' }} /> :
+                          {isCustomer ? <User size={12} style={{ color: 'var(--color-info)' }} /> :
+                           isAiDraft ? <Bot size={12} style={{ color: 'var(--color-source-ai)' }} /> :
                            isSystem ? <Cpu size={12} style={{ color: '#9ca3af' }} /> :
-                           <User size={12} style={{ color: '#6366f1' }} />}
+                           <User size={12} style={{ color: 'var(--color-info)' }} />}
                         </div>
                         <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
                           {msg.sender_name || msg.sender_type}
@@ -858,7 +858,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                         {isNote && (
                           <span
                             className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                            style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: '#d97706' }}
+                            style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: 'var(--color-warning)' }}
                           >
                             Internal Note
                           </span>
@@ -866,7 +866,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                         {isAiDraft && (
                           <span
                             className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                            style={{ backgroundColor: 'rgba(168,85,247,0.12)', color: '#a855f7' }}
+                            style={{ backgroundColor: 'rgba(168,85,247,0.12)', color: 'var(--color-source-ai)' }}
                           >
                             AI Draft
                           </span>
@@ -912,7 +912,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                   className="px-3 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors"
                   style={{
                     backgroundColor: replyMode === 'note' ? 'rgba(245,158,11,0.12)' : 'transparent',
-                    color: replyMode === 'note' ? '#d97706' : 'var(--text-secondary)',
+                    color: replyMode === 'note' ? 'var(--color-warning)' : 'var(--text-secondary)',
                   }}
                 >
                   <StickyNote size={11} /> Internal Note
@@ -1000,8 +1000,8 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                   }}
                 >
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <Cpu size={11} style={{ color: '#a855f7' }} />
-                    <span className="text-[11px] font-semibold" style={{ color: '#a855f7' }}>Agent Instructions</span>
+                    <Cpu size={11} style={{ color: 'var(--color-source-ai)' }} />
+                    <span className="text-[11px] font-semibold" style={{ color: 'var(--color-source-ai)' }}>Agent Instructions</span>
                     <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>— overrides presets & KB</span>
                   </div>
                   <textarea
@@ -1028,7 +1028,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                   className="text-xs px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-1.5"
                   style={{
                     backgroundColor: showAgentContext ? 'rgba(168,85,247,0.15)' : 'var(--bg-tertiary)',
-                    color: showAgentContext ? '#a855f7' : 'var(--text-secondary)',
+                    color: showAgentContext ? 'var(--color-source-ai)' : 'var(--text-secondary)',
                     border: `1px solid ${showAgentContext ? 'rgba(168,85,247,0.3)' : 'var(--border-primary)'}`,
                   }}
                 >
@@ -1042,7 +1042,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                   className="text-xs px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-50"
                   style={{
                     backgroundColor: 'rgba(168,85,247,0.12)',
-                    color: '#a855f7',
+                    color: 'var(--color-source-ai)',
                     border: '1px solid rgba(168,85,247,0.25)',
                   }}
                 >
@@ -1074,7 +1074,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                       className="text-xs px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-40"
                       style={{
                         backgroundColor: 'rgba(34,197,94,0.1)',
-                        color: '#22c55e',
+                        color: 'var(--color-success)',
                         border: '1px solid rgba(34,197,94,0.2)',
                       }}
                     >
@@ -1131,7 +1131,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                       {ticket.customer_email}
                     </p>
                     <button onClick={copyEmail} className="flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
-                      {copied ? <CheckCircle2 size={11} style={{ color: '#22c55e' }} /> : <Copy size={11} />}
+                      {copied ? <CheckCircle2 size={11} style={{ color: 'var(--color-success)' }} /> : <Copy size={11} />}
                     </button>
                   </div>
                   {customerProfile?.phone && (
@@ -1217,7 +1217,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               {/* Customer note from Shopify */}
               {customerProfile?.note && (
                 <div className="text-xs rounded-lg px-2.5 py-2" style={{ backgroundColor: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', color: 'var(--text-secondary)' }}>
-                  <span className="text-[10px] font-medium block mb-0.5" style={{ color: '#d97706' }}>Shopify Note</span>
+                  <span className="text-[10px] font-medium block mb-0.5" style={{ color: 'var(--color-warning)' }}>Shopify Note</span>
                   {customerProfile.note}
                 </div>
               )}
@@ -1231,7 +1231,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               style={{
                 backgroundColor: actionResult.type === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
                 border: `1px solid ${actionResult.type === 'success' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                color: actionResult.type === 'success' ? '#22c55e' : '#ef4444',
+                color: actionResult.type === 'success' ? 'var(--color-success)' : 'var(--color-danger)',
               }}
             >
               {actionResult.type === 'success' ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
@@ -1318,7 +1318,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                               {order.lineItems.length > 3 && ` +${order.lineItems.length - 3} more`}
                             </div>
                             {order.cancelledAt && (
-                              <p className="text-[10px] mt-1 ml-[18px] font-medium" style={{ color: '#ef4444' }}>
+                              <p className="text-[10px] mt-1 ml-[18px] font-medium" style={{ color: 'var(--color-danger)' }}>
                                 Cancelled {new Date(order.cancelledAt).toLocaleDateString()}
                               </p>
                             )}
@@ -1364,7 +1364,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                                         <span style={{ color: 'var(--text-primary)' }}>${parseFloat(orderDetail.totalPrice).toFixed(2)}</span>
                                       </div>
                                       {parseFloat(orderDetail.totalRefunded) > 0 && (
-                                        <div className="flex justify-between"><span style={{ color: '#a855f7' }}>Refunded</span><span style={{ color: '#a855f7' }}>-${parseFloat(orderDetail.totalRefunded).toFixed(2)}</span></div>
+                                        <div className="flex justify-between"><span style={{ color: 'var(--color-source-ai)' }}>Refunded</span><span style={{ color: 'var(--color-source-ai)' }}>-${parseFloat(orderDetail.totalRefunded).toFixed(2)}</span></div>
                                       )}
                                     </div>
                                   </div>
@@ -1395,7 +1395,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                                       <div className="space-y-1.5">
                                         {orderDetail.fulfillments.map((f, fi) => (
                                           <div key={fi} className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                                            <span className="font-medium" style={{ color: '#22c55e' }}>{f.status}</span>
+                                            <span className="font-medium" style={{ color: 'var(--color-success)' }}>{f.status}</span>
                                             <span> — {new Date(f.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                             {f.trackingInfo.map((t, ti) => (
                                               <div key={ti} className="flex items-center gap-1.5 mt-0.5 ml-2">
@@ -1421,13 +1421,13 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                                         {orderDetail.transactions.map((txn) => (
                                           <div key={txn.id} className="flex items-center justify-between text-[11px]">
                                             <div className="flex items-center gap-1.5">
-                                              <span className="font-medium" style={{ color: txn.kind === 'REFUND' ? '#a855f7' : txn.kind === 'SALE' ? '#22c55e' : 'var(--text-secondary)' }}>
+                                              <span className="font-medium" style={{ color: txn.kind === 'REFUND' ? 'var(--color-source-ai)' : txn.kind === 'SALE' ? 'var(--color-success)' : 'var(--text-secondary)' }}>
                                                 {txn.kind}
                                               </span>
                                               <span style={{ color: 'var(--text-tertiary)' }}>{txn.status}</span>
                                               <span style={{ color: 'var(--text-tertiary)' }}>via {txn.gateway?.replace(/_/g, ' ')}</span>
                                             </div>
-                                            <span style={{ color: txn.kind === 'REFUND' ? '#a855f7' : 'var(--text-primary)' }}>
+                                            <span style={{ color: txn.kind === 'REFUND' ? 'var(--color-source-ai)' : 'var(--text-primary)' }}>
                                               {txn.kind === 'REFUND' ? '-' : ''}${parseFloat(txn.amount).toFixed(2)}
                                             </span>
                                           </div>
@@ -1439,14 +1439,14 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                                   {/* Refund history */}
                                   {orderDetail.refunds.length > 0 && (
                                     <div>
-                                      <p className="text-[10px] font-semibold uppercase mb-1 flex items-center gap-1" style={{ color: '#a855f7' }}>
+                                      <p className="text-[10px] font-semibold uppercase mb-1 flex items-center gap-1" style={{ color: 'var(--color-source-ai)' }}>
                                         <Undo2 size={10} /> Refunds
                                       </p>
                                       <div className="space-y-1.5">
                                         {orderDetail.refunds.map((r) => (
                                           <div key={r.id} className="text-xs rounded-lg p-2" style={{ backgroundColor: 'rgba(168,85,247,0.06)' }}>
                                             <div className="flex justify-between mb-0.5">
-                                              <span style={{ color: '#a855f7' }}>${parseFloat(r.amount).toFixed(2)}</span>
+                                              <span style={{ color: 'var(--color-source-ai)' }}>${parseFloat(r.amount).toFixed(2)}</span>
                                               <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{new Date(r.createdAt).toLocaleDateString()}</span>
                                             </div>
                                             {r.note && <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{r.note}</p>}
@@ -1464,7 +1464,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                                   {/* Order note */}
                                   {orderDetail.note && (
                                     <div className="text-xs rounded-lg px-2.5 py-2" style={{ backgroundColor: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                                      <span className="text-[10px] font-medium block mb-0.5" style={{ color: '#d97706' }}>Order Note</span>
+                                      <span className="text-[10px] font-medium block mb-0.5" style={{ color: 'var(--color-warning)' }}>Order Note</span>
                                       <span style={{ color: 'var(--text-secondary)' }}>{orderDetail.note}</span>
                                     </div>
                                   )}
@@ -1475,7 +1475,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                                       <button
                                         onClick={(e) => { e.stopPropagation(); setShowCancelModal(true); }}
                                         className="flex-1 text-[11px] font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-                                        style={{ backgroundColor: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                                        style={{ backgroundColor: 'rgba(239,68,68,0.08)', color: 'var(--color-danger)', border: '1px solid rgba(239,68,68,0.2)' }}
                                         onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.15)'; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.08)'; }}
                                       >
@@ -1491,7 +1491,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                                           setShowRefundModal(true);
                                         }}
                                         className="flex-1 text-[11px] font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-                                        style={{ backgroundColor: 'rgba(168,85,247,0.08)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.2)' }}
+                                        style={{ backgroundColor: 'rgba(168,85,247,0.08)', color: 'var(--color-source-ai)', border: '1px solid rgba(168,85,247,0.2)' }}
                                         onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(168,85,247,0.15)'; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(168,85,247,0.08)'; }}
                                       >
@@ -1524,7 +1524,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               <div className="rounded-xl p-5 w-[360px] shadow-xl" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                    <Ban size={14} style={{ color: '#ef4444' }} /> Cancel Order
+                    <Ban size={14} style={{ color: 'var(--color-danger)' }} /> Cancel Order
                   </h3>
                   <button onClick={() => setShowCancelModal(false)} style={{ color: 'var(--text-tertiary)' }}><X size={16} /></button>
                 </div>
@@ -1565,7 +1565,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                     onClick={handleCancelOrder}
                     disabled={cancelLoading}
                     className="flex-1 text-xs font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: '#ef4444', color: '#fff' }}
+                    style={{ backgroundColor: 'var(--color-danger)', color: '#fff' }}
                   >
                     {cancelLoading ? <><Loader2 size={12} className="animate-spin" /> Cancelling...</> : 'Confirm Cancel'}
                   </button>
@@ -1580,7 +1580,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               <div className="rounded-xl p-5 w-[360px] shadow-xl" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                    <Undo2 size={14} style={{ color: '#a855f7' }} /> Issue Refund
+                    <Undo2 size={14} style={{ color: 'var(--color-source-ai)' }} /> Issue Refund
                   </h3>
                   <button onClick={() => setShowRefundModal(false)} style={{ color: 'var(--text-tertiary)' }}><X size={16} /></button>
                 </div>
@@ -1638,7 +1638,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                     onClick={handleRefundOrder}
                     disabled={refundLoading || !refundAmount || parseFloat(refundAmount) <= 0}
                     className="flex-1 text-xs font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: '#a855f7', color: '#fff' }}
+                    style={{ backgroundColor: 'var(--color-source-ai)', color: '#fff' }}
                   >
                     {refundLoading ? <><Loader2 size={12} className="animate-spin" /> Processing...</> : `Refund $${parseFloat(refundAmount || '0').toFixed(2)}`}
                   </button>
@@ -1665,7 +1665,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
                 style={{
                   backgroundColor: 'rgba(168,85,247,0.06)',
-                  color: '#a855f7',
+                  color: 'var(--color-source-ai)',
                   border: '1px solid rgba(168,85,247,0.15)',
                 }}
               >
@@ -1681,7 +1681,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
                 style={{
                   backgroundColor: 'rgba(168,85,247,0.06)',
-                  color: '#a855f7',
+                  color: 'var(--color-source-ai)',
                   border: '1px solid rgba(168,85,247,0.15)',
                 }}
               >
@@ -1697,7 +1697,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             {aiSummary && (
               <div className="mt-3 rounded-lg p-3" style={{ backgroundColor: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.12)' }}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-semibold uppercase" style={{ color: '#a855f7' }}>Summary</span>
+                  <span className="text-[10px] font-semibold uppercase" style={{ color: 'var(--color-source-ai)' }}>Summary</span>
                   <button onClick={() => setAiSummary(null)} style={{ color: 'var(--text-tertiary)' }}><X size={12} /></button>
                 </div>
                 <p className="text-xs whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--text-primary)' }}>{aiSummary}</p>
@@ -1708,13 +1708,13 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             {aiSteps && (
               <div className="mt-3 rounded-lg p-3" style={{ backgroundColor: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.12)' }}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-semibold uppercase" style={{ color: '#a855f7' }}>Next Steps</span>
+                  <span className="text-[10px] font-semibold uppercase" style={{ color: 'var(--color-source-ai)' }}>Next Steps</span>
                   <button onClick={() => setAiSteps(null)} style={{ color: 'var(--text-tertiary)' }}><X size={12} /></button>
                 </div>
                 <ul className="space-y-1.5">
                   {aiSteps.map((step, i) => (
                     <li key={i} className="text-xs flex items-start gap-2 leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                      <span className="text-[10px] font-bold mt-0.5 flex-shrink-0" style={{ color: '#a855f7' }}>{i + 1}.</span>
+                      <span className="text-[10px] font-bold mt-0.5 flex-shrink-0" style={{ color: 'var(--color-source-ai)' }}>{i + 1}.</span>
                       <span>{step.replace(/^\d+\.\s*/, '')}</span>
                     </li>
                   ))}
@@ -1836,7 +1836,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                 className="w-full text-left text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-colors"
                 style={{
                   backgroundColor: 'rgba(34,197,94,0.06)',
-                  color: '#22c55e',
+                  color: 'var(--color-success)',
                   border: '1px solid rgba(34,197,94,0.15)',
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(34,197,94,0.12)'; }}

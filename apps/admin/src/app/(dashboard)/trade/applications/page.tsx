@@ -327,7 +327,7 @@ export default function TradeApplicationsPage() {
               onClick={() => setConfirmDelete({ type: 'bulk' })}
               disabled={bulkActing}
               className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-colors disabled:opacity-50"
-              style={{ color: '#ef4444', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+              style={{ color: 'var(--color-danger)', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
             >
               <Trash2 size={12} />
               Delete
@@ -365,7 +365,7 @@ export default function TradeApplicationsPage() {
               }}
               disabled={bulkActing}
               className="px-3 py-1.5 text-xs font-medium rounded-lg text-white disabled:opacity-50"
-              style={{ backgroundColor: '#dc2626' }}
+              style={{ backgroundColor: 'var(--color-danger)' }}
             >
               Delete
             </button>
@@ -589,7 +589,7 @@ export default function TradeApplicationsPage() {
                               <button
                                 onClick={() => { setActionMenuId(null); setConfirmDelete({ type: 'single', id: app.id }); }}
                                 className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors"
-                                style={{ color: '#ef4444' }}
+                                style={{ color: 'var(--color-danger)' }}
                                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
                                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                               >
