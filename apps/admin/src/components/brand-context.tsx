@@ -34,9 +34,10 @@ export function BrandProvider({
   children: React.ReactNode;
   value: BrandSession;
 }) {
-  // Drive per-brand accent theming. globals.css defines [data-brand="..."] defaults;
-  // a DB-driven themeAccent (brands.settings.console_accent) overrides them via inline
-  // CSS vars, so a new brand themes the console from config instead of a code fork.
+  // Unified design: supportOS uses ONE accent for every brand (see globals.css).
+  // data-brand is still tagged for metadata/analytics; themeAccent remains only as
+  // an optional escape hatch and is null by default, so the console looks identical
+  // no matter which brand is active.
   const accentKey = value.themeAccent ? JSON.stringify(value.themeAccent) : '';
   useEffect(() => {
     const root = document.documentElement;

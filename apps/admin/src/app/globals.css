@@ -133,25 +133,12 @@ body {
   letter-spacing: -0.006em;
 }
 
-/* ── Per-brand accent theming (one hex per brand; soft/ring derived above) ── */
-[data-brand="outlight"] {
-  --color-accent: #b07f33;
-  --color-accent-strong: #946a29;
-  --color-accent-light: #cda85e;
-  --color-accent-foreground: #ffffff;
-}
-[data-brand="warm-by-design"] {
-  --color-accent: #d89a4a;
-  --color-accent-strong: #bd8035;
-  --color-accent-light: #ecc488;
-  --color-accent-foreground: #1a1208;
-}
-[data-brand="misu"] {
-  --color-accent: #4f46e5;
-  --color-accent-strong: #4338ca;
-  --color-accent-light: #818cf8;
-  --color-accent-foreground: #ffffff;
-}
+/* ── Unified brand design ──────────────────────────────────────────────────
+   supportOS renders ONE consistent design across every brand — no per-brand
+   accent theming. The single accent is defined once in @theme (--color-accent)
+   above and is used everywhere. Brand identity (name, logo, which tickets belong
+   to whom) is tracked as data, separate from the visual design, so switching the
+   active brand never changes how the console looks. */
 
 /* ── Component classes (consume tokens) ── */
 .ds-pill {
