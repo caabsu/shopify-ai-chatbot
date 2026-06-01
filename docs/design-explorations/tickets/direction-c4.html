@@ -59,7 +59,7 @@
   /* Clean stat cards — restrained, no color flood */
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 28px 18px}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--sh)}
-  .stat .v{font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+  .stat .num{font-size:24px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
   .stat .k{font-size:12px;color:var(--ink-3);margin-top:6px;font-weight:500}
   .stat .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex-shrink:0}
   .stat .ic svg{width:17px;height:17px}
@@ -129,10 +129,10 @@
     </header>
 
     <section class="stats">
-      <div class="stat"><div><div class="v">28</div><div class="k">Open tickets</div></div><div class="ic" style="background:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div></div>
-      <div class="stat"><div><div class="v">4</div><div class="k">Awaiting first reply</div></div><div class="ic" style="background:var(--amber-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div></div>
-      <div class="stat"><div><div class="v" style="color:var(--red)">1</div><div class="k">SLA breached</div></div><div class="ic" style="background:var(--red-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div></div>
-      <div class="stat"><div><div class="v">53</div><div class="k">Resolved this week</div></div><div class="ic" style="background:var(--green-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg></div></div>
+      <div class="stat"><div><div class="num">28</div><div class="k">Open tickets</div></div><div class="ic" style="background:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div></div>
+      <div class="stat"><div><div class="num">4</div><div class="k">Awaiting first reply</div></div><div class="ic" style="background:var(--amber-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div></div>
+      <div class="stat"><div><div class="num" style="color:var(--red)">1</div><div class="k">SLA breached</div></div><div class="ic" style="background:var(--red-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div></div>
+      <div class="stat"><div><div class="num">53</div><div class="k">Resolved this week</div></div><div class="ic" style="background:var(--green-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg></div></div>
     </section>
 
     <div class="bar">

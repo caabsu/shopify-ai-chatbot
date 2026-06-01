@@ -60,7 +60,7 @@
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:0 30px 20px}
   .stat{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;position:relative;overflow:hidden}
   .stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--gold))}
-  .stat .v{font-family:var(--serif);font-weight:500;font-size:30px;letter-spacing:-.02em;line-height:1;color:var(--ink)}
+  .stat .num{font-family:var(--serif);font-weight:500;font-size:30px;letter-spacing:-.02em;line-height:1;color:var(--ink)}
   .stat .k{font-size:12px;color:var(--ink-3);margin-top:7px;font-weight:500;display:flex;align-items:center;gap:6px}
   .stat .ic{position:absolute;right:14px;top:14px;width:30px;height:30px;border-radius:9px;display:grid;place-items:center}
   .stat .ic svg{width:16px;height:16px}
@@ -132,19 +132,19 @@
     <section class="stats">
       <div class="stat" style="--c:var(--gold)">
         <div class="ic" style="background:var(--gold-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div>
-        <div class="v">28</div><div class="k">Open tickets</div>
+        <div class="num">28</div><div class="k">Open tickets</div>
       </div>
       <div class="stat" style="--c:var(--amber)">
         <div class="ic" style="background:var(--amber-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-        <div class="v">4</div><div class="k">Awaiting first reply</div>
+        <div class="num">4</div><div class="k">Awaiting first reply</div>
       </div>
       <div class="stat" style="--c:var(--red)">
         <div class="ic" style="background:var(--red-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
-        <div class="v">1</div><div class="k">SLA breached</div>
+        <div class="num">1</div><div class="k">SLA breached</div>
       </div>
       <div class="stat" style="--c:var(--green)">
         <div class="ic" style="background:var(--green-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg></div>
-        <div class="v">53</div><div class="k">Resolved this week</div>
+        <div class="num">53</div><div class="k">Resolved this week</div>
       </div>
     </section>
 
