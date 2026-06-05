@@ -185,6 +185,19 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
   // Clear selection when filters change
   useEffect(() => { setSelectedIds(new Set()); }, [statusFilter, sourceFilter, priorityFilter, page, search]);
 
+  // Persist the active filter so the ticket-detail workflow bar can rebuild the
+  // same work queue (next/prev navigation mirrors what you were looking at here).
+  useEffect(() => {
+    const qp = new URLSearchParams();
+    qp.set('order_by', orderBy);
+    if (statusFilter) qp.set('status', statusFilter);
+    if (sourceFilter) qp.set('source', sourceFilter);
+    if (priorityFilter) qp.set('priority', priorityFilter);
+    if (unassignedOnly) qp.set('unassigned', '1');
+    if (search) qp.set('search', search);
+    try { sessionStorage.setItem('ticketQueueParams', qp.toString()); } catch { /* ignore */ }
+  }, [statusFilter, sourceFilter, priorityFilter, unassignedOnly, search, orderBy]);
+
   // Clear action message after 4 seconds
   useEffect(() => {
     if (actionMessage) {

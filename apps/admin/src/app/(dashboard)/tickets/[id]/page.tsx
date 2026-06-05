@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { formatDate, cn } from '@/lib/utils';
 import type { Ticket, TicketMessage, TicketEvent, CannedResponse, Message } from '@/lib/types';
+import { TicketWorkflowBar } from '@/components/tickets/TicketWorkflowBar';
 
 // Token-driven (see globals.css). bg = soft tint of the same token via color-mix.
 const tint = (v: string) => `color-mix(in srgb, ${v} 12%, transparent)`;
@@ -285,6 +286,10 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     if (res.ok) {
       const updated = await res.json();
       setData((prev) => prev ? { ...prev, ticket: updated.ticket } : prev);
+      // Terminal action → smoothly advance to the next ticket in the queue.
+      if (updates.status === 'resolved' || updates.status === 'closed' || updates.status === 'pending') {
+        window.dispatchEvent(new Event('ticket:advance'));
+      }
     }
     setShowStatusDropdown(false);
     setShowPriorityDropdown(false);
@@ -325,6 +330,10 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
         };
       });
       setReplyContent('');
+      // Send & Resolve / Send & Set Pending → advance to the next ticket.
+      if (setStatus === 'resolved' || setStatus === 'closed' || setStatus === 'pending') {
+        window.dispatchEvent(new Event('ticket:advance'));
+      }
     }
     setSending(false);
   }
@@ -527,14 +536,8 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-4">
-      {/* Back + Header */}
-      <Link
-        href="/tickets"
-        className="inline-flex items-center gap-1.5 text-sm transition-colors"
-        style={{ color: 'var(--text-secondary)' }}
-      >
-        <ArrowLeft size={14} /> Back to inbox
-      </Link>
+      {/* Workflow / triage bar — queue position, remaining, next/prev, keyboard nav */}
+      <TicketWorkflowBar ticketId={id} basePath="/tickets" />
 
       {/* Ticket header */}
       <div
