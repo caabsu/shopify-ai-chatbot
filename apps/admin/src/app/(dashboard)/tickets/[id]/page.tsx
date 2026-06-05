@@ -286,10 +286,6 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     if (res.ok) {
       const updated = await res.json();
       setData((prev) => prev ? { ...prev, ticket: updated.ticket } : prev);
-      // Terminal action → smoothly advance to the next ticket in the queue.
-      if (updates.status === 'resolved' || updates.status === 'closed' || updates.status === 'pending') {
-        window.dispatchEvent(new Event('ticket:advance'));
-      }
     }
     setShowStatusDropdown(false);
     setShowPriorityDropdown(false);
@@ -330,10 +326,6 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
         };
       });
       setReplyContent('');
-      // Send & Resolve / Send & Set Pending → advance to the next ticket.
-      if (setStatus === 'resolved' || setStatus === 'closed' || setStatus === 'pending') {
-        window.dispatchEvent(new Event('ticket:advance'));
-      }
     }
     setSending(false);
   }

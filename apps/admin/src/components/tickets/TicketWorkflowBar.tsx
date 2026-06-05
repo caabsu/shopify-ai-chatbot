@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ChevronLeft, ChevronRight, Inbox, CornerDownRight } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 
 interface QueueTicket {
   id: string;
@@ -13,19 +13,17 @@ interface QueueTicket {
 /**
  * Sticky triage bar for the ticket detail view. Gives the page a clear
  * work-queue workflow: where you are in the queue, how many are left, and fast
- * movement to the next ticket — by button, by keyboard (J/K or ←/→), or
- * automatically after a terminal action (resolve / close / set-pending).
+ * movement to the next ticket — by button or by keyboard (J/K or ←/→).
+ * Resolving a ticket does NOT auto-navigate; the agent stays put and moves on
+ * deliberately via Next.
  *
  * The queue mirrors whatever filter the inbox was showing (persisted to
  * sessionStorage by TicketInbox); falls back to "open, by SLA urgency".
- *
- * Pages signal a terminal action by dispatching:  window.dispatchEvent(new Event('ticket:advance'))
  */
 export function TicketWorkflowBar({ ticketId, basePath }: { ticketId: string; basePath: string }) {
   const router = useRouter();
   const [queue, setQueue] = useState<QueueTicket[]>([]);
   const [openRemaining, setOpenRemaining] = useState<number | null>(null);
-  const [advancing, setAdvancing] = useState(false);
 
   useEffect(() => {
     let params = '';
@@ -67,20 +65,6 @@ export function TicketWorkflowBar({ ticketId, basePath }: { ticketId: string; ba
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [goNext, goPrev]);
-
-  // Auto-advance after a terminal action (the page dispatches 'ticket:advance').
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    const onAdvance = () => {
-      setAdvancing(true);
-      timerRef.current = setTimeout(() => goNext(), 850);
-    };
-    window.addEventListener('ticket:advance', onAdvance);
-    return () => {
-      window.removeEventListener('ticket:advance', onAdvance);
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [goNext]);
 
   const position = index >= 0 ? index + 1 : null;
   const progress = total > 0 && position ? (position / total) * 100 : 0;
@@ -126,13 +110,6 @@ export function TicketWorkflowBar({ ticketId, basePath }: { ticketId: string; ba
       )}
 
       <div className="flex-1" />
-
-      {/* Advancing hint */}
-      {advancing && (
-        <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--color-accent)' }}>
-          <CornerDownRight size={14} /> Next ticket…
-        </span>
-      )}
 
       {/* Open remaining */}
       {openRemaining != null && (
