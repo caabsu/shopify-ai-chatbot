@@ -98,6 +98,18 @@ function getSupportEmail(settings: Record<string, unknown>, brandSlug?: string):
   );
 }
 
+// Drafts are sent as plain-text email, so any markdown the model slips in renders
+// literally (e.g. "[support@x.com](mailto:support@x.com)"). Strip it back to plain
+// text: email links → the bare address, web links → "label (url)", drop mailto:/bold.
+function plainifyEmailDraft(s: string): string {
+  return s
+    .replace(/\[([^\]]+)\]\(\s*mailto:[^)]+\)/gi, '$1')
+    .replace(/\[([^\]]+)\]\(\s*(https?:\/\/[^)\s]+)\s*\)/gi, (_m, label, url) =>
+      label.trim() === url.trim() ? url : `${label} (${url})`)
+    .replace(/\bmailto:/gi, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1');
+}
+
 async function loadAiConversation(conversationId: string): Promise<string> {
   const { data } = await supabase
     .from('messages')
@@ -258,10 +270,10 @@ CRITICAL RULES:
 
 - Use ${brandContext.brandName} context only. Never mention another brand's support inbox, policies, or tracking links.
 - For product questions, use Shopify order/product context and the knowledge base. If exact specifications are not available, say what is known and ask a concise follow-up rather than guessing.
-- Support email for this brand: ${brandContext.supportEmail}.
+- CONTACT: If you tell the customer how to reach the team, say it once and simply — e.g. "just reply to this email, or reach us at ${brandContext.supportEmail}". Write the address as plain text only: never as a markdown link, never as [${brandContext.supportEmail}](mailto:...), never with a "mailto:" prefix. Do not repeat the address.
 
 FORMAT:
-- Use markdown links for any URLs: [link text](url). Never show raw URLs.
+- This is a PLAIN-TEXT email. Do NOT use any markdown or HTML — no [text](url) links, no "mailto:", no **bold**, no headings. Write URLs and email addresses exactly as plain text (e.g. support@example.com, https://example.com/track).
 - Start with "Hi ${customerFirstName},"
 - End EXACTLY with:
 
@@ -290,10 +302,11 @@ ${supportContext}`;
     ],
   });
 
-  const text = response.content
+  const raw = response.content
     .filter((b): b is Anthropic.TextBlock => b.type === 'text')
     .map((b) => b.text)
     .join('');
+  const text = plainifyEmailDraft(raw);
 
   return NextResponse.json({ content: text, text });
 }
