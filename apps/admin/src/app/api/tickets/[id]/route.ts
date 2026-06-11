@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { sendCsatRequestEmail } from '@/lib/email';
+import { maybeSendCsatRequest } from '@/lib/csat';
 
 export async function GET(
   req: NextRequest,
@@ -176,42 +176,9 @@ export async function PATCH(
   }
 
   // CSAT loop: when a ticket is resolved, ask the customer how we did — once.
-  // Opt out per brand via brands.settings.csat_enabled = false.
-  if (
-    updates.status === 'resolved' &&
-    ticket.customer_email &&
-    !(ticket.metadata as Record<string, unknown> | null)?.csat_sent_at &&
-    ticket.source !== 'ai_escalation' // escalations resolve inside chat — no email survey
-  ) {
-    try {
-      const { data: brand } = await supabase
-        .from('brands')
-        .select('settings')
-        .eq('id', session.brandId)
-        .single();
-      const csatEnabled = (brand?.settings as Record<string, unknown> | null)?.csat_enabled !== false;
-
-      if (csatEnabled) {
-        const result = await sendCsatRequestEmail({
-          to: ticket.customer_email,
-          customerName: ticket.customer_name || undefined,
-          ticketNumber: ticket.ticket_number,
-          ticketId: ticket.id,
-          subject: ticket.subject,
-          brandName: session.brandName,
-          brandSlug: session.brandSlug,
-        });
-        if (!result.error) {
-          const meta = { ...((ticket.metadata as Record<string, unknown>) || {}), csat_sent_at: new Date().toISOString() };
-          await supabase.from('tickets').update({ metadata: meta }).eq('id', id);
-          ticket.metadata = meta;
-        } else {
-          console.error('[csat] send failed:', result.error);
-        }
-      }
-    } catch (err) {
-      console.error('[csat] error:', err);
-    }
+  if (updates.status === 'resolved') {
+    const meta = await maybeSendCsatRequest(ticket, session);
+    if (meta) ticket.metadata = meta;
   }
 
   return NextResponse.json({ ticket });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { sendTicketReplyEmail } from '@/lib/email';
+import { maybeSendCsatRequest } from '@/lib/csat';
 
 export async function POST(
   req: NextRequest,
@@ -127,6 +128,12 @@ export async function POST(
         .update({ metadata: { email_status: 'failed', email_error: emailError } })
         .eq('id', message.id);
     }
+  }
+
+  // "Send & Resolve" resolves through this route — trigger the CSAT ask here too.
+  if (body.set_status === 'resolved' && updatedTicket) {
+    const meta = await maybeSendCsatRequest(updatedTicket, session);
+    if (meta) updatedTicket.metadata = meta;
   }
 
   return NextResponse.json(
