@@ -136,7 +136,7 @@ export async function proposeForRecentTickets(limit = 6): Promise<number> {
   const brandIds = [...(await getEnabledBrandIds())];
   if (brandIds.length === 0) return 0;
 
-  const since = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
+  const since = new Date(Date.now() - 21 * 24 * 3600 * 1000).toISOString();
   const { data } = await supabase
     .from('tickets')
     .select('id, metadata')
