@@ -17,6 +17,29 @@ program — operated from one dashboard with per-brand theming and data separati
 - **Widgets** — Vanilla JS/CSS bundles (chatbot, returns portal, contact form, reviews,
   tracking) embedded on each storefront.
 
+## Autopilot (AI action-recommendation inbox)
+
+Every incoming ticket for an enabled brand is analyzed automatically at email-sync time —
+no manual trigger. A planner pipeline on the backend (context gathering → Claude planner
+with a strict action schema → deterministic validators) proposes an **action plan**:
+close-as-non-support, a fully drafted reply grounded in the KB / locked support facts /
+the customer's live Shopify orders, order cancellation, refund, shipping-address change,
+priority/tags, or escalate-to-human. Every action carries a calibrated **confidence score**.
+
+Plans land in the **Autopilot** review queue in the console (`/autopilot`): read the AI's
+analysis, expand and edit the drafted reply, toggle individual actions, then **Approve &
+run** — execution happens server-side with live re-validation against Shopify (an order
+that got fulfilled since planning will refuse to cancel). Nothing ever runs without
+approval. Dismissals, per-action results, and full audit events are recorded on the ticket.
+
+- Enabled brands: `AUTOPILOT_BRANDS` env on the backend (default `warm-by-design`).
+  Scaling to another brand is adding its slug.
+- Triggers: new email ticket, new contact-form ticket, customer reply (re-plans), plus a
+  5-minute sweep as backstop. Non-support email gets a no-LLM fast-path close card.
+- Storage: `tickets.metadata.autopilot` (see docs/migrations/011 for the future table).
+- Safety: planner can only reference orders fetched from Shopify for that customer;
+  Shopify mutations are validated twice (at planning and again at execution).
+
 ## Ticketing (helpdesk v2)
 
 The ticket system is a full helpdesk: email/contact-form/AI-escalation intake, AI triage,

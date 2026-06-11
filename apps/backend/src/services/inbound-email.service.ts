@@ -3,6 +3,7 @@ import type { Ticket } from '../types/index.js';
 import { classifyEmail } from './email-classifier.service.js';
 import { sendTicketConfirmation } from './email.service.js';
 import { triageTicket } from './ticket-triage.service.js';
+import { proposeForTicket, replanOnCustomerReply } from './autopilot.service.js';
 import * as ticketService from './ticket.service.js';
 import {
   extractEmailAddress,
@@ -172,6 +173,9 @@ export async function processInboundEmailWebhook(opts: {
       }).catch((err) => console.error('[webhook] Confirmation email failed:', err));
     }
   }
+
+  // Autopilot: build the AI action plan for this ticket (brand-gated inside).
+  proposeForTicket(ticket.id, 'new_ticket').catch((err) => console.error('[webhook] autopilot failed:', err));
 
   console.log(`[webhook] Email ticket #${ticket.ticket_number} created from ${email.senderEmail}`);
   return {
@@ -360,6 +364,9 @@ async function appendCustomerEmail(
   }
 
   await supabase.from('tickets').update(updatePayload).eq('id', ticket.id);
+
+  // A reply changes the situation — rebuild the Autopilot plan (brand-gated inside).
+  replanOnCustomerReply(ticket.id).catch((err) => console.error('[webhook] autopilot replan failed:', err));
 }
 
 async function addInitialEmailMessages(

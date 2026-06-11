@@ -87,9 +87,10 @@ const modules: Module[] = [
     label: 'Support',
     icon: Headphones,
     color: 'var(--color-info)',
-    basePaths: ['/tickets', '/chatbot', '/knowledge', '/insights'],
+    basePaths: ['/tickets', '/autopilot', '/chatbot', '/knowledge', '/insights'],
     items: [
       { href: '/tickets', label: 'Tickets', icon: Inbox, badge: true },
+      { href: '/autopilot', label: 'Autopilot', icon: Sparkles },
       { href: '/chatbot/conversations', label: 'Conversations', icon: MessageSquare },
       { href: '/knowledge', label: 'Knowledge', icon: BookOpen },
       { href: '/insights', label: 'Insights', icon: BarChart3 },
@@ -487,7 +488,7 @@ export function Navigation() {
           <div className="h-10 px-5 flex items-center gap-0.5">
             {/* Scrollable sub-nav items */}
             <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
-              {activeModule?.items?.map((item) => {
+              {activeModule?.items?.filter((item) => item.href !== '/autopilot' || brand.brandSlug === 'warm-by-design').map((item) => {
                 const active = isItemActive(pathname, item, allSubItems);
                 const ItemIcon = item.icon;
                 return (

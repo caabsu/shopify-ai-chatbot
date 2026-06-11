@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { formatDate, cn } from '@/lib/utils';
 import type { Ticket, TicketMessage, TicketEvent, CannedResponse, Message, AgentRosterEntry } from '@/lib/types';
-import { ticketTriage, ticketCsat, ticketSnoozedUntil } from '@/lib/types';
+import { ticketTriage, ticketCsat, ticketSnoozedUntil, ticketAutopilot } from '@/lib/types';
 import { TicketWorkflowBar } from '@/components/tickets/TicketWorkflowBar';
 
 const SENTIMENT_META: Record<string, { label: string; color: string }> = {
@@ -682,6 +682,28 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
     <div className="space-y-4">
       {/* Workflow / triage bar — queue position, remaining, next/prev, keyboard nav */}
       <TicketWorkflowBar ticketId={id} basePath={basePath} />
+
+      {/* Autopilot banner — a proposed AI action plan is waiting for review */}
+      {ticketAutopilot(ticket)?.status === 'proposed' && (
+        <Link
+          href="/autopilot"
+          className="flex items-center gap-2.5 rounded-xl px-4 py-3"
+          style={{
+            background: 'color-mix(in srgb, var(--color-source-ai) 8%, var(--bg-primary))',
+            border: '1px solid color-mix(in srgb, var(--color-source-ai) 30%, transparent)',
+          }}
+        >
+          <Sparkles size={15} style={{ color: 'var(--color-source-ai)', flexShrink: 0 }} />
+          <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+            <strong>Autopilot</strong> proposed {ticketAutopilot(ticket)!.actions.length} action
+            {ticketAutopilot(ticket)!.actions.length === 1 ? '' : 's'} for this ticket
+            {' '}<span style={{ color: 'var(--text-tertiary)' }}>— {ticketAutopilot(ticket)!.analysis.summary}</span>
+          </span>
+          <span className="ml-auto text-xs font-semibold flex-shrink-0" style={{ color: 'var(--color-source-ai)' }}>
+            Review →
+          </span>
+        </Link>
+      )}
 
       {/* Ticket header */}
       <div

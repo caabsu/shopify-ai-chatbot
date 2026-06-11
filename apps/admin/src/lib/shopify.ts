@@ -526,6 +526,62 @@ export async function getOrderDetails(orderId: string, brandSlug?: string): Prom
   };
 }
 
+// ── Update Shipping Address ──────────────────────────────────────────────
+export interface ShippingAddressInput {
+  name?: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  province?: string;
+  zip?: string;
+  country: string;
+  phone?: string;
+}
+
+export async function updateOrderShippingAddress(
+  orderId: string,
+  address: ShippingAddressInput,
+  brandSlug?: string
+): Promise<{ success: boolean; message: string }> {
+  const [firstName, ...rest] = (address.name ?? '').trim().split(/\s+/);
+  const data = await shopifyGraphql<{
+    orderUpdate: {
+      order: { id: string } | null;
+      userErrors: Array<{ field: string[]; message: string }>;
+    };
+  }>(
+    `mutation OrderUpdate($input: OrderInput!) {
+      orderUpdate(input: $input) {
+        order { id }
+        userErrors { field message }
+      }
+    }`,
+    {
+      input: {
+        id: orderId,
+        shippingAddress: {
+          ...(firstName ? { firstName, lastName: rest.join(' ') || undefined } : {}),
+          address1: address.address1,
+          address2: address.address2 || undefined,
+          city: address.city,
+          provinceCode: undefined,
+          province: address.province || undefined,
+          zip: address.zip || undefined,
+          country: address.country,
+          phone: address.phone || undefined,
+        },
+      },
+    },
+    brandSlug
+  );
+
+  const errors = data.orderUpdate.userErrors;
+  if (errors.length > 0) {
+    return { success: false, message: errors.map((e) => e.message).join('; ') };
+  }
+  return { success: true, message: 'Shipping address updated' };
+}
+
 // ── Cancel Order ─────────────────────────────────────────────────────────
 export async function cancelOrder(
   orderId: string,

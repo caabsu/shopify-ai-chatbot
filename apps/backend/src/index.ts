@@ -27,6 +27,7 @@ import { processInboundEmailWebhook } from './services/inbound-email.service.js'
 import { rateLimit } from './middleware/rate-limit.middleware.js';
 import { triageTicket } from './services/ticket-triage.service.js';
 import { wakeExpiredSnoozes } from './services/ticket-maintenance.service.js';
+import { proposeForTicket as autopilotPropose, proposeForRecentTickets } from './services/autopilot.service.js';
 import { checkSlaBreaches } from './services/sla.service.js';
 
 const app = express();
@@ -1910,6 +1911,7 @@ app.post('/api/tickets/form', formRateLimit, async (req, res) => {
 
     // AI auto-triage (fire-and-forget): intent, sentiment, priority suggestion
     triageTicket(ticket.id).catch((err) => console.error('[server] triage failed:', err));
+    autopilotPropose(ticket.id, 'new_ticket').catch((err) => console.error('[server] autopilot failed:', err));
 
     // Send confirmation email (fire-and-forget)
     sendTicketConfirmation({
@@ -2171,6 +2173,9 @@ app.post('/api/contact/submit', formRateLimit, async (req, res) => {
     });
 
     console.log(`[contact] Ticket ${ticket.ticket_number} created from ${email}`);
+
+    triageTicket(ticket.id).catch((err) => console.error('[contact] triage failed:', err));
+    autopilotPropose(ticket.id, 'new_ticket').catch((err) => console.error('[contact] autopilot failed:', err));
 
     sendTicketConfirmation({
       to: email,
@@ -2473,6 +2478,11 @@ app.listen(config.server.port, async () => {
       await wakeExpiredSnoozes();
     } catch (err) {
       console.error('[ticket-maintenance] Snooze wake error:', err instanceof Error ? err.message : String(err));
+    }
+    try {
+      await proposeForRecentTickets(); // Autopilot sweep backstop (enabled brands only)
+    } catch (err) {
+      console.error('[ticket-maintenance] Autopilot sweep error:', err instanceof Error ? err.message : String(err));
     }
   };
   setInterval(runTicketMaintenance, 5 * 60 * 1000);

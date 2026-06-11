@@ -202,6 +202,49 @@ export function ticketSnoozedUntil(t: Ticket): string | null {
   return new Date(v).getTime() > Date.now() ? v : null;
 }
 
+// ── Autopilot (AI action-recommendation inbox) ──────────────────────────────
+// Plans are written by the backend planner (apps/backend autopilot.service)
+// onto tickets.metadata.autopilot; approval + execution happen in the admin.
+
+export type AutopilotActionType =
+  | 'close_not_support'
+  | 'send_reply'
+  | 'resolve'
+  | 'set_priority'
+  | 'add_tags'
+  | 'cancel_order'
+  | 'refund_order'
+  | 'update_shipping_address'
+  | 'escalate_human';
+
+export interface AutopilotAction {
+  id: string;
+  type: AutopilotActionType;
+  title: string;
+  detail: string;
+  params: Record<string, unknown>;
+  confidence: number;
+  status: 'proposed' | 'approved' | 'skipped' | 'executed' | 'failed';
+  result?: string | null;
+}
+
+export interface AutopilotPlan {
+  version: 1;
+  status: 'proposed' | 'approved' | 'executing' | 'executed' | 'partially_executed' | 'failed' | 'dismissed';
+  trigger: 'new_ticket' | 'customer_reply' | 'sweep';
+  proposed_at: string;
+  decided_at?: string;
+  decided_by?: string;
+  executed_at?: string;
+  analysis: { summary: string; reasoning: string; overall_confidence: number };
+  actions: AutopilotAction[];
+}
+
+export function ticketAutopilot(t: Ticket): AutopilotPlan | null {
+  const v = t.metadata?.autopilot;
+  return v && typeof v === 'object' && Array.isArray((v as AutopilotPlan).actions) ? (v as AutopilotPlan) : null;
+}
+
 export interface AgentRosterEntry {
   id: string;
   name: string;
