@@ -326,6 +326,13 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
         };
       });
       setReplyContent('');
+      if (newMsg.email_error && replyMode === 'reply') {
+        setActionResult({ type: 'error', message: `Saved to ticket, but the email FAILED to send: ${newMsg.email_error}` });
+        setTimeout(() => setActionResult(null), 10000);
+      }
+    } else {
+      setActionResult({ type: 'error', message: 'Failed to send reply' });
+      setTimeout(() => setActionResult(null), 8000);
     }
     setSending(false);
   }

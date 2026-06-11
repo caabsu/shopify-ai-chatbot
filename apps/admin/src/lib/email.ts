@@ -19,6 +19,9 @@ function getResendClient(apiKey: string): Resend {
 interface BrandEmailConfig {
   resend: Resend;
   fromAddress: string;
+  /** The brand's Gmail support inbox. BCC'd on outbound replies so the
+   * mailbox keeps a threaded record of what agents send from supportOS. */
+  supportEmail?: string;
 }
 
 function normalizeEnvSuffix(slug: string): string {
@@ -33,6 +36,7 @@ function stringSetting(settings: Record<string, unknown> | null | undefined, key
 async function getBrandEmailConfig(brandSlug?: string): Promise<BrandEmailConfig | null> {
   let apiKey = process.env.RESEND_API_KEY || '';
   let fromAddress = process.env.EMAIL_FROM_ADDRESS || 'Support <onboarding@resend.dev>';
+  let supportEmail: string | undefined;
 
   if (brandSlug) {
     const { data: brand } = await supabase
@@ -48,7 +52,7 @@ async function getBrandEmailConfig(brandSlug?: string): Promise<BrandEmailConfig
       stringSetting(settings, 'emailFromAddress') ||
       stringSetting(settings, 'support_from_address') ||
       stringSetting(settings, 'supportFromAddress');
-    const supportEmail =
+    supportEmail =
       stringSetting(settings, 'support_email') ||
       stringSetting(settings, 'supportEmail') ||
       stringSetting(settings, 'inbound_email') ||
@@ -66,8 +70,12 @@ async function getBrandEmailConfig(brandSlug?: string): Promise<BrandEmailConfig
     if (brandFrom) fromAddress = brandFrom;
   }
 
+  // Env values have been observed with stray whitespace / literal "\n" — trim hard.
+  apiKey = apiKey.replace(/\\n/g, '').trim();
+  fromAddress = fromAddress.replace(/\\n/g, '').trim();
+
   if (!apiKey) return null;
-  return { resend: getResendClient(apiKey), fromAddress };
+  return { resend: getResendClient(apiKey), fromAddress, supportEmail };
 }
 
 export async function sendTicketReplyEmail(opts: {
@@ -131,10 +139,19 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
     headers['References'] = inReplyToMessageId;
   }
 
+  // BCC the brand's own support inbox so Gmail keeps a threaded record of the
+  // reply. Without this, replies sent from supportOS exist only in the OS —
+  // the Gmail mailbox never sees them. Loop-safe: both the Gmail forwarder and
+  // the backend inbound webhook drop messages sent from the support address.
+  const bcc = config.supportEmail && config.supportEmail.toLowerCase() !== to.toLowerCase()
+    ? [config.supportEmail]
+    : undefined;
+
   try {
     const { data, error } = await config.resend.emails.send({
       from: config.fromAddress,
       to: [to],
+      ...(bcc ? { bcc } : {}),
       subject: emailSubject,
       text: textBody,
       html: htmlBody,
