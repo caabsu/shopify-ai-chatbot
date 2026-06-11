@@ -4,6 +4,7 @@ import * as aiAssistant from '../services/ai-assistant.service.js';
 import * as customerProfileService from '../services/customer-profile.service.js';
 import { classifyTicketContent } from '../services/email-classifier.service.js';
 import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
+import { reviseTicketPlan } from '../services/autopilot.service.js';
 
 export const ticketRouter = Router();
 
@@ -229,6 +230,27 @@ ticketRouter.get('/:id/customer', async (req, res) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[ticket.controller] GET /:id/customer error:', message);
     res.status(500).json({ error: 'Failed to fetch customer data' });
+  }
+});
+
+// ── POST /:id/autopilot/revise — Operator-guided plan revision ─────────────
+ticketRouter.post('/:id/autopilot/revise', async (req, res) => {
+  try {
+    const instruction = typeof req.body?.instruction === 'string' ? req.body.instruction.trim() : '';
+    if (!instruction) {
+      res.status(400).json({ error: 'instruction is required' });
+      return;
+    }
+    const plan = await reviseTicketPlan(req.params.id, instruction);
+    if (!plan) {
+      res.status(409).json({ error: 'No pending Autopilot plan to revise on this ticket' });
+      return;
+    }
+    res.json({ plan });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[ticket.controller] POST /:id/autopilot/revise error:', message);
+    res.status(500).json({ error: 'Failed to revise Autopilot plan' });
   }
 });
 

@@ -57,11 +57,14 @@ export interface AutopilotAction {
 export interface AutopilotPlan {
   version: 1;
   status: 'proposed' | 'approved' | 'executing' | 'executed' | 'partially_executed' | 'failed' | 'dismissed';
-  trigger: 'new_ticket' | 'customer_reply' | 'sweep';
+  trigger: 'new_ticket' | 'customer_reply' | 'sweep' | 'revision';
   proposed_at: string;
   decided_at?: string;
   decided_by?: string;
   executed_at?: string;
+  /** Operator feedback that produced this plan (revision flow). */
+  operator_instruction?: string;
+  revision_count?: number;
   analysis: {
     summary: string;
     reasoning: string;
@@ -129,7 +132,7 @@ export async function proposeForTicket(
 }
 
 /** Sweep backstop: plan recent tickets that slipped past the event hook. */
-export async function proposeForRecentTickets(limit = 4): Promise<number> {
+export async function proposeForRecentTickets(limit = 6): Promise<number> {
   const brandIds = [...(await getEnabledBrandIds())];
   if (brandIds.length === 0) return 0;
 
@@ -155,6 +158,33 @@ export async function proposeForRecentTickets(limit = 4): Promise<number> {
 /** A customer reply makes any pending/executed plan stale — rebuild it. */
 export async function replanOnCustomerReply(ticketId: string): Promise<void> {
   await proposeForTicket(ticketId, 'customer_reply');
+}
+
+/**
+ * Operator-guided revision: the reviewer typed an instruction — extra context
+ * only they know ("the replacement ships Friday"), a correction, or a change
+ * request ("shorter, and offer a refund instead"). Re-run the planner with the
+ * previous plan and the instruction front and center.
+ */
+export async function reviseTicketPlan(ticketId: string, instruction: string): Promise<AutopilotPlan | null> {
+  const { data: ticket } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
+  if (!ticket) return null;
+  const t = ticket as Ticket;
+  if (!(await isAutopilotBrand(t.brand_id))) return null;
+
+  const meta = (t.metadata as Record<string, unknown>) || {};
+  const previous = meta.autopilot as AutopilotPlan | undefined;
+  if (!previous || previous.status !== 'proposed') return null;
+
+  const plan = await buildSupportPlan(t, 'revision', { previousPlan: previous, instruction });
+  if (!plan) return null;
+
+  plan.operator_instruction = instruction;
+  plan.revision_count = (previous.revision_count ?? 0) + 1;
+
+  await persistPlan(t, plan, previous);
+  console.log(`[autopilot] Revised plan for ticket #${t.ticket_number} (rev ${plan.revision_count}): ${plan.actions.map((a) => a.type).join(', ')}`);
+  return plan;
 }
 
 // ── plan builders ────────────────────────────────────────────────────────────
@@ -282,7 +312,11 @@ const PLAN_TOOL: Anthropic.Tool = {
   },
 };
 
-async function buildSupportPlan(t: Ticket, trigger: AutopilotPlan['trigger']): Promise<AutopilotPlan | null> {
+async function buildSupportPlan(
+  t: Ticket,
+  trigger: AutopilotPlan['trigger'],
+  revision?: { previousPlan: AutopilotPlan; instruction: string }
+): Promise<AutopilotPlan | null> {
   const ctx = await gatherContext(t);
 
   const system = `You are the Autopilot planner for Warm by Design customer support (a Shopify home-lighting brand). You analyze one support ticket and propose a concrete action plan that a HUMAN OPERATOR will review and approve before anything runs. Your job: be genuinely useful, precise, and calibrated.
@@ -314,10 +348,24 @@ Confidence = the probability the action is exactly right as specified. Be honest
 
 Order actions matter: put send_reply LAST so the reply can reference completed actions (e.g. cancel_order then a reply confirming the cancellation).`;
 
+  const revisionBlock = revision
+    ? `
+
+## OPERATOR INSTRUCTION — HIGHEST PRIORITY
+The human reviewer looked at your previous plan and gave you this instruction. It overrides everything except the safety rules above. Treat any facts the operator states as true and incorporate them; apply any change requests exactly.
+
+Operator says: "${revision.instruction.slice(0, 1500)}"
+
+## Your previous plan (being revised)
+${JSON.stringify({ analysis: revision.previousPlan.analysis, actions: revision.previousPlan.actions.map((a) => ({ type: a.type, title: a.title, detail: a.detail, confidence: a.confidence, params: a.type === 'send_reply' ? { reply_text: String(a.params.reply_text ?? '').slice(0, 1500) } : a.params })) }, null, 1).slice(0, 5000)}
+
+Produce the FULL revised plan (all actions, not a diff). Keep what the operator didn't ask to change. If the operator supplied facts that resolve your earlier uncertainty, raise confidence accordingly.`
+    : '';
+
   const userMsg = `Ticket #${t.ticket_number} — "${t.subject}" (priority: ${t.priority}, status: ${t.status}, source: ${t.source})
 
 ## Conversation thread
-${ctx.threadText || '(no messages)'}
+${ctx.threadText || '(no messages)'}${revisionBlock}
 
 Propose the action plan.`;
 

@@ -231,11 +231,14 @@ export interface AutopilotAction {
 export interface AutopilotPlan {
   version: 1;
   status: 'proposed' | 'approved' | 'executing' | 'executed' | 'partially_executed' | 'failed' | 'dismissed';
-  trigger: 'new_ticket' | 'customer_reply' | 'sweep';
+  trigger: 'new_ticket' | 'customer_reply' | 'sweep' | 'revision';
   proposed_at: string;
   decided_at?: string;
   decided_by?: string;
   executed_at?: string;
+  /** Operator feedback that produced this plan (revision flow). */
+  operator_instruction?: string;
+  revision_count?: number;
   analysis: { summary: string; reasoning: string; overall_confidence: number };
   actions: AutopilotAction[];
 }
