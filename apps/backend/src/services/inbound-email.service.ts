@@ -2,6 +2,7 @@ import { supabase } from '../config/supabase.js';
 import type { Ticket } from '../types/index.js';
 import { classifyEmail } from './email-classifier.service.js';
 import { sendTicketConfirmation } from './email.service.js';
+import { triageTicket } from './ticket-triage.service.js';
 import * as ticketService from './ticket.service.js';
 import {
   extractEmailAddress,
@@ -38,7 +39,7 @@ interface InboundThreadMessage {
 }
 
 interface ExistingTicketMatch {
-  ticket: Pick<Ticket, 'id' | 'status' | 'ticket_number' | 'brand_id'>;
+  ticket: Pick<Ticket, 'id' | 'status' | 'ticket_number' | 'brand_id' | 'metadata'>;
   matchMethod: 'message_id' | 'ticket_number' | 'subject';
 }
 
@@ -156,13 +157,20 @@ export async function processInboundEmailWebhook(opts: {
   await addInitialEmailMessages(ticket.id, email, ownAddresses);
 
   if (classification.classification === 'customer_support') {
-    sendTicketConfirmation({
-      to: email.senderEmail,
-      customerName: email.senderName || undefined,
-      ticketNumber: ticket.ticket_number,
-      subject: email.subject,
-      brandId,
-    }).catch((err) => console.error('[webhook] Confirmation email failed:', err));
+    // AI auto-triage (fire-and-forget): intent, sentiment, priority suggestion.
+    triageTicket(ticket.id).catch((err) => console.error('[webhook] triage failed:', err));
+
+    // Don't confirm auto-responders (out-of-office etc.) — replying to a robot
+    // risks a mail loop and never reaches a human anyway.
+    if (!isAutoReplyEmail(email.subject)) {
+      sendTicketConfirmation({
+        to: email.senderEmail,
+        customerName: email.senderName || undefined,
+        ticketNumber: ticket.ticket_number,
+        subject: email.subject,
+        brandId,
+      }).catch((err) => console.error('[webhook] Confirmation email failed:', err));
+    }
   }
 
   console.log(`[webhook] Email ticket #${ticket.ticket_number} created from ${email.senderEmail}`);
@@ -235,7 +243,7 @@ async function findExistingTicket(email: NormalizedInboundEmail, brandId: string
   if (ticketNumber) {
     const { data } = await supabase
       .from('tickets')
-      .select('id, status, ticket_number, brand_id')
+      .select('id, status, ticket_number, brand_id, metadata')
       .eq('ticket_number', ticketNumber)
       .eq('brand_id', brandId)
       .maybeSingle();
@@ -247,7 +255,7 @@ async function findExistingTicket(email: NormalizedInboundEmail, brandId: string
     const cleanSubject = email.subject.replace(/^(Re:|RE:|Fwd:|FW:)\s*/i, '').trim();
     const { data } = await supabase
       .from('tickets')
-      .select('id, status, ticket_number, brand_id')
+      .select('id, status, ticket_number, brand_id, metadata')
       .eq('customer_email', email.senderEmail)
       .eq('brand_id', brandId)
       .in('status', ['open', 'pending'])
@@ -298,7 +306,7 @@ async function findTicketByEmailMessageIds(
 async function getTicketForBrand(ticketId: string, brandId: string): Promise<ExistingTicketMatch['ticket'] | null> {
   const { data } = await supabase
     .from('tickets')
-    .select('id, status, ticket_number, brand_id')
+    .select('id, status, ticket_number, brand_id, metadata')
     .eq('id', ticketId)
     .eq('brand_id', brandId)
     .maybeSingle();
@@ -332,6 +340,23 @@ async function appendCustomerEmail(
   const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (ticket.status === 'resolved' || ticket.status === 'closed') {
     updatePayload.status = 'open';
+  }
+
+  // A customer reply wakes a snoozed ticket — the wait is over.
+  const metadata = (ticket.metadata as Record<string, unknown> | null) ?? null;
+  if (metadata && metadata.snoozed_until) {
+    const cleared = { ...metadata };
+    delete cleared.snoozed_until;
+    updatePayload.metadata = cleared;
+    if (!updatePayload.status && ticket.status === 'pending') updatePayload.status = 'open';
+
+    await supabase.from('ticket_events').insert({
+      ticket_id: ticket.id,
+      event_type: 'snooze_woke',
+      actor: 'customer',
+      old_value: String(metadata.snoozed_until),
+      new_value: 'customer_reply',
+    });
   }
 
   await supabase.from('tickets').update(updatePayload).eq('id', ticket.id);
@@ -388,6 +413,10 @@ function isOwnOrAutomatedSender(senderEmail: string, ownAddresses: Set<string>):
   return ownAddresses.has(senderEmail)
     || senderEmail.includes('noreply@')
     || senderEmail.includes('no-reply@');
+}
+
+function isAutoReplyEmail(subject: string): boolean {
+  return /^(automatic reply|auto[- ]?reply|autoreply|out of office|ooo:|away from( the)? office|abwesenheit)/i.test(subject.trim());
 }
 
 function isTicketConfirmationBounce(subject: string, body: string): boolean {

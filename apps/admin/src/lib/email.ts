@@ -172,6 +172,91 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
   }
 }
 
+// ── CSAT Request Email ───────────────────────────────────────────────────────
+// Sent when a ticket is resolved. Rating links hit the public backend endpoint
+// (GET /api/csat) with an HMAC token, so one click records the score. The token
+// is signed with the Supabase service key — the one secret both deployments share.
+
+import { createHmac } from 'crypto';
+
+const CSAT_TOKEN_TTL_DAYS = 14;
+
+export function buildCsatToken(ticketId: string): string {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const exp = Date.now() + CSAT_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+  const payload = `${ticketId}.${exp}`;
+  const sig = createHmac('sha256', secret).update(payload).digest('base64url');
+  return `${Buffer.from(payload).toString('base64url')}.${sig}`;
+}
+
+export async function sendCsatRequestEmail(opts: {
+  to: string;
+  customerName?: string;
+  ticketNumber: number;
+  ticketId: string;
+  subject: string;
+  brandName?: string;
+  brandSlug?: string;
+}): Promise<{ messageId?: string; error?: string }> {
+  const config = await getBrandEmailConfig(opts.brandSlug);
+  if (!config) return { error: 'Email not configured' };
+
+  const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_URL || '').replace(/\/$/, '');
+  if (!backendUrl) return { error: 'NEXT_PUBLIC_BACKEND_URL not configured' };
+
+  const token = buildCsatToken(opts.ticketId);
+  const ratingUrl = (score: number) => `${backendUrl}/api/csat?t=${encodeURIComponent(token)}&s=${score}`;
+
+  const brand = opts.brandName || 'Support';
+  const firstName = opts.customerName ? opts.customerName.split(' ')[0] : '';
+  const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
+
+  const labels = ['Very poor', 'Poor', 'Okay', 'Good', 'Excellent'];
+  const textBody = `${greeting}
+
+Your support request (Ticket #${opts.ticketNumber}) has been resolved. How did we do?
+
+${labels.map((l, i) => `${'★'.repeat(i + 1).padEnd(5, '☆')}  ${l}: ${ratingUrl(i + 1)}`).join('\n')}
+
+Thank you — your feedback helps us improve.
+
+---
+${brand} Team`;
+
+  const stars = [1, 2, 3, 4, 5]
+    .map(
+      (s) =>
+        `<a href="${ratingUrl(s)}" style="display:inline-block;width:44px;height:44px;line-height:44px;text-align:center;font-size:24px;text-decoration:none;color:#C5A059;" title="${labels[s - 1]}">★</a>`
+    )
+    .join('');
+
+  const htmlBody = `
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; color: #1a1a1a;">
+  <p>${greeting}</p>
+  <p>Your support request (<strong>Ticket #${opts.ticketNumber}</strong>) has been resolved. How did we do?</p>
+  <div style="margin: 18px 0; text-align: center;">${stars}</div>
+  <p style="text-align:center;color:#888;font-size:12px;">1 = Very poor &nbsp;·&nbsp; 5 = Excellent</p>
+  <p>Thank you — your feedback helps us improve.</p>
+  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
+  <p style="color: #aaa; font-size: 13px;">${escapeHtml(brand)} Team</p>
+</div>`;
+
+  try {
+    const { data, error } = await config.resend.emails.send({
+      from: config.fromAddress,
+      to: [opts.to],
+      subject: `How did we do? [Ticket #${opts.ticketNumber}]`,
+      text: textBody,
+      html: htmlBody,
+      headers: { 'X-Ticket-Number': String(opts.ticketNumber), 'X-SupportOS-CSAT': '1' },
+    });
+    if (error) return { error: error.message };
+    return { messageId: data?.id };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unknown error' };
+  }
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')

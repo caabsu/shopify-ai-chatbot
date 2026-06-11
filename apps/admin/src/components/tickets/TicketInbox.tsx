@@ -5,10 +5,22 @@ import Link from 'next/link';
 import {
   Search, Inbox, Mail, FormInput, Sparkles, AlertCircle, AlertTriangle, CheckCircle2,
   Clock, ChevronLeft, ChevronRight, CheckSquare, Check, XCircle, Zap, Trash2, Archive,
+  AlarmClock, Star, Bookmark, X,
 } from 'lucide-react';
-import type { Ticket } from '@/lib/types';
+import type { Ticket, AgentRosterEntry } from '@/lib/types';
+import { ticketTriage, ticketCsat, ticketSnoozedUntil } from '@/lib/types';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { Button } from '@/components/ui/Button';
+
+const SENTIMENT_DOT: Record<string, string> = {
+  angry: 'var(--color-danger)',
+  frustrated: 'var(--color-warning)',
+};
+
+interface SavedView {
+  name: string;
+  params: Record<string, string>;
+}
 
 // Source icon + human label. Colors live in the design tokens (see StatusPill).
 const SOURCE_META: Record<string, { icon: typeof Mail; label: string }> = {
@@ -50,6 +62,10 @@ interface FilterCounts {
   unassigned: number;
   breaching: number;
   awaitingFirstReply: number;
+  snoozed: number;
+  mine: number;
+  csatAvg: number | null;
+  csatCount: number;
 }
 
 function timeAgo(dateStr: string): string {
@@ -109,8 +125,19 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
   const [sourceFilter, setSourceFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const [snoozedOnly, setSnoozedOnly] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
+  const [assigneeFilter, setAssigneeFilter] = useState('');
   const [search, setSearch] = useState('');
   const [orderBy, setOrderBy] = useState('sla_urgency');
+
+  // Roster for assignee chips + filter
+  const [roster, setRoster] = useState<AgentRosterEntry[]>([]);
+  const rosterById = new Map(roster.map((a) => [a.id, a]));
+
+  // Saved views (localStorage)
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const savedViewsKey = `ticketSavedViews:${basePath}`;
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -124,6 +151,7 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
     email: 0, form: 0, ai_escalation: 0,
     urgent: 0, high: 0, medium: 0, low: 0,
     unassigned: 0, breaching: 0, awaitingFirstReply: 0,
+    snoozed: 0, mine: 0, csatAvg: null, csatCount: 0,
   });
 
   const perPage = 20;
@@ -148,24 +176,38 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
         unassigned: data.unassignedCount ?? 0,
         breaching: data.breachingCount ?? 0,
         awaitingFirstReply: data.awaitingFirstReplyCount ?? 0,
+        snoozed: data.snoozedCount ?? 0,
+        mine: data.mineCount ?? 0,
+        csatAvg: data.csatAvg ?? null,
+        csatCount: data.csatCount ?? 0,
       });
     } catch {
       // ignore
     }
   }, []);
 
-  const loadTickets = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      per_page: String(perPage),
-      order_by: orderBy,
-    });
-    if (statusFilter) params.set('status', statusFilter);
+  const buildFilterParams = useCallback(() => {
+    const params = new URLSearchParams();
+    params.set('order_by', orderBy);
+    if (snoozedOnly) {
+      params.set('snoozed', '1');
+    } else {
+      if (statusFilter) params.set('status', statusFilter);
+    }
+    if (mineOnly) params.set('assigned_to', 'me');
+    else if (assigneeFilter) params.set('assigned_to', assigneeFilter);
     if (sourceFilter) params.set('source', sourceFilter);
     if (priorityFilter) params.set('priority', priorityFilter);
     if (unassignedOnly) params.set('unassigned', '1');
     if (search) params.set('search', search);
+    return params;
+  }, [statusFilter, sourceFilter, priorityFilter, unassignedOnly, snoozedOnly, mineOnly, assigneeFilter, search, orderBy]);
+
+  const loadTickets = useCallback(async () => {
+    setLoading(true);
+    const params = buildFilterParams();
+    params.set('page', String(page));
+    params.set('per_page', String(perPage));
 
     try {
       const res = await fetch(`/api/tickets?${params}`);
@@ -177,26 +219,60 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
       setTickets([]);
     }
     setLoading(false);
-  }, [page, statusFilter, sourceFilter, priorityFilter, unassignedOnly, search, orderBy]);
+  }, [page, buildFilterParams]);
 
   useEffect(() => { loadCounts(); }, [loadCounts]);
   useEffect(() => { loadTickets(); }, [loadTickets]);
 
+  // Roster + saved views (once)
+  useEffect(() => {
+    fetch('/api/agents/roster')
+      .then((r) => r.json())
+      .then((d) => setRoster(d.agents ?? []))
+      .catch(() => {});
+    try {
+      const raw = localStorage.getItem(savedViewsKey);
+      if (raw) setSavedViews(JSON.parse(raw));
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Clear selection when filters change
-  useEffect(() => { setSelectedIds(new Set()); }, [statusFilter, sourceFilter, priorityFilter, page, search]);
+  useEffect(() => { setSelectedIds(new Set()); }, [statusFilter, sourceFilter, priorityFilter, snoozedOnly, mineOnly, assigneeFilter, page, search]);
 
   // Persist the active filter so the ticket-detail workflow bar can rebuild the
   // same work queue (next/prev navigation mirrors what you were looking at here).
   useEffect(() => {
-    const qp = new URLSearchParams();
-    qp.set('order_by', orderBy);
-    if (statusFilter) qp.set('status', statusFilter);
-    if (sourceFilter) qp.set('source', sourceFilter);
-    if (priorityFilter) qp.set('priority', priorityFilter);
-    if (unassignedOnly) qp.set('unassigned', '1');
-    if (search) qp.set('search', search);
-    try { sessionStorage.setItem('ticketQueueParams', qp.toString()); } catch { /* ignore */ }
-  }, [statusFilter, sourceFilter, priorityFilter, unassignedOnly, search, orderBy]);
+    try { sessionStorage.setItem('ticketQueueParams', buildFilterParams().toString()); } catch { /* ignore */ }
+  }, [buildFilterParams]);
+
+  function applySavedView(v: SavedView) {
+    setStatusFilter(v.params.status ?? '');
+    setSourceFilter(v.params.source ?? '');
+    setPriorityFilter(v.params.priority ?? '');
+    setUnassignedOnly(v.params.unassigned === '1');
+    setSnoozedOnly(v.params.snoozed === '1');
+    setMineOnly(v.params.assigned_to === 'me');
+    setAssigneeFilter(v.params.assigned_to && v.params.assigned_to !== 'me' ? v.params.assigned_to : '');
+    setSearch(v.params.search ?? '');
+    setOrderBy(v.params.order_by ?? 'sla_urgency');
+    setPage(1);
+  }
+
+  function saveCurrentView() {
+    const name = prompt('Name this view (e.g. "Urgent email backlog"):');
+    if (!name?.trim()) return;
+    const params = Object.fromEntries(buildFilterParams().entries());
+    const next = [...savedViews.filter((v) => v.name !== name.trim()), { name: name.trim(), params }];
+    setSavedViews(next);
+    try { localStorage.setItem(savedViewsKey, JSON.stringify(next)); } catch { /* ignore */ }
+  }
+
+  function deleteSavedView(name: string) {
+    const next = savedViews.filter((v) => v.name !== name);
+    setSavedViews(next);
+    try { localStorage.setItem(savedViewsKey, JSON.stringify(next)); } catch { /* ignore */ }
+  }
 
   // Clear action message after 4 seconds
   useEffect(() => {
@@ -332,33 +408,50 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
     setDeleteLoading(false);
   };
 
-  // Segmented "views" — drives status + unassigned filters.
+  // Segmented "views" — drives status + unassigned/mine/snoozed filters.
   const viewFilters = [
     { key: 'open', label: 'Open', count: counts.open },
+    { key: 'mine', label: 'Mine', count: counts.mine },
     { key: 'unassigned', label: 'Unassigned', count: counts.unassigned },
     { key: 'pending', label: 'Pending', count: counts.pending },
+    { key: 'snoozed', label: 'Snoozed', count: counts.snoozed },
     { key: 'resolved', label: 'Resolved', count: counts.resolved },
     { key: 'closed', label: 'Closed', count: counts.closed },
     { key: '', label: 'All', count: counts.all },
   ];
 
   function handleViewFilter(key: string) {
+    setUnassignedOnly(false);
+    setSnoozedOnly(false);
+    setMineOnly(false);
     if (key === 'unassigned') {
       setStatusFilter('open');
       setUnassignedOnly(true);
+    } else if (key === 'snoozed') {
+      setStatusFilter('');
+      setSnoozedOnly(true);
+    } else if (key === 'mine') {
+      setStatusFilter('open');
+      setMineOnly(true);
     } else {
       setStatusFilter(key);
-      setUnassignedOnly(false);
     }
     setPage(1);
   }
 
-  // Four headline stats — all real, from /api/tickets/stats.
+  // Headline stats — all real, from /api/tickets/stats.
   const statCards = [
-    { label: 'Open tickets', value: counts.open, tone: 'var(--color-accent)', icon: Inbox, emphasize: false },
-    { label: 'Awaiting first reply', value: counts.awaitingFirstReply, tone: 'var(--color-warning)', icon: Clock, emphasize: false },
-    { label: 'SLA breached', value: counts.breaching, tone: 'var(--color-danger)', icon: AlertTriangle, emphasize: true },
-    { label: 'Resolved', value: counts.resolved, tone: 'var(--color-success)', icon: CheckCircle2, emphasize: false },
+    { label: 'Open tickets', value: String(counts.open), tone: 'var(--color-accent)', icon: Inbox, emphasize: false },
+    { label: 'Awaiting first reply', value: String(counts.awaitingFirstReply), tone: 'var(--color-warning)', icon: Clock, emphasize: false },
+    { label: 'SLA breached', value: String(counts.breaching), tone: 'var(--color-danger)', icon: AlertTriangle, emphasize: counts.breaching > 0 },
+    { label: 'Resolved', value: String(counts.resolved), tone: 'var(--color-success)', icon: CheckCircle2, emphasize: false },
+    {
+      label: counts.csatCount > 0 ? `CSAT (${counts.csatCount} ratings)` : 'CSAT',
+      value: counts.csatAvg != null ? counts.csatAvg.toFixed(1) : '—',
+      tone: 'var(--color-accent)',
+      icon: Star,
+      emphasize: false,
+    },
   ];
 
   const allSelected = tickets.length > 0 && selectedIds.size === tickets.length;
@@ -437,7 +530,7 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
       </div>
 
       {/* ── Stat cards ───────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {statCards.map((s) => {
           const Icon = s.icon;
           return (
@@ -447,7 +540,7 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
                   style={{
                     fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1,
                     fontVariantNumeric: 'tabular-nums',
-                    color: s.emphasize && s.value > 0 ? s.tone : 'var(--text-primary)',
+                    color: s.emphasize ? s.tone : 'var(--text-primary)',
                   }}
                 >
                   {s.value}
@@ -490,9 +583,12 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
           style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: 3 }}
         >
           {viewFilters.map((f) => {
-            const active = f.key === 'unassigned'
-              ? unassignedOnly
-              : !unassignedOnly && ((f.key === '' && !statusFilter) || statusFilter === f.key);
+            const noSpecial = !unassignedOnly && !snoozedOnly && !mineOnly;
+            const active =
+              f.key === 'unassigned' ? unassignedOnly :
+              f.key === 'snoozed' ? snoozedOnly :
+              f.key === 'mine' ? mineOnly :
+              noSpecial && ((f.key === '' && !statusFilter) || statusFilter === f.key);
             return (
               <button
                 key={f.key || 'all'}
@@ -546,6 +642,21 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
           <option value="low">Low ({counts.low})</option>
         </select>
 
+        {/* Assignee filter */}
+        {roster.length > 0 && (
+          <select
+            value={mineOnly ? '' : assigneeFilter}
+            onChange={(e) => { setAssigneeFilter(e.target.value); setMineOnly(false); setPage(1); }}
+            className="px-3"
+            style={{ ...inputStyle, height: 36, fontSize: 12.5, fontWeight: 500, color: 'var(--text-secondary)' }}
+          >
+            <option value="">Any agent</option>
+            {roster.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        )}
+
         <div className="flex-1" />
 
         {/* Select-all */}
@@ -572,6 +683,45 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
           <option value="oldest">Sort: Oldest</option>
           <option value="priority">Sort: Priority</option>
         </select>
+      </div>
+
+      {/* ── Saved views ──────────────────────────────────────── */}
+      <div className="flex items-center gap-1.5 flex-wrap" style={{ marginTop: -6 }}>
+        <Bookmark size={12} style={{ color: 'var(--text-quaternary)' }} />
+        {savedViews.map((v) => (
+          <span
+            key={v.name}
+            className="inline-flex items-center gap-1 rounded-full"
+            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', padding: '3px 4px 3px 10px' }}
+          >
+            <button
+              onClick={() => applySavedView(v)}
+              style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-secondary)' }}
+              title={Object.entries(v.params).map(([k, val]) => `${k}=${val}`).join(' · ')}
+            >
+              {v.name}
+            </button>
+            <button
+              onClick={() => deleteSavedView(v.name)}
+              className="grid place-items-center rounded-full"
+              style={{ width: 16, height: 16, color: 'var(--text-quaternary)' }}
+              title="Delete view"
+            >
+              <X size={10} />
+            </button>
+          </span>
+        ))}
+        <button
+          onClick={saveCurrentView}
+          className="inline-flex items-center gap-1 rounded-full"
+          style={{
+            fontSize: 11.5, fontWeight: 600, padding: '3px 10px',
+            color: 'var(--text-tertiary)', border: '1px dashed var(--border-primary)', background: 'transparent',
+          }}
+          title="Save the current filters as a reusable view"
+        >
+          + Save view
+        </button>
       </div>
 
       {/* ── Bulk actions bar ─────────────────────────────────── */}
@@ -622,6 +772,11 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
             const showClassification = ticket.classification && ticket.classification !== 'customer_support';
             const priorityTone = PRIORITY_TONE[ticket.priority] ?? 'var(--color-priority-low)';
             const avatarTone = isTrade ? 'var(--color-accent)' : priorityTone;
+            const triage = ticketTriage(ticket);
+            const sentimentDot = triage?.sentiment ? SENTIMENT_DOT[triage.sentiment] : null;
+            const csat = ticketCsat(ticket);
+            const rowSnoozedUntil = ticketSnoozedUntil(ticket);
+            const rowAssignee = ticket.assigned_to ? rosterById.get(ticket.assigned_to) : null;
 
             return (
               <Link
@@ -683,6 +838,12 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
                         TRADE
                       </span>
                     )}
+                    {sentimentDot && (
+                      <span
+                        title={`Customer sounds ${triage?.sentiment}`}
+                        style={{ width: 7, height: 7, borderRadius: '50%', background: sentimentDot, flexShrink: 0 }}
+                      />
+                    )}
                     <span
                       className="truncate"
                       style={{ fontWeight: 600, fontSize: 14, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}
@@ -691,6 +852,28 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
                     </span>
                     {showClassification && (
                       <StatusPill kind="classification" value={ticket.classification!} label={CLASSIFICATION_LABELS[ticket.classification!] ?? undefined} />
+                    )}
+                    {rowSnoozedUntil && (
+                      <span
+                        className="inline-flex items-center gap-1 flex-shrink-0"
+                        style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--color-source-ai)' }}
+                        title={`Snoozed until ${new Date(rowSnoozedUntil).toLocaleString()}`}
+                      >
+                        <AlarmClock size={11} />
+                        {new Date(rowSnoozedUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                    {csat && (
+                      <span
+                        className="inline-flex items-center gap-0.5 flex-shrink-0"
+                        style={{
+                          fontSize: 10.5, fontWeight: 700,
+                          color: csat.score >= 4 ? 'var(--color-success)' : csat.score <= 2 ? 'var(--color-danger)' : 'var(--color-warning)',
+                        }}
+                        title={`CSAT ${csat.score}/5`}
+                      >
+                        <Star size={10} fill="currentColor" /> {csat.score}
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2.5" style={{ fontSize: 12.5, color: 'var(--text-tertiary)' }}>
@@ -706,8 +889,21 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
                   </div>
                 </div>
 
-                {/* Priority / SLA / age */}
+                {/* Assignee / Priority / SLA / age */}
                 <div className="flex items-center gap-3 flex-shrink-0">
+                  {rowAssignee && (
+                    <span
+                      className="grid place-items-center"
+                      title={`Assigned to ${rowAssignee.name}`}
+                      style={{
+                        width: 22, height: 22, borderRadius: '50%', fontSize: 9.5, fontWeight: 700,
+                        background: 'var(--color-accent-soft)', color: 'var(--color-accent-strong)',
+                        border: '1px solid var(--color-accent-ring)',
+                      }}
+                    >
+                      {initials(rowAssignee.name, null)}
+                    </span>
+                  )}
                   {!statusFilter && <StatusPill kind="status" value={ticket.status} />}
                   <StatusPill kind="priority" value={ticket.priority} />
                   {sla ? (

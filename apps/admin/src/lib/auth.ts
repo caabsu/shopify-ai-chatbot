@@ -1,7 +1,13 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'admin-secret-key-change-me');
+// A missing JWT_SECRET in production would make session tokens forgeable with
+// a publicly known string — fail closed instead of falling back.
+const rawJwtSecret = process.env.JWT_SECRET;
+if (!rawJwtSecret && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET must be configured in production');
+}
+const JWT_SECRET = new TextEncoder().encode(rawJwtSecret || 'admin-secret-key-change-me');
 const COOKIE_NAME = 'admin_token';
 
 export type UserRole = 'admin' | 'agent';

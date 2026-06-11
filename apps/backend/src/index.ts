@@ -24,8 +24,16 @@ import { getToken } from './services/shopify-auth.service.js';
 import * as ticketService from './services/ticket.service.js';
 import { sendTicketConfirmation } from './services/email.service.js';
 import { processInboundEmailWebhook } from './services/inbound-email.service.js';
+import { rateLimit } from './middleware/rate-limit.middleware.js';
+import { triageTicket } from './services/ticket-triage.service.js';
+import { wakeExpiredSnoozes } from './services/ticket-maintenance.service.js';
+import { checkSlaBreaches } from './services/sla.service.js';
 
 const app = express();
+
+// Railway terminates TLS at a proxy — trust it so req.ip is the real client
+// address (rate limiting keys on it).
+app.set('trust proxy', 1);
 
 function timingSafeStringEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
@@ -1861,8 +1869,15 @@ if (config.server.nodeEnv === 'development') {
 app.use('/health', healthRouter);
 app.use('/api/chat', chatRouter);
 
+// Public-surface rate limits: keep ticket-injection floods and login
+// brute-force at the door. In-memory — fine for a single Railway instance.
+const formRateLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 10, name: 'contact-form' });
+const webhookRateLimit = rateLimit({ windowMs: 60 * 1000, max: 240, name: 'email-webhook' });
+const loginRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, name: 'agent-login' });
+app.use('/api/agents/login', loginRateLimit);
+
 // ── POST /api/tickets/form — Public Contact Form Submission (no auth) ───────
-app.post('/api/tickets/form', async (req, res) => {
+app.post('/api/tickets/form', formRateLimit, async (req, res) => {
   try {
     const { name, email, category, subject, message, tags, priority } = req.body;
 
@@ -1892,6 +1907,9 @@ app.post('/api/tickets/form', async (req, res) => {
     });
 
     console.log(`[server] Contact form ticket #${ticket.ticket_number} created from ${email}`);
+
+    // AI auto-triage (fire-and-forget): intent, sentiment, priority suggestion
+    triageTicket(ticket.id).catch((err) => console.error('[server] triage failed:', err));
 
     // Send confirmation email (fire-and-forget)
     sendTicketConfirmation({
@@ -1944,7 +1962,7 @@ app.post('/api/tickets/escalate', async (req, res) => {
 // ── POST /api/webhooks/email — Inbound Email Webhook ─────────────────────────
 // Accepts inbound emails from Resend, SendGrid, Postmark, etc.
 // Creates a new ticket or adds a reply to an existing one.
-app.post('/api/webhooks/email', async (req, res) => {
+app.post('/api/webhooks/email', webhookRateLimit, async (req, res) => {
   try {
     if (!verifyEmailWebhookSecret(req)) {
       res.status(401).json({ error: 'Invalid webhook secret' });
@@ -1963,6 +1981,73 @@ app.post('/api/webhooks/email', async (req, res) => {
     res.status(500).json({ error: 'Failed to process inbound email' });
   }
 });
+
+// ── GET /api/csat — Public CSAT rating endpoint ──────────────────────────────
+// One-click rating links from the "How did we do?" email land here. The token
+// is an HMAC over (ticketId, expiry) signed with the Supabase service key —
+// the secret both the admin (sender) and this backend share.
+app.get('/api/csat', async (req, res) => {
+  try {
+    const token = typeof req.query.t === 'string' ? req.query.t : '';
+    const score = Number.parseInt(typeof req.query.s === 'string' ? req.query.s : '', 10);
+
+    const fail = (msg: string) => res.status(400).send(csatPage('Something went wrong', msg));
+    if (!token || !Number.isInteger(score) || score < 1 || score > 5) return fail('This rating link is invalid.');
+
+    const [payloadB64, sig] = token.split('.');
+    if (!payloadB64 || !sig) return fail('This rating link is invalid.');
+    const payload = Buffer.from(payloadB64, 'base64url').toString('utf8');
+    const expected = crypto
+      .createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || '')
+      .update(payload)
+      .digest('base64url');
+    if (!timingSafeStringEqual(sig, expected)) return fail('This rating link is invalid.');
+
+    const [ticketId, expStr] = payload.split('.');
+    if (!ticketId || !expStr || Number(expStr) < Date.now()) {
+      return fail('This rating link has expired.');
+    }
+
+    const { data: ticket } = await supabase
+      .from('tickets')
+      .select('id, ticket_number, metadata, brand_id')
+      .eq('id', ticketId)
+      .single();
+    if (!ticket) return fail('Ticket not found.');
+
+    const metadata = { ...((ticket.metadata as Record<string, unknown>) || {}) };
+    const previous = (metadata.csat as { score?: number } | undefined)?.score;
+    metadata.csat = { score, at: new Date().toISOString() };
+
+    await supabase.from('tickets').update({ metadata, updated_at: new Date().toISOString() }).eq('id', ticketId);
+    await supabase.from('ticket_events').insert({
+      ticket_id: ticketId,
+      event_type: 'csat_received',
+      actor: 'customer',
+      old_value: previous != null ? String(previous) : null,
+      new_value: String(score),
+    });
+
+    const stars = '★'.repeat(score) + '☆'.repeat(5 - score);
+    res.send(csatPage(
+      'Thank you for your feedback!',
+      `You rated your support experience ${stars} (${score}/5).${score <= 2 ? ' We’re sorry it wasn’t better — a team member will review this conversation.' : ''}`
+    ));
+  } catch (err) {
+    console.error('[csat] error:', err instanceof Error ? err.message : err);
+    res.status(500).send(csatPage('Something went wrong', 'Please try the link again later.'));
+  }
+});
+
+function csatPage(title: string, message: string): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
+<body style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f7f7f5;display:grid;place-items:center;min-height:100vh;">
+<div style="background:#fff;border:1px solid #e8e8e4;border-radius:14px;padding:36px 40px;max-width:420px;text-align:center;box-shadow:0 8px 30px -18px rgba(0,0,0,.2);">
+<div style="font-size:34px;margin-bottom:10px;">💛</div>
+<h1 style="font-size:19px;margin:0 0 8px;color:#161616;">${title}</h1>
+<p style="font-size:14px;line-height:1.6;color:#666;margin:0;">${message}</p>
+</div></body></html>`;
+}
 
 // Ticket and agent routes (require auth)
 app.use('/api/tickets', ticketRouter);
@@ -2048,7 +2133,7 @@ app.use('/api/tracking', trackingRouter);
 app.use('/api/contact-form', contactFormSettingsRouter);
 
 // ── Public Contact Form Submission (no auth required) ──
-app.post('/api/contact/submit', async (req, res) => {
+app.post('/api/contact/submit', formRateLimit, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const { name, email, message, topic, subject } = req.body;
@@ -2374,6 +2459,25 @@ app.listen(config.server.port, async () => {
     }
   }, 5 * 60 * 1000);
   console.log('[server] Review email job runner started (5m interval)');
+
+  // Ticket maintenance: SLA breach sweep + snooze wake (every 5 minutes).
+  // checkSlaBreaches existed but was never scheduled — breaches only showed up
+  // when a deadline passed AND someone happened to recompute. Now it's live.
+  const runTicketMaintenance = async () => {
+    try {
+      await checkSlaBreaches();
+    } catch (err) {
+      console.error('[ticket-maintenance] SLA sweep error:', err instanceof Error ? err.message : String(err));
+    }
+    try {
+      await wakeExpiredSnoozes();
+    } catch (err) {
+      console.error('[ticket-maintenance] Snooze wake error:', err instanceof Error ? err.message : String(err));
+    }
+  };
+  setInterval(runTicketMaintenance, 5 * 60 * 1000);
+  setTimeout(runTicketMaintenance, 20 * 1000); // first pass shortly after boot
+  console.log('[server] Ticket maintenance started (SLA sweep + snooze wake, 5m interval)');
 
   // RMA sync — poll Red Stag every 15 minutes
   const RMA_BRAND_ID = '883e4a28-9f2e-4850-a527-29f297d8b6f8';

@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search');
   const assignedTo = searchParams.get('assigned_to');
   const unassigned = searchParams.get('unassigned');
+  const snoozed = searchParams.get('snoozed'); // '1' = snoozed view, default = hide active snoozes
   const page = parseInt(searchParams.get('page') || '1');
   const perPage = parseInt(searchParams.get('per_page') || '20');
   const orderBy = searchParams.get('order_by') || 'sla_urgency';
@@ -25,10 +26,24 @@ export async function GET(req: NextRequest) {
   if (status) query = query.eq('status', status);
   if (priority) query = query.eq('priority', priority);
   if (source) query = query.eq('source', source);
-  if (assignedTo) query = query.eq('assigned_to', assignedTo);
+  if (assignedTo === 'me') {
+    if (!session.userId) return NextResponse.json({ tickets: [], total: 0, page: 1, perPage, totalPages: 1 });
+    query = query.eq('assigned_to', session.userId);
+  } else if (assignedTo) {
+    query = query.eq('assigned_to', assignedTo);
+  }
   if (unassigned === '1') query = query.is('assigned_to', null);
   if (search) {
     query = query.or(`subject.ilike.%${search}%,customer_email.ilike.%${search}%`);
+  }
+
+  const nowIso = new Date().toISOString();
+  if (snoozed === '1') {
+    // Snoozed view: tickets parked until a future wake time
+    query = query.gt('metadata->>snoozed_until', nowIso);
+  } else if (status === 'open' || status === 'pending') {
+    // Active queues hide snoozed tickets until they wake
+    query = query.or(`metadata->>snoozed_until.is.null,metadata->>snoozed_until.lt.${nowIso}`);
   }
 
   // Ordering

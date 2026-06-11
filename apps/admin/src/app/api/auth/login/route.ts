@@ -4,12 +4,43 @@ import { supabase } from '@/lib/supabase';
 import { signToken, COOKIE_NAME } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
 
+// Brute-force lockout: 8 failed attempts per identity per 15 minutes.
+// In-memory (per serverless instance) — not bulletproof, but it turns an
+// unthrottled password oracle into a slow one at zero infra cost.
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+const FAIL_MAX = 8;
+const failures = new Map<string, { count: number; resetAt: number }>();
+
+function failKey(request: Request, brandSlug: string, identifier: string): string {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  return `${ip}|${brandSlug}|${identifier}`;
+}
+
+function isLockedOut(key: string): boolean {
+  const entry = failures.get(key);
+  if (!entry) return false;
+  if (entry.resetAt <= Date.now()) { failures.delete(key); return false; }
+  return entry.count >= FAIL_MAX;
+}
+
+function recordFailure(key: string): void {
+  const now = Date.now();
+  const entry = failures.get(key);
+  if (!entry || entry.resetAt <= now) failures.set(key, { count: 1, resetAt: now + FAIL_WINDOW_MS });
+  else entry.count += 1;
+}
+
 export async function POST(request: Request) {
   const { brandSlug, password, email, agentId } = await request.json();
   const agentIdentifier = agentId || email; // support both agentId and legacy email
 
   if (!brandSlug || !password) {
     return NextResponse.json({ error: 'Brand and password are required' }, { status: 400 });
+  }
+
+  const lockKey = failKey(request, brandSlug, agentIdentifier || '(brand)');
+  if (isLockedOut(lockKey)) {
+    return NextResponse.json({ error: 'Too many failed attempts. Try again in 15 minutes.' }, { status: 429 });
   }
 
   // Look up the brand
@@ -21,6 +52,7 @@ export async function POST(request: Request) {
     .single();
 
   if (brandError || !brand) {
+    recordFailure(lockKey);
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
   }
 
@@ -35,13 +67,16 @@ export async function POST(request: Request) {
       .single();
 
     if (userError || !user || !user.password_hash) {
+      recordFailure(lockKey);
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
+      recordFailure(lockKey);
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
+    failures.delete(lockKey);
 
     const token = await signToken({
       brandId: brand.id,
@@ -73,8 +108,10 @@ export async function POST(request: Request) {
   // Path 2: Brand password only → admin access (backward compatible)
   const valid = await bcrypt.compare(password, brand.password_hash);
   if (!valid) {
+    recordFailure(lockKey);
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
   }
+  failures.delete(lockKey);
 
   const token = await signToken({
     brandId: brand.id,

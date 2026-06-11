@@ -168,6 +168,47 @@ export interface Ticket {
   updated_at: string;
 }
 
+/** AI triage result stored at tickets.metadata.ai_triage (written by the backend on intake). */
+export interface TicketTriage {
+  intent?: string;
+  sentiment?: 'angry' | 'frustrated' | 'neutral' | 'positive';
+  language?: string;
+  summary?: string;
+  suggested_priority?: string;
+  suggested_tags?: string[];
+  triaged_at?: string;
+}
+
+/** CSAT rating stored at tickets.metadata.csat (written by the backend rating endpoint). */
+export interface TicketCsat {
+  score: number;
+  comment?: string;
+  at?: string;
+}
+
+export function ticketTriage(t: Ticket): TicketTriage | null {
+  const v = t.metadata?.ai_triage;
+  return v && typeof v === 'object' ? (v as TicketTriage) : null;
+}
+
+export function ticketCsat(t: Ticket): TicketCsat | null {
+  const v = t.metadata?.csat;
+  return v && typeof v === 'object' && typeof (v as TicketCsat).score === 'number' ? (v as TicketCsat) : null;
+}
+
+export function ticketSnoozedUntil(t: Ticket): string | null {
+  const v = t.metadata?.snoozed_until;
+  if (typeof v !== 'string' || !v) return null;
+  return new Date(v).getTime() > Date.now() ? v : null;
+}
+
+export interface AgentRosterEntry {
+  id: string;
+  name: string;
+  role: 'admin' | 'agent';
+  agent_id?: string | null;
+}
+
 export interface TicketMessage {
   id: string;
   ticket_id: string;

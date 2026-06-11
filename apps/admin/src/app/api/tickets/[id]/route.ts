@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { sendCsatRequestEmail } from '@/lib/email';
 
 export async function GET(
   req: NextRequest,
@@ -138,6 +139,25 @@ export async function PATCH(
     updates.category = body.category;
   }
 
+  // Snooze: stored in metadata until the column exists (see docs/migrations/010).
+  // Pass snoozed_until as ISO string to snooze, null to wake.
+  if (body.snoozed_until !== undefined) {
+    const currentMeta = (currentTicket.metadata as Record<string, unknown>) || {};
+    updates.metadata = { ...currentMeta, snoozed_until: body.snoozed_until };
+    events.push({
+      ticket_id: id,
+      event_type: body.snoozed_until ? 'snoozed' : 'unsnoozed',
+      actor: 'agent',
+      old_value: (currentMeta.snoozed_until as string) || null,
+      new_value: body.snoozed_until,
+    });
+    // Snoozing implies the ticket is parked waiting — keep it pending so it
+    // leaves the active queue; waking reopens it.
+    if (body.snoozed_until && !body.status && currentTicket.status === 'open') {
+      updates.status = 'pending';
+    }
+  }
+
   const { data: ticket, error } = await supabase
     .from('tickets')
     .update(updates)
@@ -153,6 +173,45 @@ export async function PATCH(
   // Insert events
   if (events.length > 0) {
     await supabase.from('ticket_events').insert(events);
+  }
+
+  // CSAT loop: when a ticket is resolved, ask the customer how we did — once.
+  // Opt out per brand via brands.settings.csat_enabled = false.
+  if (
+    updates.status === 'resolved' &&
+    ticket.customer_email &&
+    !(ticket.metadata as Record<string, unknown> | null)?.csat_sent_at &&
+    ticket.source !== 'ai_escalation' // escalations resolve inside chat — no email survey
+  ) {
+    try {
+      const { data: brand } = await supabase
+        .from('brands')
+        .select('settings')
+        .eq('id', session.brandId)
+        .single();
+      const csatEnabled = (brand?.settings as Record<string, unknown> | null)?.csat_enabled !== false;
+
+      if (csatEnabled) {
+        const result = await sendCsatRequestEmail({
+          to: ticket.customer_email,
+          customerName: ticket.customer_name || undefined,
+          ticketNumber: ticket.ticket_number,
+          ticketId: ticket.id,
+          subject: ticket.subject,
+          brandName: session.brandName,
+          brandSlug: session.brandSlug,
+        });
+        if (!result.error) {
+          const meta = { ...((ticket.metadata as Record<string, unknown>) || {}), csat_sent_at: new Date().toISOString() };
+          await supabase.from('tickets').update({ metadata: meta }).eq('id', id);
+          ticket.metadata = meta;
+        } else {
+          console.error('[csat] send failed:', result.error);
+        }
+      }
+    } catch (err) {
+      console.error('[csat] error:', err);
+    }
   }
 
   return NextResponse.json({ ticket });

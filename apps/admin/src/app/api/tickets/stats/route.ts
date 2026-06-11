@@ -7,6 +7,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const brandId = session.brandId;
+  const nowIso = new Date().toISOString();
 
   // Run queries in parallel
   const [
@@ -25,6 +26,9 @@ export async function GET() {
     formRes,
     aiRes,
     eventsRes,
+    snoozedRes,
+    mineRes,
+    csatRes,
   ] = await Promise.all([
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('status', 'open'),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('status', 'pending'),
@@ -46,6 +50,11 @@ export async function GET() {
       .eq('tickets.brand_id', brandId)
       .order('created_at', { ascending: false })
       .limit(10),
+    supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).in('status', ['open', 'pending']).gt('metadata->>snoozed_until', nowIso),
+    session.userId
+      ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('assigned_to', session.userId).in('status', ['open', 'pending'])
+      : Promise.resolve({ count: 0 }),
+    supabase.from('tickets').select('metadata->csat->>score').eq('brand_id', brandId).not('metadata->csat', 'is', null).order('updated_at', { ascending: false }).limit(500),
   ]);
 
   // Calculate avg first response time from tickets that have first_response_at
@@ -71,6 +80,13 @@ export async function GET() {
   const breachingCount = breachingRes.count ?? 0;
   const slaCompliancePercent = totalAll > 0 ? Math.round(((totalAll - breachingCount) / totalAll) * 100) : 100;
 
+  // CSAT: average of recorded scores (1-5) on recently updated tickets
+  const csatScores = ((csatRes as { data?: Array<Record<string, unknown>> }).data ?? [])
+    .map((r) => Number(Object.values(r)[0]))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5);
+  const csatCount = csatScores.length;
+  const csatAvg = csatCount > 0 ? Math.round((csatScores.reduce((a, b) => a + b, 0) / csatCount) * 10) / 10 : null;
+
   return NextResponse.json({
     openCount,
     pendingCount: pendingRes.count ?? 0,
@@ -84,6 +100,10 @@ export async function GET() {
     unassignedCount: unassignedRes.count ?? 0,
     breachingCount,
     awaitingFirstReplyCount: awaitingRes.count ?? 0,
+    snoozedCount: snoozedRes.count ?? 0,
+    mineCount: (mineRes as { count?: number | null }).count ?? 0,
+    csatAvg,
+    csatCount,
     avgFirstResponseMinutes,
     slaCompliancePercent,
     ticketsBySource: {
