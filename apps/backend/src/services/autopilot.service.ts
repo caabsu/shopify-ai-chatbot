@@ -57,7 +57,7 @@ export interface AutopilotAction {
 export interface AutopilotPlan {
   version: 1;
   status: 'proposed' | 'approved' | 'executing' | 'executed' | 'partially_executed' | 'failed' | 'dismissed';
-  trigger: 'new_ticket' | 'customer_reply' | 'sweep' | 'revision';
+  trigger: 'new_ticket' | 'customer_reply' | 'sweep' | 'revision' | 'stale_check';
   proposed_at: string;
   decided_at?: string;
   decided_by?: string;
@@ -109,15 +109,30 @@ export async function proposeForTicket(
     const meta = (t.metadata as Record<string, unknown>) || {};
     const existing = meta.autopilot as AutopilotPlan | undefined;
 
-    // Don't re-plan on sweeps if a plan already exists in any state; a customer
-    // reply invalidates a pending/executed plan and triggers a fresh one.
-    if (existing && trigger !== 'customer_reply') return null;
+    // Don't re-plan on plain sweeps if a plan already exists; a customer reply
+    // or a staleness check invalidates a pending/executed plan deliberately.
+    if (existing && trigger !== 'customer_reply' && trigger !== 'stale_check') return null;
+
+    const staleContext = trigger === 'stale_check' && existing
+      ? {
+          previousPlan: existing,
+          instruction:
+            'AUTOMATIC FOLLOW-UP CHECK: our reply was the last message on this ticket and the customer has not responded for several days. Decide the closing move: if nothing is pending from our side, propose resolve ONLY (no send_reply — do not email the customer again for no reason). Propose one brief follow-up reply ONLY if we owe the customer something we promised (information, a confirmation). Never repeat the previous reply.',
+        }
+      : undefined;
 
     const plan = t.classification && t.classification !== 'customer_support'
       ? buildNonSupportPlan(t, trigger)
-      : await buildSupportPlan(t, trigger);
+      : await buildSupportPlan(t, trigger, staleContext);
 
-    if (!plan) return null;
+    if (!plan) {
+      // Starvation guard: a ticket whose planning keeps failing must not occupy
+      // the sweep's slots forever. Count attempts; the sweep skips after 3.
+      const attempts = (Number(meta.autopilot_attempts) || 0) + 1;
+      await supabase.from('tickets').update({ metadata: { ...meta, autopilot_attempts: attempts } }).eq('id', t.id);
+      console.warn(`[autopilot] No plan produced for ticket #${t.ticket_number} (attempt ${attempts})`);
+      return null;
+    }
 
     await persistPlan(t, plan, existing);
     console.log(
@@ -131,26 +146,90 @@ export async function proposeForTicket(
   }
 }
 
-/** Sweep backstop: plan recent tickets that slipped past the event hook. */
+const STALE_FOLLOWUP_DAYS = Number(process.env.AUTOPILOT_STALE_DAYS || 4);
+
+/**
+ * Coverage sweep — the guarantee that every open/pending ticket of an enabled
+ * brand has an actionable plan. Three passes, capped at `limit` LLM calls:
+ *   1. unplanned tickets (any age) → propose
+ *   2. executed/dismissed plans where the CUSTOMER replied after the decision
+ *      (missed replan hook) → re-plan
+ *   3. executed plans where our reply was the last word for N+ days → propose
+ *      the closing move (resolve quietly, or a brief owed follow-up)
+ */
 export async function proposeForRecentTickets(limit = 6): Promise<number> {
   const brandIds = [...(await getEnabledBrandIds())];
   if (brandIds.length === 0) return 0;
 
-  const since = new Date(Date.now() - 21 * 24 * 3600 * 1000).toISOString();
   const { data } = await supabase
     .from('tickets')
-    .select('id, metadata')
+    .select('id, ticket_number, metadata')
     .in('brand_id', brandIds)
     .in('status', ['open', 'pending'])
-    .gte('created_at', since)
     .order('created_at', { ascending: false })
-    .limit(50);
+    .limit(300);
 
-  const unplanned = (data ?? []).filter((t) => !((t.metadata as Record<string, unknown>) || {}).autopilot);
+  const tickets = data ?? [];
+  const queue: Array<{ id: string; trigger: AutopilotPlan['trigger'] }> = [];
+
+  // Pass 1: never planned (skip persistent failures)
+  for (const t of tickets) {
+    const meta = (t.metadata as Record<string, unknown>) || {};
+    if (meta.autopilot) continue;
+    if ((Number(meta.autopilot_attempts) || 0) >= 3) continue;
+    queue.push({ id: t.id as string, trigger: 'sweep' });
+  }
+
+  // Passes 2+3 need the last outward message per decided ticket
+  const decided = tickets.filter((t) => {
+    const p = ((t.metadata as Record<string, unknown>) || {}).autopilot as AutopilotPlan | undefined;
+    return p && ['executed', 'partially_executed', 'dismissed'].includes(p.status);
+  });
+
+  if (decided.length > 0 && queue.length < limit) {
+    const ids = decided.map((t) => t.id as string);
+    const lastMsgByTicket = new Map<string, { sender: string; at: string }>();
+    for (let i = 0; i < ids.length; i += 60) {
+      const { data: msgs } = await supabase
+        .from('ticket_messages')
+        .select('ticket_id, sender_type, created_at')
+        .in('ticket_id', ids.slice(i, i + 60))
+        .eq('is_internal_note', false)
+        .neq('sender_type', 'system')
+        .order('created_at', { ascending: false })
+        .limit(400);
+      for (const m of msgs ?? []) {
+        if (!lastMsgByTicket.has(m.ticket_id as string)) {
+          lastMsgByTicket.set(m.ticket_id as string, { sender: m.sender_type as string, at: m.created_at as string });
+        }
+      }
+    }
+
+    const staleCutoff = Date.now() - STALE_FOLLOWUP_DAYS * 24 * 3600 * 1000;
+    for (const t of decided) {
+      const p = ((t.metadata as Record<string, unknown>) || {}).autopilot as AutopilotPlan;
+      const last = lastMsgByTicket.get(t.id as string);
+      if (!last) continue;
+      const decidedAt = p.executed_at || p.decided_at || p.proposed_at;
+      if (last.sender === 'customer' && last.at > decidedAt) {
+        queue.push({ id: t.id as string, trigger: 'customer_reply' }); // missed replan
+      } else if (
+        p.status === 'executed' &&
+        last.sender === 'agent' &&
+        new Date(last.at).getTime() < staleCutoff
+      ) {
+        queue.push({ id: t.id as string, trigger: 'stale_check' });
+      }
+    }
+  }
+
   let planned = 0;
-  for (const t of unplanned.slice(0, limit)) {
-    const plan = await proposeForTicket(t.id as string, 'sweep');
+  for (const item of queue.slice(0, limit)) {
+    const plan = await proposeForTicket(item.id, item.trigger);
     if (plan) planned++;
+  }
+  if (queue.length > limit) {
+    console.log(`[autopilot] Coverage sweep: ${queue.length - limit} more ticket(s) queued for next cycle`);
   }
   return planned;
 }

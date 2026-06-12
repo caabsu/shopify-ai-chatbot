@@ -231,7 +231,7 @@ export interface AutopilotAction {
 export interface AutopilotPlan {
   version: 1;
   status: 'proposed' | 'approved' | 'executing' | 'executed' | 'partially_executed' | 'failed' | 'dismissed';
-  trigger: 'new_ticket' | 'customer_reply' | 'sweep' | 'revision';
+  trigger: 'new_ticket' | 'customer_reply' | 'sweep' | 'revision' | 'stale_check';
   proposed_at: string;
   decided_at?: string;
   decided_by?: string;

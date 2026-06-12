@@ -1953,6 +1953,8 @@ app.post('/api/tickets/escalate', async (req, res) => {
       brandId,
     });
 
+    autopilotPropose(ticket.id, 'new_ticket').catch((err) => console.error('[server] autopilot failed:', err));
+
     console.log(`[server] Escalation ticket #${ticket.ticket_number} created for conversation ${conversationId}`);
     res.status(201).json({ success: true, ticketNumber: ticket.ticket_number, ticketId: ticket.id });
   } catch (err) {

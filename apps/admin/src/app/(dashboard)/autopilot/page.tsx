@@ -492,6 +492,7 @@ function FocusPlan({
                   <><Dot /><span className="capitalize" style={{ fontWeight: 650, color: triage.sentiment === 'angry' ? 'var(--color-danger)' : 'var(--color-warning)' }}>{triage.sentiment} customer</span></>
                 )}
                 {plan.trigger === 'customer_reply' && (<><Dot /><span style={{ color: 'var(--color-info)', fontWeight: 600 }}>re-planned after reply</span></>)}
+              {plan.trigger === 'stale_check' && (<><Dot /><span style={{ color: 'var(--color-warning)', fontWeight: 600 }}>follow-up check — customer silent</span></>)}
                 {(plan.revision_count ?? 0) > 0 && (<><Dot /><span style={{ color: 'var(--color-source-ai)', fontWeight: 600 }}>rev {plan.revision_count}</span></>)}
               </div>
             </div>
