@@ -295,7 +295,7 @@ const PLAN_TOOL: Anthropic.Tool = {
           properties: {
             type: {
               type: 'string',
-              enum: ['send_reply', 'resolve', 'set_priority', 'add_tags', 'cancel_order', 'refund_order', 'update_shipping_address', 'escalate_human', 'close_not_support'],
+              enum: ['send_reply', 'resolve', 'set_priority', 'add_tags', 'cancel_order', 'refund_order', 'update_shipping_address', 'close_not_support'],
             },
             title: { type: 'string', description: 'Short imperative card title, e.g. "Reply: confirm cancellation".' },
             detail: { type: 'string', description: 'One or two sentences telling the reviewer exactly what will happen.' },
@@ -335,16 +335,18 @@ ${ctx.ordersBlock}
 
 ## Action rules — follow exactly
 - send_reply: write the COMPLETE customer-facing reply in params.reply_text. CONCISE IS MANDATORY: answer exactly what the customer asked and stop — typically a greeting, 1-3 short paragraphs (2-4 sentences total for simple matters), and the sign-off. No unsolicited options, no unasked-for information, no padding, no repeated apologies (one brief sincere apology at most when we're at fault). Never volunteer cancellation, refunds, or alternatives the customer didn't ask about. Match tone to context: warmer for upset customers, brisk and helpful for simple questions — sincere and professional always. Plain text only — no markdown, no bullet asterisks, no [text](url) links, never include any email address. Ground every claim in the thread, orders, KB, or locked rules above; if the customer's order is not in the list, say you could not locate it and ask for details — never guess. Sign off exactly:\n\nBest Regards,\nWarm by Design Customer Support Team
-- resolve: include ONLY together with a send_reply that fully answers the request (nothing left to do after the reply).
+- resolve: include together with send_reply whenever the reply fully addresses the request — AIM FOR ONE-SHOT RESOLUTION. Leave the ticket open only when you genuinely need information back from the customer.
 - cancel_order: ONLY if the customer explicitly asked to cancel AND the order is in the list AND its fulfillment is UNFULFILLED. Use the exact order_id from the list. params.reason is always "CUSTOMER". Cancelling auto-refunds and restocks.
 - refund_order: ONLY if the customer explicitly asked for a refund (without return) AND payment status is PAID or PARTIALLY_PAID. amount must not exceed the order total.
 - update_shipping_address: ONLY if the customer provided a complete new address in the thread AND the order is UNFULFILLED. Copy the address fields exactly as the customer wrote them.
 - set_priority / add_tags: housekeeping when clearly warranted (e.g. priority "urgent" for an angry customer with money at risk; tags like "shipping-delay").
-- escalate_human: when the situation is sensitive, ambiguous, legal/chargeback-related, or you are below 0.6 confidence — explain why in params.reason and detail. Prefer this over guessing.
 - close_not_support: only if this is clearly not a customer support request.
 
+## There is NO escalation — uncertainty becomes a LOWER confidence score
+A human reviews every plan before it runs, so never punt. Even when the situation is sensitive, ambiguous, or outside what you can verify: write the BEST complete reply you can with the facts available. The reply must NEVER tell the customer that someone else will follow up, that the matter is being passed on, reviewed by the team, or that "the right person" will be in touch — the reply IS the resolution. If you genuinely need something from the customer (an order number, photos), asking for it in the reply is fine. Express your uncertainty ONLY through the confidence score (e.g. 0.40-0.60) — the reviewer reads low-confidence drafts more carefully and edits them.
+
 ## Confidence calibration
-Confidence = the probability the action is exactly right as specified. Be honest: 0.95+ only for trivially clear cases; uncertainty about identity, order matching, or intent should push you toward escalate_human. A reply that answers a clear question with documented facts: 0.85-0.95. Shopify mutations (cancel/refund/address): only when explicitly requested and verifiable, typically 0.7-0.9.
+Confidence = the probability the action is exactly right as specified. Be honest: 0.95+ only for trivially clear cases. A reply that answers a clear question with documented facts: 0.85-0.95. A best-effort reply on a sensitive or unverifiable matter: 0.40-0.65 — still write it well. Shopify mutations (cancel/refund/address): only when explicitly requested and verifiable, typically 0.7-0.9.
 
 Order actions matter: put send_reply LAST so the reply can reference completed actions (e.g. cancel_order then a reply confirming the cancellation).`;
 
@@ -389,8 +391,15 @@ Propose the action plan.`;
     actions?: Array<{ type?: string; title?: string; detail?: string; confidence?: number; params?: Record<string, unknown> }>;
   };
 
-  const actions = validateActions(raw.actions ?? [], ctx);
+  const { actions, droppedNotes } = validateActions(raw.actions ?? [], ctx);
   if (actions.length === 0) return null;
+
+  let reasoning = (raw.reasoning || '').slice(0, 700);
+  let overall = clamp01(raw.overall_confidence ?? 0.5);
+  if (droppedNotes.length > 0) {
+    reasoning = `${reasoning} ${droppedNotes.join(' ')}`.trim().slice(0, 900);
+    overall = Math.min(overall, 0.55); // validation failures = the reviewer should look closely
+  }
 
   return {
     version: 1,
@@ -399,8 +408,8 @@ Propose the action plan.`;
     proposed_at: new Date().toISOString(),
     analysis: {
       summary: (raw.summary || '').slice(0, 400),
-      reasoning: (raw.reasoning || '').slice(0, 700),
-      overall_confidence: clamp01(raw.overall_confidence ?? 0.5),
+      reasoning,
+      overall_confidence: overall,
     },
     actions,
   };
@@ -408,19 +417,21 @@ Propose the action plan.`;
 
 // ── deterministic validators ─────────────────────────────────────────────────
 // The planner is good but not trusted: every Shopify mutation is checked against
-// the gathered context. Invalid proposals degrade to an escalate_human card that
-// explains what failed, so the reviewer still sees the intent.
+// the gathered context. Invalid proposals are DROPPED, the failure is surfaced
+// in the plan's reasoning, and overall confidence is capped — the reviewer sees
+// a low-confidence plan instead of a fake escalation card.
 
 const VALID_TYPES: AutopilotActionType[] = [
   'close_not_support', 'send_reply', 'resolve', 'set_priority', 'add_tags',
-  'cancel_order', 'refund_order', 'update_shipping_address', 'escalate_human',
+  'cancel_order', 'refund_order', 'update_shipping_address',
 ];
 
 function validateActions(
   raw: Array<{ type?: string; title?: string; detail?: string; confidence?: number; params?: Record<string, unknown> }>,
   ctx: PlannerContext
-): AutopilotAction[] {
+): { actions: AutopilotAction[]; droppedNotes: string[] } {
   const out: AutopilotAction[] = [];
+  const droppedNotes: string[] = [];
 
   for (const a of raw.slice(0, 6)) {
     if (!a.type || !VALID_TYPES.includes(a.type as AutopilotActionType)) continue;
@@ -436,14 +447,7 @@ function validateActions(
 
     const invalid = validateOne(action, ctx);
     if (invalid) {
-      out.push({
-        ...action,
-        type: 'escalate_human',
-        title: `Needs human: ${action.title}`.slice(0, 120),
-        detail: `Autopilot proposed "${action.type}" but validation failed: ${invalid}. Review manually.`,
-        params: { reason: invalid, original_type: action.type, original_params: action.params },
-        confidence: Math.min(action.confidence, 0.5),
-      });
+      droppedNotes.push(`Dropped proposed ${action.type} — ${invalid}.`);
       continue;
     }
     out.push(action);
@@ -451,13 +455,16 @@ function validateActions(
 
   // Dedup: at most one reply, one resolve
   const seen = new Set<string>();
-  return out.filter((a) => {
-    if (a.type === 'send_reply' || a.type === 'resolve') {
-      if (seen.has(a.type)) return false;
-      seen.add(a.type);
-    }
-    return true;
-  });
+  return {
+    actions: out.filter((a) => {
+      if (a.type === 'send_reply' || a.type === 'resolve') {
+        if (seen.has(a.type)) return false;
+        seen.add(a.type);
+      }
+      return true;
+    }),
+    droppedNotes,
+  };
 }
 
 function validateOne(a: AutopilotAction, ctx: PlannerContext): string | null {
