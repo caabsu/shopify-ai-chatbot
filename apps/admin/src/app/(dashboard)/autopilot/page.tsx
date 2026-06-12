@@ -7,7 +7,7 @@ import {
   Ban, Undo2, MapPin, Tag, AlertTriangle, Flag, Archive, ExternalLink,
   ShieldCheck, Check, CornerDownRight, Wand2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import type { Ticket, AutopilotPlan, AutopilotAction } from '@/lib/types';
+import type { Ticket, TicketMessage, AutopilotPlan, AutopilotAction } from '@/lib/types';
 import { ticketAutopilot, ticketTriage } from '@/lib/types';
 
 /**
@@ -69,6 +69,9 @@ export default function AutopilotPage() {
   const [revising, setRevising] = useState(false);
   const [flash, setFlash] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Conversation threads, fetched lazily for the active ticket only
+  const [threads, setThreads] = useState<Record<string, TicketMessage[]>>({});
+
   const load = useCallback(async (background = false) => {
     if (!background) setLoading(true);
     try {
@@ -101,6 +104,20 @@ export default function AutopilotPage() {
 
   const active = useMemo(() => tickets.find((t) => t.id === activeId) ?? null, [tickets, activeId]);
   const activeIndex = useMemo(() => tickets.findIndex((t) => t.id === activeId), [tickets, activeId]);
+
+  // Load the conversation for the active ticket (once per ticket)
+  useEffect(() => {
+    if (!activeId || threads[activeId]) return;
+    fetch(`/api/tickets/${activeId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.messages)) {
+          setThreads((prev) => ({ ...prev, [activeId]: d.messages }));
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
 
   const getState = (id: string): CardState => cardState[id] ?? EMPTY_CARD;
   const patchState = (id: string, patch: Partial<CardState>) =>
@@ -387,6 +404,7 @@ export default function AutopilotPage() {
             <FocusPlan
               key={active.id}
               ticket={active}
+              messages={threads[active.id]}
               state={getState(active.id)}
               patch={(p) => patchState(active.id, p)}
               pending={tab === 'pending'}
@@ -415,9 +433,10 @@ const navBtn: React.CSSProperties = {
 // ── focus plan ───────────────────────────────────────────────────────────────
 
 function FocusPlan({
-  ticket, state, patch, pending, running, revising, onDecide, onRevise,
+  ticket, messages, state, patch, pending, running, revising, onDecide, onRevise,
 }: {
   ticket: Ticket;
+  messages?: TicketMessage[];
   state: CardState;
   patch: (p: Partial<CardState>) => void;
   pending: boolean;
@@ -487,8 +506,10 @@ function FocusPlan({
 
           {/* two-pane: context+actions | draft */}
           <div className="grid gap-5 items-start" style={{ gridTemplateColumns: replyAction ? 'minmax(340px, 5fr) minmax(420px, 7fr)' : '1fr' }}>
-            {/* left: analysis + actions + instruction */}
+            {/* left: customer email + analysis + actions + instruction */}
             <div className="space-y-4 min-w-0">
+              <ConversationSection messages={messages} customerName={ticket.customer_name} />
+
               <section className="ds-card" style={{ padding: '16px 18px' }}>
                 <div style={sectionLabel}>Analysis</div>
                 <p className="mt-2" style={{ fontSize: 13.5, color: 'var(--text-primary)', lineHeight: 1.6 }}>{plan.analysis.summary}</p>
@@ -611,6 +632,98 @@ function FocusPlan({
 
 function Dot() {
   return <span style={{ color: 'var(--text-quaternary)' }}>·</span>;
+}
+
+// ── conversation (the original email, in-page) ──────────────────────────────
+
+function ConversationSection({ messages, customerName }: { messages?: TicketMessage[]; customerName: string | null }) {
+  const [showFull, setShowFull] = useState(false);
+  const [showEarlier, setShowEarlier] = useState(false);
+
+  const visible = (messages ?? []).filter((m) => !m.is_internal_note && m.sender_type !== 'system');
+  const latestCustomerIdx = visible.map((m) => m.sender_type).lastIndexOf('customer');
+  const latest = latestCustomerIdx >= 0 ? visible[latestCustomerIdx] : visible[visible.length - 1];
+  const earlier = visible.filter((m) => m !== latest);
+
+  const latestText = (latest?.content ?? '').trim();
+  const isLong = latestText.split('\n').length > 7 || latestText.length > 600;
+
+  return (
+    <section className="ds-card" style={{ padding: '14px 18px 16px' }}>
+      <div className="flex items-center justify-between">
+        <div style={sectionLabel}>Customer email</div>
+        {latest && (
+          <span style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>{timeAgo(latest.created_at)}</span>
+        )}
+      </div>
+
+      {!messages ? (
+        <p className="mt-2 inline-flex items-center gap-1.5" style={{ fontSize: 12, color: 'var(--text-quaternary)' }}>
+          <Loader2 size={11} className="animate-spin" /> Loading conversation…
+        </p>
+      ) : !latest ? (
+        <p className="mt-2" style={{ fontSize: 12, color: 'var(--text-quaternary)' }}>No messages on this ticket.</p>
+      ) : (
+        <>
+          <div className="mt-2 flex items-center gap-1.5" style={{ fontSize: 11.5, fontWeight: 650, color: 'var(--text-secondary)' }}>
+            {latest.sender_name || customerName || latest.sender_email || 'Customer'}
+          </div>
+          <div
+            className="mt-1 whitespace-pre-wrap"
+            style={{
+              fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.6, overflowWrap: 'anywhere',
+              ...(showFull
+                ? { maxHeight: 380, overflowY: 'auto' }
+                : isLong
+                ? { display: '-webkit-box', WebkitLineClamp: 7, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
+                : {}),
+            }}
+          >
+            {latestText}
+          </div>
+          {isLong && (
+            <button
+              onClick={() => setShowFull((v) => !v)}
+              className="mt-1.5 inline-flex items-center gap-1"
+              style={{ fontSize: 11.5, fontWeight: 650, color: 'var(--color-accent)' }}
+            >
+              {showFull ? <>Show less <ChevronUp size={11} /></> : <>Show full message <ChevronDown size={11} /></>}
+            </button>
+          )}
+
+          {earlier.length > 0 && (
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-secondary)' }}>
+              <button
+                onClick={() => setShowEarlier((v) => !v)}
+                className="inline-flex items-center gap-1.5"
+                style={{ fontSize: 11.5, fontWeight: 650, color: 'var(--text-tertiary)' }}
+              >
+                {showEarlier ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                Earlier conversation ({earlier.length} message{earlier.length === 1 ? '' : 's'})
+              </button>
+              {showEarlier && (
+                <div className="mt-2 space-y-2.5" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                  {earlier.map((m) => (
+                    <div key={m.id} className="rounded-lg px-3 py-2" style={{ background: 'var(--bg-secondary)' }}>
+                      <div className="flex items-center justify-between" style={{ fontSize: 10.5 }}>
+                        <span style={{ fontWeight: 700, color: m.sender_type === 'customer' ? 'var(--color-info)' : 'var(--text-tertiary)' }}>
+                          {m.sender_type === 'customer' ? (m.sender_name || customerName || 'Customer') : (m.sender_name || 'Warm by Design')}
+                        </span>
+                        <span style={{ color: 'var(--text-quaternary)' }}>{timeAgo(m.created_at)}</span>
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap" style={{ fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.55, overflowWrap: 'anywhere' }}>
+                        {m.content.length > 900 ? `${m.content.slice(0, 900)}…` : m.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
 }
 
 // ── draft pane (right column) ────────────────────────────────────────────────
