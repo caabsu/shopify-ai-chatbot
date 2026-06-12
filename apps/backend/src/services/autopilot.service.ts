@@ -224,12 +224,15 @@ export async function proposeForRecentTickets(limit = 6): Promise<number> {
         queue.push({ id: t.id as string, trigger: 'customer_reply' }); // missed replan
       } else if (
         (p.status === 'executed' || p.status === 'partially_executed') &&
-        last.sender === 'agent' &&
-        new Date(last.at).getTime() < staleCutoff &&
+        new Date(decidedAt).getTime() < staleCutoff &&
         // 'awaiting-customer' (set by an approved follow-up plan) parks the ticket:
         // no new card until the customer actually replies — prevents card loops.
         !(((t as unknown as { tags?: string[] }).tags) ?? []).includes('awaiting-customer')
       ) {
+        // The invariant: an open ticket always carries a pending card or an
+        // explicit park. Any executed plan without newer customer input gets
+        // a next-step card — whether our reply or the customer's message is
+        // the last word (the plan already considered the latter).
         queue.push({ id: t.id as string, trigger: 'stale_check' });
       }
     }
