@@ -223,6 +223,7 @@ interface PlannerContext {
   orders: Array<{ id: string; name: string; financialStatus: string; fulfillmentStatus: string; totalPrice: string }>;
   kbBlock: string;
   supportContext: string;
+  pastTicketsBlock: string;
 }
 
 async function gatherContext(t: Ticket): Promise<PlannerContext> {
@@ -263,6 +264,47 @@ async function gatherContext(t: Ticket): Promise<PlannerContext> {
     }
   }
 
+  // Previous tickets from the same customer — continuity matters: don't
+  // contradict or re-explain what an earlier ticket already settled.
+  let pastTicketsBlock = 'No previous tickets from this customer.';
+  if (t.customer_email) {
+    try {
+      const { data: past } = await supabase
+        .from('tickets')
+        .select('id, ticket_number, subject, status, created_at')
+        .eq('brand_id', t.brand_id)
+        .eq('customer_email', t.customer_email)
+        .neq('id', t.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (past && past.length > 0) {
+        const { data: lastReplies } = await supabase
+          .from('ticket_messages')
+          .select('ticket_id, content, created_at')
+          .in('ticket_id', past.map((p) => p.id))
+          .eq('sender_type', 'agent')
+          .eq('is_internal_note', false)
+          .order('created_at', { ascending: false })
+          .limit(25);
+
+        const lastReplyByTicket = new Map<string, string>();
+        for (const m of lastReplies ?? []) {
+          if (!lastReplyByTicket.has(m.ticket_id as string)) {
+            lastReplyByTicket.set(m.ticket_id as string, String(m.content).slice(0, 280));
+          }
+        }
+
+        pastTicketsBlock = past
+          .map((p) => {
+            const reply = lastReplyByTicket.get(p.id as string);
+            return `- #${p.ticket_number} [${p.status}] ${String(p.created_at).slice(0, 10)}: "${p.subject}"${reply ? `\n  Our last reply: ${reply.replace(/\s+/g, ' ')}` : ''}`;
+          })
+          .join('\n');
+      }
+    } catch { /* history optional */ }
+  }
+
   let kbBlock = '';
   try {
     const docs = await searchKnowledge(`${t.subject} ${threadText.slice(0, 300)}`, t.brand_id);
@@ -274,7 +316,7 @@ async function gatherContext(t: Ticket): Promise<PlannerContext> {
 
   const supportContext = await loadSupportContext(t.brand_id, `${t.subject}\n${threadText}`).catch(() => '');
 
-  return { threadText, customerBlock, ordersBlock, orders, kbBlock, supportContext };
+  return { threadText, customerBlock, ordersBlock, orders, kbBlock, supportContext, pastTicketsBlock };
 }
 
 const PLAN_TOOL: Anthropic.Tool = {
@@ -332,6 +374,10 @@ ${ctx.customerBlock}
 
 ## Customer's recent orders (THE ONLY ORDERS THAT EXIST — never invent others)
 ${ctx.ordersBlock}
+
+## This customer's previous tickets (newest first — use for continuity)
+${ctx.pastTicketsBlock}
+Honor what was already told to this customer: do not contradict prior commitments, do not re-explain what an earlier ticket settled, and reference the earlier exchange briefly when the customer is following up on it.
 
 ## Action rules — follow exactly
 - send_reply: write the COMPLETE customer-facing reply in params.reply_text. CONCISE IS MANDATORY: answer exactly what the customer asked and stop — typically a greeting, 1-3 short paragraphs (2-4 sentences total for simple matters), and the sign-off. No unsolicited options, no unasked-for information, no padding, no repeated apologies (one brief sincere apology at most when we're at fault). Never volunteer cancellation, refunds, or alternatives the customer didn't ask about. Match tone to context: warmer for upset customers, brisk and helpful for simple questions — sincere and professional always. Plain text only — no markdown, no bullet asterisks, no [text](url) links, never include any email address. Ground every claim in the thread, orders, KB, or locked rules above; if the customer's order is not in the list, say you could not locate it and ask for details — never guess. Sign off exactly:\n\nBest Regards,\nWarm by Design Customer Support Team

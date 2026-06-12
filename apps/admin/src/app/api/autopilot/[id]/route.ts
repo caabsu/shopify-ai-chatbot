@@ -80,7 +80,10 @@ export async function POST(
       action.status = 'skipped';
       continue;
     }
-    if (action.type === 'send_reply' && typeof override?.reply_text === 'string' && override.reply_text.trim()) {
+    if (action.type === 'send_reply' && typeof override?.reply_text === 'string' && override.reply_text.trim()
+        && override.reply_text.trim() !== String(action.params.reply_text ?? '').trim()) {
+      // Keep the original draft — the edit diff is the learning loop's best signal.
+      (action.params as Record<string, unknown>).original_reply_text = action.params.reply_text;
       action.params.reply_text = override.reply_text.trim();
       (action.params as Record<string, unknown>).edited_by_reviewer = true;
     }

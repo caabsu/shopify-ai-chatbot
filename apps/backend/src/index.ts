@@ -28,6 +28,7 @@ import { rateLimit } from './middleware/rate-limit.middleware.js';
 import { triageTicket } from './services/ticket-triage.service.js';
 import { wakeExpiredSnoozes } from './services/ticket-maintenance.service.js';
 import { proposeForTicket as autopilotPropose, proposeForRecentTickets } from './services/autopilot.service.js';
+import { runLearningCycle } from './services/autopilot-learning.service.js';
 import { checkSlaBreaches } from './services/sla.service.js';
 
 const app = express();
@@ -2483,6 +2484,11 @@ app.listen(config.server.port, async () => {
       await proposeForRecentTickets(); // Autopilot sweep backstop (enabled brands only)
     } catch (err) {
       console.error('[ticket-maintenance] Autopilot sweep error:', err instanceof Error ? err.message : String(err));
+    }
+    try {
+      await runLearningCycle(); // distill reviewed runs into the learned-lessons fact
+    } catch (err) {
+      console.error('[ticket-maintenance] Autopilot learning error:', err instanceof Error ? err.message : String(err));
     }
   };
   setInterval(runTicketMaintenance, 5 * 60 * 1000);
