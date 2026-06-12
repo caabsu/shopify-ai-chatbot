@@ -619,6 +619,37 @@ export async function refundOrder(
   notify: boolean = true,
   brandSlug?: string
 ): Promise<{ success: boolean; message: string; refundId?: string }> {
+  // Card-gateway refunds must reference the parent SALE/CAPTURE transaction —
+  // Shopify rejects parentless refund transactions on anything but
+  // store-credit/cash ("...require a parent_id"). Look the parent up first.
+  const txData = await shopifyGraphql<{
+    order: {
+      transactions: Array<{ id: string; kind: string; status: string; gateway: string; amountSet: { shopMoney: { amount: string } } }>;
+    } | null;
+  }>(
+    `query OrderTransactions($id: ID!) {
+      order(id: $id) {
+        transactions(first: 20) {
+          id kind status gateway
+          amountSet { shopMoney { amount } }
+        }
+      }
+    }`,
+    { id: orderId },
+    brandSlug
+  );
+
+  const parents = (txData.order?.transactions ?? []).filter(
+    (t) => (t.kind === 'SALE' || t.kind === 'CAPTURE') && t.status === 'SUCCESS'
+  );
+  // Prefer the largest successful charge as the refund parent.
+  parents.sort((a, b) => parseFloat(b.amountSet.shopMoney.amount) - parseFloat(a.amountSet.shopMoney.amount));
+  const parent = parents[0];
+
+  const refundTransaction = parent
+    ? { parentId: parent.id, amount: amount.toFixed(2), kind: 'REFUND', gateway: parent.gateway, orderId }
+    : { amount: amount.toFixed(2), gateway: 'manual', kind: 'REFUND', orderId };
+
   const data = await shopifyGraphql<{
     refundCreate: {
       refund: { id: string; totalRefundedSet: { shopMoney: { amount: string; currencyCode: string } } } | null;
@@ -639,12 +670,7 @@ export async function refundOrder(
         orderId,
         note: reason,
         notify,
-        transactions: [{
-          amount: amount.toFixed(2),
-          gateway: 'manual',
-          kind: 'REFUND',
-          orderId,
-        }],
+        transactions: [refundTransaction],
       },
     },
     brandSlug
