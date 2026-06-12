@@ -113,11 +113,19 @@ export async function proposeForTicket(
     // or a staleness check invalidates a pending/executed plan deliberately.
     if (existing && trigger !== 'customer_reply' && trigger !== 'stale_check') return null;
 
+    // A customer reply un-parks the ticket — the wait is over.
+    if (trigger === 'customer_reply' && Array.isArray(t.tags) && t.tags.includes('awaiting-customer')) {
+      await supabase
+        .from('tickets')
+        .update({ tags: t.tags.filter((tag) => tag !== 'awaiting-customer'), updated_at: new Date().toISOString() })
+        .eq('id', t.id);
+    }
+
     const staleContext = trigger === 'stale_check' && existing
       ? {
           previousPlan: existing,
           instruction:
-            'AUTOMATIC FOLLOW-UP CHECK: our reply was the last message on this ticket and the customer has not responded for several days. Decide the closing move: if nothing is pending from our side, propose resolve ONLY (no send_reply — do not email the customer again for no reason). Propose one brief follow-up reply ONLY if we owe the customer something we promised (information, a confirmation). Never repeat the previous reply.',
+            'AUTOMATIC FOLLOW-UP: the previous plan on this ticket was executed, the ticket is still open, and the last message is ours. Decide the closing move: if our reply fully handled the request and nothing is pending from our side, propose resolve ONLY (no send_reply — never email the customer again for no reason). Propose one brief reply ONLY if we still owe the customer something we promised. If we are genuinely waiting on information the customer must provide, do NOT resolve — propose only add_tags with the tag awaiting-customer (high confidence); that parks the ticket until they reply. Never repeat the previous reply.',
         }
       : undefined;
 
@@ -146,7 +154,7 @@ export async function proposeForTicket(
   }
 }
 
-const STALE_FOLLOWUP_DAYS = Number(process.env.AUTOPILOT_STALE_DAYS || 4);
+const STALE_FOLLOWUP_DAYS = Number(process.env.AUTOPILOT_STALE_DAYS || 0); // 0 = follow-up card as soon as a plan executes and the ticket is still open
 
 /**
  * Coverage sweep — the guarantee that every open/pending ticket of an enabled
@@ -163,7 +171,7 @@ export async function proposeForRecentTickets(limit = 6): Promise<number> {
 
   const { data } = await supabase
     .from('tickets')
-    .select('id, ticket_number, metadata')
+    .select('id, ticket_number, tags, metadata')
     .in('brand_id', brandIds)
     .in('status', ['open', 'pending'])
     .order('created_at', { ascending: false })
@@ -207,16 +215,20 @@ export async function proposeForRecentTickets(limit = 6): Promise<number> {
 
     const staleCutoff = Date.now() - STALE_FOLLOWUP_DAYS * 24 * 3600 * 1000;
     for (const t of decided) {
-      const p = ((t.metadata as Record<string, unknown>) || {}).autopilot as AutopilotPlan;
+      const meta = (t.metadata as Record<string, unknown>) || {};
+      const p = meta.autopilot as AutopilotPlan;
       const last = lastMsgByTicket.get(t.id as string);
       if (!last) continue;
       const decidedAt = p.executed_at || p.decided_at || p.proposed_at;
       if (last.sender === 'customer' && last.at > decidedAt) {
         queue.push({ id: t.id as string, trigger: 'customer_reply' }); // missed replan
       } else if (
-        p.status === 'executed' &&
+        (p.status === 'executed' || p.status === 'partially_executed') &&
         last.sender === 'agent' &&
-        new Date(last.at).getTime() < staleCutoff
+        new Date(last.at).getTime() < staleCutoff &&
+        // 'awaiting-customer' (set by an approved follow-up plan) parks the ticket:
+        // no new card until the customer actually replies — prevents card loops.
+        !(((t as unknown as { tags?: string[] }).tags) ?? []).includes('awaiting-customer')
       ) {
         queue.push({ id: t.id as string, trigger: 'stale_check' });
       }
