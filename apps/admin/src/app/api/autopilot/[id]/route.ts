@@ -230,7 +230,20 @@ async function executeAction(action: AutopilotAction, ticket: TicketRow, session
     case 'add_tags': {
       const newTags = (action.params.tags as string[]).filter((t) => typeof t === 'string');
       const merged = [...new Set([...(ticket.tags ?? []), ...newTags])];
-      await supabase.from('tickets').update({ tags: merged, updated_at: now }).eq('id', ticket.id);
+      const updates: Record<string, unknown> = { tags: merged, updated_at: now };
+      // 'awaiting-customer' means exactly what status=pending means: parked
+      // until the customer replies. Move it out of the Open queue; an inbound
+      // reply flips it back to open automatically.
+      const parking = newTags.includes('awaiting-customer') && ticket.status === 'open';
+      if (parking) updates.status = 'pending';
+      await supabase.from('tickets').update(updates).eq('id', ticket.id);
+      if (parking) {
+        await supabase.from('ticket_events').insert({
+          ticket_id: ticket.id, event_type: 'status_changed', actor: 'ai',
+          old_value: 'open', new_value: 'pending', metadata: { via: 'autopilot', reason: 'awaiting-customer' },
+        });
+        return 'Parked as pending — awaiting customer reply';
+      }
       return `Tags added: ${newTags.join(', ')}`;
     }
 

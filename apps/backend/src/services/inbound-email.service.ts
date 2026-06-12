@@ -342,7 +342,9 @@ async function appendCustomerEmail(
   });
 
   const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (ticket.status === 'resolved' || ticket.status === 'closed') {
+  if (ticket.status === 'resolved' || ticket.status === 'closed' || ticket.status === 'pending') {
+    // A customer reply always returns the ticket to the active queue —
+    // including tickets parked as pending/awaiting-customer.
     updatePayload.status = 'open';
   }
 
