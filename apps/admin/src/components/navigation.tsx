@@ -65,6 +65,10 @@ interface Module {
   configItems?: NavItem[];
 }
 
+// Brands with the Autopilot review queue enabled (mirror of backend AUTOPILOT_BRANDS).
+const AUTOPILOT_BRANDS = (process.env.NEXT_PUBLIC_AUTOPILOT_BRANDS || 'warm-by-design,outlight')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+
 // ── Module definitions ────────────────────────────────────────────────────────
 
 const modules: Module[] = [
@@ -488,7 +492,7 @@ export function Navigation() {
           <div className="h-10 px-5 flex items-center gap-0.5">
             {/* Scrollable sub-nav items */}
             <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
-              {activeModule?.items?.filter((item) => item.href !== '/autopilot' || brand.brandSlug === 'warm-by-design').map((item) => {
+              {activeModule?.items?.filter((item) => item.href !== '/autopilot' || AUTOPILOT_BRANDS.includes(brand.brandSlug)).map((item) => {
                 const active = isItemActive(pathname, item, allSubItems);
                 const ItemIcon = item.icon;
                 return (

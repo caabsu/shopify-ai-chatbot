@@ -91,6 +91,48 @@ export async function isAutopilotBrand(brandId: string | null | undefined): Prom
   return (await getEnabledBrandIds()).has(brandId);
 }
 
+// ── brand-aware planner identity ─────────────────────────────────────────────
+// The planner prompt's opening line and the mandatory reply sign-off vary per
+// brand. Per-slug overrides below; anything else falls back to a generic block
+// built from the brand name, so a new brand works without code changes.
+
+interface BrandIdentity {
+  name: string;
+  descriptor: string;
+  signoffBlock: string;
+}
+
+const BRAND_IDENTITY: Record<string, BrandIdentity> = {
+  'warm-by-design': {
+    name: 'Warm by Design',
+    descriptor: 'a Shopify home-lighting brand selling warm ambient lighting',
+    signoffBlock: 'Best Regards,\nWarm by Design Customer Support Team',
+  },
+  outlight: {
+    name: 'Outlight',
+    descriptor: 'a premium handcrafted designer lighting brand based in Los Angeles (indoor + outdoor fixtures), shopping at outlight.us',
+    signoffBlock: 'Warm Regards,\nSebastien\nCustomer Support Team, Outlight',
+  },
+};
+
+const brandMetaCache = new Map<string, { slug: string; name: string }>();
+
+async function getBrandIdentity(brandId: string): Promise<BrandIdentity> {
+  let meta = brandMetaCache.get(brandId);
+  if (!meta) {
+    const { data } = await supabase.from('brands').select('slug, name').eq('id', brandId).single();
+    meta = { slug: (data?.slug as string) || '', name: (data?.name as string) || 'our store' };
+    brandMetaCache.set(brandId, meta);
+  }
+  return (
+    BRAND_IDENTITY[meta.slug] ?? {
+      name: meta.name,
+      descriptor: `a Shopify brand (${meta.name})`,
+      signoffBlock: `Best Regards,\n${meta.name} Customer Support Team`,
+    }
+  );
+}
+
 // ── entry points ─────────────────────────────────────────────────────────────
 
 /** Build (or rebuild) the action plan for a ticket. Fire-and-forget from intake. */
@@ -454,8 +496,9 @@ async function buildSupportPlan(
   revision?: { previousPlan: AutopilotPlan; instruction: string }
 ): Promise<AutopilotPlan | null> {
   const ctx = await gatherContext(t);
+  const brand = await getBrandIdentity(t.brand_id);
 
-  const system = `You are the Autopilot planner for Warm by Design customer support (a Shopify home-lighting brand). You analyze one support ticket and propose a concrete action plan that a HUMAN OPERATOR will review and approve before anything runs. Your job: be genuinely useful, precise, and calibrated.
+  const system = `You are the Autopilot planner for ${brand.name} customer support (${brand.descriptor}). You analyze one support ticket and propose a concrete action plan that a HUMAN OPERATOR will review and approve before anything runs. Your job: be genuinely useful, precise, and calibrated.
 
 ## Locked brand rules and support facts
 ${ctx.supportContext || '(none loaded)'}
@@ -474,7 +517,7 @@ ${ctx.pastTicketsBlock}
 Honor what was already told to this customer: do not contradict prior commitments, do not re-explain what an earlier ticket settled, and reference the earlier exchange briefly when the customer is following up on it.
 
 ## Action rules — follow exactly
-- send_reply: write the COMPLETE customer-facing reply in params.reply_text. CONCISE IS MANDATORY: answer exactly what the customer asked and stop — typically a greeting, 1-3 short paragraphs (2-4 sentences total for simple matters), and the sign-off. No unsolicited options, no unasked-for information, no padding, no repeated apologies (one brief sincere apology at most when we're at fault). Never volunteer cancellation, refunds, or alternatives the customer didn't ask about. Match tone to context: warmer for upset customers, brisk and helpful for simple questions — sincere and professional always. Plain text only — no markdown, no bullet asterisks, no [text](url) links, never include any email address. Ground every claim in the thread, orders, KB, or locked rules above; if the customer's order is not in the list, say you could not locate it and ask for details — never guess. Sign off exactly:\n\nBest Regards,\nWarm by Design Customer Support Team
+- send_reply: write the COMPLETE customer-facing reply in params.reply_text. CONCISE IS MANDATORY: answer exactly what the customer asked and stop — typically a greeting, 1-3 short paragraphs (2-4 sentences total for simple matters), and the sign-off. No unsolicited options, no unasked-for information, no padding, no repeated apologies (one brief sincere apology at most when we're at fault). Never volunteer cancellation, refunds, or alternatives the customer didn't ask about. Match tone to context: warmer for upset customers, brisk and helpful for simple questions — sincere and professional always. Plain text only — no markdown, no bullet asterisks, no [text](url) links, never include any email address. Ground every claim in the thread, orders, KB, or locked rules above; if the customer's order is not in the list, say you could not locate it and ask for details — never guess. Sign off EXACTLY with this block (verbatim, including the line breaks):\n\n${brand.signoffBlock}
 - resolve: include together with send_reply whenever the reply fully addresses the request — AIM FOR ONE-SHOT RESOLUTION. Leave the ticket open only when you genuinely need information back from the customer.
 - cancel_order: ONLY if the customer explicitly asked to cancel AND the order is in the list AND its fulfillment is UNFULFILLED. Use the exact order_id from the list. params.reason is always "CUSTOMER". Cancelling auto-refunds and restocks.
 - refund_order: ONLY if the customer explicitly asked for a refund (without return) AND payment status is PAID or PARTIALLY_PAID. amount must not exceed the order total.
