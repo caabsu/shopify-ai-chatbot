@@ -1876,6 +1876,7 @@ app.use('/api/chat', chatRouter);
 const formRateLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 10, name: 'contact-form' });
 const webhookRateLimit = rateLimit({ windowMs: 60 * 1000, max: 240, name: 'email-webhook' });
 const loginRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, name: 'agent-login' });
+const autopilotSweepLimit = Math.max(1, Number.parseInt(process.env.AUTOPILOT_SWEEP_LIMIT || '12', 10) || 12);
 app.use('/api/agents/login', loginRateLimit);
 
 // ── POST /api/tickets/form — Public Contact Form Submission (no auth) ───────
@@ -2483,7 +2484,7 @@ app.listen(config.server.port, async () => {
       console.error('[ticket-maintenance] Snooze wake error:', err instanceof Error ? err.message : String(err));
     }
     try {
-      await proposeForRecentTickets(); // Autopilot sweep backstop (enabled brands only)
+      await proposeForRecentTickets(autopilotSweepLimit); // Autopilot sweep/backfill (enabled brands only)
     } catch (err) {
       console.error('[ticket-maintenance] Autopilot sweep error:', err instanceof Error ? err.message : String(err));
     }
@@ -2495,7 +2496,7 @@ app.listen(config.server.port, async () => {
   };
   setInterval(runTicketMaintenance, 5 * 60 * 1000);
   setTimeout(runTicketMaintenance, 20 * 1000); // first pass shortly after boot
-  console.log('[server] Ticket maintenance started (SLA sweep + snooze wake, 5m interval)');
+  console.log(`[server] Ticket maintenance started (SLA sweep + snooze wake + Autopilot sweep ${autopilotSweepLimit}/run, 5m interval)`);
 
   // RMA sync — poll Red Stag every 15 minutes
   const RMA_BRAND_ID = '883e4a28-9f2e-4850-a527-29f297d8b6f8';

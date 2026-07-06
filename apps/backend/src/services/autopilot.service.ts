@@ -197,10 +197,19 @@ export async function proposeForTicket(
 }
 
 const STALE_FOLLOWUP_DAYS = Number(process.env.AUTOPILOT_STALE_DAYS || 0); // 0 = follow-up card as soon as a plan executes and the ticket is still open
+const SWEEP_BATCH_SIZE = 250;
+
+type CoverageTicket = {
+  id: string;
+  ticket_number: number;
+  tags: string[] | null;
+  metadata: Record<string, unknown> | null;
+};
 
 /**
  * Coverage sweep — the guarantee that every open/pending ticket of an enabled
- * brand has an actionable plan. Three passes, capped at `limit` LLM calls:
+ * brand has an actionable plan. It scans the full open/pending backlog in
+ * pages, capped at `limit` LLM calls per run:
  *   1. unplanned tickets (any age) → propose
  *   2. executed/dismissed plans where the CUSTOMER replied after the decision
  *      (missed replan hook) → re-plan
@@ -211,33 +220,52 @@ export async function proposeForRecentTickets(limit = 6): Promise<number> {
   const brandIds = [...(await getEnabledBrandIds())];
   if (brandIds.length === 0) return 0;
 
-  const { data } = await supabase
-    .from('tickets')
-    .select('id, ticket_number, tags, metadata')
-    .in('brand_id', brandIds)
-    .in('status', ['open', 'pending'])
-    .order('created_at', { ascending: false })
-    .limit(300);
-
-  const tickets = data ?? [];
   const queue: Array<{ id: string; trigger: AutopilotPlan['trigger'] }> = [];
+  const decided: CoverageTicket[] = [];
+  let scanned = 0;
+  let hasMore = false;
+  let stoppedAtLimit = false;
 
-  // Pass 1: never planned (skip persistent failures)
-  for (const t of tickets) {
-    const meta = (t.metadata as Record<string, unknown>) || {};
-    if (meta.autopilot) continue;
-    if ((Number(meta.autopilot_attempts) || 0) >= 3) continue;
-    queue.push({ id: t.id as string, trigger: 'sweep' });
+  for (let offset = 0; queue.length < limit; offset += SWEEP_BATCH_SIZE) {
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('id, ticket_number, tags, metadata')
+      .in('brand_id', brandIds)
+      .in('status', ['open', 'pending'])
+      .order('created_at', { ascending: false })
+      .range(offset, offset + SWEEP_BATCH_SIZE - 1);
+
+    if (error) throw new Error(`Failed to load Autopilot sweep tickets: ${error.message}`);
+
+    const batch = (data ?? []) as CoverageTicket[];
+    scanned += batch.length;
+    hasMore = batch.length === SWEEP_BATCH_SIZE;
+    if (batch.length === 0) break;
+
+    // Pass 1: never planned (skip persistent failures)
+    for (const t of batch) {
+      const meta = t.metadata || {};
+      if (!meta.autopilot) {
+        if ((Number(meta.autopilot_attempts) || 0) < 3) {
+          queue.push({ id: t.id, trigger: 'sweep' });
+          if (queue.length >= limit) {
+            stoppedAtLimit = true;
+            break;
+          }
+        }
+        continue;
+      }
+
+      const p = meta.autopilot as AutopilotPlan | undefined;
+      if (p && ['executed', 'partially_executed', 'dismissed'].includes(p.status)) {
+        decided.push(t);
+      }
+    }
   }
 
   // Passes 2+3 need the last outward message per decided ticket
-  const decided = tickets.filter((t) => {
-    const p = ((t.metadata as Record<string, unknown>) || {}).autopilot as AutopilotPlan | undefined;
-    return p && ['executed', 'partially_executed', 'dismissed'].includes(p.status);
-  });
-
   if (decided.length > 0 && queue.length < limit) {
-    const ids = decided.map((t) => t.id as string);
+    const ids = decided.map((t) => t.id);
     const lastMsgByTicket = new Map<string, { sender: string; at: string }>();
     for (let i = 0; i < ids.length; i += 60) {
       const { data: msgs } = await supabase
@@ -257,26 +285,27 @@ export async function proposeForRecentTickets(limit = 6): Promise<number> {
 
     const staleCutoff = Date.now() - STALE_FOLLOWUP_DAYS * 24 * 3600 * 1000;
     for (const t of decided) {
-      const meta = (t.metadata as Record<string, unknown>) || {};
+      const meta = t.metadata || {};
       const p = meta.autopilot as AutopilotPlan;
-      const last = lastMsgByTicket.get(t.id as string);
+      const last = lastMsgByTicket.get(t.id);
       if (!last) continue;
       const decidedAt = p.executed_at || p.decided_at || p.proposed_at;
       if (last.sender === 'customer' && last.at > decidedAt) {
-        queue.push({ id: t.id as string, trigger: 'customer_reply' }); // missed replan
+        queue.push({ id: t.id, trigger: 'customer_reply' }); // missed replan
       } else if (
         (p.status === 'executed' || p.status === 'partially_executed') &&
         new Date(decidedAt).getTime() < staleCutoff &&
         // 'awaiting-customer' (set by an approved follow-up plan) parks the ticket:
         // no new card until the customer actually replies — prevents card loops.
-        !(((t as unknown as { tags?: string[] }).tags) ?? []).includes('awaiting-customer')
+        !(t.tags ?? []).includes('awaiting-customer')
       ) {
         // The invariant: an open ticket always carries a pending card or an
         // explicit park. Any executed plan without newer customer input gets
         // a next-step card — whether our reply or the customer's message is
         // the last word (the plan already considered the latter).
-        queue.push({ id: t.id as string, trigger: 'stale_check' });
+        queue.push({ id: t.id, trigger: 'stale_check' });
       }
+      if (queue.length >= limit) break;
     }
   }
 
@@ -285,8 +314,8 @@ export async function proposeForRecentTickets(limit = 6): Promise<number> {
     const plan = await proposeForTicket(item.id, item.trigger);
     if (plan) planned++;
   }
-  if (queue.length > limit) {
-    console.log(`[autopilot] Coverage sweep: ${queue.length - limit} more ticket(s) queued for next cycle`);
+  if (queue.length >= limit && (hasMore || stoppedAtLimit)) {
+    console.log(`[autopilot] Coverage sweep: planned ${planned}/${limit} after scanning ${scanned} ticket(s); continuing backlog next cycle`);
   }
   return planned;
 }
