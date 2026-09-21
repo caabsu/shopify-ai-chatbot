@@ -25,7 +25,7 @@ export async function assessSupportQuality(input: SupportQualityInput): Promise<
     const replies = actions.filter(a => a?.type === 'send_reply').map(a => String(a.params?.reply_text ?? ''));
     if (replies.length) jev = await scopedJev(supabase, input.brandId, input.ticketId).review(replies.join('\n\n'), {
       conversation: `${input.thread}\nCustomer history:\n${input.customer.history}`,
-      evidence: `${input.orders}\n${input.knowledge}\n${input.policy}`,
+      evidence: `${input.orders}\n${input.knowledge}`,
       brand_rules: input.policy, signoff: input.signoff ?? '', ordered_plan: input.actions,
       execution_contract: 'This is a conditional ordered plan, not a record of completed work. send_reply is fenced by the existing executor: a statement confirming a mutation must depend on that exact authorized action and cannot send until the provider outcome is verified. Historical outcomes must be present in authoritative evidence. A mere proposed action without the matching dependency is insufficient.',
     });

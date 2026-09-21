@@ -412,7 +412,7 @@ ${supportContext}`;
   if (!text) throw new Error('Draft model returned an empty email');
   const jevReview = jevEnabledForBrand(String(ticket.brand_id))
     ? await scopedJev(supabase, String(ticket.brand_id), String(ticket.id)).review(text, {
-      conversation: conversationText, evidence: `${customerContext}\n${orderContext}\n${kbContent}\n${supportContext}`,
+      conversation: conversationText, evidence: `${customerContext}\n${orderContext}\n${kbContent}`,
       brand_rules: supportContext, signoff: '', evidence_incomplete: !shopifyEvidenceVerified,
     }) : undefined;
   const rawConfidence = clamp01(draft.confidence);
