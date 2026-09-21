@@ -8,7 +8,7 @@
 - `src/services/ticket.service.ts` — Full CRUD for tickets: create, get, list (with filters/pagination/search), update (with event logging), message management, SLA deadline integration, escalation ticket creation
 - `src/services/sla.service.ts` — SLA deadline calculation from rules table, breach detection and flagging
 - `src/services/customer-profile.service.ts` — Shopify Admin API integration for customer lookup by email, order history retrieval
-- `src/services/ai-assistant.service.ts` — AI tools for VAs: draft reply, summarize thread, suggest next steps (all using Claude claude-sonnet-4-20250514)
+- `src/services/ai-assistant.service.ts` — AI tools for VAs: draft reply, summarize thread, and suggest next steps through routed DeepSeek V4 Flash/Pro.
 - `src/services/shopify-actions.service.ts` — Shopify Admin write operations: cancel order, refund order, create discount code
 - `src/controllers/ticket.controller.ts` — REST API endpoints for tickets (CRUD, messages, events, AI tools), all behind agent auth
 - `src/controllers/agent.controller.ts` — Agent authentication (login/logout), CRUD for agents (admin-only), JWT-based sessions

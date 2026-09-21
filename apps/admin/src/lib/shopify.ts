@@ -4,6 +4,7 @@
 import { supabase } from './supabase';
 
 let cachedToken: { token: string; expiresAt: number; shop: string } | null = null;
+const warnedApiVersions = new Set<string>();
 
 // Strip trailing literal \n and whitespace (Vercel env vars can have these)
 function cleanEnv(val: string): string {
@@ -42,7 +43,7 @@ async function getShopifyConfig(brandSlug?: string): Promise<ShopifyConfig> {
   const shop = cleanEnv(process.env.SHOPIFY_SHOP || 'put1rp-iq');
   const clientId = process.env.SHOPIFY_CLIENT_ID ? cleanEnv(process.env.SHOPIFY_CLIENT_ID) : undefined;
   const clientSecret = process.env.SHOPIFY_CLIENT_SECRET ? cleanEnv(process.env.SHOPIFY_CLIENT_SECRET) : undefined;
-  const apiVersion = cleanEnv(process.env.SHOPIFY_API_VERSION || '2025-01');
+  const apiVersion = cleanEnv(process.env.SHOPIFY_API_VERSION || '2026-07');
 
   if (brandSlug && brandSlug !== 'outlight') {
     const { data: brand, error } = await supabase
@@ -99,7 +100,7 @@ async function getShopifyConfig(brandSlug?: string): Promise<ShopifyConfig> {
   };
 }
 
-async function getAccessToken(brandSlug?: string): Promise<{ token: string; config: ShopifyConfig }> {
+async function getAccessToken(brandSlug?: string, signal?: AbortSignal): Promise<{ token: string; config: ShopifyConfig }> {
   const config = await getShopifyConfig(brandSlug);
   if (cachedToken && cachedToken.shop === config.shop && Date.now() < cachedToken.expiresAt - 60_000) {
     return { token: cachedToken.token, config };
@@ -113,6 +114,7 @@ async function getAccessToken(brandSlug?: string): Promise<{ token: string; conf
       client_id: config.clientId,
       client_secret: config.clientSecret,
     }),
+    signal,
   });
 
   if (!res.ok) {
@@ -129,8 +131,13 @@ async function getAccessToken(brandSlug?: string): Promise<{ token: string; conf
   return { token: cachedToken.token, config };
 }
 
-export async function shopifyGraphql<T>(query: string, variables?: Record<string, unknown>, brandSlug?: string): Promise<T> {
-  const { token, config } = await getAccessToken(brandSlug);
+export async function shopifyGraphql<T>(
+  query: string,
+  variables?: Record<string, unknown>,
+  brandSlug?: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  const { token, config } = await getAccessToken(brandSlug, signal);
 
   const res = await fetch(
     `https://${config.shop}.myshopify.com/admin/api/${config.apiVersion}/graphql.json`,
@@ -141,8 +148,21 @@ export async function shopifyGraphql<T>(query: string, variables?: Record<string
         'X-Shopify-Access-Token': token,
       },
       body: JSON.stringify({ query, variables }),
+      signal,
     }
   );
+
+  const servedVersion = res.headers.get('x-shopify-api-version');
+  const versionWarningKey = `${config.shop}:${config.apiVersion}:${servedVersion ?? 'unknown'}`;
+  if (servedVersion && servedVersion !== config.apiVersion && !warnedApiVersions.has(versionWarningKey)) {
+    warnedApiVersions.add(versionWarningKey);
+    console.warn(`[shopify] Requested Admin API ${config.apiVersion}, but Shopify served ${servedVersion}. Update SHOPIFY_API_VERSION after validating the newer schema.`);
+  }
+  const deprecationReason = res.headers.get('x-shopify-api-deprecated-reason');
+  if (deprecationReason && !warnedApiVersions.has(deprecationReason)) {
+    warnedApiVersions.add(deprecationReason);
+    console.warn(`[shopify] Admin API deprecation warning: ${deprecationReason}`);
+  }
 
   if (!res.ok) {
     const text = await res.text();
@@ -155,6 +175,50 @@ export async function shopifyGraphql<T>(query: string, variables?: Record<string
   }
   if (!json.data) throw new Error('Shopify returned no data');
   return json.data;
+}
+
+async function cancelFulfillmentViaRest(
+  fulfillmentId: string,
+  brandSlug?: string,
+  signal?: AbortSignal,
+): Promise<{ success: boolean; message: string }> {
+  const numericId = fulfillmentId.match(/\/(\d+)$/)?.[1] ?? fulfillmentId.match(/^\d+$/)?.[0];
+  if (!numericId) {
+    return { success: false, message: `Shopify returned an invalid fulfillment ID: ${fulfillmentId}` };
+  }
+  const { token, config } = await getAccessToken(brandSlug, signal);
+  const response = await fetch(
+    `https://${config.shop}.myshopify.com/admin/api/${config.apiVersion}/fulfillments/${numericId}/cancel.json`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': token,
+      },
+      body: '{}',
+      signal,
+    },
+  );
+  const body = await response.text();
+  if (!response.ok) {
+    return {
+      success: false,
+      message: `Shopify fulfillment cancellation failed (${response.status}): ${body.slice(0, 300)}`,
+    };
+  }
+  let status = 'CANCELLED';
+  if (body.trim()) {
+    try {
+      const parsed = JSON.parse(body) as { fulfillment?: { status?: string } };
+      status = String(parsed.fulfillment?.status ?? status).toUpperCase();
+    } catch {
+      // A successful endpoint response is still verified by the caller's live
+      // order refetch before the irreversible order cancellation proceeds.
+    }
+  }
+  return status === 'CANCELLED'
+    ? { success: true, message: `Fulfillment ${fulfillmentId} was cancelled.` }
+    : { success: false, message: `Shopify returned fulfillment status ${status} after cancellation.` };
 }
 
 // ── Customer Profile ──────────────────────────────────────────────────────
@@ -254,7 +318,7 @@ export async function getCustomerOrders(email: string, limit = 5, brandSlug?: st
           totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
           displayFinancialStatus: string;
           displayFulfillmentStatus: string;
-          lineItems: { edges: Array<{ node: { title: string; quantity: number; variantTitle: string | null } }> };
+          lineItems: { edges: Array<{ node: { title: string; quantity: number; variant: { title: string } | null } }> };
           fulfillments: Array<{
             status: string;
             createdAt: string;
@@ -273,7 +337,7 @@ export async function getCustomerOrders(email: string, limit = 5, brandSlug?: st
           id name
           totalPriceSet { shopMoney { amount currencyCode } }
           displayFinancialStatus displayFulfillmentStatus
-          lineItems(first: 10) { edges { node { title quantity variantTitle } } }
+          lineItems(first: 10) { edges { node { title quantity variant { title } } } }
           fulfillments {
             status createdAt
             trackingInfo { number url company }
@@ -302,7 +366,7 @@ export async function getCustomerOrders(email: string, limit = 5, brandSlug?: st
       lineItems: o.lineItems.edges.map((e) => ({
         title: e.node.title,
         quantity: e.node.quantity,
-        variantTitle: e.node.variantTitle,
+        variantTitle: e.node.variant?.title ?? null,
       })),
       tracking,
       fulfillments: o.fulfillments.map((f) => ({
@@ -318,6 +382,22 @@ export async function getCustomerOrders(email: string, limit = 5, brandSlug?: st
 }
 
 // ── Order Details (full) ─────────────────────────────────────────────────
+export interface ShopifyShippingAddress {
+  name: string;
+  firstName: string | null;
+  lastName: string | null;
+  company: string | null;
+  address1: string;
+  address2: string | null;
+  city: string;
+  province: string | null;
+  provinceCode: string | null;
+  zip: string | null;
+  country: string;
+  countryCodeV2: string | null;
+  phone: string | null;
+}
+
 export interface OrderDetail {
   id: string;
   name: string;
@@ -346,11 +426,7 @@ export interface OrderDetail {
     unitPrice: string;
     refundableQuantity: number;
   }>;
-  shippingAddress: {
-    name: string; address1: string; address2: string | null;
-    city: string; province: string | null; zip: string | null;
-    country: string; phone: string | null;
-  } | null;
+  shippingAddress: ShopifyShippingAddress | null;
   transactions: Array<{
     id: string;
     kind: string;
@@ -367,13 +443,14 @@ export interface OrderDetail {
     lineItems: Array<{ title: string; quantity: number; subtotal: string }>;
   }>;
   fulfillments: Array<{
+    id: string;
     status: string;
     createdAt: string;
     trackingInfo: Array<{ number: string; url: string | null; company: string | null }>;
   }>;
 }
 
-export async function getOrderDetails(orderId: string, brandSlug?: string): Promise<OrderDetail> {
+export async function getOrderDetails(orderId: string, brandSlug?: string, signal?: AbortSignal): Promise<OrderDetail> {
   const config = await getShopifyConfig(brandSlug);
   const data = await shopifyGraphql<{
     order: {
@@ -398,17 +475,13 @@ export async function getOrderDetails(orderId: string, brandSlug?: string): Prom
         edges: Array<{
           node: {
             id: string; title: string; quantity: number; sku: string | null;
-            variantTitle: string | null;
+            variant: { title: string } | null;
             originalUnitPriceSet: { shopMoney: { amount: string } };
             refundableQuantity: number;
           };
         }>;
       };
-      shippingAddress: {
-        name: string; address1: string; address2: string | null;
-        city: string; province: string | null; zip: string | null;
-        country: string; phone: string | null;
-      } | null;
+      shippingAddress: ShopifyShippingAddress | null;
       transactions: Array<{
         id: string; kind: string; status: string;
         amountSet: { shopMoney: { amount: string } };
@@ -428,7 +501,7 @@ export async function getOrderDetails(orderId: string, brandSlug?: string): Prom
         };
       }>;
       fulfillments: Array<{
-        status: string; createdAt: string;
+        id: string; status: string; createdAt: string;
         trackingInfo: Array<{ number: string; url: string | null; company: string | null }>;
       }>;
     };
@@ -446,12 +519,16 @@ export async function getOrderDetails(orderId: string, brandSlug?: string): Prom
         totalRefundedSet { shopMoney { amount currencyCode } }
         lineItems(first: 50) {
           edges { node {
-            id title quantity sku variantTitle
+            id title quantity sku variant { title }
             originalUnitPriceSet { shopMoney { amount } }
             refundableQuantity
           }}
         }
-        shippingAddress { name address1 address2 city province zip country phone }
+        shippingAddress {
+          name firstName lastName company
+          address1 address2 city province provinceCode zip
+          country countryCodeV2 phone
+        }
         transactions(first: 20) { id kind status amountSet { shopMoney { amount } } gateway processedAt }
         refunds(first: 10) {
           id createdAt note
@@ -460,11 +537,12 @@ export async function getOrderDetails(orderId: string, brandSlug?: string): Prom
             edges { node { lineItem { title } quantity subtotalSet { shopMoney { amount } } } }
           }
         }
-        fulfillments { status createdAt trackingInfo { number url company } }
+        fulfillments { id status createdAt trackingInfo { number url company } }
       }
     }`,
     { id: orderId },
-    brandSlug
+    brandSlug,
+    signal,
   );
 
   const o = data.order;
@@ -494,7 +572,7 @@ export async function getOrderDetails(orderId: string, brandSlug?: string): Prom
       title: li.title,
       quantity: li.quantity,
       sku: li.sku,
-      variantTitle: li.variantTitle,
+      variantTitle: li.variant?.title ?? null,
       unitPrice: li.originalUnitPriceSet.shopMoney.amount,
       refundableQuantity: li.refundableQuantity,
     })),
@@ -519,6 +597,7 @@ export async function getOrderDetails(orderId: string, brandSlug?: string): Prom
       })),
     })),
     fulfillments: o.fulfillments.map((f) => ({
+      id: f.id,
       status: f.status,
       createdAt: f.createdAt,
       trackingInfo: f.trackingInfo.map((t) => ({ number: t.number, url: config.trackingPageUrl, company: t.company })),
@@ -529,30 +608,43 @@ export async function getOrderDetails(orderId: string, brandSlug?: string): Prom
 // ── Update Shipping Address ──────────────────────────────────────────────
 export interface ShippingAddressInput {
   name?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  company?: string | null;
   address1: string;
-  address2?: string;
+  address2?: string | null;
   city: string;
   province?: string;
+  provinceCode?: string | null;
   zip?: string;
   country: string;
-  phone?: string;
+  countryCode?: string | null;
+  phone?: string | null;
 }
 
 export async function updateOrderShippingAddress(
   orderId: string,
   address: ShippingAddressInput,
-  brandSlug?: string
-): Promise<{ success: boolean; message: string }> {
-  const [firstName, ...rest] = (address.name ?? '').trim().split(/\s+/);
+  brandSlug?: string,
+  signal?: AbortSignal,
+): Promise<{ success: boolean; message: string; address?: ShopifyShippingAddress }> {
+  const [fallbackFirstName, ...fallbackLastName] = (address.name ?? '').trim().split(/\s+/);
   const data = await shopifyGraphql<{
     orderUpdate: {
-      order: { id: string } | null;
+      order: { id: string; shippingAddress: ShopifyShippingAddress | null } | null;
       userErrors: Array<{ field: string[]; message: string }>;
     };
   }>(
     `mutation OrderUpdate($input: OrderInput!) {
       orderUpdate(input: $input) {
-        order { id }
+        order {
+          id
+          shippingAddress {
+            name firstName lastName company
+            address1 address2 city province provinceCode zip
+            country countryCodeV2 phone
+          }
+        }
         userErrors { field message }
       }
     }`,
@@ -560,55 +652,306 @@ export async function updateOrderShippingAddress(
       input: {
         id: orderId,
         shippingAddress: {
-          ...(firstName ? { firstName, lastName: rest.join(' ') || undefined } : {}),
+          firstName: (address.firstName ?? fallbackFirstName) || undefined,
+          lastName: (address.lastName ?? fallbackLastName.join(' ')) || undefined,
+          company: address.company ?? undefined,
           address1: address.address1,
-          address2: address.address2 || undefined,
+          // MailingAddressInput is patch-like. Send null deliberately so an
+          // apartment/unit from the old destination cannot survive when the
+          // customer supplied a complete new address without address2.
+          address2: address.address2 ?? null,
           city: address.city,
-          provinceCode: undefined,
-          province: address.province || undefined,
+          provinceCode: address.provinceCode || undefined,
+          province: address.provinceCode ? undefined : address.province || undefined,
           zip: address.zip || undefined,
-          country: address.country,
-          phone: address.phone || undefined,
+          countryCode: address.countryCode || undefined,
+          country: address.countryCode ? undefined : address.country,
+          phone: address.phone ?? undefined,
         },
       },
     },
-    brandSlug
+    brandSlug,
+    signal,
   );
 
   const errors = data.orderUpdate.userErrors;
   if (errors.length > 0) {
     return { success: false, message: errors.map((e) => e.message).join('; ') };
   }
-  return { success: true, message: 'Shipping address updated' };
+  const updatedAddress = data.orderUpdate.order?.shippingAddress;
+  if (!updatedAddress) {
+    return {
+      success: true,
+      message: 'Shopify accepted the update but did not return the updated shipping address',
+    };
+  }
+  return {
+    success: true,
+    message: 'Shipping address updated',
+    address: updatedAddress,
+  };
 }
 
 // ── Cancel Order ─────────────────────────────────────────────────────────
+const CANCEL_JOB_POLL_INTERVAL_MS = 1_000;
+const CANCEL_JOB_MAX_WAIT_MS = 45_000;
+const accessScopeCache = new Map<string, { handles: Set<string>; expiresAt: number }>();
+
+export interface CancelOrderResult {
+  success: boolean;
+  message: string;
+  /** Shopify's durable asynchronous cancellation job identifier, when present. */
+  jobId?: string;
+  /** False means Shopify accepted the job but it still needs reconciliation. */
+  completed: boolean;
+}
+
+export class ShopifyCancellationPollingError extends Error {
+  readonly providerReference: string;
+
+  constructor(message: string, jobId: string) {
+    super(message);
+    this.name = 'ShopifyCancellationPollingError';
+    this.providerReference = jobId;
+  }
+}
+
+function abortReason(signal?: AbortSignal): Error {
+  return signal?.reason instanceof Error
+    ? signal.reason
+    : new Error('Shopify cancellation polling was aborted');
+}
+
+async function waitForAbortableDelay(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw abortReason(signal);
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, milliseconds);
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      reject(abortReason(signal));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+async function waitForCancellationJob(
+  jobId: string,
+  brandSlug?: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const deadline = Date.now() + CANCEL_JOB_MAX_WAIT_MS;
+  while (Date.now() < deadline) {
+    if (signal?.aborted) throw abortReason(signal);
+    const data = await shopifyGraphql<{
+      job: { id: string; done: boolean } | null;
+    }>(
+      `query CancellationJob($id: ID!) {
+        job(id: $id) { id done }
+      }`,
+      { id: jobId },
+      brandSlug,
+      signal,
+    );
+    if (data.job?.done) return true;
+
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await waitForAbortableDelay(Math.min(CANCEL_JOB_POLL_INTERVAL_MS, remaining), signal);
+  }
+  return false;
+}
+
+async function hasShopifyAccessScope(
+  handle: string,
+  brandSlug?: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const cacheKey = brandSlug || 'default';
+  const cached = accessScopeCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.handles.has(handle);
+  const data = await shopifyGraphql<{
+    currentAppInstallation: { accessScopes: Array<{ handle: string }> } | null;
+  }>(
+    `query CurrentAppAccessScopes {
+      currentAppInstallation { accessScopes { handle } }
+    }`,
+    undefined,
+    brandSlug,
+    signal,
+  );
+  const handles = new Set((data.currentAppInstallation?.accessScopes ?? []).map((scope) => scope.handle));
+  accessScopeCache.set(cacheKey, { handles, expiresAt: Date.now() + 5 * 60_000 });
+  return handles.has(handle);
+}
+
+export async function cancelFulfillment(
+  fulfillmentId: string,
+  brandSlug?: string,
+  signal?: AbortSignal,
+): Promise<{ success: boolean; message: string }> {
+  const [canWriteFulfillments, canManageMerchantFulfillments, canManageThirdPartyFulfillments] = await Promise.all([
+    hasShopifyAccessScope('write_fulfillments', brandSlug, signal),
+    hasShopifyAccessScope('write_merchant_managed_fulfillment_orders', brandSlug, signal),
+    hasShopifyAccessScope('write_third_party_fulfillment_orders', brandSlug, signal),
+  ]);
+  if (!canWriteFulfillments && !canManageMerchantFulfillments && !canManageThirdPartyFulfillments) {
+    return {
+      success: false,
+      message:
+        'The installed Shopify app is missing a fulfillment write scope required to cancel an outstanding fulfillment.',
+    };
+  }
+  let data: {
+    fulfillmentCancel: {
+      fulfillment: { id: string; status: string } | null;
+      userErrors: Array<{ field: string[]; message: string }>;
+    };
+  };
+  try {
+    data = await shopifyGraphql<typeof data>(
+      `mutation FulfillmentCancel($id: ID!) {
+        fulfillmentCancel(id: $id) {
+          fulfillment { id status }
+          userErrors { field message }
+        }
+      }`,
+      { id: fulfillmentId },
+      brandSlug,
+      signal,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/access denied.*fulfillmentCancel|fulfillmentCancel.*access denied/i.test(message)) throw error;
+    // Shopify 2026-07 still exposes the equivalent official REST endpoint.
+    // An access-denied GraphQL response cannot have executed the mutation, so
+    // this compatibility fallback cannot duplicate a side effect.
+    return cancelFulfillmentViaRest(fulfillmentId, brandSlug, signal);
+  }
+  const errors = data.fulfillmentCancel.userErrors;
+  if (errors.length > 0) {
+    return {
+      success: false,
+      message: errors.map((error) => error.message).join('; '),
+    };
+  }
+  const fulfillment = data.fulfillmentCancel.fulfillment;
+  if (!fulfillment || String(fulfillment.status).toUpperCase() !== 'CANCELLED') {
+    return {
+      success: false,
+      message: 'Shopify did not confirm that the outstanding fulfillment was cancelled.',
+    };
+  }
+  return {
+    success: true,
+    message: `Fulfillment ${fulfillment.id} was cancelled.`,
+  };
+}
+
 export async function cancelOrder(
   orderId: string,
   reason: string = 'CUSTOMER',
   refund: boolean = true,
   restock: boolean = true,
-  brandSlug?: string
-): Promise<{ success: boolean; message: string }> {
-  const data = await shopifyGraphql<{
+  brandSlug?: string,
+  signal?: AbortSignal,
+): Promise<CancelOrderResult> {
+  let canWriteOrders = false;
+  try {
+    canWriteOrders = await hasShopifyAccessScope('write_orders', brandSlug, signal)
+      || await hasShopifyAccessScope('write_marketplace_orders', brandSlug, signal);
+  } catch (error) {
+    return {
+      success: false,
+      completed: true,
+      message: `Shopify write_orders scope could not be verified before cancellation: ${error instanceof Error ? error.message : 'unknown error'}`,
+    };
+  }
+  if (!canWriteOrders) {
+    return {
+      success: false,
+      completed: true,
+      message: 'Shopify app access is missing write_orders (or write_marketplace_orders) scope; grant it in the Dev Dashboard and refresh the app installation token.',
+    };
+  }
+  type CancellationPayload = {
     orderCancel: {
+      job: { id: string; done: boolean } | null;
       orderCancelUserErrors: Array<{ field: string[]; message: string }>;
     };
-  }>(
-    `mutation OrderCancel($orderId: ID!, $reason: OrderCancelReason!, $refund: Boolean!, $restock: Boolean!) {
-      orderCancel(orderId: $orderId, reason: $reason, refund: $refund, restock: $restock) {
+  };
+  let data: CancellationPayload;
+  try {
+    // Shopify Admin API 2026-07 uses refundMethod. Keep the schema-error-only
+    // fallback during a rolling deployment so an accidentally stale endpoint
+    // cannot turn a compatibility error into a duplicate cancellation.
+    data = await shopifyGraphql<CancellationPayload>(
+      `mutation OrderCancel($orderId: ID!, $reason: OrderCancelReason!, $refundMethod: OrderCancelRefundMethodInput!, $restock: Boolean!) {
+      orderCancel(orderId: $orderId, reason: $reason, refundMethod: $refundMethod, restock: $restock, notifyCustomer: false) {
+        job { id done }
         orderCancelUserErrors { field message }
       }
     }`,
-    { orderId, reason, refund, restock },
-    brandSlug
-  );
+      { orderId, reason, refundMethod: { originalPaymentMethodsRefund: refund }, restock },
+      brandSlug,
+      signal,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const legacySchema = /OrderCancelRefundMethodInput|unknown argument.*(?:refundMethod|notifyCustomer)|argument ['"]refund['"].*required|variable.*refundMethod.*never used/i.test(message);
+    if (!legacySchema) throw error;
+    // Historical 2025-01/2025-04 schemas use the Boolean form. Retrying is
+    // safe only for the explicit schema-validation errors above: no resolver
+    // (and therefore no cancellation) ran on the first request.
+    data = await shopifyGraphql<CancellationPayload>(
+      `mutation OrderCancelLegacy($orderId: ID!, $reason: OrderCancelReason!, $refund: Boolean!, $restock: Boolean!) {
+        orderCancel(orderId: $orderId, reason: $reason, refund: $refund, restock: $restock) {
+          job { id done }
+          orderCancelUserErrors { field message }
+        }
+      }`,
+      { orderId, reason, refund, restock },
+      brandSlug,
+      signal,
+    );
+  }
 
   const errors = data.orderCancel.orderCancelUserErrors;
   if (errors.length > 0) {
-    return { success: false, message: errors.map((e) => e.message).join('; ') };
+    return {
+      success: false,
+      message: errors.map((error) => error.message).join('; '),
+      completed: true,
+    };
   }
-  return { success: true, message: 'Order cancelled successfully' };
+
+  const job = data.orderCancel.job;
+  if (!job) {
+    // Older/fallen-forward schemas can complete synchronously. The caller must
+    // still refetch the order and verify `cancelledAt` before declaring success.
+    return { success: true, message: 'Cancellation submitted', completed: true };
+  }
+  let completed = job.done;
+  if (!completed) {
+    try {
+      completed = await waitForCancellationJob(job.id, brandSlug, signal);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'unknown polling error';
+      throw new ShopifyCancellationPollingError(
+        `Shopify accepted cancellation job ${job.id}, but its completion could not be confirmed: ${detail}`,
+        job.id,
+      );
+    }
+  }
+  return {
+    success: true,
+    message: completed ? 'Cancellation job completed' : 'Cancellation job is still processing',
+    jobId: job.id,
+    completed,
+  };
 }
 
 // ── Refund Order ─────────────────────────────────────────────────────────
@@ -617,7 +960,9 @@ export async function refundOrder(
   amount: number,
   reason: string = 'Customer requested refund',
   notify: boolean = true,
-  brandSlug?: string
+  brandSlug?: string,
+  signal?: AbortSignal,
+  idempotencyKey?: string,
 ): Promise<{ success: boolean; message: string; refundId?: string }> {
   // Card-gateway refunds must reference the parent SALE/CAPTURE transaction —
   // Shopify rejects parentless refund transactions on anything but
@@ -636,7 +981,8 @@ export async function refundOrder(
       }
     }`,
     { id: orderId },
-    brandSlug
+    brandSlug,
+    signal,
   );
 
   const parents = (txData.order?.transactions ?? []).filter(
@@ -656,8 +1002,8 @@ export async function refundOrder(
       userErrors: Array<{ field: string[]; message: string }>;
     };
   }>(
-    `mutation RefundCreate($input: RefundInput!) {
-      refundCreate(input: $input) {
+    `mutation RefundCreate($input: RefundInput!, $idempotencyKey: String!) {
+      refundCreate(input: $input) @idempotent(key: $idempotencyKey) {
         refund {
           id
           totalRefundedSet { shopMoney { amount currencyCode } }
@@ -672,8 +1018,10 @@ export async function refundOrder(
         notify,
         transactions: [refundTransaction],
       },
+      idempotencyKey: idempotencyKey || crypto.randomUUID(),
     },
-    brandSlug
+    brandSlug,
+    signal,
   );
 
   const errors = data.refundCreate.userErrors;

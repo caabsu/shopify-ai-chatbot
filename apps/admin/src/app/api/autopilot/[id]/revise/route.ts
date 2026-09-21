@@ -35,7 +35,7 @@ export async function POST(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
-  const { instruction } = await req.json();
+  const { instruction, plan_id, plan_revision, context_fingerprint, context_version } = await req.json();
   if (typeof instruction !== 'string' || !instruction.trim()) {
     return NextResponse.json({ error: 'Instruction is required' }, { status: 400 });
   }
@@ -57,7 +57,13 @@ export async function POST(
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ instruction: instruction.trim() }),
+      body: JSON.stringify({
+        instruction: instruction.trim(),
+        plan_id,
+        plan_revision,
+        context_fingerprint,
+        context_version,
+      }),
       signal: AbortSignal.timeout(BACKEND_TIMEOUT_MS), // planner call can take a while
     });
 

@@ -29,7 +29,12 @@ import { triageTicket } from './services/ticket-triage.service.js';
 import { wakeExpiredSnoozes } from './services/ticket-maintenance.service.js';
 import { proposeForTicket as autopilotPropose, proposeForRecentTickets } from './services/autopilot.service.js';
 import { runLearningCycle } from './services/autopilot-learning.service.js';
+import {
+  recordDelayedTicketOutcome,
+  type CsatOutcomeLineage,
+} from './services/autopilot-memory.service.js';
 import { checkSlaBreaches } from './services/sla.service.js';
+import type { Ticket } from './types/index.js';
 
 const app = express();
 
@@ -42,6 +47,126 @@ function timingSafeStringEqual(a: string, b: string): boolean {
   const right = Buffer.from(b);
   if (left.length !== right.length) return false;
   return crypto.timingSafeEqual(left, right);
+}
+
+interface VerifiedCsatClaims {
+  version: 1 | 2;
+  ticketId: string;
+  brandId?: string;
+  requestId: string;
+  eventId?: string;
+  issuedAt?: number;
+  expiresAt: number;
+  lineage?: CsatOutcomeLineage;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function optionalUnitInterval(value: unknown): boolean {
+  return value === undefined || (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1);
+}
+
+function validCsatLineage(value: unknown): value is CsatOutcomeLineage {
+  if (!value || typeof value !== 'object') return false;
+  const lineage = value as Record<string, unknown>;
+  switch (lineage.kind) {
+    case 'autopilot_plan':
+      return typeof lineage.plan_id === 'string' && UUID_PATTERN.test(lineage.plan_id)
+        && Number.isInteger(lineage.plan_revision) && Number(lineage.plan_revision) >= 0
+        && typeof lineage.execution_attempt_id === 'string' && UUID_PATTERN.test(lineage.execution_attempt_id)
+        && typeof lineage.resolution_action_id === 'string' && UUID_PATTERN.test(lineage.resolution_action_id)
+        && (lineage.reply_action_id === undefined
+          || (typeof lineage.reply_action_id === 'string' && UUID_PATTERN.test(lineage.reply_action_id)))
+        && optionalUnitInterval(lineage.model_overall_confidence)
+        && optionalUnitInterval(lineage.resolution_model_confidence)
+        && optionalUnitInterval(lineage.reply_model_confidence);
+    case 'manual_draft':
+      return typeof lineage.generation_id === 'string' && UUID_PATTERN.test(lineage.generation_id)
+        && typeof lineage.message_id === 'string' && UUID_PATTERN.test(lineage.message_id)
+        && optionalUnitInterval(lineage.model_confidence);
+    case 'manual_message':
+      return typeof lineage.message_id === 'string' && UUID_PATTERN.test(lineage.message_id);
+    case 'manual_resolution':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function parseVerifiedCsatClaims(payload: string): VerifiedCsatClaims | null {
+  try {
+    const value = JSON.parse(payload) as Record<string, unknown>;
+    const issuedAt = Number(value.issued_at);
+    const expiresAt = Number(value.expires_at);
+    if (value.version !== 2
+        || typeof value.request_id !== 'string' || !UUID_PATTERN.test(value.request_id)
+        || typeof value.ticket_id !== 'string' || !UUID_PATTERN.test(value.ticket_id)
+        || typeof value.brand_id !== 'string' || !UUID_PATTERN.test(value.brand_id)
+        || !Number.isFinite(issuedAt) || !Number.isFinite(expiresAt)
+        || expiresAt <= issuedAt || expiresAt - issuedAt > 15 * 24 * 60 * 60 * 1000
+        || issuedAt > Date.now() + 5 * 60 * 1000
+        || !validCsatLineage(value.lineage)) return null;
+    return {
+      version: 2,
+      ticketId: value.ticket_id,
+      brandId: value.brand_id,
+      requestId: value.request_id,
+      eventId: value.request_id,
+      issuedAt,
+      expiresAt,
+      lineage: value.lineage,
+    };
+  } catch {
+    // Backward compatibility for already-delivered v1 links. They may record a
+    // rating, but deliberately carry no learning lineage.
+    const [ticketId, expiry, extra] = payload.split('.');
+    const expiresAt = Number(expiry);
+    if (extra !== undefined || !ticketId || !UUID_PATTERN.test(ticketId) || !Number.isFinite(expiresAt)) return null;
+    return {
+      version: 1,
+      ticketId,
+      requestId: `legacy-${crypto.createHash('sha256').update(payload).digest('hex').slice(0, 32)}`,
+      expiresAt,
+    };
+  }
+}
+
+type VerifiedCsatRequest =
+  | { ok: true; token: string; score: number; claims: VerifiedCsatClaims }
+  | { ok: false; message: string };
+
+function verifyCsatRequest(req: express.Request): VerifiedCsatRequest {
+  const token = typeof req.query.t === 'string' ? req.query.t : '';
+  const scoreValue = typeof req.query.s === 'string' ? req.query.s : '';
+  if (!token || token.length > 4096 || !/^[1-5]$/.test(scoreValue)) {
+    return { ok: false, message: 'This rating link is invalid.' };
+  }
+
+  const tokenParts = token.split('.');
+  if (tokenParts.length !== 2) return { ok: false, message: 'This rating link is invalid.' };
+  const [payloadB64, signature] = tokenParts;
+  if (!payloadB64 || !signature) return { ok: false, message: 'This rating link is invalid.' };
+
+  let payload = '';
+  try {
+    payload = Buffer.from(payloadB64, 'base64url').toString('utf8');
+  } catch {
+    return { ok: false, message: 'This rating link is invalid.' };
+  }
+  const csatSecrets = [...new Set([
+    process.env.CSAT_TOKEN_SECRET,
+    config.supabase.serviceRoleKey,
+  ].filter((value): value is string => Boolean(value)))];
+  const signatureValid = csatSecrets.some((secret) => {
+    const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+    return timingSafeStringEqual(signature, expected);
+  });
+  if (!signatureValid) return { ok: false, message: 'This rating link is invalid.' };
+
+  const claims = parseVerifiedCsatClaims(payload);
+  if (!claims) return { ok: false, message: 'This rating link is invalid.' };
+  if (claims.expiresAt < Date.now()) return { ok: false, message: 'This rating link has expired.' };
+  return { ok: true, token, score: Number(scoreValue), claims };
 }
 
 function verifyEmailWebhookSecret(req: express.Request): boolean {
@@ -71,7 +196,8 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`[http] ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+    const loggedUrl = req.path === '/api/csat' ? '/api/csat?[signed-rating-redacted]' : req.originalUrl;
+    console.log(`[http] ${req.method} ${loggedUrl} ${res.statusCode} ${duration}ms`);
   });
   next();
 });
@@ -1876,6 +2002,7 @@ app.use('/api/chat', chatRouter);
 const formRateLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 10, name: 'contact-form' });
 const webhookRateLimit = rateLimit({ windowMs: 60 * 1000, max: 240, name: 'email-webhook' });
 const loginRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, name: 'agent-login' });
+const csatRateLimit = rateLimit({ windowMs: 60 * 1000, max: 30, name: 'csat' });
 const autopilotSweepLimit = Math.max(1, Number.parseInt(process.env.AUTOPILOT_SWEEP_LIMIT || '12', 10) || 12);
 app.use('/api/agents/login', loginRateLimit);
 
@@ -1912,8 +2039,13 @@ app.post('/api/tickets/form', formRateLimit, async (req, res) => {
     console.log(`[server] Contact form ticket #${ticket.ticket_number} created from ${email}`);
 
     // AI auto-triage (fire-and-forget): intent, sentiment, priority suggestion
-    triageTicket(ticket.id).catch((err) => console.error('[server] triage failed:', err));
-    autopilotPropose(ticket.id, 'new_ticket').catch((err) => console.error('[server] autopilot failed:', err));
+    void triageTicket(ticket.id)
+      .catch((err) => {
+        console.error('[server] triage failed:', err);
+        return null;
+      })
+      .then(() => autopilotPropose(ticket.id, 'new_ticket'))
+      .catch((err) => console.error('[server] autopilot failed:', err));
 
     // Send confirmation email (fire-and-forget)
     sendTicketConfirmation({
@@ -1954,7 +2086,13 @@ app.post('/api/tickets/escalate', async (req, res) => {
       brandId,
     });
 
-    autopilotPropose(ticket.id, 'new_ticket').catch((err) => console.error('[server] autopilot failed:', err));
+    void triageTicket(ticket.id)
+      .catch((err) => {
+        console.error('[server] escalation triage failed:', err);
+        return null;
+      })
+      .then(() => autopilotPropose(ticket.id, 'new_ticket'))
+      .catch((err) => console.error('[server] autopilot failed:', err));
 
     console.log(`[server] Escalation ticket #${ticket.ticket_number} created for conversation ${conversationId}`);
     res.status(201).json({ success: true, ticketNumber: ticket.ticket_number, ticketId: ticket.id });
@@ -1988,62 +2126,143 @@ app.post('/api/webhooks/email', webhookRateLimit, async (req, res) => {
   }
 });
 
-// ── GET /api/csat — Public CSAT rating endpoint ──────────────────────────────
-// One-click rating links from the "How did we do?" email land here. The token
-// is an HMAC over (ticketId, expiry) signed with the Supabase service key —
-// the secret both the admin (sender) and this backend share.
-app.get('/api/csat', async (req, res) => {
+// ── GET/POST /api/csat — Public CSAT confirmation + rating endpoint ─────────
+// Rating links land on a non-mutating confirmation page so email link scanners
+// cannot submit feedback. V2 tokens sign the survey request, ticket/brand,
+// expiry, and immutable execution/draft lineage. Already-delivered v1 links
+// remain valid but cannot train the model.
+app.get('/api/csat', csatRateLimit, (req, res) => {
+  const verified = verifyCsatRequest(req);
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+  if (!verified.ok) {
+    res.status(400).send(csatPage('Something went wrong', verified.message));
+    return;
+  }
+  res.send(csatConfirmationPage(verified.token, verified.score));
+});
+
+app.post('/api/csat', csatRateLimit, async (req, res) => {
   try {
-    const token = typeof req.query.t === 'string' ? req.query.t : '';
-    const score = Number.parseInt(typeof req.query.s === 'string' ? req.query.s : '', 10);
-
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
     const fail = (msg: string) => res.status(400).send(csatPage('Something went wrong', msg));
-    if (!token || !Number.isInteger(score) || score < 1 || score > 5) return fail('This rating link is invalid.');
+    const verified = verifyCsatRequest(req);
+    if (!verified.ok) return fail(verified.message);
+    const { claims, score } = verified;
+    const ticketId = claims.ticketId;
 
-    const [payloadB64, sig] = token.split('.');
-    if (!payloadB64 || !sig) return fail('This rating link is invalid.');
-    const payload = Buffer.from(payloadB64, 'base64url').toString('utf8');
-    const expected = crypto
-      .createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || '')
-      .update(payload)
-      .digest('base64url');
-    if (!timingSafeStringEqual(sig, expected)) return fail('This rating link is invalid.');
-
-    const [ticketId, expStr] = payload.split('.');
-    if (!ticketId || !expStr || Number(expStr) < Date.now()) {
-      return fail('This rating link has expired.');
+    let ticket: Ticket | null = null;
+    let recordedScore = score;
+    let firstResponse = false;
+    let lineageEligible = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      let candidateQuery = supabase
+        .from('tickets')
+        .select('*')
+        .eq('id', ticketId);
+      if (claims.brandId) candidateQuery = candidateQuery.eq('brand_id', claims.brandId);
+      const { data: candidate } = await candidateQuery.single();
+      if (!candidate) return fail('Ticket not found.');
+      const metadata = { ...((candidate.metadata as Record<string, unknown>) || {}) };
+      const sentRequest = metadata.csat_request as { request_id?: unknown } | undefined;
+      if (typeof sentRequest?.request_id === 'string' && sentRequest.request_id !== claims.requestId) {
+        return fail('This rating link is no longer active.');
+      }
+      const existing = metadata.csat as { score?: unknown; request_id?: unknown } | undefined;
+      const existingScore = Number(existing?.score);
+      if (Number.isInteger(existingScore) && existingScore >= 1 && existingScore <= 5) {
+        ticket = candidate as Ticket;
+        recordedScore = existingScore;
+        lineageEligible = claims.version === 2 && existing?.request_id === claims.requestId;
+        break;
+      }
+      const recordedAt = new Date().toISOString();
+      metadata.csat = {
+        score,
+        at: recordedAt,
+        request_id: claims.requestId,
+        token_version: claims.version,
+        ...(claims.lineage ? { lineage: claims.lineage } : {}),
+      };
+      const { data: updated } = await supabase
+        .from('tickets')
+        .update({ metadata, updated_at: new Date().toISOString() })
+        .eq('id', ticketId)
+        .eq('brand_id', candidate.brand_id)
+        .eq('updated_at', candidate.updated_at)
+        .select('*')
+        .maybeSingle();
+      if (updated) {
+        ticket = updated as Ticket;
+        firstResponse = true;
+        lineageEligible = claims.version === 2;
+        break;
+      }
+    }
+    if (!ticket) return fail('The ticket changed while saving your rating. Please click the rating again.');
+    if (claims.eventId && lineageEligible) {
+      const { error: eventError } = await supabase.from('ticket_events').upsert({
+        id: claims.eventId,
+        ticket_id: ticketId,
+        event_type: 'csat_received',
+        actor: 'customer',
+        old_value: null,
+        new_value: String(recordedScore),
+        metadata: {
+          csat_request_id: claims.requestId,
+          token_version: claims.version,
+          lineage_kind: claims.lineage?.kind,
+        },
+      }, { onConflict: 'id', ignoreDuplicates: true });
+      if (eventError) console.warn('[csat] audit event failed:', eventError.message);
+    } else if (firstResponse) {
+      const { error: eventError } = await supabase.from('ticket_events').insert({
+        ticket_id: ticketId,
+        event_type: 'csat_received',
+        actor: 'customer',
+        old_value: null,
+        new_value: String(recordedScore),
+        metadata: { token_version: claims.version },
+      });
+      if (eventError) console.warn('[csat] audit event failed:', eventError.message);
+    }
+    if (claims.lineage && lineageEligible) {
+      await recordDelayedTicketOutcome(ticket, recordedScore, claims.lineage, claims.requestId).catch((err) =>
+        console.warn('[csat] delayed learning outcome failed:', err instanceof Error ? err.message : String(err)),
+      );
     }
 
-    const { data: ticket } = await supabase
-      .from('tickets')
-      .select('id, ticket_number, metadata, brand_id')
-      .eq('id', ticketId)
-      .single();
-    if (!ticket) return fail('Ticket not found.');
-
-    const metadata = { ...((ticket.metadata as Record<string, unknown>) || {}) };
-    const previous = (metadata.csat as { score?: number } | undefined)?.score;
-    metadata.csat = { score, at: new Date().toISOString() };
-
-    await supabase.from('tickets').update({ metadata, updated_at: new Date().toISOString() }).eq('id', ticketId);
-    await supabase.from('ticket_events').insert({
-      ticket_id: ticketId,
-      event_type: 'csat_received',
-      actor: 'customer',
-      old_value: previous != null ? String(previous) : null,
-      new_value: String(score),
-    });
-
-    const stars = '★'.repeat(score) + '☆'.repeat(5 - score);
+    const stars = '★'.repeat(recordedScore) + '☆'.repeat(5 - recordedScore);
     res.send(csatPage(
       'Thank you for your feedback!',
-      `You rated your support experience ${stars} (${score}/5).${score <= 2 ? ' We’re sorry it wasn’t better — a team member will review this conversation.' : ''}`
+      `${firstResponse ? 'You rated' : 'We already recorded'} your support experience ${stars} (${recordedScore}/5).${recordedScore <= 2 ? ' We’re sorry it wasn’t better — a team member will review this conversation.' : ''}`
     ));
   } catch (err) {
     console.error('[csat] error:', err instanceof Error ? err.message : err);
     res.status(500).send(csatPage('Something went wrong', 'Please try the link again later.'));
   }
 });
+
+function csatConfirmationPage(token: string, score: number): string {
+  const stars = '★'.repeat(score) + '☆'.repeat(5 - score);
+  const labels = ['Very poor', 'Poor', 'Okay', 'Good', 'Excellent'];
+  const action = `/api/csat?t=${encodeURIComponent(token)}&s=${score}`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Confirm your rating</title></head>
+<body style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f7f7f5;display:grid;place-items:center;min-height:100vh;">
+<div style="background:#fff;border:1px solid #e8e8e4;border-radius:14px;padding:36px 40px;max-width:420px;text-align:center;box-shadow:0 8px 30px -18px rgba(0,0,0,.2);">
+<div style="font-size:30px;letter-spacing:3px;color:#C5A059;margin-bottom:10px;">${stars}</div>
+<h1 style="font-size:19px;margin:0 0 8px;color:#161616;">Confirm your rating</h1>
+<p style="font-size:14px;line-height:1.6;color:#666;margin:0 0 20px;">${score}/5 — ${labels[score - 1]}</p>
+<form method="post" action="${action}">
+<button type="submit" style="appearance:none;border:0;border-radius:9px;background:#161616;color:#fff;font:600 14px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:11px 20px;cursor:pointer;">Submit feedback</button>
+</form>
+</div></body></html>`;
+}
 
 function csatPage(title: string, message: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
@@ -2178,8 +2397,13 @@ app.post('/api/contact/submit', formRateLimit, async (req, res) => {
 
     console.log(`[contact] Ticket ${ticket.ticket_number} created from ${email}`);
 
-    triageTicket(ticket.id).catch((err) => console.error('[contact] triage failed:', err));
-    autopilotPropose(ticket.id, 'new_ticket').catch((err) => console.error('[contact] autopilot failed:', err));
+    void triageTicket(ticket.id)
+      .catch((err) => {
+        console.error('[contact] triage failed:', err);
+        return null;
+      })
+      .then(() => autopilotPropose(ticket.id, 'new_ticket'))
+      .catch((err) => console.error('[contact] autopilot failed:', err));
 
     sendTicketConfirmation({
       to: email,
@@ -2484,19 +2708,40 @@ app.listen(config.server.port, async () => {
       console.error('[ticket-maintenance] Snooze wake error:', err instanceof Error ? err.message : String(err));
     }
     try {
-      await proposeForRecentTickets(autopilotSweepLimit); // Autopilot sweep/backfill (enabled brands only)
-    } catch (err) {
-      console.error('[ticket-maintenance] Autopilot sweep error:', err instanceof Error ? err.message : String(err));
-    }
-    try {
-      await runLearningCycle(); // distill reviewed runs into the learned-lessons fact
+      await runLearningCycle(); // distill reviewed runs into scoped, confidence-weighted memories
     } catch (err) {
       console.error('[ticket-maintenance] Autopilot learning error:', err instanceof Error ? err.message : String(err));
     }
   };
   setInterval(runTicketMaintenance, 5 * 60 * 1000);
   setTimeout(runTicketMaintenance, 20 * 1000); // first pass shortly after boot
-  console.log(`[server] Ticket maintenance started (SLA sweep + snooze wake + Autopilot sweep ${autopilotSweepLimit}/run, 5m interval)`);
+  console.log('[server] Ticket maintenance started (SLA sweep + snooze wake + learning, 5m interval)');
+
+  // Pending-card freshness is operational, not a five-minute housekeeping
+  // concern. Run it independently so a new customer reply, expired snapshot,
+  // or terminal interrupted run self-heals before a reviewer reaches the card.
+  let autopilotMaintenanceRunning = false;
+  const runAutopilotMaintenance = async () => {
+    if (autopilotMaintenanceRunning) return;
+    autopilotMaintenanceRunning = true;
+    try {
+      await proposeForRecentTickets(autopilotSweepLimit);
+    } catch (err) {
+      console.error('[autopilot-maintenance] sweep error:', err instanceof Error ? err.message : String(err));
+    } finally {
+      autopilotMaintenanceRunning = false;
+    }
+  };
+  setInterval(runAutopilotMaintenance, 60 * 1000);
+  // Dispatch independently from drafting; queued work survives process restarts.
+  const tickSupportAutomation = async () => {
+    const worker = await import('./services/support-automation-worker.service.js');
+    await worker.tickSupportAutomation();
+  };
+  setInterval(() => { void tickSupportAutomation(); }, 60 * 1000);
+  setTimeout(runAutopilotMaintenance, 10 * 1000);
+  setTimeout(() => { void tickSupportAutomation(); }, 20 * 1000);
+  console.log(`[server] Autopilot self-healing started (${autopilotSweepLimit}/run, 1m interval)`);
 
   // RMA sync — poll Red Stag every 15 minutes
   const RMA_BRAND_ID = '883e4a28-9f2e-4850-a527-29f297d8b6f8';

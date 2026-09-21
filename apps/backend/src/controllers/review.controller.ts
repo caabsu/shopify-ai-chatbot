@@ -35,6 +35,25 @@ function isRateLimited(key: string, maxPerWindow: number, windowMs: number): boo
 
 // ── GET /product/:handle — Published reviews (paginated) ──────────────────
 
+// Brand-wide homepage review feed.
+reviewRouter.get('/featured', async (req, res) => {
+  try {
+    const brandId = await resolveBrandId(req);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string, 10) || 12, 1), 50);
+    const featuredOnly = req.query.featured_only === 'true';
+    const result = await reviewService.getHomepageReviews(brandId, { limit, featuredOnly });
+
+    // Homepage review edits should be visible on the next storefront request.
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    varyByBrand(res);
+    res.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[review.controller] GET /featured error:', message);
+    res.status(500).json({ error: 'Failed to get homepage reviews' });
+  }
+});
+
 reviewRouter.get('/product/:handle', async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
@@ -53,7 +72,9 @@ reviewRouter.get('/product/:handle', async (req, res) => {
       verified,
     });
 
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    // Review edits and moderation changes must reach storefront integrations
+    // without a stale CDN copy.
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     varyByBrand(res);
     res.json({
       ...result,
@@ -75,7 +96,7 @@ reviewRouter.get('/product/:handle/summary', async (req, res) => {
 
     const summary = await reviewService.getReviewSummary(handle, brandId);
 
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     varyByBrand(res);
     res.json(summary);
   } catch (err) {
@@ -418,7 +439,8 @@ reviewRouter.get('/admin/reviews', async (req, res) => {
 // GET /admin/reviews/:id — Single review detail
 reviewRouter.get('/admin/reviews/:id', async (req, res) => {
   try {
-    const review = await reviewService.getReviewById(req.params.id);
+    const brandId = await resolveBrandId(req);
+    const review = await reviewService.getReviewById(req.params.id, brandId);
     if (!review) {
       res.status(404).json({ error: 'Review not found' });
       return;
@@ -434,7 +456,13 @@ reviewRouter.get('/admin/reviews/:id', async (req, res) => {
 // PATCH /admin/reviews/:id — Update review
 reviewRouter.patch('/admin/reviews/:id', async (req, res) => {
   try {
-    const review = await reviewService.updateReview(req.params.id, req.body);
+    const brandId = await resolveBrandId(req);
+    const existing = await reviewService.getReviewById(req.params.id, brandId);
+    if (!existing) {
+      res.status(404).json({ error: 'Review not found' });
+      return;
+    }
+    const review = await reviewService.updateReview(req.params.id, brandId, req.body);
     res.json(review);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -450,7 +478,13 @@ reviewRouter.patch('/admin/reviews/:id', async (req, res) => {
 // DELETE /admin/reviews/:id — Delete review
 reviewRouter.delete('/admin/reviews/:id', async (req, res) => {
   try {
-    await reviewService.deleteReview(req.params.id);
+    const brandId = await resolveBrandId(req);
+    const existing = await reviewService.getReviewById(req.params.id, brandId);
+    if (!existing) {
+      res.status(404).json({ error: 'Review not found' });
+      return;
+    }
+    await reviewService.deleteReview(req.params.id, brandId);
     res.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -462,6 +496,7 @@ reviewRouter.delete('/admin/reviews/:id', async (req, res) => {
 // POST /admin/reviews/bulk — Bulk action
 reviewRouter.post('/admin/reviews/bulk', async (req, res) => {
   try {
+    const brandId = await resolveBrandId(req);
     const { ids, action } = req.body;
     if (!ids || !Array.isArray(ids) || !action) {
       res.status(400).json({ error: 'ids (array) and action are required' });
@@ -474,7 +509,7 @@ reviewRouter.post('/admin/reviews/bulk', async (req, res) => {
       return;
     }
 
-    const result = await reviewService.bulkAction(ids, action);
+    const result = await reviewService.bulkAction(ids, action, brandId);
     res.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -486,6 +521,12 @@ reviewRouter.post('/admin/reviews/bulk', async (req, res) => {
 // POST /admin/reviews/:id/reply — Create or update reply
 reviewRouter.post('/admin/reviews/:id/reply', async (req, res) => {
   try {
+    const brandId = await resolveBrandId(req);
+    const review = await reviewService.getReviewById(req.params.id, brandId);
+    if (!review) {
+      res.status(404).json({ error: 'Review not found' });
+      return;
+    }
     const { author_name, body, author_email } = req.body;
     if (!author_name || !body) {
       res.status(400).json({ error: 'author_name and body are required' });
@@ -504,6 +545,12 @@ reviewRouter.post('/admin/reviews/:id/reply', async (req, res) => {
 // DELETE /admin/reviews/:id/reply — Delete reply
 reviewRouter.delete('/admin/reviews/:id/reply', async (req, res) => {
   try {
+    const brandId = await resolveBrandId(req);
+    const review = await reviewService.getReviewById(req.params.id, brandId);
+    if (!review) {
+      res.status(404).json({ error: 'Review not found' });
+      return;
+    }
     await reviewService.deleteReply(req.params.id);
     res.json({ success: true });
   } catch (err) {
@@ -516,7 +563,8 @@ reviewRouter.delete('/admin/reviews/:id/reply', async (req, res) => {
 // POST /admin/reviews/:id/suggest-reply — AI reply suggestion
 reviewRouter.post('/admin/reviews/:id/suggest-reply', async (req, res) => {
   try {
-    const review = await reviewService.getReviewById(req.params.id);
+    const brandId = await resolveBrandId(req);
+    const review = await reviewService.getReviewById(req.params.id, brandId);
     if (!review) {
       res.status(404).json({ error: 'Review not found' });
       return;

@@ -29,7 +29,7 @@ export function createReturnsPortal(config?: ReturnsPortalConfig): HTMLElement {
   const settings = config?.settings ?? {};
   const design = config?.design ?? {};
   const portalTitle = settings.portal_title || 'Start a return.';
-  const portalDescription = settings.portal_description || `${settings.return_window_days ?? 30} days. Free shipping back. No questions.`;
+  const portalDescription = settings.portal_description || `${settings.return_window_days ?? 30} days from delivery. We will review your request and email the next steps.`;
   const availableReasons = settings.available_reasons?.length ? settings.available_reasons : Object.keys(DEFAULT_REASONS);
   const reasonLabels = { ...DEFAULT_REASONS, ...(settings.reason_labels ?? {}) };
 

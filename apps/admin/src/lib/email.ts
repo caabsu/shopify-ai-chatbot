@@ -89,6 +89,10 @@ export async function sendTicketReplyEmail(opts: {
   brandSlug?: string;
   inReplyToMessageId?: string;
   originalMessage?: string;
+  /** Stable operation key so retries cannot deliver the same reply twice. */
+  idempotencyKey?: string;
+  /** Abort the provider request before the Autopilot worker lease can expire. */
+  signal?: AbortSignal;
 }): Promise<{ messageId?: string; error?: string }> {
   const config = await getBrandEmailConfig(opts.brandSlug);
   if (!config) {
@@ -148,6 +152,10 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
     : undefined;
 
   try {
+    const requestOptions = {
+      ...(opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
+      ...(opts.signal ? { signal: opts.signal } : {}),
+    };
     const { data, error } = await config.resend.emails.send({
       from: config.fromAddress,
       to: [to],
@@ -156,7 +164,7 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
       text: textBody,
       html: htmlBody,
       headers,
-    });
+    }, requestOptions as Parameters<typeof config.resend.emails.send>[1]);
 
     if (error) {
       console.error('[email] Resend error:', error);
@@ -173,18 +181,53 @@ Ticket #${ticketNumber} — Please reply to this email to continue the conversat
 }
 
 // ── CSAT Request Email ───────────────────────────────────────────────────────
-// Sent when a ticket is resolved. Rating links hit the public backend endpoint
-// (GET /api/csat) with an HMAC token, so one click records the score. The token
-// is signed with the Supabase service key — the one secret both deployments share.
+// Sent when a ticket is resolved. Signed rating links open a non-mutating
+// confirmation page; only its POST records the score, so mail scanners cannot
+// accidentally submit feedback. Both deployments share the signing secret.
 
 import { createHmac } from 'crypto';
 
 const CSAT_TOKEN_TTL_DAYS = 14;
 
-export function buildCsatToken(ticketId: string): string {
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  const exp = Date.now() + CSAT_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
-  const payload = `${ticketId}.${exp}`;
+export type CsatOutcomeLineage =
+  | {
+      kind: 'autopilot_plan';
+      plan_id: string;
+      plan_revision: number;
+      execution_attempt_id: string;
+      resolution_action_id: string;
+      reply_action_id?: string;
+      model_overall_confidence?: number;
+      resolution_model_confidence?: number;
+      reply_model_confidence?: number;
+    }
+  | {
+      kind: 'manual_draft';
+      generation_id: string;
+      message_id: string;
+      model_confidence?: number;
+    }
+  | { kind: 'manual_message'; message_id: string }
+  | { kind: 'manual_resolution' };
+
+export interface CsatRequestClaims {
+  version: 2;
+  request_id: string;
+  ticket_id: string;
+  brand_id: string;
+  issued_at: number;
+  expires_at: number;
+  lineage: CsatOutcomeLineage;
+}
+
+export function csatTokenExpiry(issuedAt = Date.now()): number {
+  return issuedAt + CSAT_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+}
+
+export function buildCsatToken(claims: CsatRequestClaims): string {
+  const secret = process.env.CSAT_TOKEN_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) throw new Error('CSAT_TOKEN_SECRET or SUPABASE_SERVICE_ROLE_KEY is required');
+  const payload = JSON.stringify(claims);
   const sig = createHmac('sha256', secret).update(payload).digest('base64url');
   return `${Buffer.from(payload).toString('base64url')}.${sig}`;
 }
@@ -193,10 +236,11 @@ export async function sendCsatRequestEmail(opts: {
   to: string;
   customerName?: string;
   ticketNumber: number;
-  ticketId: string;
   subject: string;
   brandName?: string;
   brandSlug?: string;
+  request: CsatRequestClaims;
+  signal?: AbortSignal;
 }): Promise<{ messageId?: string; error?: string }> {
   const config = await getBrandEmailConfig(opts.brandSlug);
   if (!config) return { error: 'Email not configured' };
@@ -204,7 +248,7 @@ export async function sendCsatRequestEmail(opts: {
   const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_URL || '').replace(/\/$/, '');
   if (!backendUrl) return { error: 'NEXT_PUBLIC_BACKEND_URL not configured' };
 
-  const token = buildCsatToken(opts.ticketId);
+  const token = buildCsatToken(opts.request);
   const ratingUrl = (score: number) => `${backendUrl}/api/csat?t=${encodeURIComponent(token)}&s=${score}`;
 
   const brand = opts.brandName || 'Support';
@@ -248,8 +292,15 @@ ${brand} Team`;
       subject: `How did we do? [Ticket #${opts.ticketNumber}]`,
       text: textBody,
       html: htmlBody,
-      headers: { 'X-Ticket-Number': String(opts.ticketNumber), 'X-SupportOS-CSAT': '1' },
-    });
+      headers: {
+        'X-Ticket-Number': String(opts.ticketNumber),
+        'X-SupportOS-CSAT': '1',
+        'X-SupportOS-CSAT-Request': opts.request.request_id,
+      },
+    }, {
+      idempotencyKey: `csat-request-${opts.request.request_id}`,
+      ...(opts.signal ? { signal: opts.signal } : {}),
+    } as Parameters<typeof config.resend.emails.send>[1]);
     if (error) return { error: error.message };
     return { messageId: data?.id };
   } catch (err) {

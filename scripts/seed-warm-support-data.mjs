@@ -329,7 +329,7 @@ async function getShopifyToken(brand) {
 }
 
 async function shopifyGraphql(shopify, query, variables) {
-  const apiVersion = process.env.SHOPIFY_API_VERSION || '2025-01';
+  const apiVersion = process.env.SHOPIFY_API_VERSION || '2026-07';
   const res = await fetch(`https://${shopify.shop}.myshopify.com/admin/api/${apiVersion}/graphql.json`, {
     method: 'POST',
     headers: {

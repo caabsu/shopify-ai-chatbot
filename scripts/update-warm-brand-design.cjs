@@ -231,7 +231,7 @@ async function updateReturnSettings(brandId) {
     .from('return_settings')
     .update({
       portal_title: 'Start a return.',
-      portal_description: '30 days. Free shipping back. No questions.',
+      portal_description: '30 days from delivery. We will review your request and email the next steps.',
       updated_at: new Date().toISOString(),
     })
     .eq('id', existing.data.id);

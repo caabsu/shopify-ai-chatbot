@@ -1,22 +1,25 @@
 import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-
-const anthropic = new Anthropic();
+import {
+  callAdminSupportAgentStep,
+  type AdminSupportChatMessage,
+  type AdminSupportGeneration,
+  type SupportToolDefinition,
+} from '@/lib/support-model';
 
 // ── Tool definitions ────────────────────────────────────────────────────────
 
-const tools: Anthropic.Tool[] = [
+const tools: SupportToolDefinition[] = [
   {
     name: 'get_widget_design',
     description: 'Get the current chatbot widget design settings (colors, fonts, sizes, position, etc.)',
-    input_schema: { type: 'object' as const, properties: {}, required: [] },
+    inputSchema: { type: 'object' as const, properties: {}, required: [] },
   },
   {
     name: 'update_widget_design',
     description: 'Update one or more chatbot widget design settings. Only include fields you want to change.',
-    input_schema: {
+    inputSchema: {
       type: 'object' as const,
       properties: {
         primaryColor: { type: 'string', description: 'Hex color for buttons, accents, header gradient (e.g. "#9D6528")' },
@@ -42,12 +45,12 @@ const tools: Anthropic.Tool[] = [
   {
     name: 'get_preset_actions',
     description: 'Get the current preset action buttons shown to users before they send a message.',
-    input_schema: { type: 'object' as const, properties: {}, required: [] },
+    inputSchema: { type: 'object' as const, properties: {}, required: [] },
   },
   {
     name: 'update_preset_actions',
     description: 'Replace all preset action buttons. Each action needs: id (unique slug), label (display text), icon (one of: truck, return, search, contact, sparkles, leaf, repeat, user, help, tag, package, headphones), prompt (message sent when clicked).',
-    input_schema: {
+    inputSchema: {
       type: 'object' as const,
       properties: {
         actions: {
@@ -71,12 +74,12 @@ const tools: Anthropic.Tool[] = [
   {
     name: 'get_greeting',
     description: 'Get the current greeting message shown when a new chat session starts.',
-    input_schema: { type: 'object' as const, properties: {}, required: [] },
+    inputSchema: { type: 'object' as const, properties: {}, required: [] },
   },
   {
     name: 'update_greeting',
     description: 'Update the greeting message shown at the start of new conversations.',
-    input_schema: {
+    inputSchema: {
       type: 'object' as const,
       properties: {
         greeting: { type: 'string', description: 'The greeting text (supports emoji)' },
@@ -87,12 +90,12 @@ const tools: Anthropic.Tool[] = [
   {
     name: 'get_contact_form_config',
     description: 'Get the current contact form configuration (header, subtitle, categories, success messages, field visibility).',
-    input_schema: { type: 'object' as const, properties: {}, required: [] },
+    inputSchema: { type: 'object' as const, properties: {}, required: [] },
   },
   {
     name: 'update_contact_form_config',
     description: 'Update the contact form configuration. Only include fields you want to change.',
-    input_schema: {
+    inputSchema: {
       type: 'object' as const,
       properties: {
         headerTitle: { type: 'string', description: 'Form heading text (e.g. "Get in Touch")' },
@@ -293,58 +296,58 @@ export async function POST(request: Request) {
 
   try {
     // Run tool-use loop
-    let anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
+    let modelMessages: AdminSupportChatMessage[] = messages.map((m) => ({
       role: m.role,
       content: m.content,
     }));
 
     let finalText = '';
     const appliedChanges: string[] = [];
+    let lastGeneration: AdminSupportGeneration | undefined;
 
     for (let i = 0; i < 5; i++) {
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
+      const response = await callAdminSupportAgentStep({
+        tier: 'flash',
+        maxTokens: 1024,
         system: SYSTEM_PROMPT,
         tools,
-        messages: anthropicMessages,
+        messages: modelMessages,
       });
+      lastGeneration = response.generation;
 
       // Collect text and tool uses
-      const textParts: string[] = [];
-      const toolUses: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
-
-      for (const block of response.content) {
-        if (block.type === 'text') textParts.push(block.text);
-        if (block.type === 'tool_use') toolUses.push({ id: block.id, name: block.name, input: block.input as Record<string, unknown> });
-      }
-
-      if (toolUses.length === 0) {
-        finalText = textParts.join('');
+      if (response.toolCalls.length === 0) {
+        finalText = response.text;
         break;
       }
 
       // Execute tools and continue conversation
-      anthropicMessages = [
-        ...anthropicMessages,
-        { role: 'assistant', content: response.content },
-        {
-          role: 'user',
-          content: await Promise.all(toolUses.map(async (tu) => {
-            const result = await handleTool(tu.name, tu.input, session.brandId);
-            if (tu.name.startsWith('update_')) appliedChanges.push(tu.name.replace('update_', ''));
-            return { type: 'tool_result' as const, tool_use_id: tu.id, content: result };
-          })),
-        },
+      modelMessages = [
+        ...modelMessages,
+        response.assistantMessage,
+        ...await Promise.all(response.toolCalls.map(async (toolCall): Promise<AdminSupportChatMessage> => {
+          const result = await handleTool(toolCall.name, toolCall.input, session.brandId);
+          if (toolCall.name.startsWith('update_')) {
+            appliedChanges.push(toolCall.name.replace('update_', ''));
+          }
+          return {
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: result,
+          };
+        })),
       ];
 
       // If this was the last iteration and we got text, use it
-      if (i === 4) finalText = textParts.join('') || 'Changes applied.';
+      if (i === 4) finalText = response.text || 'Changes applied.';
     }
 
     return NextResponse.json({
       response: finalText,
       appliedChanges,
+      model: lastGeneration?.model,
+      model_provider: lastGeneration?.provider,
+      model_tier: lastGeneration?.tier,
     });
   } catch (err) {
     console.error('[design-agent]', err);

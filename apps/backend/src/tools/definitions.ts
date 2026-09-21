@@ -1,6 +1,10 @@
-import type Anthropic from '@anthropic-ai/sdk';
+export interface StorefrontToolDefinition {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}
 
-export const toolDefinitions: Anthropic.Tool[] = [
+export const toolDefinitions: StorefrontToolDefinition[] = [
   {
     name: 'search_products',
     description:

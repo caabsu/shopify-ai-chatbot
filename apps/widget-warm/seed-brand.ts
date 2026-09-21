@@ -26,7 +26,11 @@ async function seed() {
         domain: null,
         fonts: { heading: 'Bricolage Grotesque', body: 'Outfit', label: 'Syne' },
         colors: { surface: '#131313', cream: '#F0EDE8', amber: '#f5bc70', onPrimary: '#462b00' },
-        theme: 'dark'
+        theme: 'dark',
+        support_email: 'support@warmbydesign.com',
+        inbound_email: 'support@warmbydesign.com',
+        email_from_address: 'Warm by Design <support@warmbydesign.com>',
+        support_from_address: 'Warm by Design <support@warmbydesign.com>',
       }
     }, { onConflict: 'id' })
     .select()

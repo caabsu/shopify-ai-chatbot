@@ -1,6 +1,7 @@
 import { initBaseUrl } from './api/client';
 import { mountReviewSection } from './ui/ReviewList';
 import { mountInlineBadge } from './ui/ReviewSummary';
+import { mountHomepageReviews } from './ui/HomepageReviews';
 import './styles/reviews.css';
 
 const FONT_ID = 'wbd-fonts';
@@ -43,6 +44,12 @@ async function init(): Promise<void> {
       const handle = el.dataset.productHandle;
       if (handle) void mountReviewSection(el, handle);
     });
+
+  document
+    .querySelectorAll<HTMLElement>('[data-wbd-home-reviews]')
+    .forEach((el) => {
+      void mountHomepageReviews(el);
+    });
 }
 
 if (document.readyState === 'loading') {
@@ -50,4 +57,3 @@ if (document.readyState === 'loading') {
 } else {
   void init();
 }
-

@@ -1,10 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
 import type { ReturnRequest, ReturnItem } from '../types/index.js';
 import { loadSupportContext } from './support-context.service.js';
-
-const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
+import { callSupportRequiredTool } from './support-model-tool.service.js';
+import type { RequiredToolDefinition } from './deepseek-tool-call.service.js';
+import { recordSupportGenerationRun } from './ai-generation-ledger.service.js';
 
 interface AIRecommendation {
   decision: 'approve' | 'deny' | 'needs_review';
@@ -26,6 +25,21 @@ interface CustomerHistory {
   lifetime_value?: number;
   [key: string]: unknown;
 }
+
+const RETURN_RECOMMENDATION_TOOL: RequiredToolDefinition = {
+  name: 'evaluate_return_request',
+  description: 'Return a policy-grounded recommendation for one return request.',
+  inputSchema: {
+    type: 'object',
+    required: ['decision', 'confidence', 'reasoning', 'suggested_resolution'],
+    properties: {
+      decision: { type: 'string', enum: ['approve', 'deny', 'needs_review'] },
+      confidence: { type: 'number', minimum: 0, maximum: 1 },
+      reasoning: { type: 'string' },
+      suggested_resolution: { type: 'string', enum: ['refund', 'store_credit', 'exchange'] },
+    },
+  },
+};
 
 // ── Get AI Recommendation for a Return Request ────────────────────────────
 export async function getAIRecommendation(
@@ -62,24 +76,27 @@ export async function getAIRecommendation(
   const userPrompt = buildUserPrompt(returnRequest, returnItems, orderData, customerHistory);
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      temperature: 0.3,
+    const response = await callSupportRequiredTool<Partial<AIRecommendation>>({
+      tier: 'pro',
+      max_tokens: 1_024,
       system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
+      user: userPrompt,
+      tool: RETURN_RECOMMENDATION_TOOL,
+      parse(value) {
+        if (!value || typeof value !== 'object') throw new Error('Return evaluator tool input must be an object');
+        return value as Partial<AIRecommendation>;
+      },
     });
-
-    // Extract text response
-    let responseText = '';
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        responseText += block.text;
-      }
-    }
-
-    // Parse the JSON response
-    const recommendation = parseAIResponse(responseText);
+    await recordSupportGenerationRun({
+      purpose: 'return_recommendation',
+      generation: response.generation,
+      brandId: returnRequest.brand_id,
+      promptVersion: 'return-recommendation-2026-07-v1',
+      routerVersion: 'return-router-v1',
+      routerDecision: { tier: 'pro', reason: 'return_refund_policy_decision' },
+      metadata: { return_request_id: returnRequest.id },
+    });
+    const recommendation = parseAIResponse(JSON.stringify(response.value));
 
     console.log(`[return-ai.service] AI recommendation for return ${returnRequest.id}: ${recommendation.decision} (confidence: ${recommendation.confidence})`);
     return recommendation;

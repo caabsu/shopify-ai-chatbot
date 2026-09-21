@@ -98,12 +98,13 @@ export async function createTicket(data: {
 }
 
 // ── Get Single Ticket ──────────────────────────────────────────────────────
-export async function getTicket(id: string): Promise<Ticket | null> {
-  const { data: row, error } = await supabase
+export async function getTicket(id: string, brandId?: string): Promise<Ticket | null> {
+  let query = supabase
     .from('tickets')
     .select()
-    .eq('id', id)
-    .single();
+    .eq('id', id);
+  if (brandId) query = query.eq('brand_id', brandId);
+  const { data: row, error } = await query.single();
 
   if (error) {
     if (error.code === 'PGRST116') return null;
@@ -198,10 +199,11 @@ export async function listTickets(filters: {
 export async function updateTicket(
   id: string,
   updates: Partial<Pick<Ticket, 'status' | 'priority' | 'category' | 'assigned_to' | 'tags' | 'subject' | 'metadata'>>,
-  actorId?: string
+  actorId?: string,
+  brandId?: string,
 ): Promise<Ticket> {
   // Load current ticket for event diffing
-  const current = await getTicket(id);
+  const current = await getTicket(id, brandId);
   if (!current) {
     throw new Error('Ticket not found');
   }
@@ -217,12 +219,12 @@ export async function updateTicket(
     updatePayload.closed_at = now;
   }
 
-  const { data: row, error } = await supabase
+  let updateQuery = supabase
     .from('tickets')
     .update(updatePayload)
-    .eq('id', id)
-    .select()
-    .single();
+    .eq('id', id);
+  if (brandId) updateQuery = updateQuery.eq('brand_id', brandId);
+  const { data: row, error } = await updateQuery.select().single();
 
   if (error) {
     console.error('[ticket.service] updateTicket error:', error.message);
@@ -266,8 +268,10 @@ export async function addTicketMessage(
     email_message_id?: string;
     ai_generated?: boolean;
     metadata?: Record<string, unknown>;
-  }
+  },
+  brandId?: string,
 ): Promise<TicketMessage> {
+  if (brandId && !(await getTicket(ticketId, brandId))) throw new Error('Ticket not found');
   const { data: row, error } = await supabase
     .from('ticket_messages')
     .insert({
@@ -299,7 +303,20 @@ export async function addTicketMessage(
         .eq('email_message_id', data.email_message_id)
         .maybeSingle();
 
-      if (existing) return existing as TicketMessage;
+      if (existing) {
+        const existingSender = String(existing.sender_email ?? '').trim().toLowerCase();
+        const incomingSender = String(data.sender_email ?? '').trim().toLowerCase();
+        const existingTicket = brandId ? await getTicket(String(existing.ticket_id), brandId) : true;
+        if (!existingTicket || (incomingSender && existingSender !== incomingSender)) {
+          console.error('[ticket.service] Refused cross-brand/customer Message-ID collision', {
+            emailMessageId: data.email_message_id,
+            incomingTicketId: ticketId,
+            existingTicketId: existing.ticket_id,
+          });
+          throw new Error('Inbound Message-ID conflicts with another customer or brand');
+        }
+        return existing as TicketMessage;
+      }
     }
 
     console.error('[ticket.service] addTicketMessage error:', error.message);
@@ -327,7 +344,8 @@ export async function addTicketMessage(
 }
 
 // ── Get Ticket Messages ────────────────────────────────────────────────────
-export async function getTicketMessages(ticketId: string): Promise<TicketMessage[]> {
+export async function getTicketMessages(ticketId: string, brandId?: string): Promise<TicketMessage[]> {
+  if (brandId && !(await getTicket(ticketId, brandId))) throw new Error('Ticket not found');
   const { data: rows, error } = await supabase
     .from('ticket_messages')
     .select()
@@ -343,7 +361,8 @@ export async function getTicketMessages(ticketId: string): Promise<TicketMessage
 }
 
 // ── Get Ticket Events (Audit Log) ─────────────────────────────────────────
-export async function getTicketEvents(ticketId: string): Promise<TicketEvent[]> {
+export async function getTicketEvents(ticketId: string, brandId?: string): Promise<TicketEvent[]> {
+  if (brandId && !(await getTicket(ticketId, brandId))) throw new Error('Ticket not found');
   const { data: rows, error } = await supabase
     .from('ticket_events')
     .select()

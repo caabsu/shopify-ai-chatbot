@@ -79,7 +79,7 @@ export function TicketWorkflowBar({ ticketId, basePath }: { ticketId: string; ba
     <div
       className="sticky z-20 flex items-center gap-3 flex-wrap"
       style={{
-        top: 56,
+        top: 72,
         background: 'var(--bg-primary)',
         border: '1px solid var(--border-primary)',
         borderRadius: 'var(--radius-lg)',

@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
   const productId = searchParams.get('product_id');
   const search = searchParams.get('search');
   const source = searchParams.get('source');
+  const featured = searchParams.get('featured');
   const dateFrom = searchParams.get('date_from');
   const dateTo = searchParams.get('date_to');
   const sort = searchParams.get('sort') || 'newest';
@@ -27,6 +28,8 @@ export async function GET(req: NextRequest) {
   if (rating) query = query.eq('rating', parseInt(rating));
   if (productId) query = query.eq('product_id', productId);
   if (source) query = query.eq('source', source);
+  if (featured === 'true') query = query.eq('featured', true);
+  if (featured === 'false') query = query.eq('featured', false);
   if (dateFrom) query = query.gte('created_at', dateFrom);
   if (dateTo) query = query.lte('created_at', dateTo);
   if (search) {
@@ -96,6 +99,7 @@ export async function GET(req: NextRequest) {
     const { data: products } = await supabase
       .from('products')
       .select('id, title')
+      .eq('brand_id', session.brandId)
       .in('id', productIds);
 
     if (products) {
@@ -132,11 +136,13 @@ export async function GET(req: NextRequest) {
     media_count: mediaCountMap[r.id] || 0,
   }));
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     items,
     total: count ?? 0,
     page,
     perPage,
     totalPages: Math.ceil((count ?? 0) / perPage),
   });
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
 }

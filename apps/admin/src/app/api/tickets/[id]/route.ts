@@ -3,6 +3,31 @@ import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { maybeSendCsatRequest } from '@/lib/csat';
 
+interface CustomerHistoryTicket {
+  id: string;
+  ticket_number: number;
+  subject: string;
+  status: string;
+  created_at: string;
+  [key: string]: unknown;
+}
+
+function readCanonicalTickets(value: unknown): CustomerHistoryTicket[] | null {
+  if (!value || typeof value !== 'object') return null;
+  const tickets = (value as Record<string, unknown>).tickets;
+  if (!Array.isArray(tickets)) return null;
+  if (tickets.some((ticket) => {
+    if (!ticket || typeof ticket !== 'object') return true;
+    const candidate = ticket as Record<string, unknown>;
+    return typeof candidate.id !== 'string'
+      || typeof candidate.ticket_number !== 'number'
+      || typeof candidate.subject !== 'string'
+      || typeof candidate.status !== 'string'
+      || typeof candidate.created_at !== 'string';
+  })) return null;
+  return tickets as CustomerHistoryTicket[];
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -24,8 +49,9 @@ export async function GET(
     return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
   }
 
-  // Get messages, events, and optionally AI conversation messages in parallel
-  const [messagesRes, eventsRes] = await Promise.all([
+  // Read every independent timeline in parallel. Customer history comes from
+  // the same canonical projection used by Autopilot.
+  const [messagesRes, eventsRes, aiMessagesRes, customerContextRes] = await Promise.all([
     supabase
       .from('ticket_messages')
       .select('*')
@@ -36,38 +62,60 @@ export async function GET(
       .select('*')
       .eq('ticket_id', id)
       .order('created_at', { ascending: true }),
+    ticket.conversation_id
+      ? supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', ticket.conversation_id)
+        .order('created_at', { ascending: true })
+      : Promise.resolve({ data: null, error: null }),
+    supabase.rpc('get_customer_support_context', {
+      p_ticket_id: id,
+      p_brand_id: session.brandId,
+    }),
   ]);
 
-  let aiMessagesRes: { data: unknown[] | null } = { data: null };
-  let pastTicketsRes: { data: unknown[] | null } = { data: null };
+  // Use the same canonical, normalized identity projection that Autopilot
+  // drafts from. It contains every same-customer ticket (not a case-sensitive
+  // five-row sample), including linked/closed histories and response state.
+  let canonicalTickets = customerContextRes.error
+    ? null
+    : readCanonicalTickets(customerContextRes.data);
 
-  // If this is an AI escalation, also get the original conversation messages
-  if (ticket.conversation_id) {
-    aiMessagesRes = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', ticket.conversation_id)
-      .order('created_at', { ascending: true });
-  }
-
-  // Get past tickets from the same customer
-  if (ticket.customer_email) {
-    pastTicketsRes = await supabase
+  // During a rolling deploy, retain complete normalized ticket history if the
+  // context RPC is momentarily unavailable. This still requires migration 013
+  // and never falls back to raw case-sensitive email equality or a row limit.
+  if (!canonicalTickets && ticket.customer_email) {
+    console.warn('[ticket-detail] Canonical customer context unavailable; using normalized ticket history', {
+      ticketId: id,
+      error: customerContextRes.error?.message ?? 'invalid context payload',
+    });
+    const normalizedHistory = await supabase
       .from('tickets')
-      .select('*')
+      .select('id, ticket_number, source, subject, status, priority, category, tags, order_id, conversation_id, context_version, created_at, first_response_at, resolved_at, closed_at, merged_into_ticket_id')
       .eq('brand_id', session.brandId)
-      .eq('customer_email', ticket.customer_email)
-      .neq('id', id)
-      .order('created_at', { ascending: false })
-      .limit(5);
+      .eq('customer_email_normalized', String(ticket.customer_email).trim().toLowerCase())
+      .order('created_at', { ascending: false });
+    if (normalizedHistory.error) {
+      console.error('[ticket-detail] Failed to load normalized customer history', {
+        ticketId: id,
+        error: normalizedHistory.error.message,
+      });
+      return NextResponse.json({ error: 'Customer ticket history is unavailable' }, { status: 500 });
+    }
+    canonicalTickets = (normalizedHistory.data ?? []) as CustomerHistoryTicket[];
   }
+
+  const pastTickets = (canonicalTickets ?? [])
+    .filter((candidate) => candidate.id !== id)
+    .sort((left, right) => right.created_at.localeCompare(left.created_at));
 
   return NextResponse.json({
     ticket,
     messages: messagesRes.data ?? [],
     events: eventsRes.data ?? [],
     aiConversationMessages: aiMessagesRes.data ?? undefined,
-    pastTickets: pastTicketsRes.data ?? [],
+    pastTickets,
   });
 }
 
@@ -80,6 +128,16 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
+
+  if (body.status !== undefined && !['open', 'pending', 'resolved', 'closed'].includes(body.status)) {
+    return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+  }
+  if (body.priority !== undefined && !['low', 'medium', 'high', 'urgent'].includes(body.priority)) {
+    return NextResponse.json({ error: 'Invalid priority' }, { status: 400 });
+  }
+  if (body.tags !== undefined && (!Array.isArray(body.tags) || body.tags.some((tag: unknown) => typeof tag !== 'string'))) {
+    return NextResponse.json({ error: 'tags must be an array of strings' }, { status: 400 });
+  }
 
   // Get current ticket for event logging
   const { data: currentTicket } = await supabase
@@ -158,21 +216,64 @@ export async function PATCH(
     }
   }
 
+  const plan = ((currentTicket.metadata as Record<string, unknown> | null)?.autopilot ?? null) as Record<string, unknown> | null;
+  const invalidatesPlan = Boolean(
+    plan?.status === 'proposed'
+    && (
+      updates.status !== undefined
+      || updates.priority !== undefined
+      || updates.tags !== undefined
+      || updates.category !== undefined
+    )
+  );
+  const supersededPlanId = invalidatesPlan
+    ? (typeof plan?.id === 'string' ? plan.id : String(plan?.proposed_at ?? 'legacy'))
+    : null;
+  if (invalidatesPlan && plan) {
+    const meta = {
+      ...((currentTicket.metadata as Record<string, unknown>) || {}),
+      ...((updates.metadata as Record<string, unknown> | undefined) || {}),
+    };
+    const history = Array.isArray(meta.autopilot_history) ? meta.autopilot_history as unknown[] : [];
+    meta.autopilot_history = [...history.slice(-5), {
+      ...plan,
+      status: 'superseded',
+      superseded_reason: 'manual_ticket_change',
+      superseded_at: new Date().toISOString(),
+    }];
+    delete meta.autopilot;
+    updates.metadata = meta;
+    events.push({
+      ticket_id: id,
+      event_type: 'autopilot_superseded',
+      actor: 'agent',
+      old_value: supersededPlanId,
+      new_value: null,
+    });
+  }
+
   const { data: ticket, error } = await supabase
     .from('tickets')
     .update(updates)
     .eq('id', id)
     .eq('brand_id', session.brandId)
+    .eq('updated_at', currentTicket.updated_at)
     .select()
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !ticket) {
+    if (error?.code === 'PGRST116') {
+      return NextResponse.json({ error: 'Ticket changed in another session. Refresh and try again.' }, { status: 409 });
+    }
+    return NextResponse.json({ error: error?.message ?? 'Ticket update failed' }, { status: 500 });
   }
 
   // Insert events
   if (events.length > 0) {
     await supabase.from('ticket_events').insert(events);
+  }
+  if (supersededPlanId && /^[0-9a-f-]{36}$/i.test(supersededPlanId)) {
+    await supabase.from('ticket_action_plans').update({ status: 'superseded', updated_at: new Date().toISOString() }).eq('id', supersededPlanId);
   }
 
   // CSAT loop: when a ticket is resolved, ask the customer how we did — once.

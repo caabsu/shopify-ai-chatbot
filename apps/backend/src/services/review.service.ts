@@ -12,6 +12,70 @@ interface GetReviewsOptions {
   status?: string;
 }
 
+interface GetHomepageReviewsOptions {
+  limit?: number;
+  featuredOnly?: boolean;
+}
+
+interface HomepageReviewResult {
+  reviews: Review[];
+  summary: {
+    average_rating: number;
+    total_count: number;
+  };
+  selection: 'featured' | 'published';
+}
+
+function normalizeReviewRows(data: unknown[] | null): Review[] {
+  return (data ?? []).map((row) => {
+    const record = row as Record<string, unknown>;
+    return {
+      ...record,
+      media: record.review_media ?? [],
+      reply: Array.isArray(record.review_replies) && (record.review_replies as unknown[]).length > 0
+        ? (record.review_replies as unknown[])[0]
+        : null,
+      product: record.products ?? undefined,
+      review_media: undefined,
+      review_replies: undefined,
+      products: undefined,
+    };
+  }) as unknown as Review[];
+}
+
+async function getPublishedRatingSummary(
+  brandId: string,
+): Promise<{ average_rating: number; total_count: number }> {
+  const pageSize = 1_000;
+  const ratings: number[] = [];
+  let totalCount = 0;
+  let offset = 0;
+
+  do {
+    const query = supabase
+      .from('reviews')
+      .select('rating', offset === 0 ? { count: 'exact' } : undefined)
+      .eq('brand_id', brandId)
+      .eq('status', 'published')
+      .range(offset, offset + pageSize - 1);
+    const { data, error, count } = await query;
+
+    if (error) {
+      throw new Error(`Failed to fetch homepage review summary: ${error.message}`);
+    }
+    if (offset === 0) totalCount = count ?? data?.length ?? 0;
+    ratings.push(...(data ?? []).map((row) => row.rating as number));
+    offset += pageSize;
+  } while (ratings.length < totalCount);
+
+  return {
+    average_rating: ratings.length > 0
+      ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 10) / 10
+      : 0,
+    total_count: totalCount,
+  };
+}
+
 export async function getReviewsByProduct(
   handle: string,
   brandId: string,
@@ -92,6 +156,71 @@ export async function getReviewsByProduct(
     const message = err instanceof Error ? err.message : String(err);
     console.error('[review.service] getReviewsByProduct failed:', message);
     throw new Error(`Failed to get reviews: ${message}`);
+  }
+}
+
+/**
+ * Brand-wide review feed for homepage and editorial storefront placements.
+ *
+ * Once a brand has explicitly featured at least one published review, only
+ * featured reviews are returned. Brands that have not curated a homepage feed
+ * yet fall back to their latest published reviews, so existing integrations do
+ * not go blank during rollout.
+ */
+export async function getHomepageReviews(
+  brandId: string,
+  opts: GetHomepageReviewsOptions = {},
+): Promise<HomepageReviewResult> {
+  try {
+    const limit = Math.max(1, Math.min(opts.limit ?? 12, 50));
+    const select = '*, review_media(*), review_replies(*), products(id, title, handle, featured_image_url)';
+
+    const [featuredResult, summary] = await Promise.all([
+      supabase
+        .from('reviews')
+        .select(select, { count: 'exact' })
+        .eq('brand_id', brandId)
+        .eq('status', 'published')
+        .eq('featured', true)
+        .order('helpful_count', { ascending: false })
+        .order('published_at', { ascending: false })
+        .limit(limit),
+      getPublishedRatingSummary(brandId),
+    ]);
+
+    if (featuredResult.error) {
+      throw new Error(`Failed to fetch featured reviews: ${featuredResult.error.message}`);
+    }
+    let reviewRows = featuredResult.data;
+    let selection: HomepageReviewResult['selection'] = 'featured';
+
+    if ((featuredResult.count ?? 0) === 0 && !opts.featuredOnly) {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select(select)
+        .eq('brand_id', brandId)
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .order('submitted_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        throw new Error(`Failed to fetch published homepage reviews: ${error.message}`);
+      }
+
+      reviewRows = data;
+      selection = 'published';
+    }
+
+    return {
+      reviews: normalizeReviewRows(reviewRows),
+      summary,
+      selection,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[review.service] getHomepageReviews failed:', message);
+    throw new Error(`Failed to get homepage reviews: ${message}`);
   }
 }
 
@@ -326,12 +455,13 @@ export async function submitReview(data: SubmitReviewData): Promise<Review> {
   }
 }
 
-export async function getReviewById(id: string): Promise<Review | null> {
+export async function getReviewById(id: string, brandId: string): Promise<Review | null> {
   try {
     const { data, error } = await supabase
       .from('reviews')
       .select('*, review_media(*), review_replies(*), products(*)')
       .eq('id', id)
+      .eq('brand_id', brandId)
       .single();
 
     if (error && error.code === 'PGRST116') return null;
@@ -358,11 +488,13 @@ export async function getReviewById(id: string): Promise<Review | null> {
 
 const ALLOWED_UPDATE_FIELDS = new Set([
   'status', 'featured', 'rating', 'title', 'body', 'verified_purchase',
-  'incentivized', 'customer_nickname',
+  'incentivized', 'customer_name', 'customer_email', 'customer_nickname',
+  'variant_title', 'submitted_at',
 ]);
 
 export async function updateReview(
   id: string,
+  brandId: string,
   updates: Partial<Review>,
 ): Promise<Review> {
   try {
@@ -380,6 +512,9 @@ export async function updateReview(
     // Set published_at when status changes to published
     if (filtered.status === 'published') {
       filtered.published_at = new Date().toISOString();
+    } else if (typeof filtered.status === 'string') {
+      filtered.published_at = null;
+      filtered.featured = false;
     }
 
     filtered.updated_at = new Date().toISOString();
@@ -388,6 +523,7 @@ export async function updateReview(
       .from('reviews')
       .update(filtered)
       .eq('id', id)
+      .eq('brand_id', brandId)
       .select()
       .single();
 
@@ -400,12 +536,13 @@ export async function updateReview(
   }
 }
 
-export async function deleteReview(id: string): Promise<void> {
+export async function deleteReview(id: string, brandId: string): Promise<void> {
   try {
     const { error } = await supabase
       .from('reviews')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('brand_id', brandId);
 
     if (error) throw new Error(`Failed to delete review: ${error.message}`);
   } catch (err) {
@@ -418,6 +555,7 @@ export async function deleteReview(id: string): Promise<void> {
 export async function bulkAction(
   ids: string[],
   action: 'publish' | 'reject' | 'archive' | 'delete' | 'feature' | 'unfeature',
+  brandId: string,
 ): Promise<{ updated: number }> {
   try {
     if (ids.length === 0) return { updated: 0 };
@@ -426,7 +564,8 @@ export async function bulkAction(
       const { error, count } = await supabase
         .from('reviews')
         .delete()
-        .in('id', ids);
+        .in('id', ids)
+        .eq('brand_id', brandId);
 
       if (error) throw new Error(`Bulk delete failed: ${error.message}`);
       return { updated: count ?? ids.length };
@@ -441,9 +580,11 @@ export async function bulkAction(
         break;
       case 'reject':
         updatePayload.status = 'rejected';
+        updatePayload.featured = false;
         break;
       case 'archive':
         updatePayload.status = 'archived';
+        updatePayload.featured = false;
         break;
       case 'feature':
         updatePayload.featured = true;
@@ -456,7 +597,8 @@ export async function bulkAction(
     const { error, count } = await supabase
       .from('reviews')
       .update(updatePayload)
-      .in('id', ids);
+      .in('id', ids)
+      .eq('brand_id', brandId);
 
     if (error) throw new Error(`Bulk ${action} failed: ${error.message}`);
     return { updated: count ?? ids.length };

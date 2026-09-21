@@ -9,7 +9,7 @@ program — operated from one dashboard with per-brand theming and data separati
 
 ## Architecture
 
-- **Backend** — Node.js + Express + TypeScript. Orchestrates Claude AI conversations,
+- **Backend** — Node.js + Express + TypeScript. Orchestrates provider-neutral AI conversations,
   integrates with Shopify Admin API and Storefront MCP, stores data in Supabase. Multi-brand
   (Outlight, Warm by Design, Misu) with brand-scoped queries. Deployed on Railway.
 - **Admin (supportOS console)** — Next.js 15 / React 19, unified design-system tokens with
@@ -20,25 +20,110 @@ program — operated from one dashboard with per-brand theming and data separati
 ## Autopilot (AI action-recommendation inbox)
 
 Every incoming ticket for an enabled brand is analyzed automatically at email-sync time —
-no manual trigger. A planner pipeline on the backend (context gathering → Claude planner
+no manual trigger. A planner pipeline on the backend (context gathering → routed planner
 with a strict action schema → deterministic validators) proposes an **action plan**:
 close-as-non-support, a fully drafted reply grounded in the KB / locked support facts /
 the customer's live Shopify orders, order cancellation, refund, shipping-address change,
-priority/tags, or escalate-to-human. Every action carries a calibrated **confidence score**.
+priority/tags, or atomic consolidation of related same-customer tickets. Every action retains its raw model score and carries
+a reviewed-outcome-calibrated **confidence score**.
 
 Plans land in the **Autopilot** review queue in the console (`/autopilot`): read the AI's
 analysis, expand and edit the drafted reply, toggle individual actions, then **Approve &
-run** — execution happens server-side with live re-validation against Shopify (an order
-that got fulfilled since planning will refuse to cancel). Nothing ever runs without
+run** — execution happens server-side with live re-validation against Shopify. An order
+that Shopify reports fulfilled can still be submitted for cancellation, but with reduced
+confidence, no automatic restock, and no customer confirmation until Shopify's async job
+is complete and `cancelledAt` is visible. Nothing ever runs without
 approval. Dismissals, per-action results, and full audit events are recorded on the ticket.
 
-- Enabled brands: `AUTOPILOT_BRANDS` env on the backend (default `warm-by-design`).
+- Enabled brands: `AUTOPILOT_BRANDS` env on the backend (production: `warm-by-design,outlight,misu`; code default remains `warm-by-design`).
   Scaling to another brand is adding its slug.
 - Triggers: new email ticket, new contact-form ticket, customer reply (re-plans), plus a
   5-minute sweep as backstop. Non-support email gets a no-LLM fast-path close card.
-- Storage: `tickets.metadata.autopilot` (see docs/migrations/011 for the future table).
+- Storage: `tickets.metadata.autopilot` remains the compatibility projection; migration
+  012 dual-writes a normalized plan ledger, immutable episodes, scoped memories, evidence,
+  and memory attribution.
 - Safety: planner can only reference orders fetched from Shopify for that customer;
-  Shopify mutations are validated twice (at planning and again at execution).
+  Shopify evidence is hashed and revalidated, mutations are validated twice, ownership is
+  rechecked, approval uses an atomic plan claim, and durable per-action receipts prevent an
+  ambiguous crash from automatically repeating a side effect. Such runs stay in the queue
+  for provider reconciliation and same-attempt resume. Database-leased execution scopes
+  additionally prevent different plans/admins from acting concurrently on the same hashed
+  customer identity, Shopify order, primary ticket, or related ticket.
+- Customer continuity: every email draft receives the complete public history for the same
+  normalized customer across all tickets and chatbot conversations, including delivery-aware
+  response state. A database-produced history hash is checked at approval and immediately
+  before send, so a parallel thread or new message makes the draft stale.
+- Related-ticket execution: same identity only grants context. The planner must also supply
+  same-case evidence and confidence for every selected active ticket; the reviewer sees those
+  targets before one reply is sent, then the sources are atomically closed and linked without
+  moving or losing their histories.
+
+### Self-learning loop
+
+Every approval, inline edit, guided revision, skip, dismissal, AI-assisted manual reply,
+and execution outcome becomes an idempotent learning episode. Human-revised answers carry
+the highest source trust. The next relevant ticket can use the episode immediately; a
+leased background worker later consolidates repeated evidence into scoped, expiring,
+confidence-scored memories. Locked policies and live Shopify data always win.
+
+Ticket context uses a database-managed monotonic version, so a customer reply or meaningful
+ticket change invalidates an older draft before it can execute or teach the learner. Manual
+replies, plan decisions, review evidence, and terminal run outcomes use transactional database
+functions; manual and Autopilot sends retain stable logical/provider idempotency keys across
+lost responses. Answer-quality and technical-execution confidence are calibrated separately.
+Administrator-only confidence-range batch approval freezes exact plan fingerprints, suppresses
+same-customer/order collisions, and records a distinct audit signal that is excluded from
+answer-quality calibration and semantic-memory distillation instead of self-validating as human review.
+
+### DeepSeek V4.1 model routing and automatic support
+
+Routine classification, summarization, ticket linking, tagging, read-only work, and low-risk
+drafts use **DeepSeek V4.1 Flash with thinking disabled** (`deepseek/deepseek-v4.1-flash`). Cancellations, refunds, order
+modifications, policy uncertainty, conflicting messages, multiple related orders, guided
+revisions, and learning-memory consolidation use **DeepSeek V4 Pro with thinking enabled**.
+Flash is retried once on Pro when structured output is invalid, unsafe, incomplete, or below
+the planner's quality threshold.
+
+Production uses Vercel AI Gateway with `AI_GATEWAY_API_KEY`; native DeepSeek remains an
+optional DeepSeek-only access path when `DEEPSEEK_API_KEY` is present. There is deliberately
+no cross-model fallback: missing credentials, exhausted budget, or provider failure stops the
+generation instead of silently sending customer data to another model family. Gateway
+requests sort healthy DeepSeek V4 providers by token cost and opt out of prompt training.
+Optional per-request zero-data-retention can be enabled only after the Vercel team is
+eligible for it.
+
+Semantic lessons can transfer across models, but numerical confidence calibration cannot.
+Every generation records its exact provider, model, tier, thinking mode, prompt version,
+usage, latency, and cost lineage. Batch execution remains locked for a new model/prompt cohort
+until it has at least 25 positively weighted, individually reviewed plans; raw model scores
+and batch approvals cannot warm that gate.
+
+The SupportOS automatic queue has a separate policy: eligible new plans require
+independent verification of facts, completeness, policy, authorization, and ETA claims,
+then wait a durable random 15–30 minutes. Defaults are 90% for routine replies and 95%
+for confirmed order changes. Confidence is the weakest prerequisite, not an empirical
+accuracy percentage. Automatic decisions are excluded from human-review calibration.
+The first cancellation request offers a 30% refund while keeping delivery, or cancellation;
+only a later explicit customer choice permits an eligible order mutation. Manual takeover,
+new messages, changed order facts, and paused rules stop outdated execution.
+
+The new `/support` workspace combines incoming mail, scheduled actions, completed
+automation, manual replies, and decision/receipt history. Funnel and Trade admin modules
+are retired. See [SupportOS upgrade and rollout](docs/SUPPORTOS-UPGRADE-2026-09.md).
+
+See [the learning architecture](docs/AUTOPILOT-LEARNING-ARCHITECTURE.md) and apply
+[migration 012](docs/migrations/012-autopilot-learning-loop.sql), followed by
+[migration 013](docs/migrations/013-autopilot-customer-context.sql), then
+[migration 014](docs/migrations/014-manual-ticket-link.sql), and finally
+[migration 015](docs/migrations/015-autopilot-batch-learning.sql), followed by
+[migration 016](docs/migrations/016-autopilot-execution-scope-locks.sql), and then
+[migration 017](docs/migrations/017-ai-generation-runs.sql), before deploying this version.
+The tracked production path is `npm run db:migrate:dry-run` followed by `npm run db:migrate`.
+
+Cancellation deployment prerequisite: the Shopify app must be granted `write_orders`.
+The executor checks that scope before mutation. Admin GraphQL is pinned to `2026-07` and
+uses `OrderCancelRefundMethodInput.originalPaymentMethodsRefund`; cancellation remains
+pending until Shopify's asynchronous job and live order/refund evidence are verified.
 
 ## Ticketing (helpdesk v2)
 
@@ -56,7 +141,7 @@ agent workflows, SLA tracking, and a CSAT loop.
   `node scripts/restore-sent-replies-to-gmail.mjs` (idempotent).
 
 **AI**
-- Auto-triage on intake (Haiku): intent, sentiment, language, one-line summary, suggested
+- Auto-triage on intake (V4 Flash): intent, sentiment, language, one-line summary, suggested
   tags, suggested priority. Default-priority tickets the model flags urgent/high are
   escalated automatically (SLA recalculated). Shown as chips in the inbox + detail view.
 - Spam/promo classification at the door (only ≥0.95-confidence spam is dropped); reviewable
@@ -68,16 +153,19 @@ agent workflows, SLA tracking, and a CSAT loop.
 - Assignment (roster dropdown, "Assign to me", Mine view, per-agent filter, avatar chips)
 - Snooze with presets — snoozed tickets leave the queue and wake automatically (5-min
   sweeper) or instantly when the customer replies
-- Merge duplicate tickets from the same customer (messages move, source closes with audit)
+- Link duplicate tickets from the same verified customer (source closes with audit; original
+  messages remain on the source and future inbound replies follow the canonical ticket)
 - Saved views (filter combos as one-click chips), keyboard shortcuts (`?` for the cheatsheet:
   J/K navigate, R reply, N note, E resolve, A assign-to-me, S snooze)
 - Shopify sidebar: customer LTV/orders, expandable order detail, cancel order, issue refund
 - SLA: deadlines per priority, breach sweeper runs every 5 minutes, queue sorts by urgency
 
 **CSAT loop**
-- On resolve, the customer gets a one-click 1–5 rating email (HMAC-signed links →
-  `GET /api/csat` on the backend). Scores appear on tickets, in the inbox, and as an
-  average in the stats row. Disable per brand with `brands.settings.csat_enabled = false`.
+- On resolve, the customer gets a signed 1–5 rating email. A non-mutating landing page
+  requires confirmation before POST records the first score, preventing mail scanners and
+  replays from creating labels. The token binds the outcome to the exact plan/run or manual
+  draft/message that was resolved. Scores appear on tickets, in the inbox, and in aggregate
+  stats. Disable per brand with `brands.settings.csat_enabled = false`.
 
 **Security**
 - Inbound webhook fails closed without `EMAIL_WEBHOOK_SECRET` in production

@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import * as jose from 'jose';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'admin-secret-key-change-me';
+const rawJwtSecret = process.env.JWT_SECRET;
+if (!rawJwtSecret && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET must be configured in production');
+}
+const JWT_SECRET = rawJwtSecret || 'admin-secret-key-change-me';
 const secret = new TextEncoder().encode(JWT_SECRET);
 
 export interface AgentPayload {

@@ -2,9 +2,12 @@ import { Router } from 'express';
 import * as ticketService from '../services/ticket.service.js';
 import * as aiAssistant from '../services/ai-assistant.service.js';
 import * as customerProfileService from '../services/customer-profile.service.js';
-import { classifyTicketContent } from '../services/email-classifier.service.js';
+import {
+  classifyTicketContent,
+  EMAIL_CLASSIFIER_PROMPT_VERSION,
+} from '../services/email-classifier.service.js';
 import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
-import { reviseTicketPlan } from '../services/autopilot.service.js';
+import { refreshTicketPlan, reviseTicketPlan } from '../services/autopilot.service.js';
 
 export const ticketRouter = Router();
 
@@ -88,15 +91,15 @@ ticketRouter.post('/', async (req, res) => {
 // ── GET /:id — Get Ticket with Messages, Events, Customer Profile ──────────
 ticketRouter.get('/:id', async (req, res) => {
   try {
-    const ticket = await ticketService.getTicket(req.params.id);
-    if (!ticket || (req.agent?.brandId && ticket.brand_id !== req.agent.brandId)) {
+    const ticket = await ticketService.getTicket(req.params.id, req.agent?.brandId);
+    if (!ticket) {
       res.status(404).json({ error: 'Ticket not found' });
       return;
     }
 
     const [messages, events] = await Promise.all([
-      ticketService.getTicketMessages(ticket.id),
-      ticketService.getTicketEvents(ticket.id),
+      ticketService.getTicketMessages(ticket.id, req.agent?.brandId),
+      ticketService.getTicketEvents(ticket.id, req.agent?.brandId),
     ]);
 
     let customerProfile = null;
@@ -119,7 +122,20 @@ ticketRouter.get('/:id', async (req, res) => {
 // ── PATCH /:id — Update Ticket ──────────────────────────────────────────────
 ticketRouter.patch('/:id', async (req, res) => {
   try {
-    const { status, priority, category, assigned_to, tags, subject, metadata } = req.body;
+    const { status, priority, category, assigned_to, tags, subject } = req.body;
+
+    if (status !== undefined && !['open', 'pending', 'resolved', 'closed'].includes(status)) {
+      res.status(400).json({ error: 'Invalid status' });
+      return;
+    }
+    if (priority !== undefined && !['low', 'medium', 'high', 'urgent'].includes(priority)) {
+      res.status(400).json({ error: 'Invalid priority' });
+      return;
+    }
+    if (tags !== undefined && (!Array.isArray(tags) || tags.some((tag) => typeof tag !== 'string'))) {
+      res.status(400).json({ error: 'tags must be an array of strings' });
+      return;
+    }
 
     const updates: Record<string, unknown> = {};
     if (status !== undefined) updates.status = status;
@@ -128,7 +144,6 @@ ticketRouter.patch('/:id', async (req, res) => {
     if (assigned_to !== undefined) updates.assigned_to = assigned_to;
     if (tags !== undefined) updates.tags = tags;
     if (subject !== undefined) updates.subject = subject;
-    if (metadata !== undefined) updates.metadata = metadata;
 
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: 'No valid fields to update' });
@@ -138,7 +153,8 @@ ticketRouter.patch('/:id', async (req, res) => {
     const ticket = await ticketService.updateTicket(
       req.params.id,
       updates as Parameters<typeof ticketService.updateTicket>[1],
-      req.agent?.id
+      req.agent?.id,
+      req.agent?.brandId,
     );
 
     res.json(ticket);
@@ -156,7 +172,7 @@ ticketRouter.patch('/:id', async (req, res) => {
 // ── GET /:id/messages — Get Ticket Messages ─────────────────────────────────
 ticketRouter.get('/:id/messages', async (req, res) => {
   try {
-    const messages = await ticketService.getTicketMessages(req.params.id);
+    const messages = await ticketService.getTicketMessages(req.params.id, req.agent?.brandId);
     res.json(messages);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -168,7 +184,7 @@ ticketRouter.get('/:id/messages', async (req, res) => {
 // ── POST /:id/messages — Add Ticket Message ─────────────────────────────────
 ticketRouter.post('/:id/messages', async (req, res) => {
   try {
-    const { sender_type, content, content_html, is_internal_note, attachments, ai_generated } = req.body;
+    const { content, content_html, is_internal_note, attachments, ai_generated } = req.body;
 
     if (!content) {
       res.status(400).json({ error: 'content is required' });
@@ -176,15 +192,15 @@ ticketRouter.post('/:id/messages', async (req, res) => {
     }
 
     const ticketMessage = await ticketService.addTicketMessage(req.params.id, {
-      sender_type: sender_type ?? 'agent',
+      sender_type: is_internal_note ? 'system' : 'agent',
       sender_name: req.agent?.name,
       sender_email: req.agent?.email,
       content,
       content_html,
       is_internal_note: is_internal_note ?? false,
       attachments,
-      ai_generated: ai_generated ?? false,
-    });
+      ai_generated: ai_generated === true,
+    }, req.agent?.brandId);
 
     res.status(201).json(ticketMessage);
   } catch (err) {
@@ -197,7 +213,7 @@ ticketRouter.post('/:id/messages', async (req, res) => {
 // ── GET /:id/events — Get Ticket Events (Audit Log) ────────────────────────
 ticketRouter.get('/:id/events', async (req, res) => {
   try {
-    const events = await ticketService.getTicketEvents(req.params.id);
+    const events = await ticketService.getTicketEvents(req.params.id, req.agent?.brandId);
     res.json(events);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -209,8 +225,8 @@ ticketRouter.get('/:id/events', async (req, res) => {
 // ── GET /:id/customer — Shopify Customer Profile + Orders ────────────────
 ticketRouter.get('/:id/customer', async (req, res) => {
   try {
-    const ticket = await ticketService.getTicket(req.params.id);
-    if (!ticket || (req.agent?.brandId && ticket.brand_id !== req.agent.brandId)) {
+    const ticket = await ticketService.getTicket(req.params.id, req.agent?.brandId);
+    if (!ticket) {
       res.status(404).json({ error: 'Ticket not found' });
       return;
     }
@@ -241,7 +257,15 @@ ticketRouter.post('/:id/autopilot/revise', async (req, res) => {
       res.status(400).json({ error: 'instruction is required' });
       return;
     }
-    const plan = await reviseTicketPlan(req.params.id, instruction);
+    const plan = await reviseTicketPlan(req.params.id, instruction, {
+      brandId: req.agent?.brandId,
+      actorId: req.agent?.id,
+      actorName: req.agent?.name,
+      expectedPlanId: typeof req.body?.plan_id === 'string' ? req.body.plan_id : undefined,
+      expectedRevision: Number.isFinite(Number(req.body?.plan_revision)) ? Number(req.body.plan_revision) : undefined,
+      contextFingerprint: typeof req.body?.context_fingerprint === 'string' ? req.body.context_fingerprint : undefined,
+      contextVersion: Number.isInteger(req.body?.context_version) ? Number(req.body.context_version) : undefined,
+    });
     if (!plan) {
       res.status(409).json({ error: 'No pending Autopilot plan to revise on this ticket' });
       return;
@@ -255,6 +279,54 @@ ticketRouter.post('/:id/autopilot/revise', async (req, res) => {
 });
 
 // ── POST /:id/ai/draft — AI Draft Reply ────────────────────────────────────
+// Replace a stale proposal without attributing the refresh to a human edit.
+ticketRouter.post('/:id/autopilot/refresh', async (req, res) => {
+  try {
+    const result = await refreshTicketPlan(req.params.id, {
+      brandId: req.agent?.brandId,
+      expected: {
+        planId: typeof req.body?.plan_id === 'string' ? req.body.plan_id : undefined,
+        revision: Number.isInteger(req.body?.plan_revision)
+          ? Number(req.body.plan_revision)
+          : undefined,
+        contextFingerprint: typeof req.body?.context_fingerprint === 'string'
+          ? req.body.context_fingerprint
+          : undefined,
+        contextVersion: Number.isInteger(req.body?.context_version)
+          ? Number(req.body.context_version)
+          : undefined,
+      },
+      reason: typeof req.body?.reason === 'string' ? req.body.reason : undefined,
+    });
+
+    if (!result.plan) {
+      const status = result.reason === 'not_found'
+        ? 404
+        : result.reason === 'generation_failed'
+          ? 502
+          : 409;
+      res.status(status).json({
+        code: 'AUTOPILOT_REFRESH_FAILED',
+        error: result.reason === 'context_kept_changing'
+          ? 'Customer context kept changing while Autopilot rebuilt the plan. Try again shortly.'
+          : 'Autopilot could not replace this proposal.',
+        refresh_reason: result.reason,
+      });
+      return;
+    }
+
+    res.json({
+      plan: result.plan,
+      refreshed: result.refreshed,
+      refresh_reason: result.reason,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[ticket.controller] POST /:id/autopilot/refresh error:', message);
+    res.status(500).json({ error: 'Failed to refresh Autopilot plan' });
+  }
+});
+
 ticketRouter.post('/:id/ai/draft', async (req, res) => {
   try {
     const draft = await aiAssistant.draftReply(req.params.id, req.agent?.brandId);
@@ -269,7 +341,7 @@ ticketRouter.post('/:id/ai/draft', async (req, res) => {
 // ── POST /:id/ai/summarize — AI Summarize Thread ───────────────────────────
 ticketRouter.post('/:id/ai/summarize', async (req, res) => {
   try {
-    const summary = await aiAssistant.summarizeThread(req.params.id);
+    const summary = await aiAssistant.summarizeThread(req.params.id, req.agent?.brandId);
     res.json({ summary });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -361,7 +433,10 @@ ticketRouter.post('/ai/classify-unclassified', async (req, res) => {
 
       // Update ticket with classification
       await ticketService.updateTicket(ticket.id, {
-        category: result.classification === 'customer_support' ? (ticket.category || 'customer_support') : result.classification,
+        // Classification values (promotional, automated, transactional, ...)
+        // are not valid ticket-category values. Preserve an existing support
+        // topic, or use the schema-safe catch-all.
+        category: ticket.category || 'other',
       } as Parameters<typeof ticketService.updateTicket>[1]);
 
       // Update classification fields directly
@@ -370,6 +445,15 @@ ticketRouter.post('/ai/classify-unclassified', async (req, res) => {
         .update({
           classification: result.classification,
           classification_confidence: result.confidence,
+          metadata: {
+            ...((ticket.metadata as Record<string, unknown> | null) ?? {}),
+            ...(result.generation ? {
+              classification_generation: {
+                ...result.generation,
+                prompt_version: EMAIL_CLASSIFIER_PROMPT_VERSION,
+              },
+            } : {}),
+          },
           updated_at: new Date().toISOString(),
         })
         .eq('id', ticket.id);
@@ -423,6 +507,15 @@ ticketRouter.post('/ai/auto-close-non-support', async (req, res) => {
         .update({
           classification: result.classification,
           classification_confidence: result.confidence,
+          metadata: {
+            ...((ticket.metadata as Record<string, unknown> | null) ?? {}),
+            ...(result.generation ? {
+              classification_generation: {
+                ...result.generation,
+                prompt_version: EMAIL_CLASSIFIER_PROMPT_VERSION,
+              },
+            } : {}),
+          },
           updated_at: new Date().toISOString(),
         })
         .eq('id', ticket.id);

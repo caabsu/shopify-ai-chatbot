@@ -1,0 +1,70 @@
+{% comment %}
+  Warm by Design live homepage reviews.
+  Reviews marked "Show on homepage" in supportOS are displayed automatically.
+  If none have been curated yet, the latest published Warm reviews are used.
+{% endcomment %}
+
+<section
+  data-wbd-home-reviews
+  data-heading="{{ section.settings.heading | escape }}"
+  data-eyebrow="{{ section.settings.eyebrow | escape }}"
+  data-limit="{{ section.settings.max_reviews }}"
+  data-refresh-seconds="{{ section.settings.refresh_seconds }}"
+  {% if section.settings.reviews_url != blank %}data-reviews-url="{{ section.settings.reviews_url }}"{% endif %}>
+</section>
+
+<script
+  src="https://shopify-ai-chatbot-production-9ab4.up.railway.app/widget/warm/reviews.js?v=2"
+  defer>
+</script>
+
+{% schema %}
+{
+  "name": "Warm live reviews",
+  "tag": "section",
+  "class": "section-warm-live-reviews",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "From the community"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Warmth, lived in"
+    },
+    {
+      "type": "url",
+      "id": "reviews_url",
+      "label": "All reviews page"
+    },
+    {
+      "type": "range",
+      "id": "max_reviews",
+      "label": "Maximum reviews",
+      "min": 3,
+      "max": 16,
+      "step": 1,
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "refresh_seconds",
+      "label": "Live refresh interval",
+      "min": 0,
+      "max": 300,
+      "step": 15,
+      "unit": "s",
+      "default": 60
+    }
+  ],
+  "presets": [
+    {
+      "name": "Warm live reviews"
+    }
+  ]
+}
+{% endschema %}

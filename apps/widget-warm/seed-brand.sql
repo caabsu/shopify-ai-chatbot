@@ -30,7 +30,11 @@ VALUES (
       "reviews": "/widget/review-widget.js",
       "tracking": "/widget/tracking-widget.js"
     },
-    "theme": "dark"
+    "theme": "dark",
+    "support_email": "support@warmbydesign.com",
+    "inbound_email": "support@warmbydesign.com",
+    "email_from_address": "Warm by Design <support@warmbydesign.com>",
+    "support_from_address": "Warm by Design <support@warmbydesign.com>"
   }'::jsonb
 )
 ON CONFLICT (slug) DO UPDATE SET

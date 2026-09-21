@@ -67,19 +67,25 @@ const COLOR_PRESETS = [
   { label: 'Slate', value: '#475569' },
 ];
 
-const PRODUCT_PAGE_SNIPPET = `<!-- Full-Bleed Carousel Widget by Outlight -->
-<div id="outlight-fullbleed-carousel"
+const PRODUCT_PAGE_SNIPPET = `<!-- Live Full-Bleed Review Carousel -->
+<div id="outlight-v20-carousel"
   data-product-handle="{{ product.handle }}"
-  data-shop="put1rp-iq">
+  data-brand="__BRAND_SLUG__"
+  data-heading="{{ product.title }}"
+  data-max-cards="12">
 </div>
-<script src="https://your-backend-url/widget/full-bleed-carousel.js" defer></script>`;
+<script src="https://shopify-ai-chatbot-production-9ab4.up.railway.app/widget/v20-carousel.js"
+  data-brand="__BRAND_SLUG__" defer></script>`;
 
-const ALL_REVIEWS_SNIPPET = `<!-- Full-Bleed Carousel Widget — All Reviews Page -->
-<div id="outlight-fullbleed-carousel"
-  data-show-all="true"
-  data-shop="put1rp-iq">
+const ALL_REVIEWS_SNIPPET = `<!-- Live Homepage Review Carousel -->
+<div id="outlight-v20-carousel"
+  data-brand="__BRAND_SLUG__"
+  data-heading="Loved in homes like yours"
+  data-max-cards="12"
+  data-refresh-seconds="60">
 </div>
-<script src="https://your-backend-url/widget/full-bleed-carousel.js" defer></script>`;
+<script src="https://shopify-ai-chatbot-production-9ab4.up.railway.app/widget/v20-carousel.js"
+  data-brand="__BRAND_SLUG__" defer></script>`;
 
 /* ------------------------------------------------------------------ */
 /*  Mock preview data                                                  */
@@ -314,6 +320,8 @@ export default function FullBleedCarouselDesignPage() {
   const [copiedAll, setCopiedAll] = useState(false);
 
   const { brandSlug } = useBrand();
+  const productPageSnippet = PRODUCT_PAGE_SNIPPET.replace(/__BRAND_SLUG__/g, brandSlug || 'outlight');
+  const homepageSnippet = ALL_REVIEWS_SNIPPET.replace(/__BRAND_SLUG__/g, brandSlug || 'outlight');
 
   useEffect(() => {
     fetch('/api/reviews/design?widget=full-bleed-carousel')
@@ -766,7 +774,7 @@ export default function FullBleedCarouselDesignPage() {
                         Product Page
                       </label>
                       <button
-                        onClick={() => copyToClipboard(PRODUCT_PAGE_SNIPPET, 'product')}
+                        onClick={() => copyToClipboard(productPageSnippet, 'product')}
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors"
                         style={{
                           border: '1px solid var(--border-primary)',
@@ -792,7 +800,7 @@ export default function FullBleedCarouselDesignPage() {
                       }}
                     >
                       <pre className="text-xs leading-relaxed" style={{ color: '#cdd6f4' }}>
-                        <code>{PRODUCT_PAGE_SNIPPET}</code>
+                        <code>{productPageSnippet}</code>
                       </pre>
                     </div>
                   </div>
@@ -804,10 +812,10 @@ export default function FullBleedCarouselDesignPage() {
                         className="text-xs font-medium"
                         style={{ color: 'var(--text-secondary)' }}
                       >
-                        All Reviews Page
+                        Homepage
                       </label>
                       <button
-                        onClick={() => copyToClipboard(ALL_REVIEWS_SNIPPET, 'all')}
+                        onClick={() => copyToClipboard(homepageSnippet, 'all')}
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors"
                         style={{
                           border: '1px solid var(--border-primary)',
@@ -833,7 +841,7 @@ export default function FullBleedCarouselDesignPage() {
                       }}
                     >
                       <pre className="text-xs leading-relaxed" style={{ color: '#cdd6f4' }}>
-                        <code>{ALL_REVIEWS_SNIPPET}</code>
+                        <code>{homepageSnippet}</code>
                       </pre>
                     </div>
                   </div>

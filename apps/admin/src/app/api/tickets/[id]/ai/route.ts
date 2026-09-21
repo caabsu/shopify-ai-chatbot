@@ -1,13 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { getCustomerByEmail, getCustomerOrders } from '@/lib/shopify';
 import type { CustomerProfile, OrderSummary } from '@/lib/shopify';
 import { loadSupportContext } from '@/lib/support-context';
+import { loadReviewedLearningContext, type ReviewedLearningContext } from '@/lib/autopilot-learning';
+import {
+  SHOPIFY_SUPPORT_EVIDENCE_PROJECTION,
+  shopifySupportEvidenceHash,
+} from '@/lib/autopilot-evidence';
+import {
+  callAdminSupportTool,
+  ticketSupportModelTier,
+  type SupportToolDefinition,
+} from '@/lib/support-model';
 
-const anthropic = new Anthropic();
-const AI_MODEL = 'claude-sonnet-4-6';
+const AI_PROMPT_VERSION = 'ticket-draft-2026-07-deepseek-v1';
+
+const DRAFT_TOOL: SupportToolDefinition = {
+  name: 'draft_ticket_reply',
+  description: 'Return the grounded plain-text customer reply plus an honest self-assessment.',
+  inputSchema: {
+    type: 'object',
+    required: ['email_body', 'confidence', 'evidence_coverage', 'uncertainties'],
+    properties: {
+      email_body: { type: 'string', description: 'The complete plain-text email body.' },
+      confidence: { type: 'number', minimum: 0, maximum: 1, description: 'Confidence that the reply is correct and appropriate.' },
+      evidence_coverage: { type: 'number', minimum: 0, maximum: 1, description: 'Fraction of material claims grounded in supplied live or knowledge-base evidence.' },
+      uncertainties: {
+        type: 'array',
+        items: { type: 'string' },
+        maxItems: 5,
+        description: 'Material facts that remain unknown. Empty when none remain.',
+      },
+    },
+  },
+};
+
+const TEXT_TOOL: SupportToolDefinition = {
+  name: 'write_support_text',
+  description: 'Return the requested support text.',
+  inputSchema: {
+    type: 'object',
+    required: ['text'],
+    properties: { text: { type: 'string' } },
+  },
+};
+
+const STEPS_TOOL: SupportToolDefinition = {
+  name: 'suggest_support_steps',
+  description: 'Return actionable next steps for the support agent.',
+  inputSchema: {
+    type: 'object',
+    required: ['steps'],
+    properties: {
+      steps: { type: 'array', minItems: 1, maxItems: 5, items: { type: 'string' } },
+    },
+  },
+};
+
+function clamp01(value: unknown, fallback = 0.5): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : fallback;
+}
+
+function learningTopics(value: string): string[] {
+  return [...new Set(value.toLowerCase().match(/[a-z0-9][a-z0-9-]{2,}/g) ?? [])].slice(0, 16);
+}
 
 function buildOrderContext(orders: OrderSummary[]): string {
   if (orders.length === 0) return 'No orders found for this customer.';
@@ -181,19 +240,35 @@ export async function POST(
   // Fetch Shopify customer data + orders
   let customerProfile: CustomerProfile | null = null;
   let customerOrders: OrderSummary[] = [];
+  let shopifyProfileVerified = false;
+  let shopifyOrdersVerified = false;
+  let shopifyEvidenceFetchedAt: Date | null = null;
 
   if (ticket.customer_email) {
     try {
       [customerProfile, customerOrders] = await Promise.all([
-        getCustomerByEmail(ticket.customer_email, session.brandSlug).catch((e) => {
-          console.error('[tickets/ai] customer lookup failed:', e instanceof Error ? e.message : e);
-          return null;
-        }),
-        getCustomerOrders(ticket.customer_email, 5, session.brandSlug).catch((e) => {
-          console.error('[tickets/ai] orders lookup failed:', e instanceof Error ? e.message : e);
-          return [];
-        }),
+        getCustomerByEmail(ticket.customer_email, session.brandSlug)
+          .then((profile) => {
+            shopifyProfileVerified = true;
+            return profile;
+          })
+          .catch((e) => {
+            console.error('[tickets/ai] customer lookup failed:', e instanceof Error ? e.message : e);
+            return null;
+          }),
+        getCustomerOrders(ticket.customer_email, 5, session.brandSlug)
+          .then((orders) => {
+            shopifyOrdersVerified = true;
+            return orders;
+          })
+          .catch((e) => {
+            console.error('[tickets/ai] orders lookup failed:', e instanceof Error ? e.message : e);
+            return [];
+          }),
       ]);
+      if (shopifyProfileVerified && shopifyOrdersVerified) {
+        shopifyEvidenceFetchedAt = new Date();
+      }
     } catch {
       // continue without Shopify data
     }
@@ -213,17 +288,35 @@ export async function POST(
     customerOrders.flatMap((order) => order.lineItems.map((item) => item.title)).join(' '),
   ].filter(Boolean).join('\n\n');
   const supportContext = await loadSupportContext(session.brandId, productAndPolicyQuery).catch(() => '');
+  const triage = (ticket.metadata?.ai_triage ?? {}) as Record<string, unknown>;
+  const reviewedLearning = await loadReviewedLearningContext({
+    brandId: session.brandId,
+    ticketId: id,
+    query: productAndPolicyQuery,
+    intent: typeof triage.intent === 'string' ? triage.intent : undefined,
+    category: ticket.category,
+    language: typeof triage.language === 'string' ? triage.language : undefined,
+    actionTypes: ['send_reply'],
+  }).catch(() => ({ prompt: '', memory_ids: [], episode_ids: [] }));
+  const learnedSupportContext = [supportContext, reviewedLearning.prompt].filter(Boolean).join('\n\n---\n\n');
+
+  const shopifyEvidenceVerified = shopifyProfileVerified && shopifyOrdersVerified;
+  if (action === 'draft' && ticket.customer_email && !shopifyEvidenceVerified) {
+    return NextResponse.json({
+      error: 'Live Shopify customer and order evidence is unavailable. Retry once Shopify can be verified.',
+    }, { status: 503 });
+  }
 
   try {
     if (action === 'draft') {
-      return await handleDraft(ticket, fullConversation, customerContext, orderContext, customerProfile, kbContent, supportContext, agentContext, {
+      return await handleDraft(ticket, fullConversation, customerContext, orderContext, customerProfile, customerOrders, shopifyEvidenceVerified, shopifyEvidenceFetchedAt, kbContent, learnedSupportContext, agentContext, {
         brandName: session.brandName,
         supportEmail,
-      });
+      }, reviewedLearning, session.userId);
     } else if (action === 'summarize') {
       return await handleSummarize(ticket, fullConversation, customerContext, orderContext, supportContext);
     } else {
-      return await handleSuggest(ticket, fullConversation, customerContext, orderContext, kbContent, supportContext, session.brandName);
+      return await handleSuggest(ticket, fullConversation, customerContext, orderContext, kbContent, learnedSupportContext, session.brandName);
     }
   } catch (err) {
     console.error(`[tickets/ai] ${action} error:`, err instanceof Error ? err.message : err);
@@ -237,10 +330,15 @@ async function handleDraft(
   customerContext: string,
   orderContext: string,
   customerProfile: CustomerProfile | null,
+  customerOrders: OrderSummary[],
+  shopifyEvidenceVerified: boolean,
+  shopifyEvidenceFetchedAt: Date | null,
   kbContent: string,
   supportContext: string,
   agentContext: string = '',
-  brandContext: { brandName: string; supportEmail: string }
+  brandContext: { brandName: string; supportEmail: string },
+  learning: ReviewedLearningContext,
+  actorId?: string,
 ) {
   const customerFirstName = customerProfile?.firstName
     || (ticket.customer_name as string)?.split(' ')[0]
@@ -280,7 +378,8 @@ FORMAT:
 Best Regards,
 ${brandContext.brandName} Customer Support Team
 
-Output ONLY the email body. No meta-commentary, no subject line, no explanations.
+Call the draft_ticket_reply tool. Put only the complete email body in email_body;
+report confidence and evidence coverage separately and list any material uncertainty.
 
 ${customerContext}
 
@@ -289,26 +388,112 @@ ${orderContext}
 ${kbContent}
 ${supportContext}`;
 
-  const response = await anthropic.messages.create({
-    model: AI_MODEL,
-    max_tokens: 1024,
+  const triage = ((ticket.metadata as Record<string, unknown> | null)?.ai_triage ?? {}) as Record<string, unknown>;
+  const draftTier = ticketSupportModelTier(
+    `${String(ticket.subject ?? '')}\n${conversationText}\n${agentContext}`,
+    typeof triage.intent === 'string' ? triage.intent : undefined,
+  );
+  const response = await callAdminSupportTool<{
+    email_body?: unknown;
+    confidence?: unknown;
+    evidence_coverage?: unknown;
+    uncertainties?: unknown;
+  }>({
+    tier: draftTier,
+    maxTokens: draftTier === 'pro' ? 2_048 : 1_024,
     temperature: 0.6,
     system: systemPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\nFull conversation history:\n${conversationText}\n\nWrite a reply to the customer.`,
-      },
-    ],
+    user: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\nFull conversation history:\n${conversationText}\n\nWrite a reply to the customer.`,
+    tool: DRAFT_TOOL,
   });
+  const draft = response.value;
+  const text = plainifyEmailDraft(String(draft.email_body ?? '')).trim();
+  if (!text) throw new Error('Draft model returned an empty email');
+  const rawConfidence = clamp01(draft.confidence);
+  const evidenceCoverage = clamp01(draft.evidence_coverage);
+  const uncertainties = Array.isArray(draft.uncertainties)
+    ? draft.uncertainties.filter((item): item is string => typeof item === 'string').map((item) => item.slice(0, 240)).slice(0, 5)
+    : [];
+  const generationId = crypto.randomUUID();
+  const scope = Object.fromEntries(Object.entries({
+    intent: typeof triage.intent === 'string' ? triage.intent : undefined,
+    category: typeof ticket.category === 'string' ? ticket.category : undefined,
+    language: typeof triage.language === 'string' ? triage.language : undefined,
+    action_types: ['send_reply'],
+    topics: learningTopics([
+      String(ticket.subject ?? ''),
+      Array.isArray(ticket.tags) ? ticket.tags.join(' ') : '',
+      customerOrders.flatMap((order) => order.lineItems.map((item) => item.title)).join(' '),
+    ].join(' ')),
+  }).filter(([, value]) => value));
 
-  const raw = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
-  const text = plainifyEmailDraft(raw);
+  // The LLM call can take several seconds. Do not hand the client a draft
+  // whose ticket/messages changed while it was being written; generation
+  // lineage is only useful when it is tied to the exact input snapshot.
+  const { data: currentTicket, error: currentTicketError } = await supabase
+    .from('tickets')
+    .select('context_version')
+    .eq('id', ticket.id)
+    .eq('brand_id', ticket.brand_id)
+    .single();
+  if (currentTicketError || !currentTicket
+      || Number(currentTicket.context_version ?? 0) !== Number(ticket.context_version ?? 0)) {
+    return NextResponse.json({
+      error: 'This ticket changed while the draft was being generated. Generate a fresh draft before sending.',
+    }, { status: 409 });
+  }
 
-  return NextResponse.json({ content: text, text });
+  const { error: generationError } = await supabase.from('autopilot_draft_generations').insert({
+    id: generationId,
+    brand_id: ticket.brand_id,
+    ticket_id: ticket.id,
+    created_by: actorId || null,
+    model: `${response.generation.provider}:${response.generation.model}:${response.generation.tier}`,
+    prompt_version: AI_PROMPT_VERSION,
+    original_text: text,
+    scope,
+    memory_ids: learning.memory_ids,
+    episode_ids: learning.episode_ids,
+    raw_confidence: rawConfidence,
+    evidence_coverage: evidenceCoverage,
+    uncertainties,
+    context_version: Number(ticket.context_version ?? 0),
+    evidence: shopifyEvidenceVerified && shopifyEvidenceFetchedAt ? {
+      shopify_orders: {
+        hash: shopifySupportEvidenceHash(customerProfile, customerOrders),
+        fetched_at: shopifyEvidenceFetchedAt.toISOString(),
+        valid_until: new Date(shopifyEvidenceFetchedAt.getTime() + 15 * 60_000).toISOString(),
+        order_count: customerOrders.length,
+        projection_version: SHOPIFY_SUPPORT_EVIDENCE_PROJECTION,
+        customer_present: customerProfile !== null,
+      },
+    } : {},
+  });
+  if (generationError) {
+    console.error('[tickets/ai] draft provenance write failed:', generationError.message);
+    return NextResponse.json({
+      error: 'The AI draft could not be saved with durable provenance, so no draft was issued. Retry generation.',
+    }, { status: 503 });
+  }
+
+  return NextResponse.json({
+    content: text,
+    text,
+    generation_id: generationId,
+    context_version: Number(ticket.context_version ?? 0),
+    learning_capture_available: true,
+    model: response.generation.model,
+    model_provider: response.generation.provider,
+    model_tier: response.generation.tier,
+    prompt_version: AI_PROMPT_VERSION,
+    confidence: rawConfidence,
+    evidence_coverage: evidenceCoverage,
+    uncertainties,
+    learning: {
+      memory_ids: learning.memory_ids,
+      episode_ids: learning.episode_ids,
+    },
+  });
 }
 
 async function handleSummarize(
@@ -336,25 +521,23 @@ ORDERS:
 ${orderContext}
 ${supportContext}`;
 
-  const response = await anthropic.messages.create({
-    model: AI_MODEL,
-    max_tokens: 300,
+  const response = await callAdminSupportTool<{ text?: unknown }>({
+    tier: 'flash',
+    maxTokens: 300,
     temperature: 0.3,
     system: systemPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority, source: ${ticket.source})\n\n${conversationText}`,
-      },
-    ],
+    user: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority, source: ${ticket.source})\n\n${conversationText}`,
+    tool: TEXT_TOOL,
   });
+  const text = typeof response.value.text === 'string' ? response.value.text : '';
 
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
-
-  return NextResponse.json({ content: text, text });
+  return NextResponse.json({
+    content: text,
+    text,
+    model: response.generation.model,
+    model_provider: response.generation.provider,
+    model_tier: response.generation.tier,
+  });
 }
 
 async function handleSuggest(
@@ -376,8 +559,7 @@ IMPORTANT CONSTRAINTS — only suggest things we can actually do:
 - Steps should be concrete actions the agent can take RIGHT NOW from the admin dashboard or via email reply.
 - Use ${brandName} context only. Never mention another brand's support inbox, policies, or tracking links.
 
-Respond with ONLY a JSON array of strings. No other text.
-Example: ["Reply to customer apologizing for the issue and ask for photos of what arrived", "Check if order #1234 tracking shows delivered", "Offer 10% store credit for the inconvenience"]
+Return 3-5 concrete steps through the required tool.
 
 ${customerContext}
 
@@ -386,33 +568,28 @@ ${orderContext}
 ${kbContent}
 ${supportContext}`;
 
-  const response = await anthropic.messages.create({
-    model: AI_MODEL,
-    max_tokens: 512,
+  const triage = ((ticket.metadata as Record<string, unknown> | null)?.ai_triage ?? {}) as Record<string, unknown>;
+  const tier = ticketSupportModelTier(
+    `${String(ticket.subject ?? '')}\n${conversationText}`,
+    typeof triage.intent === 'string' ? triage.intent : undefined,
+  );
+  const response = await callAdminSupportTool<{ steps?: unknown }>({
+    tier,
+    maxTokens: tier === 'pro' ? 1_024 : 512,
     temperature: 0.5,
     system: systemPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority, source: ${ticket.source})\n\n${conversationText}`,
-      },
-    ],
+    user: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority, source: ${ticket.source})\n\n${conversationText}`,
+    tool: STEPS_TOOL,
   });
-
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
-
-  try {
-    const steps = JSON.parse(text) as string[];
-    if (Array.isArray(steps)) {
-      return NextResponse.json({ content: steps.join('\n'), text: steps.join('\n'), steps });
-    }
-  } catch {
-    // Not valid JSON — split by newlines
-  }
-
-  const lines = text.split('\n').filter((l) => l.trim()).map((l) => l.replace(/^\d+\.\s*/, '').trim());
-  return NextResponse.json({ content: lines.join('\n'), text: lines.join('\n'), steps: lines });
+  const steps = Array.isArray(response.value.steps)
+    ? response.value.steps.filter((step): step is string => typeof step === 'string').slice(0, 5)
+    : [];
+  return NextResponse.json({
+    content: steps.join('\n'),
+    text: steps.join('\n'),
+    steps,
+    model: response.generation.model,
+    model_provider: response.generation.provider,
+    model_tier: response.generation.tier,
+  });
 }

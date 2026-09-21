@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'ids array is required' }, { status: 400 });
   }
 
-  const validActions = ['publish', 'reject', 'archive', 'delete'];
+  const validActions = ['publish', 'reject', 'archive', 'delete', 'feature', 'unfeature'];
   if (!action || !validActions.includes(action)) {
     return NextResponse.json({ error: `action must be one of: ${validActions.join(', ')}` }, { status: 400 });
   }
@@ -40,17 +40,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ updated: ids.length, action });
   }
 
-  // Map action to status
+  // Map moderation actions to status. Placement actions update the homepage
+  // selection without altering review content.
   const statusMap: Record<string, string> = {
     publish: 'published',
     reject: 'rejected',
     archive: 'archived',
   };
 
-  const updates: Record<string, unknown> = {
-    status: statusMap[action],
-    updated_at: new Date().toISOString(),
-  };
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  if (action === 'feature' || action === 'unfeature') {
+    updates.featured = action === 'feature';
+  } else {
+    updates.status = statusMap[action];
+    if (action === 'reject' || action === 'archive') {
+      updates.featured = false;
+    }
+  }
 
   if (action === 'publish') {
     updates.published_at = new Date().toISOString();
@@ -59,12 +66,18 @@ export async function POST(req: NextRequest) {
   let totalUpdated = 0;
   for (let i = 0; i < ids.length; i += 200) {
     const batch = ids.slice(i, i + 200);
-    const { data, error } = await supabase
+    let query = supabase
       .from('reviews')
       .update(updates)
       .in('id', batch)
-      .eq('brand_id', session.brandId)
-      .select('id');
+      .eq('brand_id', session.brandId);
+
+    // Pending/rejected/archived reviews must never be exposed on a homepage.
+    if (action === 'feature') {
+      query = query.eq('status', 'published');
+    }
+
+    const { data, error } = await query.select('id');
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

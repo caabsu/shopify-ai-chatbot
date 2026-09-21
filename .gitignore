@@ -33,3 +33,11 @@ coverage/
 .vercel/
 out/
 .vercel
+
+# Local operator data and recovery outputs
+output/
+.private/
+*.tsbuildinfo
+.env.production
+.env.preview
+supabase/.temp/

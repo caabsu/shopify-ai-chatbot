@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./supportos.css";
 
 /* ============================================================================
    supportOS DESIGN SYSTEM — "Clean Professional" (design direction C4)
@@ -11,11 +12,11 @@
   /* ── Brand & accent (re-themeable per brand) ── */
   --color-primary: #18181b;
   --color-primary-foreground: #ffffff;
-  --color-accent: #b07f33;
-  --color-accent-strong: #946a29;
-  --color-accent-light: #cda85e;
+  --color-accent: #24735d;
+  --color-accent-strong: #17533f;
+  --color-accent-light: #76aa91;
   --color-accent-foreground: #ffffff;
-  --color-accent-subtle: #f7f1e6;
+  --color-accent-subtle: #eef5ef;
 
   /* ── Semantic feedback (muted, professional) ── */
   --color-success: #067a52;
@@ -39,7 +40,7 @@
   /* Source colors */
   --color-source-email: #2f6fe0;
   --color-source-form: #067a52;
-  --color-source-ai: #6d55c9;
+  --color-source-ai: #24735d;
 
   /* ── Spacing scale (4px base) ── */
   --spacing-1: 4px;
@@ -84,12 +85,12 @@
 /* Light mode defaults (clean cool neutrals) */
 :root {
   --bg-primary: #ffffff;     /* cards / surfaces */
-  --bg-secondary: #f9fafb;   /* app canvas */
+  --bg-secondary: #f6f7f4;   /* app canvas */
   --bg-tertiary: #f2f4f7;
   --bg-hover: #f7f8fa;
-  --border-primary: #eaecf0;
+  --border-primary: #e5e8e1;
   --border-secondary: #f2f4f7;
-  --text-primary: #0e1116;
+  --text-primary: #202b27;
   --text-secondary: #4b515e;
   --text-tertiary: #717784;
   --text-quaternary: #a2a8b4;
@@ -121,6 +122,12 @@
   --color-accent-ring: color-mix(in srgb, var(--color-accent) 40%, #15171c);
   --btn-primary-bg: #f3f4f6;
   --btn-primary-fg: #15171c;
+  --color-accent: #7fb99e;
+  --color-accent-strong: #a9d3b8;
+  --color-source-ai: #7fb99e;
+  --color-success: #72c2a0;
+  --color-warning: #dfb465;
+  --color-danger: #ee9d91;
 }
 
 ::selection { background: var(--color-accent-soft); color: var(--color-accent-strong); }

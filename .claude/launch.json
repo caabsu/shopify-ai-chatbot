@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mocks",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "http-server", "docs/mocks", "-p", "5180", "-c-1", "--silent"],
+      "port": 5180
+    },
+    {
+      "name": "widget-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "apps/backend/src/index.ts"],
+      "port": 3019
+    },
+    {
+      "name": "designs",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "http-server", "docs/design-explorations", "-p", "5181", "-c-1", "--silent"],
+      "port": 5181
+    }
+  ]
+}

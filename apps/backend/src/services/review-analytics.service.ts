@@ -1,8 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
-
-const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
+import { callSupportRequiredTool } from './support-model-tool.service.js';
+import type { RequiredToolDefinition } from './deepseek-tool-call.service.js';
+import { recordSupportGenerationRun } from './ai-generation-ledger.service.js';
 
 // ── Analytics Cache ───────────────────────────────────────────────────────
 
@@ -68,6 +67,42 @@ interface ReviewAnalysis {
   review_quality_score: number;
 }
 
+const REVIEW_ANALYSIS_TOOL: RequiredToolDefinition = {
+  name: 'analyze_customer_reviews',
+  description: 'Return structured aggregate analysis of customer reviews.',
+  inputSchema: {
+    type: 'object',
+    required: [
+      'sentiment_summary',
+      'top_positive_themes',
+      'top_negative_themes',
+      'common_keywords',
+      'improvement_suggestions',
+      'average_sentiment_score',
+      'review_quality_score',
+    ],
+    properties: {
+      sentiment_summary: { type: 'string' },
+      top_positive_themes: { type: 'array', maxItems: 5, items: { type: 'string' } },
+      top_negative_themes: { type: 'array', maxItems: 5, items: { type: 'string' } },
+      common_keywords: { type: 'array', maxItems: 5, items: { type: 'string' } },
+      improvement_suggestions: { type: 'array', maxItems: 5, items: { type: 'string' } },
+      average_sentiment_score: { type: 'number', minimum: 0, maximum: 1 },
+      review_quality_score: { type: 'number', minimum: 0, maximum: 1 },
+    },
+  },
+};
+
+const REVIEW_REPLY_TOOL: RequiredToolDefinition = {
+  name: 'write_review_reply',
+  description: 'Return a concise customer-facing review reply.',
+  inputSchema: {
+    type: 'object',
+    required: ['text'],
+    properties: { text: { type: 'string' } },
+  },
+};
+
 export async function analyzeReviews(
   brandId: string,
   productId?: string,
@@ -131,27 +166,24 @@ You MUST respond with valid JSON only. No markdown, no explanation. The JSON mus
 
 Limit arrays to 5 items max. Be specific and actionable in suggestions.`;
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
+    const response = await callSupportRequiredTool<Partial<ReviewAnalysis>>({
+      tier: 'flash',
+      max_tokens: 1_024,
       temperature: 0.3,
       system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: `Analyze these ${reviews.length} customer reviews:\n\n${reviewTexts}`,
-        },
-      ],
+      user: `Analyze these ${reviews.length} customer reviews:\n\n${reviewTexts}`,
+      tool: REVIEW_ANALYSIS_TOOL,
     });
-
-    let responseText = '';
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        responseText += block.text;
-      }
-    }
-
-    const analysis = parseAnalysisResponse(responseText);
+    await recordSupportGenerationRun({
+      purpose: 'review_analysis',
+      generation: response.generation,
+      brandId,
+      promptVersion: 'review-analysis-2026-07-v1',
+      routerVersion: 'review-analytics-router-v1',
+      routerDecision: { tier: 'flash', reason: 'bounded_aggregation' },
+      metadata: { review_count: reviews.length, product_id: productId ?? null },
+    });
+    const analysis = parseAnalysisResponse(JSON.stringify(response.value));
 
     // Cache the result
     await setCachedAnalytics(brandId, analysis as unknown as Record<string, unknown>, productId);
@@ -216,8 +248,8 @@ export async function suggestReplyDraft(
   customerName: string,
 ): Promise<string> {
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+    const response = await callSupportRequiredTool<{ text?: string }>({
+      tier: 'flash',
       max_tokens: 512,
       temperature: 0.7,
       system: `You are a helpful store owner writing replies to customer reviews.
@@ -231,23 +263,18 @@ Write a warm, professional reply that:
 - Do NOT use generic phrases like "valued customer"
 - Sound human and authentic
 
-Return ONLY the reply text, no quotes or labels.`,
-      messages: [
-        {
-          role: 'user',
-          content: `Customer name: ${customerName}\nRating: ${rating}/5\nReview: "${reviewBody}"`,
-        },
-      ],
+Return only the reply through the required tool.`,
+      user: `Customer name: ${customerName}\nRating: ${rating}/5\nReview: "${reviewBody}"`,
+      tool: REVIEW_REPLY_TOOL,
     });
-
-    let replyText = '';
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        replyText += block.text;
-      }
-    }
-
-    return replyText.trim();
+    await recordSupportGenerationRun({
+      purpose: 'review_reply',
+      generation: response.generation,
+      promptVersion: 'review-reply-2026-07-v1',
+      routerVersion: 'review-reply-router-v1',
+      routerDecision: { tier: 'flash', reason: 'routine_short_draft' },
+    });
+    return typeof response.value.text === 'string' ? response.value.text.trim() : '';
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[review-analytics] suggestReplyDraft failed:', message);

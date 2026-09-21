@@ -65,6 +65,13 @@ export interface Review {
   published_at: string | null;
   media?: ReviewMedia[];
   reply?: ReviewReply | null;
+  featured?: boolean;
+  product?: {
+    id: string;
+    title: string;
+    handle: string;
+    featured_image_url?: string | null;
+  };
 }
 
 interface RawDistributionItem {
@@ -99,6 +106,15 @@ export interface ReviewsResponse {
   perPage: number;
 }
 
+export interface HomepageReviewsResponse {
+  reviews: Review[];
+  summary: {
+    average_rating: number;
+    total_count: number;
+  };
+  selection: 'featured' | 'published';
+}
+
 export interface SubmitReviewPayload {
   product_handle: string;
   customer_email: string;
@@ -109,7 +125,9 @@ export interface SubmitReviewPayload {
   media_urls?: string[];
 }
 
-function normalizeSummary(raw: ReviewSummary & { distribution?: RawDistributionItem[] }): ReviewSummary {
+function normalizeSummary(
+  raw: Omit<ReviewSummary, 'distribution'> & { distribution?: RawDistributionItem[] },
+): ReviewSummary {
   const total = raw.total_count || 0;
   const distribution = [5, 4, 3, 2, 1].map((rating) => {
     const found = raw.distribution?.find((d) => (d.rating ?? d.stars) === rating);
@@ -139,10 +157,15 @@ export async function getWidgetConfig(): Promise<WidgetConfig> {
 }
 
 export async function getReviewSummary(handle: string): Promise<ReviewSummary> {
-  const raw = await request<ReviewSummary & { distribution?: RawDistributionItem[] }>(
+  const raw = await request<Omit<ReviewSummary, 'distribution'> & { distribution?: RawDistributionItem[] }>(
     `/api/reviews/product/${encodeURIComponent(handle)}/summary`,
   );
   return normalizeSummary(raw);
+}
+
+export async function getHomepageReviews(limit = 8): Promise<HomepageReviewsResponse> {
+  const safeLimit = Math.max(1, Math.min(limit, 24));
+  return request<HomepageReviewsResponse>(`/api/reviews/featured?limit=${safeLimit}`);
 }
 
 export async function getReviews(
@@ -194,4 +217,3 @@ export async function markHelpful(reviewId: string): Promise<{ helpful_count: nu
 export async function reportReview(reviewId: string): Promise<{ report_count: number }> {
   return request<{ report_count: number }>(`/api/reviews/report/${reviewId}`, { method: 'POST' });
 }
-

@@ -1,0 +1,9 @@
+node_modules/
+**/.next/
+**/.next-preview/
+**/.env*
+output/
+space-funnel-ref/
+new-outlight-theme/
+docs/mocks/
+.git/

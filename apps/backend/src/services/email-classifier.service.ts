@@ -1,7 +1,11 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config/env.js';
+import type { RequiredToolDefinition } from './deepseek-tool-call.service.js';
+import {
+  callSupportRequiredTool,
+  type SupportModelGeneration,
+} from './support-model-tool.service.js';
+import { recordSupportGenerationRun } from './ai-generation-ledger.service.js';
 
-const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
+export const EMAIL_CLASSIFIER_PROMPT_VERSION = 'email-classifier-2026-07-deepseek-v1';
 
 export type EmailClassification =
   | 'customer_support'
@@ -13,8 +17,9 @@ export type EmailClassification =
 
 export interface ClassificationResult {
   classification: EmailClassification;
-  confidence: number; // 0-1
+  confidence: number;
   reason: string;
+  generation?: SupportModelGeneration;
 }
 
 const VALID_CLASSIFICATIONS = new Set<EmailClassification>([
@@ -26,40 +31,24 @@ const VALID_CLASSIFICATIONS = new Set<EmailClassification>([
   'internal',
 ]);
 
-/**
- * Robustly extract a classification JSON object from a model response.
- * Handles ```json code fences, surrounding prose, and bare JSON — the raw
- * `JSON.parse(text.trim())` used previously threw on fenced output (which Haiku
- * emits), silently degrading every classification to the error fallback.
- */
-function parseClassificationJson(text: string): { classification?: string; confidence?: number; reason?: string } | null {
-  if (!text) return null;
-
-  // Strip markdown code fences (```json ... ``` or ``` ... ```)
-  const withoutFences = text
-    .replace(/```(?:json)?\s*/gi, '')
-    .replace(/```/g, '')
-    .trim();
-
-  const candidates = [withoutFences];
-  // Also try the first balanced-looking {...} block in case prose surrounds it.
-  const braceMatch = withoutFences.match(/\{[\s\S]*\}/);
-  if (braceMatch) candidates.push(braceMatch[0]);
-
-  for (const candidate of candidates) {
-    try {
-      const parsed = JSON.parse(candidate);
-      if (parsed && typeof parsed === 'object') return parsed;
-    } catch {
-      // try next candidate
-    }
-  }
-  return null;
-}
+const CLASSIFY_TOOL: RequiredToolDefinition = {
+  name: 'classify_inbound_email',
+  description: 'Classify one inbound email for support intake.',
+  inputSchema: {
+    type: 'object',
+    required: ['classification', 'confidence', 'reason'],
+    properties: {
+      classification: { type: 'string', enum: [...VALID_CLASSIFICATIONS] },
+      confidence: { type: 'number', minimum: 0, maximum: 1 },
+      reason: { type: 'string' },
+    },
+  },
+};
 
 /**
- * Classify an inbound email using AI to determine if it's a real customer support request.
- * Returns classification, confidence score, and reasoning.
+ * Classify an inbound email. Flash/non-thinking is sufficient here because the
+ * task is bounded, forced into a schema, and defaults to customer_support on
+ * any uncertainty so real requests are never silently lost.
  */
 export async function classifyEmail(opts: {
   from: string;
@@ -67,67 +56,59 @@ export async function classifyEmail(opts: {
   body: string;
 }): Promise<ClassificationResult> {
   const { from, subject, body } = opts;
-  const deterministic = classifyDeterministically(from, subject);
+  const deterministic = classifyEmailDeterministically(from, subject);
   if (deterministic) return deterministic;
 
-  // Truncate body to avoid excessive token usage
-  const truncatedBody = body.length > 2000 ? body.slice(0, 2000) + '...' : body;
-
+  const truncatedBody = body.length > 2_000 ? `${body.slice(0, 2_000)}...` : body;
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 200,
-      messages: [
-        {
-          role: 'user',
-          content: `Classify this inbound email. Respond ONLY with valid JSON, no other text.
-
-From: ${from}
-Subject: ${subject}
-Body:
-${truncatedBody}
-
-Classify as exactly one of: "customer_support", "promotional", "transactional", "automated", "spam", "internal"
+    const response = await callSupportRequiredTool<{
+      classification?: string;
+      confidence?: number;
+      reason?: string;
+    }>({
+      tier: 'flash',
+      max_tokens: 300,
+      system: `Classify inbound email for a Shopify support desk.
 
 Definitions:
-- customer_support: A real person asking for help, reporting an issue, asking about orders/returns/products, or following up on a previous request
-- promotional: Marketing emails, newsletters, sale announcements, partner outreach
-- transactional: Automated receipts, shipping notifications, payment confirmations, chargeback notices, dispute notifications, fraud alerts from banks or payment processors
-- automated: Auto-replies, out-of-office, delivery failure notices, system notifications
-- spam: Unsolicited junk, phishing, scam emails
-- internal: Emails between team members, vendor communications, business-to-business
+- customer_support: a real person asking for help, reporting an issue, asking about orders/returns/products, or following up
+- promotional: marketing, newsletters, sale announcements, or partner outreach
+- transactional: automated receipts, shipping/payment notices, chargebacks, disputes, or fraud alerts
+- automated: auto-replies, out-of-office, delivery failures, or system notifications
+- spam: unsolicited junk, phishing, or scams
+- internal: team, vendor, or business-to-business communication
 
-Respond with JSON: {"classification":"...","confidence":0.0-1.0,"reason":"brief reason"}`,
-        },
-      ],
+Choose exactly one category. Be conservative: uncertain mail stays customer_support.`,
+      user: `From: ${from}\nSubject: ${subject}\nBody:\n${truncatedBody}`,
+      tool: CLASSIFY_TOOL,
+      parse(value) {
+        if (!value || typeof value !== 'object') throw new Error('Classifier tool input must be an object');
+        return value as { classification?: string; confidence?: number; reason?: string };
+      },
     });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
-    const parsed = parseClassificationJson(text);
-    if (!parsed) {
-      console.warn('[email-classifier] Could not parse model output, keeping as customer_support:', text.slice(0, 200));
-      return {
-        classification: 'customer_support',
-        confidence: 0,
-        reason: 'Unparseable classifier output — defaulting to customer_support',
-      };
-    }
-
+    const parsed = response.value;
+    await recordSupportGenerationRun({
+      purpose: 'email_classification',
+      generation: response.generation,
+      promptVersion: EMAIL_CLASSIFIER_PROMPT_VERSION,
+      routerVersion: 'email-classifier-router-v1',
+      routerDecision: { tier: 'flash', reason: 'bounded_intent_detection' },
+    });
     const classification = VALID_CLASSIFICATIONS.has(parsed.classification as EmailClassification)
-      ? (parsed.classification as EmailClassification)
+      ? parsed.classification as EmailClassification
       : 'customer_support';
     const confidence = typeof parsed.confidence === 'number' && Number.isFinite(parsed.confidence)
       ? Math.max(0, Math.min(1, parsed.confidence))
       : 0;
-
     return {
       classification,
       confidence,
-      reason: typeof parsed.reason === 'string' ? parsed.reason : '',
+      reason: typeof parsed.reason === 'string' ? parsed.reason.slice(0, 500) : '',
+      generation: response.generation,
     };
-  } catch (err) {
-    console.error('[email-classifier] Classification failed:', err instanceof Error ? err.message : err);
-    // Default to customer_support on failure so we don't lose real tickets
+  } catch (error) {
+    console.error('[email-classifier] Classification failed:', error instanceof Error ? error.message : error);
     return {
       classification: 'customer_support',
       confidence: 0,
@@ -136,10 +117,6 @@ Respond with JSON: {"classification":"...","confidence":0.0-1.0,"reason":"brief 
   }
 }
 
-/**
- * Bulk classify open tickets that don't have a classification yet.
- * Returns array of { ticketId, classification, confidence, reason }.
- */
 export async function classifyTicketContent(opts: {
   subject: string;
   customerEmail: string;
@@ -152,7 +129,7 @@ export async function classifyTicketContent(opts: {
   });
 }
 
-function classifyDeterministically(from: string, subject: string): ClassificationResult | null {
+export function classifyEmailDeterministically(from: string, subject: string): ClassificationResult | null {
   const sender = from.toLowerCase();
   const normalizedSubject = subject.toLowerCase();
   const automatedSenderParts = [
@@ -160,6 +137,7 @@ function classifyDeterministically(from: string, subject: string): Classificatio
     'account-security',
     'no-reply@',
     'noreply@',
+    'noreply-',
     'notification@',
     'notifications@',
     'mailer-daemon@',
@@ -183,14 +161,54 @@ function classifyDeterministically(from: string, subject: string): Classificatio
   ];
 
   if (
-    automatedSenderParts.some((part) => sender.includes(part)) ||
-    automatedDomains.some((domain) => sender.endsWith(domain)) ||
-    automatedSubjectParts.some((part) => normalizedSubject.includes(part))
+    automatedSenderParts.some((part) => sender.includes(part))
+    || automatedDomains.some((domain) => sender.endsWith(domain))
+    || automatedSubjectParts.some((part) => normalizedSubject.includes(part))
   ) {
     return {
       classification: 'automated',
       confidence: 1,
       reason: 'Matched deterministic automated email pattern',
+      generation: {
+        access_provider: 'rules',
+        provider: 'rules',
+        model: 'email-classifier-rules-v1',
+        requested_model: 'email-classifier-rules-v1',
+        tier: 'flash',
+        thinking: 'disabled',
+        latency_ms: 0,
+        usage: {},
+      },
+    };
+  }
+
+  const selfMarketingSenders = new Set([
+    'info@outlight.us',
+  ]);
+  const selfMarketingSubjectParts = [
+    'sale ends',
+    'last chance',
+    'our lamps vs.',
+    'better lighting',
+  ];
+  if (
+    selfMarketingSenders.has(sender.trim())
+    && selfMarketingSubjectParts.some((part) => normalizedSubject.includes(part))
+  ) {
+    return {
+      classification: 'promotional',
+      confidence: 1,
+      reason: 'Matched deterministic self-sent marketing campaign pattern',
+      generation: {
+        access_provider: 'rules',
+        provider: 'rules',
+        model: 'email-classifier-rules-v1',
+        requested_model: 'email-classifier-rules-v1',
+        tier: 'flash',
+        thinking: 'disabled',
+        latency_ms: 0,
+        usage: {},
+      },
     };
   }
 

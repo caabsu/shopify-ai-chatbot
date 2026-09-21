@@ -1,12 +1,13 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
 import { calculateSlaDeadline } from './sla.service.js';
+import type { RequiredToolDefinition } from './deepseek-tool-call.service.js';
+import {
+  callSupportRequiredTool,
+  type SupportModelGeneration,
+} from './support-model-tool.service.js';
+import { recordSupportGenerationRun } from './ai-generation-ledger.service.js';
 
-const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
-
-// Haiku: triage runs on every inbound ticket, so it must be fast and cheap.
-const TRIAGE_MODEL = 'claude-haiku-4-5-20251001';
+const TRIAGE_PROMPT_VERSION = 'ticket-triage-2026-07-deepseek-v1';
 
 export interface TriageResult {
   intent: string;
@@ -16,6 +17,7 @@ export interface TriageResult {
   suggested_priority: 'low' | 'medium' | 'high' | 'urgent';
   suggested_tags: string[];
   triaged_at: string;
+  generation?: SupportModelGeneration & { prompt_version?: string };
 }
 
 const INTENTS = [
@@ -23,6 +25,23 @@ const INTENTS = [
   'cancel_order', 'address_change', 'discount_inquiry', 'wholesale_trade', 'feedback',
   'other',
 ] as const;
+
+const TRIAGE_TOOL: RequiredToolDefinition = {
+  name: 'triage_support_ticket',
+  description: 'Return structured intake triage for one customer-support ticket.',
+  inputSchema: {
+    type: 'object',
+    required: ['intent', 'sentiment', 'language', 'summary', 'suggested_priority', 'suggested_tags'],
+    properties: {
+      intent: { type: 'string', enum: [...INTENTS] },
+      sentiment: { type: 'string', enum: ['angry', 'frustrated', 'neutral', 'positive'] },
+      language: { type: 'string' },
+      summary: { type: 'string' },
+      suggested_priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
+      suggested_tags: { type: 'array', maxItems: 3, items: { type: 'string' } },
+    },
+  },
+};
 
 /**
  * AI auto-triage for new tickets: intent, sentiment, language, one-line summary,
@@ -42,41 +61,42 @@ export async function triageTicket(ticketId: string): Promise<TriageResult | nul
       .single();
     if (!ticket) return null;
 
-    const { data: firstMessages } = await supabase
+    const { data: recentMessages } = await supabase
       .from('ticket_messages')
       .select('content')
       .eq('ticket_id', ticketId)
       .eq('sender_type', 'customer')
-      .order('created_at', { ascending: true })
-      .limit(2);
+      .order('created_at', { ascending: false })
+      .limit(3);
 
-    const body = (firstMessages ?? []).map((m) => m.content).join('\n\n').slice(0, 4000);
+    const body = [...(recentMessages ?? [])].reverse().map((m) => m.content).join('\n\n').slice(-4000);
     if (!body.trim()) return null;
 
-    const response = await anthropic.messages.create({
-      model: TRIAGE_MODEL,
-      max_tokens: 300,
+    const response = await callSupportRequiredTool<Partial<TriageResult>>({
+      tier: 'flash',
+      max_tokens: 400,
       temperature: 0,
-      system: `You triage incoming customer-support tickets for a Shopify store. Respond with ONLY a JSON object, no other text:
-{
-  "intent": one of ${JSON.stringify(INTENTS)},
-  "sentiment": "angry" | "frustrated" | "neutral" | "positive",
-  "language": ISO 639-1 code of the customer's language (e.g. "en", "de"),
-  "summary": one sentence (max 110 chars) describing what the customer needs,
-  "suggested_priority": "low" | "medium" | "high" | "urgent"  // urgent = angry customer, money at risk, time-critical; low = generic question
-  "suggested_tags": up to 3 short kebab-case tags (e.g. "shipping-delay", "order-7598")
-}`,
-      messages: [{ role: 'user', content: `Subject: ${ticket.subject}\n\n${body}` }],
+      system: `Triage an incoming Shopify customer-support ticket.
+Use one supported intent. The summary is one sentence (110 characters or fewer).
+Urgent means an angry customer with money at risk or a genuinely time-critical issue.
+Tags are up to three short kebab-case values. Language is an ISO 639-1 code.`,
+      user: `Subject: ${ticket.subject}\n\n${body}`,
+      tool: TRIAGE_TOOL,
+      parse(value) {
+        if (!value || typeof value !== 'object') throw new Error('Triage tool input must be an object');
+        return value as Partial<TriageResult>;
+      },
     });
-
-    const text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join('');
-
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-    const parsed = JSON.parse(jsonMatch[0]) as Partial<TriageResult>;
+    const parsed = response.value;
+    await recordSupportGenerationRun({
+      purpose: 'ticket_triage',
+      generation: response.generation,
+      brandId: ticket.brand_id as string,
+      ticketId,
+      promptVersion: TRIAGE_PROMPT_VERSION,
+      routerVersion: 'ticket-triage-router-v1',
+      routerDecision: { tier: 'flash', reason: 'bounded_intent_sentiment_tagging' },
+    });
 
     const triage: TriageResult = {
       intent: typeof parsed.intent === 'string' ? parsed.intent : 'other',
@@ -92,38 +112,72 @@ export async function triageTicket(ticketId: string): Promise<TriageResult | nul
         ? parsed.suggested_tags.filter((t): t is string => typeof t === 'string').slice(0, 3)
         : [],
       triaged_at: new Date().toISOString(),
+      generation: {
+        ...response.generation,
+        prompt_version: TRIAGE_PROMPT_VERSION,
+      },
     };
 
-    const updates: Record<string, unknown> = {
-      metadata: { ...((ticket.metadata as Record<string, unknown>) || {}), ai_triage: triage },
-      updated_at: new Date().toISOString(),
-    };
-
-    // Escalate default-priority tickets the model flags as hot. Never downgrade,
-    // and never touch a priority an agent (or the trade-member rule) already set.
-    const escalate =
-      ticket.priority === 'medium' &&
-      (triage.suggested_priority === 'urgent' || triage.suggested_priority === 'high');
-    if (escalate) {
-      updates.priority = triage.suggested_priority;
-      try {
-        const sla = await calculateSlaDeadline(triage.suggested_priority, ticket.brand_id as string);
-        if (sla) updates.sla_deadline = sla;
-      } catch { /* keep existing SLA */ }
+    let appliedPriority: string | null = null;
+    let priorPriority: string | null = null;
+    let committed = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data: current } = await supabase
+        .from('tickets')
+        .select('metadata, priority, updated_at, brand_id')
+        .eq('id', ticketId)
+        .single();
+      if (!current) return null;
+      const updates: Record<string, unknown> = {
+        metadata: { ...((current.metadata as Record<string, unknown>) || {}), ai_triage: triage },
+        updated_at: new Date().toISOString(),
+      };
+      const escalate = current.priority === 'medium'
+        && (triage.suggested_priority === 'urgent' || triage.suggested_priority === 'high');
+      if (escalate) {
+        updates.priority = triage.suggested_priority;
+        try {
+          const sla = await calculateSlaDeadline(triage.suggested_priority, current.brand_id as string);
+          if (sla) updates.sla_deadline = sla;
+        } catch { /* keep existing SLA */ }
+      }
+      const { data: updated } = await supabase
+        .from('tickets')
+        .update(updates)
+        .eq('id', ticketId)
+        .eq('updated_at', current.updated_at)
+        .select('id')
+        .maybeSingle();
+      if (updated) {
+        priorPriority = current.priority;
+        appliedPriority = escalate ? triage.suggested_priority : null;
+        committed = true;
+        break;
+      }
     }
-
-    await supabase.from('tickets').update(updates).eq('id', ticketId);
+    if (!committed) {
+      console.warn(`[triage] Ticket #${ticket.ticket_number} changed repeatedly; discarded stale triage result`);
+      return null;
+    }
 
     await supabase.from('ticket_events').insert({
       ticket_id: ticketId,
       event_type: 'ai_triaged',
       actor: 'ai',
-      old_value: escalate ? ticket.priority : null,
-      new_value: escalate ? triage.suggested_priority : triage.intent,
-      metadata: { intent: triage.intent, sentiment: triage.sentiment, suggested_priority: triage.suggested_priority },
+      old_value: appliedPriority ? priorPriority : null,
+      new_value: appliedPriority ?? triage.intent,
+      metadata: {
+        intent: triage.intent,
+        sentiment: triage.sentiment,
+        suggested_priority: triage.suggested_priority,
+        model_provider: triage.generation?.provider,
+        model_id: triage.generation?.model,
+        model_tier: triage.generation?.tier,
+        prompt_version: TRIAGE_PROMPT_VERSION,
+      },
     });
 
-    console.log(`[triage] Ticket #${ticket.ticket_number}: ${triage.intent} / ${triage.sentiment}${escalate ? ` → priority ${triage.suggested_priority}` : ''}`);
+    console.log(`[triage] Ticket #${ticket.ticket_number}: ${triage.intent} / ${triage.sentiment}${appliedPriority ? ` → priority ${appliedPriority}` : ''}`);
     return triage;
   } catch (err) {
     console.error('[triage] failed:', err instanceof Error ? err.message : err);

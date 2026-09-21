@@ -166,6 +166,10 @@ export interface Ticket {
   sla_breached: boolean;
   created_at: string;
   updated_at: string;
+  merged_into_ticket_id?: string | null;
+  customer_email_normalized?: string | null;
+  /** Monotonic concurrency token bumped by meaningful ticket/message changes. */
+  context_version?: number;
 }
 
 /** AI triage result stored at tickets.metadata.ai_triage (written by the backend on intake). */
@@ -215,7 +219,19 @@ export type AutopilotActionType =
   | 'cancel_order'
   | 'refund_order'
   | 'update_shipping_address'
+  | 'consolidate_related_tickets'
   | 'escalate_human';
+
+export interface AutopilotRelatedTicketSnapshot {
+  ticket_id: string;
+  ticket_number: number;
+  subject: string;
+  status: 'open' | 'pending';
+  context_version: number;
+  response_state: 'unanswered' | 'awaiting_us' | 'awaiting_customer' | 'no_customer_message';
+  relation_reason: string;
+  relation_confidence: number;
+}
 
 export interface AutopilotAction {
   id: string;
@@ -223,23 +239,172 @@ export interface AutopilotAction {
   title: string;
   detail: string;
   params: Record<string, unknown>;
+  model_confidence?: number;
   confidence: number;
+  confidence_basis?: {
+    method: 'bayesian_local_v1';
+    sample_count: number;
+    effective_sample_weight: number;
+    delta: number;
+  };
+  depends_on?: string[];
   status: 'proposed' | 'approved' | 'skipped' | 'executed' | 'failed';
   result?: string | null;
 }
 
+export interface AutopilotGenerationProvenance {
+  /** Actual inference provider when reported (for example, deepinfra). */
+  provider: string;
+  /** Access layer used for the generation (for example, vercel-ai-gateway). */
+  access_provider?: string;
+  /** Exact provider model identifier; aliases are not sufficient for calibration. */
+  model: string;
+  requested_model?: string;
+  tier: 'flash' | 'pro';
+  thinking: 'disabled' | 'high';
+  /** Exact provider + model + prompt lineage used to select calibration samples. */
+  calibration_key: string;
+  route_reasons?: string[];
+  router_version?: string;
+  request_id?: string;
+  response_id?: string;
+  attempts?: Array<{
+    provider: string;
+    model: string;
+    tier: 'flash' | 'pro';
+    success: boolean;
+    latency_ms?: number;
+    error?: string;
+    cost_usd?: number;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      reasoning_tokens?: number;
+      cached_input_tokens?: number;
+    };
+  }>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    reasoning_tokens?: number;
+    cached_input_tokens?: number;
+  };
+  latency_ms?: number;
+  cost_usd?: number;
+  total_cost_usd?: number;
+  legacy_fallback?: boolean;
+}
+
 export interface AutopilotPlan {
-  version: 1;
+  version: 1 | 2;
+  id?: string;
+  revision?: number;
+  parent_plan_id?: string;
+  planner_version?: string;
+  prompt_version?: string;
+  generation?: AutopilotGenerationProvenance;
+  context_fingerprint?: string;
+  context_version?: number;
   status: 'proposed' | 'approved' | 'executing' | 'executed' | 'partially_executed' | 'failed' | 'dismissed';
   trigger: 'new_ticket' | 'customer_reply' | 'sweep' | 'revision' | 'stale_check';
   proposed_at: string;
   decided_at?: string;
   decided_by?: string;
   executed_at?: string;
+  execution_attempt_id?: string;
+  execution_interrupted?: boolean;
+  execution_interruption_reason?: string;
+  evidence?: {
+    shopify_orders?: {
+      hash: string;
+      fetched_at: string;
+      valid_until: string;
+      order_count: number;
+      /** Canonical customer-plus-orders prompt projection used for the hash. */
+      projection_version?: string;
+      customer_present?: boolean;
+      /** Customer-provided address used when the order lives under an alternate checkout email. */
+      customer_lookup_email?: string;
+      /** Per-order projections let a resumed run ignore only orders it mutated. */
+      order_hashes?: Record<string, string>;
+      /** Source brand slug for exact orders read from a legacy sibling store. */
+      order_brand_slugs?: Record<string, string>;
+    };
+    customer_history?: {
+      hash: string;
+      fetched_at: string;
+      valid_until: string;
+      ticket_count: number;
+      ticket_message_count: number;
+      conversation_count: number;
+      chat_message_count: number;
+      projection_version: 'customer-support-context-v1';
+    };
+  };
+  execution_receipts?: Array<{
+    id: string;
+    action_id: string;
+    action_type: string;
+    status: 'reserved' | 'executed' | 'failed' | 'uncertain';
+    result?: string | null;
+    error?: string | null;
+    provider_reference?: string | null;
+    started_at?: string;
+    lease_expires_at?: string | null;
+    heartbeat_at?: string | null;
+    provider_deadline_at?: string | null;
+    failure_reconcile_after?: string | null;
+    expected_context_after?: number;
+    context_after?: number | null;
+  }>;
   /** Operator feedback that produced this plan (revision flow). */
   operator_instruction?: string;
   revision_count?: number;
-  analysis: { summary: string; reasoning: string; overall_confidence: number };
+  analysis: {
+    summary: string;
+    reasoning: string;
+    model_confidence?: number;
+    overall_confidence: number;
+    quality_assessment?: {
+      version: 'support-quality-v1';
+      passed: boolean;
+      confidence: number;
+      checks: Array<{ name: string; passed: boolean; detail: string }>;
+      summary: string;
+      model?: string;
+      checked_at: string;
+      cost_usd?: number;
+    };
+    /** Validator fallback card: must be revised before any execution. */
+    review_only?: boolean;
+    auto_run_allowed?: boolean;
+    /** Direct review provenance, separate from model generation/calibration. */
+    review_assessment?: {
+      source: string;
+      assessed_at: string;
+      basis: string;
+      previous_plan_id: string;
+      previous_confidence?: number;
+    };
+    review_reason?: string;
+    validation_error?: string;
+    confidence_basis?: {
+      method: 'bayesian_local_v1';
+      sample_count: number;
+      effective_sample_weight: number;
+      delta: number;
+    };
+  };
+  learning?: {
+    policy_version: 'scoped-memory-v1';
+    applied_at: string;
+    memory_ids: string[];
+    episode_ids: string[];
+    memory_attributions: Array<{ id: string; score: number; confidence?: number; trust: number }>;
+    memory_count: number;
+    reviewed_run_count: number;
+    calibration_samples: number;
+  };
   actions: AutopilotAction[];
 }
 

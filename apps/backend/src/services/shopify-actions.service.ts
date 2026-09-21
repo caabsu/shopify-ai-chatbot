@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { config } from '../config/env.js';
 import { getTokenForBrand } from './shopify-auth.service.js';
 import { getBrandShopifyConfig } from '../config/brand-shopify.js';
@@ -36,46 +37,222 @@ async function shopifyGraphql<T>(query: string, variables?: Record<string, unkno
 }
 
 // ── Cancel Order ───────────────────────────────────────────────────────────
+const CANCEL_JOB_POLL_INTERVAL_MS = 1_000;
+const CANCEL_JOB_MAX_WAIT_MS = 45_000;
+const CANCEL_EVIDENCE_MAX_WAIT_MS = 15_000;
+
+interface CancellationEvidence {
+  id: string;
+  name: string;
+  cancelledAt: string | null;
+  displayFinancialStatus: string;
+  displayFulfillmentStatus: string;
+  totalPriceSet: { shopMoney: { amount: string } };
+  totalRefundedSet: { shopMoney: { amount: string } };
+  transactions: Array<{
+    kind: string;
+    status: string;
+    amountSet: { shopMoney: { amount: string } };
+  }>;
+  fulfillments: Array<{ trackingInfo: Array<{ number: string | null }> }>;
+}
+
+export interface CancelOrderResult {
+  success: boolean;
+  message: string;
+  completed: boolean;
+  jobId?: string;
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function getCancellationEvidence(orderId: string, brandId?: string): Promise<CancellationEvidence | null> {
+  const data = await shopifyGraphql<{ order: CancellationEvidence | null }>(
+    `query OrderCancellationEvidence($id: ID!) {
+      order(id: $id) {
+        id name cancelledAt displayFinancialStatus displayFulfillmentStatus
+        totalPriceSet { shopMoney { amount } }
+        totalRefundedSet { shopMoney { amount } }
+        transactions(first: 100) {
+          kind status
+          amountSet { shopMoney { amount } }
+        }
+        fulfillments { trackingInfo { number } }
+      }
+    }`,
+    { id: orderId },
+    brandId,
+  );
+  return data.order;
+}
+
+function expectedOutstandingRefund(order: CancellationEvidence): number | null {
+  const alreadyRefunded = Number.parseFloat(order.totalRefundedSet.shopMoney.amount || '0');
+  if (!Number.isFinite(alreadyRefunded)) return null;
+  const captured = order.transactions
+    .filter((transaction) => (
+      (transaction.kind === 'SALE' || transaction.kind === 'CAPTURE')
+      && transaction.status === 'SUCCESS'
+    ))
+    .reduce((sum, transaction) => sum + Number.parseFloat(transaction.amountSet.shopMoney.amount || '0'), 0);
+  if (Number.isFinite(captured) && captured > 0) return Math.max(0, captured - alreadyRefunded);
+  const total = Number.parseFloat(order.totalPriceSet.shopMoney.amount);
+  return Number.isFinite(total) ? Math.max(0, total - alreadyRefunded) : null;
+}
+
+function refundEvidenceIsComplete(
+  order: CancellationEvidence,
+  refundedBefore: number,
+  expectedOutstanding: number | null,
+): boolean {
+  if (order.displayFinancialStatus === 'REFUNDED') return true;
+  const refundedAfter = Number.parseFloat(order.totalRefundedSet.shopMoney.amount || '0');
+  if (!Number.isFinite(refundedBefore)
+      || !Number.isFinite(refundedAfter)
+      || expectedOutstanding === null) return false;
+  return Math.max(0, refundedAfter - refundedBefore) + 0.01 >= expectedOutstanding;
+}
+
+async function waitForCancellationJob(jobId: string, brandId?: string): Promise<boolean> {
+  const deadline = Date.now() + CANCEL_JOB_MAX_WAIT_MS;
+  while (Date.now() < deadline) {
+    const data = await shopifyGraphql<{ job: { id: string; done: boolean } | null }>(
+      `query CancellationJob($id: ID!) { job(id: $id) { id done } }`,
+      { id: jobId },
+      brandId,
+    );
+    if (data.job?.done) return true;
+    await delay(Math.min(CANCEL_JOB_POLL_INTERVAL_MS, Math.max(0, deadline - Date.now())));
+  }
+  return false;
+}
+
+async function waitForCancellationEvidence(
+  orderId: string,
+  refundExpected: boolean,
+  refundedBefore: number,
+  expectedOutstanding: number | null,
+  brandId?: string,
+): Promise<CancellationEvidence | null> {
+  const deadline = Date.now() + CANCEL_EVIDENCE_MAX_WAIT_MS;
+  do {
+    const evidence = await getCancellationEvidence(orderId, brandId);
+    if (evidence?.cancelledAt
+        && (!refundExpected || refundEvidenceIsComplete(evidence, refundedBefore, expectedOutstanding))) {
+      return evidence;
+    }
+    if (Date.now() >= deadline) return null;
+    await delay(Math.min(CANCEL_JOB_POLL_INTERVAL_MS, Math.max(0, deadline - Date.now())));
+  } while (Date.now() <= deadline);
+  return null;
+}
+
 export async function cancelOrder(
   orderId: string,
   reason?: string,
   brandId?: string
-): Promise<{ success: boolean; message: string }> {
-  const mutation = `
-    mutation OrderCancel($orderId: ID!, $reason: OrderCancelReason!, $refund: Boolean!, $restock: Boolean!) {
-      orderCancel(orderId: $orderId, reason: $reason, refund: $refund, restock: $restock) {
-        orderCancelUserErrors {
-          field
-          message
-        }
-      }
-    }
-  `;
-
+): Promise<CancelOrderResult> {
   try {
+    const scopeData = await shopifyGraphql<{
+      currentAppInstallation: { accessScopes: Array<{ handle: string }> } | null;
+    }>(`query CurrentAppAccessScopes {
+      currentAppInstallation { accessScopes { handle } }
+    }`, undefined, brandId);
+    const scopes = new Set((scopeData.currentAppInstallation?.accessScopes ?? []).map((scope) => scope.handle));
+    if (!scopes.has('write_orders') && !scopes.has('write_marketplace_orders')) {
+      return { success: false, completed: true, message: 'Shopify access is missing write_orders.' };
+    }
+
+    const before = await getCancellationEvidence(orderId, brandId);
+    if (!before) return { success: false, completed: true, message: 'Order was not found.' };
+    const refundExpected = ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED']
+      .includes(before.displayFinancialStatus.toUpperCase());
+    const refundedBefore = Number.parseFloat(before.totalRefundedSet.shopMoney.amount || '0');
+    const expectedRefund = expectedOutstandingRefund(before);
+    if (before.cancelledAt) {
+      return !refundExpected
+        ? { success: true, completed: true, message: `Order ${before.name} was already cancelled and its financial state is confirmed.` }
+        : { success: false, completed: false, message: `Order ${before.name} is cancelled, but its refund is not yet confirmed.` };
+    }
+    const hasTracking = before.fulfillments.some((fulfillment) => fulfillment.trackingInfo.length > 0);
+    const restock = before.displayFulfillmentStatus.toUpperCase() === 'UNFULFILLED' && !hasTracking;
+
     const data = await shopifyGraphql<{
       orderCancel: {
-        orderCancelUserErrors: Array<{ field: string[]; message: string }>;
+        job: { id: string; done: boolean } | null;
+        orderCancelUserErrors: Array<{ field: string[]; message: string; code: string | null }>;
       };
-    }>(mutation, {
+    }>(`mutation OrderCancel(
+      $orderId: ID!
+      $reason: OrderCancelReason!
+      $refundMethod: OrderCancelRefundMethodInput!
+      $restock: Boolean!
+    ) {
+      orderCancel(
+        orderId: $orderId
+        reason: $reason
+        refundMethod: $refundMethod
+        restock: $restock
+        notifyCustomer: false
+      ) {
+        job { id done }
+        orderCancelUserErrors { field message code }
+      }
+    }`, {
       orderId,
       reason: reason ?? 'CUSTOMER',
-      refund: true,
-      restock: true,
+      refundMethod: { originalPaymentMethodsRefund: true },
+      restock,
     }, brandId);
 
     const errors = data.orderCancel.orderCancelUserErrors;
     if (errors.length > 0) {
       const messages = errors.map((e) => e.message).join('; ');
       console.error(`[shopify-actions.service] cancelOrder errors:`, messages);
-      return { success: false, message: `Could not cancel order: ${messages}` };
+      return { success: false, completed: true, message: `Could not cancel order: ${messages}` };
     }
 
-    console.log(`[shopify-actions.service] Order ${orderId} cancelled successfully`);
-    return { success: true, message: 'Order has been cancelled. A refund will be issued to the original payment method.' };
+    const job = data.orderCancel.job;
+    if (job && !job.done && !(await waitForCancellationJob(job.id, brandId))) {
+      return {
+        success: false,
+        completed: false,
+        jobId: job.id,
+        message: `Shopify accepted cancellation for ${before.name}, but it is still processing.`,
+      };
+    }
+    const confirmed = await waitForCancellationEvidence(
+      orderId,
+      refundExpected,
+      refundedBefore,
+      expectedRefund,
+      brandId,
+    );
+    if (!confirmed) {
+      return {
+        success: false,
+        completed: false,
+        jobId: job?.id,
+        message: `Shopify accepted cancellation for ${before.name}, but cancellation/refund evidence is still pending.`,
+      };
+    }
+
+    console.log(`[shopify-actions.service] Order ${orderId} cancellation and financial state confirmed`);
+    return {
+      success: true,
+      completed: true,
+      jobId: job?.id,
+      message: `Order ${confirmed.name} has been cancelled${refundExpected ? ' and its refund is confirmed' : ''}.`,
+    };
   } catch (err) {
     console.error('[shopify-actions.service] cancelOrder error:', err instanceof Error ? err.message : err);
-    throw new Error('Failed to cancel order');
+    return {
+      success: false,
+      completed: false,
+      message: `Cancellation could not be confirmed: ${err instanceof Error ? err.message : 'unknown Shopify error'}`,
+    };
   }
 }
 
@@ -85,11 +262,12 @@ export async function refundOrder(
   amount: number,
   reason?: string,
   notify = true,
-  brandId?: string
+  brandId?: string,
+  idempotencyKey = randomUUID(),
 ): Promise<{ success: boolean; message: string; refundId?: string }> {
   const mutation = `
-    mutation RefundCreate($input: RefundInput!) {
-      refundCreate(input: $input) {
+    mutation RefundCreate($input: RefundInput!, $idempotencyKey: String!) {
+      refundCreate(input: $input) @idempotent(key: $idempotencyKey) {
         refund {
           id
           totalRefundedSet {
@@ -116,8 +294,9 @@ export async function refundOrder(
         } | null;
         userErrors: Array<{ field: string[]; message: string }>;
       };
-    }>(mutation, {
-      input: {
+  }>(mutation, {
+    idempotencyKey,
+    input: {
         orderId,
         note: reason ?? 'Customer requested refund',
         notify,

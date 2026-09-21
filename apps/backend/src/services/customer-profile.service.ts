@@ -3,7 +3,7 @@ import { getTokenForBrand } from './shopify-auth.service.js';
 import { getBrandShopifyConfig } from '../config/brand-shopify.js';
 import { getBrand } from '../config/brand.js';
 
-interface ShopifyCustomerProfile {
+export interface ShopifyCustomerProfile {
   id: string;
   firstName: string | null;
   lastName: string | null;
@@ -17,10 +17,11 @@ interface ShopifyCustomerProfile {
   state: string;
 }
 
-interface ShopifyOrderSummary {
+export interface ShopifyOrderSummary {
   id: string;
   name: string;
   totalPrice: string;
+  totalRefunded?: number;
   financialStatus: string;
   fulfillmentStatus: string;
   lineItems: Array<{
@@ -28,8 +29,15 @@ interface ShopifyOrderSummary {
     quantity: number;
     variantTitle: string | null;
   }>;
-  tracking: Array<{ number: string; url: string | null }>;
+  tracking: Array<{ number: string; url: string | null; company: string | null }>;
+  fulfillments: Array<{
+    status: string;
+    createdAt: string;
+    trackingInfo: Array<{ number: string; url: string | null; company: string | null }>;
+  }>;
   createdAt: string;
+  cancelledAt: string | null;
+  closedAt: string | null;
 }
 
 async function shopifyGraphql<T>(query: string, variables?: Record<string, unknown>, brandId?: string): Promise<T> {
@@ -192,22 +200,32 @@ export async function getCustomerOrders(email: string, limit = 10, brandId?: str
             }
             displayFinancialStatus
             displayFulfillmentStatus
+            refunds {
+              totalRefundedSet {
+                shopMoney { amount }
+              }
+            }
             lineItems(first: 10) {
               edges {
                 node {
                   title
                   quantity
-                  variantTitle
+                  variant { title }
                 }
               }
             }
             fulfillments {
+              status
+              createdAt
               trackingInfo {
                 number
                 url
+                company
               }
             }
             createdAt
+            cancelledAt
+            closedAt
           }
         }
       }
@@ -224,15 +242,20 @@ export async function getCustomerOrders(email: string, limit = 10, brandId?: str
             totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
             displayFinancialStatus: string;
             displayFulfillmentStatus: string;
+            refunds: Array<{ totalRefundedSet: { shopMoney: { amount: string } } }>;
             lineItems: {
               edges: Array<{
-                node: { title: string; quantity: number; variantTitle: string | null };
+                node: { title: string; quantity: number; variant: { title: string } | null };
               }>;
             };
             fulfillments: Array<{
-              trackingInfo: Array<{ number: string; url: string | null }>;
+              status: string;
+              createdAt: string;
+              trackingInfo: Array<{ number: string; url: string | null; company: string | null }>;
             }>;
             createdAt: string;
+            cancelledAt: string | null;
+            closedAt: string | null;
           };
         }>;
       };
@@ -242,10 +265,10 @@ export async function getCustomerOrders(email: string, limit = 10, brandId?: str
 
     return data.orders.edges.map((edge) => {
       const o = edge.node;
-      const tracking: Array<{ number: string; url: string | null }> = [];
+      const tracking: ShopifyOrderSummary['tracking'] = [];
       for (const f of o.fulfillments) {
         for (const t of f.trackingInfo) {
-          tracking.push({ number: t.number, url: trackingPageUrl });
+          tracking.push({ number: t.number, url: trackingPageUrl, company: t.company });
         }
       }
 
@@ -253,15 +276,30 @@ export async function getCustomerOrders(email: string, limit = 10, brandId?: str
         id: o.id,
         name: o.name,
         totalPrice: `${o.totalPriceSet.shopMoney.amount} ${o.totalPriceSet.shopMoney.currencyCode}`,
+        totalRefunded: o.refunds.reduce(
+          (sum, refund) => sum + Number.parseFloat(refund.totalRefundedSet.shopMoney.amount || '0'),
+          0,
+        ),
         financialStatus: o.displayFinancialStatus,
         fulfillmentStatus: o.displayFulfillmentStatus,
         lineItems: o.lineItems.edges.map((e) => ({
           title: e.node.title,
           quantity: e.node.quantity,
-          variantTitle: e.node.variantTitle,
+          variantTitle: e.node.variant?.title ?? null,
         })),
         tracking,
+        fulfillments: o.fulfillments.map((fulfillment) => ({
+          status: fulfillment.status,
+          createdAt: fulfillment.createdAt,
+          trackingInfo: fulfillment.trackingInfo.map((item) => ({
+            number: item.number,
+            url: trackingPageUrl,
+            company: item.company,
+          })),
+        })),
         createdAt: o.createdAt,
+        cancelledAt: o.cancelledAt,
+        closedAt: o.closedAt,
       };
     });
   } catch (err) {

@@ -100,7 +100,7 @@ export async function POST() {
 
         const body = messages?.[0]?.content || ticket.subject;
 
-        // Call Haiku for classification
+        // Call the backend's DeepSeek V4 Flash classifier.
         const res = await fetch(`${BACKEND_URL}/api/tickets/ai/classify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

@@ -101,17 +101,6 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: 'Trade Program',
-    collapsible: true,
-    defaultCollapsed: true,
-    items: [
-      { href: '/trade', label: 'Overview', icon: Briefcase },
-      { href: '/trade/applications', label: 'Applications', icon: FileText },
-      { href: '/trade/members', label: 'Members', icon: Users },
-      { href: '/trade/settings', label: 'Settings', icon: Settings },
-    ],
-  },
-  {
     label: 'Customize',
     collapsible: true,
     defaultCollapsed: true,

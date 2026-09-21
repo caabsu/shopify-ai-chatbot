@@ -8,7 +8,7 @@ import {
   AlarmClock, Star, Bookmark, X,
 } from 'lucide-react';
 import type { Ticket, AgentRosterEntry } from '@/lib/types';
-import { ticketTriage, ticketCsat, ticketSnoozedUntil } from '@/lib/types';
+import { ticketTriage, ticketCsat, ticketSnoozedUntil, ticketAutopilot } from '@/lib/types';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { Button } from '@/components/ui/Button';
 
@@ -129,7 +129,7 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
   const [mineOnly, setMineOnly] = useState(false);
   const [assigneeFilter, setAssigneeFilter] = useState('');
   const [search, setSearch] = useState('');
-  const [orderBy, setOrderBy] = useState('sla_urgency');
+  const [orderBy, setOrderBy] = useState('newest');
 
   // Roster for assignee chips + filter
   const [roster, setRoster] = useState<AgentRosterEntry[]>([]);
@@ -212,11 +212,12 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
     try {
       const res = await fetch(`/api/tickets?${params}`);
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not load tickets.');
       setTickets(data.tickets ?? []);
       setTotal(data.total ?? 0);
       setTotalPages(data.totalPages ?? 1);
-    } catch {
-      setTickets([]);
+    } catch (error) {
+      setActionMessage({ type: 'error', text: error instanceof Error ? error.message : 'Could not load tickets. Please retry.' });
     }
     setLoading(false);
   }, [page, buildFilterParams]);
@@ -464,11 +465,12 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 os-manual-inbox">
       {/* ── Header ───────────────────────────────────────────── */}
       <div className="flex items-center gap-4 flex-wrap">
         <div>
-          <h1 className="font-bold" style={{ fontSize: 21, letterSpacing: '-0.03em', color: 'var(--text-primary)' }}>
+          <p className="os-eyebrow">A personal touch, at every step</p>
+          <h1 className="font-medium" style={{ fontSize: 29, letterSpacing: '-0.03em', color: 'var(--text-primary)' }}>
             {title}
           </h1>
           <p className="mt-0.5" style={{ fontSize: 12.5, color: 'var(--text-tertiary)' }}>
@@ -477,6 +479,7 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
         </div>
 
         <div className="flex-1" />
+        {showAdminActions && <Link href="/support" className="os-button"><Sparkles size={13} />Unified workspace</Link>}
 
         {/* Search */}
         <div
@@ -494,7 +497,9 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
         </div>
 
         {showAdminActions && (
-          <>
+          <details className="os-inbox-tools">
+            <summary className="os-button">Inbox tools</summary>
+            <div className="os-inbox-tools-menu">
             <Button
               variant="secondary"
               size="sm"
@@ -525,7 +530,8 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
             >
               {deleteLoading ? 'Deleting…' : 'Delete Emails'}
             </Button>
-          </>
+            </div>
+          </details>
         )}
       </div>
 
@@ -777,6 +783,12 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
             const csat = ticketCsat(ticket);
             const rowSnoozedUntil = ticketSnoozedUntil(ticket);
             const rowAssignee = ticket.assigned_to ? rosterById.get(ticket.assigned_to) : null;
+            const autopilot = ticketAutopilot(ticket);
+            const autopilotCalibrated = (autopilot?.analysis.confidence_basis?.sample_count ?? 0) > 0
+              && (autopilot?.analysis.confidence_basis?.effective_sample_weight ?? 0) > 0;
+            const autopilotConfidence = autopilotCalibrated
+              ? autopilot?.analysis.overall_confidence
+              : autopilot?.analysis.model_confidence ?? autopilot?.analysis.overall_confidence;
 
             return (
               <Link
@@ -852,6 +864,22 @@ export function TicketInbox({ basePath = '/tickets', showAdminActions = true, ti
                     </span>
                     {showClassification && (
                       <StatusPill kind="classification" value={ticket.classification!} label={CLASSIFICATION_LABELS[ticket.classification!] ?? undefined} />
+                    )}
+                    {autopilot?.status === 'proposed' && (
+                      <span
+                        className="inline-flex items-center gap-1 flex-shrink-0"
+                        title={`Plan waiting for review. ${Math.round((autopilotConfidence ?? 0) * 100)}% ${autopilotCalibrated ? 'calibrated confidence' : 'raw model confidence'}; manual work will supersede it.`}
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          color: 'var(--color-source-ai)',
+                          background: 'color-mix(in srgb, var(--color-source-ai) 10%, transparent)',
+                          padding: '2px 7px',
+                          borderRadius: 6,
+                        }}
+                      >
+                        <Sparkles size={10} /> Plan waiting for review · {Math.round((autopilotConfidence ?? 0) * 100)}% {autopilotCalibrated ? 'calibrated' : 'raw'}
+                      </span>
                     )}
                     {rowSnoozedUntil && (
                       <span

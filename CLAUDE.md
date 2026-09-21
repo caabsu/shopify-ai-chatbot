@@ -26,7 +26,7 @@ Customer on Shopify Store
                             │  ┌──────────────────────────────┐    │
                             │  │  AI Orchestration Layer       │    │
                             │  │  - Builds system prompt       │    │
-                            │  │  - Calls Claude API           │    │
+                            │  │  - Calls DeepSeek V4          │    │
                             │  │  - Handles tool-use loop      │    │
                             │  │  - Routes tools to services   │    │
                             │  └──────┬──────────┬─────────────┘    │
@@ -79,14 +79,14 @@ There are NO static API access tokens. The app was created in the Shopify Dev Da
 
 ### Shopify Admin API (GraphQL)
 
-- Endpoint: `https://put1rp-iq.myshopify.com/admin/api/2025-01/graphql.json`
+- Endpoint: `https://put1rp-iq.myshopify.com/admin/api/2026-07/graphql.json`
 - Auth: `X-Shopify-Access-Token` header with the token from the client credentials grant
 - Used for: order lookup, customer verification, return eligibility, return initiation
-- Available scopes: `read_orders`, `read_products`, `read_customers`, `read_content`, `read_shipping`, `read_inventory`, `read_fulfillments`, `write_returns`, `read_discounts`, `write_discounts`
+- Available scopes: `read_orders`, `write_orders`, `read_products`, `read_customers`, `read_content`, `read_shipping`, `read_inventory`, `read_fulfillments`, `write_returns`, `read_discounts`, `write_discounts`
 
 ### Supabase
 
-- Claude Code has Supabase MCP access and can create tables, run queries, manage the schema directly
+- Codex has Supabase access and can create tables, run queries, and manage the schema directly
 - Project ref: `wwblkodkycjwmzlflncg`
 - Use Supabase MCP tools to create tables, insert seed data, and verify schema
 - The backend connects to Supabase using the `@supabase/supabase-js` SDK with the service role key
@@ -94,8 +94,8 @@ There are NO static API access tokens. The app was created in the Shopify Dev Da
 
 ### Deployment
 
-- **Backend** → Railway (Claude Code has Railway MCP access for deployment, logs, domains)
-- **Dashboard** → Vercel (Claude Code has Vercel MCP access — deferred to post-MVP)
+- **Backend** → Railway (Codex has deployment, log, and domain access)
+- **Dashboard** → Vercel (Codex has deployment access)
 - **Widget JS** → Served from the backend as a static file, or from a CDN later
 
 ---
@@ -107,7 +107,7 @@ There are NO static API access tokens. The app was created in the Shopify Dev Da
 | Backend runtime | Node.js 20+ |
 | Backend framework | Express |
 | Language | TypeScript (strict mode) |
-| AI | Anthropic Claude API (`@anthropic-ai/sdk`), model: `claude-sonnet-4-20250514` |
+| AI | DeepSeek V4 through Vercel AI Gateway: Flash non-thinking + Pro thinking |
 | Database | Supabase (Postgres) via `@supabase/supabase-js` |
 | Shopify Admin | Raw fetch with GraphQL (no Shopify SDK — it doesn't support client credentials grant cleanly) |
 | Shopify MCP | Raw fetch with JSON-RPC 2.0 |
@@ -122,7 +122,7 @@ There are NO static API access tokens. The app was created in the Shopify Dev Da
 - TypeScript strict mode everywhere
 - Async/await, never callbacks
 - Service layer pattern: controllers handle HTTP requests/responses, services handle business logic
-- All external API calls (Claude, Shopify, Supabase) wrapped in try-catch with meaningful error messages
+- All external API calls (DeepSeek, Shopify, Supabase) wrapped in try-catch with meaningful error messages
 - Environment variables validated at startup — fail fast with clear error if any are missing
 - No classes unless genuinely needed — prefer functions and modules
 - Use named exports, not default exports
@@ -140,8 +140,9 @@ Reference `.env.example` for the complete list. Key variables:
 - `SHOPIFY_SHOP` — Just the store name: `put1rp-iq` (not the full domain)
 - `SHOPIFY_CLIENT_ID` — From Dev Dashboard → Settings
 - `SHOPIFY_CLIENT_SECRET` — From Dev Dashboard → Settings
-- `SHOPIFY_API_VERSION` — `2025-01`
-- `ANTHROPIC_API_KEY` — For Claude API
+- `SHOPIFY_API_VERSION` — `2026-07`
+- `AI_GATEWAY_API_KEY` — Vercel AI Gateway credential used for all production AI inference
+- `AUTOPILOT_AI_PROVIDER` — `vercel-ai-gateway` in production; no cross-model fallback
 - `SUPABASE_URL` — Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY` — For backend access (NOT the anon key)
 - `PORT` — Server port (default 3001, Railway will override)
@@ -282,7 +283,7 @@ Indexes: (category, enabled) composite
 ### ai_config entries:
 
 **key: `system_prompt`**
-Value: Comprehensive system prompt instructing Claude as customer support assistant.
+Value: Comprehensive system prompt instructing DeepSeek as the customer support assistant.
 
 **key: `brand_voice`**
 Value: Friendly and helpful. Speak like a knowledgeable store associate, not a corporate robot.
@@ -295,7 +296,7 @@ Value (JSON string): Array of 5 preset actions (track order, start return, find 
 
 ---
 
-## Claude Tool Definitions
+## AI Tool Definitions
 
 11 tools: search_products, get_product_details, answer_store_policy, lookup_order, check_return_eligibility, initiate_return, search_knowledge_base, manage_cart, get_cart, navigate_customer, escalate_to_human.
 

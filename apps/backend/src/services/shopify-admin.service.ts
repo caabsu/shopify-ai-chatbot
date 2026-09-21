@@ -3,6 +3,7 @@ import { getTokenForBrand } from './shopify-auth.service.js';
 import { getBrandShopifyConfig } from '../config/brand-shopify.js';
 import { supabase } from '../config/supabase.js';
 import { getBrand } from '../config/brand.js';
+import { cancelOrder as executeVerifiedCancellation } from './shopify-actions.service.js';
 
 export async function graphql<T = Record<string, unknown>>(
   query: string,
@@ -108,6 +109,8 @@ export interface OrderLookupResult {
       variantTitle: string | null;
     }>;
     shippingAddress1: string | null;
+    shippingFirstName: string | null;
+    shippingLastName: string | null;
     shippingCity: string | null;
     shippingProvince: string | null;
     shippingProvinceCode: string | null;
@@ -115,8 +118,16 @@ export interface OrderLookupResult {
     shippingCountry: string | null;
     shippingCountryCode: string | null;
     shippingPhone: string | null;
+    fulfillments: Array<{
+      status: string;
+      createdAt: string;
+      trackingInfo: Array<{ number: string; url: string | null; company: string | null }>;
+    }>;
     createdAt: string;
+    cancelledAt: string | null;
+    closedAt: string | null;
     totalPrice: string | null;
+    currencyCode: string | null;
     totalRefunded: number;
   };
 }
@@ -145,12 +156,16 @@ export async function lookupOrder(
             email
             phone
             createdAt
+            cancelledAt
+            closedAt
             displayFinancialStatus
             displayFulfillmentStatus
             customer {
               displayName
             }
             fulfillments {
+              status
+              createdAt
               trackingInfo {
                 number
                 url
@@ -203,6 +218,8 @@ export async function lookupOrder(
               }
             }
             shippingAddress {
+              firstName
+              lastName
               address1
               city
               province
@@ -215,6 +232,7 @@ export async function lookupOrder(
             totalPriceSet {
               shopMoney {
                 amount
+                currencyCode
               }
             }
             refunds(first: 10) {
@@ -239,9 +257,13 @@ export async function lookupOrder(
           email: string | null;
           phone: string | null;
           createdAt: string;
+          cancelledAt: string | null;
+          closedAt: string | null;
           displayFinancialStatus: string;
           displayFulfillmentStatus: string;
           fulfillments: Array<{
+            status: string;
+            createdAt: string;
             trackingInfo: Array<{ number: string; url: string | null; company: string | null }>;
             estimatedDeliveryAt: string | null;
             displayStatus: string | null;
@@ -274,8 +296,19 @@ export async function lookupOrder(
             }>;
           };
           customer: { displayName: string } | null;
-          shippingAddress: { address1: string | null; city: string; province: string | null; provinceCode: string | null; zip: string | null; country: string; countryCodeV2: string | null; phone: string | null } | null;
-          totalPriceSet: { shopMoney: { amount: string } } | null;
+          shippingAddress: {
+            firstName: string | null;
+            lastName: string | null;
+            address1: string | null;
+            city: string;
+            province: string | null;
+            provinceCode: string | null;
+            zip: string | null;
+            country: string;
+            countryCodeV2: string | null;
+            phone: string | null;
+          } | null;
+          totalPriceSet: { shopMoney: { amount: string; currencyCode: string } } | null;
           refunds: Array<{ totalRefundedSet: { shopMoney: { amount: string } } }>;
         };
       }>;
@@ -358,6 +391,8 @@ export async function lookupOrder(
         sku: e.node.sku ?? null,
         variantTitle: e.node.variant?.title ?? null,
       })),
+      shippingFirstName: order.shippingAddress?.firstName ?? null,
+      shippingLastName: order.shippingAddress?.lastName ?? null,
       shippingAddress1: order.shippingAddress?.address1 ?? null,
       shippingCity: order.shippingAddress?.city ?? null,
       shippingProvince: order.shippingAddress?.province ?? null,
@@ -366,8 +401,20 @@ export async function lookupOrder(
       shippingCountry: order.shippingAddress?.country ?? null,
       shippingCountryCode: order.shippingAddress?.countryCodeV2 ?? null,
       shippingPhone: order.shippingAddress?.phone ?? null,
+      fulfillments: order.fulfillments.map((fulfillment) => ({
+        status: fulfillment.status,
+        createdAt: fulfillment.createdAt,
+        trackingInfo: fulfillment.trackingInfo.map((item) => ({
+          number: item.number,
+          url: trackingPageUrl,
+          company: item.company,
+        })),
+      })),
       createdAt: order.createdAt,
+      cancelledAt: order.cancelledAt,
+      closedAt: order.closedAt,
       totalPrice: order.totalPriceSet?.shopMoney?.amount ?? null,
+      currencyCode: order.totalPriceSet?.shopMoney?.currencyCode ?? null,
       totalRefunded: order.refunds?.reduce((sum, r) => sum + parseFloat(r.totalRefundedSet?.shopMoney?.amount || '0'), 0) ?? 0,
     },
   };
@@ -384,7 +431,7 @@ export async function searchOrdersByCustomerName(
 ): Promise<Array<{ id: string; name: string; email: string | null; customerName: string | null; createdAt: string; totalPrice: string | null; lineItems: Array<{ sku: string | null; title: string }> }>> {
   const query = `
     query SearchByCustomer($queryStr: String!, $limit: Int!) {
-      orders(first: $limit, query: $queryStr, sortKey: CREATED_AT, reverse: true) {
+      orders(first: $limit, query: $queryStr, sortKey: CUSTOMER_NAME, reverse: false) {
         edges {
           node {
             id
@@ -631,41 +678,15 @@ export interface CancelOrderResult {
 }
 
 export async function cancelOrder(orderId: string, orderName: string, brandId?: string): Promise<CancelOrderResult> {
-  const mutation = `
-    mutation OrderCancel($orderId: ID!, $reason: OrderCancelReason!, $refund: Boolean!, $restock: Boolean!) {
-      orderCancel(orderId: $orderId, reason: $reason, refund: $refund, restock: $restock) {
-        orderCancelUserErrors {
-          field
-          message
-        }
-      }
-    }
-  `;
-
-  const data = await graphql<{
-    orderCancel: {
-      orderCancelUserErrors: Array<{ field: string[]; message: string }>;
-    };
-  }>(mutation, {
-    orderId,
-    reason: 'CUSTOMER',
-    refund: true,
-    restock: true,
-  }, brandId);
-
-  const errors = data.orderCancel.orderCancelUserErrors;
-  if (errors.length > 0) {
-    const messages = errors.map((e) => e.message).join('; ');
-    console.error(`[shopify-admin] cancelOrder errors for ${orderName}:`, messages);
-    return {
-      success: false,
-      message: `Could not cancel order ${orderName}: ${messages}`,
-    };
-  }
-
+  // Keep this legacy service entry point, but route it through the single
+  // 2026-07 implementation so callers cannot mistake an accepted async job
+  // for a completed cancellation/refund.
+  const result = await executeVerifiedCancellation(orderId, 'CUSTOMER', brandId);
   return {
-    success: true,
-    message: `Order ${orderName} has been cancelled. A refund will be issued to the original payment method within 5-10 business days.`,
+    success: result.success,
+    message: result.success
+      ? result.message
+      : `Could not confirm cancellation for ${orderName}: ${result.message}`,
   };
 }
 

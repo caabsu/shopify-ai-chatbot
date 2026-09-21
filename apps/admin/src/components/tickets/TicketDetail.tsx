@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { TicketAutomationControl } from '@/components/support/TicketAutomationControl';
 import {
   ArrowLeft, Tag, User, Bot, Cpu, MessageSquare, Plus, X,
   ChevronDown, ChevronUp, Send, StickyNote, Sparkles, ListChecks, FileText,
@@ -48,6 +49,19 @@ function snoozePresets(): Array<{ label: string; until: () => Date }> {
 
 function formatSnoozeUntil(iso: string): string {
   return new Date(iso).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+async function readJsonObject(response: Response): Promise<Record<string, unknown>> {
+  try {
+    const value: unknown = await response.json();
+    return value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function responseError(payload: Record<string, unknown>, fallback: string): string {
+  return typeof payload.error === 'string' && payload.error.trim() ? payload.error : fallback;
 }
 
 // Token-driven (see globals.css). bg = soft tint of the same token via color-mix.
@@ -222,6 +236,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
   // Composer state
   const [replyMode, setReplyMode] = useState<'reply' | 'note'>('reply');
   const [replyContent, setReplyContent] = useState('');
+  const [draftGenerationId, setDraftGenerationId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
   // Dropdowns
@@ -262,6 +277,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
   const [cancelRefund, setCancelRefund] = useState(true);
   const [cancelRestock, setCancelRestock] = useState(true);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelPendingOrderId, setCancelPendingOrderId] = useState<string | null>(null);
 
   // Refund modal
   const [showRefundModal, setShowRefundModal] = useState(false);
@@ -271,7 +287,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
   const [refundLoading, setRefundLoading] = useState(false);
 
   // Action result toast
-  const [actionResult, setActionResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [actionResult, setActionResult] = useState<{ type: 'success' | 'pending' | 'error'; message: string } | null>(null);
 
   // Copy feedback
   const [copied, setCopied] = useState(false);
@@ -288,25 +304,106 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const activeTicketIdRef = useRef(id);
+  const aiRequestRef = useRef<AbortController | null>(null);
+  const pendingSendRef = useRef<{ key: string; signature: string } | null>(null);
+  activeTicketIdRef.current = id;
 
   useEffect(() => {
-    fetch(`/api/tickets/${id}`)
-      .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
+    const controller = new AbortController();
+    aiRequestRef.current?.abort();
+    aiRequestRef.current = null;
+
+    // Dynamic ticket routes can reuse this component. Clear every ticket-scoped
+    // field before loading so drafts, customer data, dialogs, and AI output from
+    // the previous ticket cannot appear on the next one.
+    setData(null);
+    setLoading(true);
+    setCustomerProfile(null);
+    setCustomerOrders([]);
+    setCustomerLoading(false);
+    setReplyMode('reply');
+    setReplyContent('');
+    setDraftGenerationId(null);
+    pendingSendRef.current = null;
+    setSending(false);
+    setShowStatusDropdown(false);
+    setShowPriorityDropdown(false);
+    setShowCannedDropdown(false);
+    setShowTagInput(false);
+    setNewTag('');
+    setAiContextOpen(false);
+    setAiLoading(null);
+    setAiSummary(null);
+    setAiSteps(null);
+    setAgentContext('');
+    setShowAgentContext(false);
+    setKbQuery('');
+    setKbResults([]);
+    setKbSearching(false);
+    setKbExpanded(null);
+    setOrdersExpanded(true);
+    setExpandedOrderId(null);
+    setOrderDetail(null);
+    setOrderDetailLoading(false);
+    setShowCancelModal(false);
+    setCancelReason('CUSTOMER');
+    setCancelRefund(true);
+    setCancelRestock(true);
+    setCancelLoading(false);
+    setCancelPendingOrderId(null);
+    setShowRefundModal(false);
+    setRefundAmount('');
+    setRefundReason('');
+    setRefundNotify(true);
+    setRefundLoading(false);
+    setActionResult(null);
+    setCopied(false);
+    setShowAssignDropdown(false);
+    setShowSnoozeDropdown(false);
+    setShowMergeModal(false);
+    setMergeSourceId(null);
+    setMergeLoading(false);
+    setShowShortcuts(false);
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/tickets/${id}`, { signal: controller.signal });
+        const payload = await readJsonObject(response);
+        if (!response.ok) throw new Error(responseError(payload, 'Failed to load ticket'));
+        if (!controller.signal.aborted && activeTicketIdRef.current === id) {
+          setData(payload as unknown as TicketDetail);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted && activeTicketIdRef.current === id) {
+          console.error('Ticket load failed:', error);
+        }
+      } finally {
+        if (!controller.signal.aborted && activeTicketIdRef.current === id) setLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
   }, [id]);
 
   // Fetch Shopify customer data after ticket loads
   useEffect(() => {
-    if (!data?.ticket?.customer_email) return;
+    if (data?.ticket?.id !== id || !data.ticket.customer_email) return;
+    const controller = new AbortController();
     setCustomerLoading(true);
-    fetch(`/api/tickets/${id}/customer`)
-      .then((r) => r.json())
+    fetch(`/api/tickets/${id}/customer`, { signal: controller.signal })
+      .then(async (r) => {
+        const payload = await readJsonObject(r);
+        if (!r.ok) throw new Error(responseError(payload, 'Failed to load customer'));
+        return payload;
+      })
       .then((res) => {
+        if (controller.signal.aborted || activeTicketIdRef.current !== id) return;
         if (res.profile) {
-          setCustomerProfile(res.profile);
+          const profile = res.profile as ShopifyCustomerProfile;
+          setCustomerProfile(profile);
           // Auto-update ticket customer_name in local state from Shopify
-          const shopifyName = `${res.profile.firstName || ''} ${res.profile.lastName || ''}`.trim();
+          const shopifyName = `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
           if (shopifyName && (!data.ticket.customer_name || data.ticket.customer_name === 'Unknown')) {
             setData((prev) => prev ? {
               ...prev,
@@ -314,10 +411,15 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
             } : prev);
           }
         }
-        if (res.orders) setCustomerOrders(res.orders);
+        if (Array.isArray(res.orders)) setCustomerOrders(res.orders as ShopifyOrder[]);
       })
-      .catch(() => {})
-      .finally(() => setCustomerLoading(false));
+      .catch((error) => {
+        if (!controller.signal.aborted) console.error('Customer load failed:', error);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted && activeTicketIdRef.current === id) setCustomerLoading(false);
+      });
+    return () => controller.abort();
   }, [id, data?.ticket?.customer_email]);
 
   useEffect(() => {
@@ -336,101 +438,256 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const end = messagesEndRef.current;
+    const thread = end?.parentElement;
+    const newest = end?.previousElementSibling;
+    // Keep the ticket header and controls in place. Read the newest message
+    // from its beginning, scrolling only the thread rather than the page.
+    if (thread && newest) thread.scrollTo({ top: newest.getBoundingClientRect().top - thread.getBoundingClientRect().top + thread.scrollTop - 16 });
   }, [data?.messages]);
 
-  async function updateTicket(updates: Partial<Ticket>) {
-    const res = await fetch(`/api/tickets/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setData((prev) => prev ? { ...prev, ticket: updated.ticket } : prev);
+  async function reloadTicket(ticketId: string): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/tickets/${ticketId}`, { cache: 'no-store' });
+      const payload = await readJsonObject(response);
+      if (!response.ok) return false;
+      if (activeTicketIdRef.current === ticketId) {
+        setData(payload as unknown as TicketDetail);
+      }
+      return true;
+    } catch {
+      return false;
     }
-    setShowStatusDropdown(false);
-    setShowPriorityDropdown(false);
+  }
+
+  async function updateTicket(updates: Partial<Ticket>): Promise<boolean> {
+    const requestTicketId = id;
+    try {
+      const response = await fetch(`/api/tickets/${requestTicketId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      const payload = await readJsonObject(response);
+
+      if (response.ok) {
+        if (activeTicketIdRef.current === requestTicketId && payload.ticket) {
+          setData((prev) => prev ? { ...prev, ticket: payload.ticket as Ticket } : prev);
+        }
+        return true;
+      }
+
+      if (activeTicketIdRef.current === requestTicketId) {
+        if (response.status === 409) {
+          const reloaded = await reloadTicket(requestTicketId);
+          if (activeTicketIdRef.current !== requestTicketId) return false;
+          setActionResult({
+            type: 'error',
+            message: reloaded
+              ? 'This ticket changed in another session. The latest version was reloaded; review it and try again.'
+              : 'This ticket changed in another session, and the latest version could not be reloaded. Refresh before trying again.',
+          });
+        } else {
+          setActionResult({ type: 'error', message: responseError(payload, 'Ticket update failed') });
+        }
+      }
+      return false;
+    } catch {
+      if (activeTicketIdRef.current === requestTicketId) {
+        setActionResult({ type: 'error', message: 'Ticket update failed. Check your connection and try again.' });
+      }
+      return false;
+    } finally {
+      if (activeTicketIdRef.current === requestTicketId) {
+        setShowStatusDropdown(false);
+        setShowPriorityDropdown(false);
+      }
+    }
   }
 
   async function sendMessage(setStatus?: string) {
     if (!replyContent.trim() && !setStatus) return;
+    const requestTicketId = id;
     setSending(true);
 
     // If only setting status with no content (e.g. quick resolve)
     if (!replyContent.trim() && setStatus) {
       await updateTicket({ status: setStatus as Ticket['status'] });
-      setSending(false);
+      if (activeTicketIdRef.current === requestTicketId) setSending(false);
       return;
     }
 
+    const requestContent = replyContent.trim();
+    const requestMode = replyMode;
+    const requestGenerationId = requestMode === 'reply' ? draftGenerationId : null;
+    const requestContextVersion = data?.ticket.context_version ?? 0;
+    const signature = JSON.stringify({
+      ticket: requestTicketId,
+      content: requestContent,
+      mode: requestMode,
+      generation: requestGenerationId,
+      setStatus: setStatus ?? null,
+      contextVersion: requestContextVersion,
+    });
+    const pending = pendingSendRef.current;
+    const idempotencyKey = pending?.signature === signature ? pending.key : crypto.randomUUID();
+    pendingSendRef.current = { key: idempotencyKey, signature };
+
     const body: Record<string, unknown> = {
-      content: replyContent,
-      sender_type: replyMode === 'note' ? 'system' : 'agent',
-      is_internal_note: replyMode === 'note',
+      content: requestContent,
+      sender_type: requestMode === 'note' ? 'system' : 'agent',
+      is_internal_note: requestMode === 'note',
+      idempotency_key: idempotencyKey,
+      context_version: requestContextVersion,
+      ...(requestMode === 'reply' && requestGenerationId
+        ? { generation_id: requestGenerationId, ai_generated: true }
+        : {}),
     };
     if (setStatus) body.set_status = setStatus;
 
-    const res = await fetch(`/api/tickets/${id}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (res.ok) {
-      const newMsg = await res.json();
-      setData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          messages: [...prev.messages, newMsg.message],
-          ticket: newMsg.ticket ?? prev.ticket,
-        };
-      });
-      setReplyContent('');
-      if (newMsg.email_error && replyMode === 'reply') {
-        setActionResult({ type: 'error', message: `Saved to ticket, but the email FAILED to send: ${newMsg.email_error}` });
-        setTimeout(() => setActionResult(null), 10000);
+    try {
+      const automationResponse = await fetch(`/api/support/${requestTicketId}/state`);
+      const automation = await readJsonObject(automationResponse);
+      if (!automationResponse.ok) throw new Error(responseError(automation, 'Could not check automation state.'));
+      if (automation.ready) {
+        const takeover = await fetch(`/api/support/${requestTicketId}/takeover`, { method: 'POST' });
+        const takeoverBody = await readJsonObject(takeover);
+        if (!takeover.ok) throw new Error(responseError(takeoverBody, 'Could not take over this ticket.'));
       }
-    } else {
-      setActionResult({ type: 'error', message: 'Failed to send reply' });
-      setTimeout(() => setActionResult(null), 8000);
+      const response = await fetch(`/api/tickets/${requestTicketId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const payload = await readJsonObject(response);
+      if (activeTicketIdRef.current !== requestTicketId) return;
+
+      if (response.ok && payload.delivery_pending === true) {
+        setActionResult({
+          type: 'error',
+          message: 'Delivery is still being confirmed. Wait a moment, then retry; the same operation will be resumed safely.',
+        });
+      } else if (response.ok) {
+        setData((prev) => {
+          if (!prev || !payload.message) return prev;
+          const nextMessage = payload.message as TicketMessage;
+          return {
+            ...prev,
+            messages: prev.messages.some((existing) => existing.id === nextMessage.id)
+              ? prev.messages.map((existing) => existing.id === nextMessage.id ? nextMessage : existing)
+              : [...prev.messages, nextMessage],
+            ticket: payload.ticket ? payload.ticket as Ticket : prev.ticket,
+          };
+        });
+        if (typeof payload.email_error === 'string' && requestMode === 'reply') {
+          setActionResult({ type: 'error', message: `Saved to ticket, but the email failed to send: ${payload.email_error}` });
+        } else if (typeof payload.status_warning === 'string') {
+          // Delivery may have succeeded while the database finalizer response
+          // was lost. Keep the exact content + idempotency key so Retry resumes
+          // that operation instead of creating a second message.
+          setActionResult({ type: 'error', message: `${payload.status_warning} Retry to reconcile the same send safely.` });
+        } else {
+          pendingSendRef.current = null;
+          setReplyContent('');
+          setDraftGenerationId(null);
+        }
+      } else {
+        setActionResult({ type: 'error', message: responseError(payload, 'Failed to send reply') });
+      }
+    } catch (error) {
+      if (activeTicketIdRef.current === requestTicketId) {
+        setActionResult({ type: 'error', message: error instanceof Error ? error.message : 'Failed to send reply. Check your connection and try again.' });
+      }
+    } finally {
+      if (activeTicketIdRef.current === requestTicketId) setSending(false);
     }
-    setSending(false);
   }
 
   async function handleAiTool(action: 'draft' | 'summarize' | 'suggest') {
+    const requestTicketId = id;
+    aiRequestRef.current?.abort();
+    const controller = new AbortController();
+    aiRequestRef.current = controller;
     setAiLoading(action);
     try {
-      const res = await fetch(`/api/tickets/${id}/ai`, {
+      const res = await fetch(`/api/tickets/${requestTicketId}/ai`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, ...(action === 'draft' && agentContext.trim() ? { agentContext: agentContext.trim() } : {}) }),
+        signal: controller.signal,
       });
-      const result = await res.json();
+      const result = await readJsonObject(res);
+
+      if (controller.signal.aborted || activeTicketIdRef.current !== requestTicketId) return;
 
       if (!res.ok) {
         console.error('AI error:', result.error);
-        setAiLoading(null);
+        setActionResult({ type: 'error', message: responseError(result, `AI ${action} failed`) });
         return;
       }
 
+      const text = typeof result.content === 'string'
+        ? result.content
+        : typeof result.text === 'string'
+          ? result.text
+          : '';
       if (action === 'draft') {
-        setReplyContent(result.content || result.text || '');
+        setReplyContent(text);
+        setDraftGenerationId(typeof result.generation_id === 'string' ? result.generation_id : null);
+        const confidence = Number(result.confidence);
+        const coverage = Number(result.evidence_coverage);
+        const uncertainties = Array.isArray(result.uncertainties)
+          ? result.uncertainties.filter((item): item is string => typeof item === 'string').slice(0, 2)
+          : [];
+        if (result.learning_capture_available === false) {
+          setActionResult({
+            type: 'error',
+            message: 'Draft ready, but its learning lineage could not be saved. Review carefully; edits to this draft will not train Autopilot.',
+          });
+        } else if (Number.isFinite(confidence) || Number.isFinite(coverage) || uncertainties.length) {
+          const metrics = [
+            Number.isFinite(confidence) ? `${Math.round(confidence * 100)}% raw confidence` : '',
+            Number.isFinite(coverage) ? `${Math.round(coverage * 100)}% evidence coverage` : '',
+          ].filter(Boolean).join(' · ');
+          setActionResult({
+            type: 'success',
+            message: `AI draft ready${metrics ? ` · ${metrics}` : ''}${uncertainties.length ? ` · Verify: ${uncertainties.join('; ')}` : ''}`,
+          });
+        }
       } else if (action === 'summarize') {
-        setAiSummary(result.content || result.text || '');
+        setAiSummary(text);
       } else if (action === 'suggest') {
-        if (result.steps && Array.isArray(result.steps)) {
-          setAiSteps(result.steps);
+        if (Array.isArray(result.steps)) {
+          setAiSteps(result.steps.filter((step): step is string => typeof step === 'string'));
         } else {
-          const text = result.content || result.text || '';
           setAiSteps(text.split('\n').filter((l: string) => l.trim()));
         }
       }
     } catch (err) {
-      console.error('AI tool error:', err);
+      if (!controller.signal.aborted && activeTicketIdRef.current === requestTicketId) {
+        console.error('AI tool error:', err);
+        setActionResult({ type: 'error', message: `AI ${action} failed. Try again.` });
+      }
+    } finally {
+      if (aiRequestRef.current === controller) {
+        aiRequestRef.current = null;
+        if (activeTicketIdRef.current === requestTicketId) setAiLoading(null);
+      }
     }
-    setAiLoading(null);
+  }
+
+  function updateReplyFromAgent(next: string | ((current: string) => string)) {
+    // Once the agent starts typing or inserts known content, an in-flight draft
+    // is stale and must not overwrite that newer human input when it resolves.
+    if (aiLoading === 'draft') {
+      aiRequestRef.current?.abort();
+      aiRequestRef.current = null;
+      setAiLoading(null);
+    }
+    // Editing starts a new logical send. A lost-response retry keeps its key
+    // only while the exact composer operation remains untouched.
+    pendingSendRef.current = null;
+    setReplyContent((current) => typeof next === 'function' ? next(current) : next);
   }
 
   async function assignTo(userId: string | null) {
@@ -440,47 +697,44 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
 
   async function snoozeUntil(until: Date | null) {
     setShowSnoozeDropdown(false);
-    const res = await fetch(`/api/tickets/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ snoozed_until: until ? until.toISOString() : null }),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setData((prev) => (prev ? { ...prev, ticket: updated.ticket } : prev));
+    const requestTicketId = id;
+    const updated = await updateTicket({ snoozed_until: until ? until.toISOString() : null } as Partial<Ticket>);
+    if (updated && activeTicketIdRef.current === requestTicketId) {
       setActionResult({
         type: 'success',
         message: until ? `Snoozed until ${formatSnoozeUntil(until.toISOString())}` : 'Snooze cleared',
       });
-      setTimeout(() => setActionResult(null), 4000);
     }
   }
 
   async function mergeTicket() {
     if (!mergeSourceId) return;
+    const requestTicketId = id;
     setMergeLoading(true);
     try {
-      const res = await fetch(`/api/tickets/${id}/merge`, {
+      const res = await fetch(`/api/tickets/${requestTicketId}/merge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source_id: mergeSourceId }),
       });
-      const result = await res.json();
+      const result = await readJsonObject(res);
+      if (activeTicketIdRef.current !== requestTicketId) return;
       if (res.ok) {
         setActionResult({ type: 'success', message: `Merged ticket #${result.merged} into this one` });
         setShowMergeModal(false);
         setMergeSourceId(null);
         // Reload the full thread — merged messages now belong here
-        const refreshed = await fetch(`/api/tickets/${id}`).then((r) => r.json());
-        setData(refreshed);
+        await reloadTicket(requestTicketId);
       } else {
-        setActionResult({ type: 'error', message: result.error || 'Merge failed' });
+        setActionResult({ type: 'error', message: responseError(result, 'Merge failed') });
       }
     } catch {
-      setActionResult({ type: 'error', message: 'Merge failed' });
+      if (activeTicketIdRef.current === requestTicketId) {
+        setActionResult({ type: 'error', message: 'Merge failed' });
+      }
+    } finally {
+      if (activeTicketIdRef.current === requestTicketId) setMergeLoading(false);
     }
-    setMergeLoading(false);
-    setTimeout(() => setActionResult(null), 5000);
   }
 
   // Keyboard shortcuts (detail scope). J/K navigation lives in TicketWorkflowBar.
@@ -525,31 +779,38 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
 
   const searchKB = useCallback(async () => {
     if (!kbQuery.trim()) { setKbResults([]); return; }
+    const requestTicketId = id;
     setKbSearching(true);
     try {
       const res = await fetch(`/api/knowledge/search?q=${encodeURIComponent(kbQuery)}`);
       const data = await res.json();
-      setKbResults(data.documents ?? []);
-    } catch { setKbResults([]); }
-    setKbSearching(false);
-  }, [kbQuery]);
+      if (activeTicketIdRef.current === requestTicketId) setKbResults(data.documents ?? []);
+    } catch {
+      if (activeTicketIdRef.current === requestTicketId) setKbResults([]);
+    } finally {
+      if (activeTicketIdRef.current === requestTicketId) setKbSearching(false);
+    }
+  }, [id, kbQuery]);
 
   function extractOrderNumericId(gid: string) {
     return gid.split('/').pop() || gid;
   }
 
   async function fetchOrderDetail(orderId: string) {
+    const requestTicketId = id;
     setOrderDetailLoading(true);
     try {
       const numId = extractOrderNumericId(orderId);
       const res = await fetch(`/api/orders/${numId}`);
       const data = await res.json();
+      if (activeTicketIdRef.current !== requestTicketId) return;
       if (res.ok && data.order) setOrderDetail(data.order);
       else console.error('Order detail error:', data.error);
     } catch (err) {
-      console.error('Failed to fetch order detail:', err);
+      if (activeTicketIdRef.current === requestTicketId) console.error('Failed to fetch order detail:', err);
+    } finally {
+      if (activeTicketIdRef.current === requestTicketId) setOrderDetailLoading(false);
     }
-    setOrderDetailLoading(false);
   }
 
   function handleExpandOrder(orderId: string) {
@@ -564,35 +825,100 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
 
   async function handleCancelOrder() {
     if (!expandedOrderId) return;
+    const requestTicketId = id;
+    const requestedOrderId = expandedOrderId;
     setCancelLoading(true);
     try {
-      const numId = extractOrderNumericId(expandedOrderId);
+      const numId = extractOrderNumericId(requestedOrderId);
       const res = await fetch(`/api/orders/${numId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'cancel', reason: cancelReason, refund: cancelRefund, restock: cancelRestock }),
       });
       const data = await res.json();
-      setActionResult({ type: data.success ? 'success' : 'error', message: data.message });
-      if (data.success) {
+      if (activeTicketIdRef.current !== requestTicketId) return;
+
+      const cancellationPending = res.status === 202
+        || data?.pending === true
+        || (data?.success === true && data?.completed === false);
+      if (cancellationPending) {
+        setCancelPendingOrderId(requestedOrderId);
+        setCancelLoading(false);
+        setActionResult({
+          type: 'pending',
+          message: data?.message || 'Shopify accepted the cancellation. Waiting for the cancelled order state to appear...',
+        });
+
+        const retryAfterHeader = Number.parseInt(res.headers.get('Retry-After') || '3', 10);
+        const retryDelayMs = Math.max(1, Number.isFinite(retryAfterHeader) ? retryAfterHeader : 3) * 1_000;
+        let confirmedOrder: OrderDetailData | null = null;
+        for (let attempt = 0; attempt < 30; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+          if (activeTicketIdRef.current !== requestTicketId) return;
+          try {
+            const confirmationResponse = await fetch(`/api/orders/${numId}`, { cache: 'no-store' });
+            if (!confirmationResponse.ok) continue;
+            const confirmation = await confirmationResponse.json();
+            if (confirmation?.order) {
+              setOrderDetail(confirmation.order as OrderDetailData);
+              if (confirmation.order.cancelledAt) {
+                confirmedOrder = confirmation.order as OrderDetailData;
+                break;
+              }
+            }
+          } catch {
+            // A transient read failure does not mean the accepted cancellation
+            // failed. Continue polling without offering a duplicate mutation.
+          }
+        }
+
+        if (!confirmedOrder) {
+          setActionResult({
+            type: 'pending',
+            message: 'Shopify is still processing this cancellation. Refresh the ticket before taking another cancellation action.',
+          });
+          return;
+        }
+
+        setCancelPendingOrderId(null);
+        setActionResult({ type: 'success', message: `Order cancelled at ${new Date(confirmedOrder.cancelledAt!).toLocaleString()}` });
         setShowCancelModal(false);
-        fetchOrderDetail(expandedOrderId);
+        await fetchOrderDetail(requestedOrderId);
         // Re-fetch orders list
         if (ticket.customer_email) {
-          fetch(`/api/tickets/${id}/customer`).then(r => r.json()).then(res => {
-            if (res.orders) setCustomerOrders(res.orders);
+          fetch(`/api/tickets/${requestTicketId}/customer`).then(r => r.json()).then(res => {
+            if (activeTicketIdRef.current === requestTicketId && res.orders) setCustomerOrders(res.orders);
           }).catch(() => {});
         }
+        return;
+      }
+
+      if (res.ok && data?.success === true && (data?.cancelledAt || data?.order?.cancelledAt)) {
+        setCancelPendingOrderId(null);
+        setActionResult({ type: 'success', message: data.message || 'Order cancelled' });
+        if (data.order) setOrderDetail(data.order as OrderDetailData);
+        setShowCancelModal(false);
+        await fetchOrderDetail(requestedOrderId);
+        if (ticket.customer_email) {
+          fetch(`/api/tickets/${requestTicketId}/customer`).then(r => r.json()).then(result => {
+            if (activeTicketIdRef.current === requestTicketId && result.orders) setCustomerOrders(result.orders);
+          }).catch(() => {});
+        }
+      } else {
+        setActionResult({ type: 'error', message: data?.message || 'Failed to cancel order' });
       }
     } catch {
-      setActionResult({ type: 'error', message: 'Failed to cancel order' });
+      if (activeTicketIdRef.current === requestTicketId) {
+        setActionResult({ type: 'error', message: 'Failed to cancel order' });
+      }
+    } finally {
+      if (activeTicketIdRef.current === requestTicketId) setCancelLoading(false);
     }
-    setCancelLoading(false);
-    setTimeout(() => setActionResult(null), 5000);
   }
 
   async function handleRefundOrder() {
     if (!expandedOrderId || !refundAmount) return;
+    const requestTicketId = id;
     setRefundLoading(true);
     try {
       const numId = extractOrderNumericId(expandedOrderId);
@@ -602,6 +928,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
         body: JSON.stringify({ action: 'refund', amount: parseFloat(refundAmount), reason: refundReason || 'Customer requested refund', notify: refundNotify }),
       });
       const data = await res.json();
+      if (activeTicketIdRef.current !== requestTicketId) return;
       setActionResult({ type: data.success ? 'success' : 'error', message: data.message });
       if (data.success) {
         setShowRefundModal(false);
@@ -609,16 +936,18 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
         setRefundReason('');
         fetchOrderDetail(expandedOrderId);
         if (ticket.customer_email) {
-          fetch(`/api/tickets/${id}/customer`).then(r => r.json()).then(res => {
-            if (res.orders) setCustomerOrders(res.orders);
+          fetch(`/api/tickets/${requestTicketId}/customer`).then(r => r.json()).then(res => {
+            if (activeTicketIdRef.current === requestTicketId && res.orders) setCustomerOrders(res.orders);
           }).catch(() => {});
         }
       }
     } catch {
-      setActionResult({ type: 'error', message: 'Failed to process refund' });
+      if (activeTicketIdRef.current === requestTicketId) {
+        setActionResult({ type: 'error', message: 'Failed to process refund' });
+      }
+    } finally {
+      if (activeTicketIdRef.current === requestTicketId) setRefundLoading(false);
     }
-    setRefundLoading(false);
-    setTimeout(() => setActionResult(null), 5000);
   }
 
   function interpolateCanned(content: string): string {
@@ -677,16 +1006,19 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
   const sentimentMeta = triage?.sentiment ? SENTIMENT_META[triage.sentiment] : null;
   const suggestedTags = (triage?.suggested_tags ?? []).filter((t) => !ticket.tags?.includes(t)).slice(0, 4);
   const mergeCandidates = (pastTickets ?? []).filter((pt) => pt.status === 'open' || pt.status === 'pending');
+  const cancellationRestockAllowed = orderDetail?.fulfillmentStatus === 'UNFULFILLED'
+    && !orderDetail.fulfillments.some((fulfillment) => fulfillment.trackingInfo.length > 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 os-manual-ticket">
+      <TicketAutomationControl ticketId={id} />
       {/* Workflow / triage bar — queue position, remaining, next/prev, keyboard nav */}
       <TicketWorkflowBar ticketId={id} basePath={basePath} />
 
       {/* Autopilot banner — a proposed AI action plan is waiting for review */}
       {ticketAutopilot(ticket)?.status === 'proposed' && (
         <Link
-          href="/autopilot"
+          href={`/autopilot?ticket=${ticket.id}`}
           className="flex items-center gap-2.5 rounded-xl px-4 py-3"
           style={{
             background: 'color-mix(in srgb, var(--color-source-ai) 8%, var(--bg-primary))',
@@ -695,8 +1027,9 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
         >
           <Sparkles size={15} style={{ color: 'var(--color-source-ai)', flexShrink: 0 }} />
           <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
-            <strong>Autopilot</strong> proposed {ticketAutopilot(ticket)!.actions.length} action
-            {ticketAutopilot(ticket)!.actions.length === 1 ? '' : 's'} for this ticket
+            <strong>Autopilot plan waiting for review.</strong>{' '}
+            {ticketAutopilot(ticket)!.actions.length} proposed action
+            {ticketAutopilot(ticket)!.actions.length === 1 ? '' : 's'}
             {' '}<span style={{ color: 'var(--text-tertiary)' }}>— {ticketAutopilot(ticket)!.analysis.summary}</span>
           </span>
           <span className="ml-auto text-xs font-semibold flex-shrink-0" style={{ color: 'var(--color-source-ai)' }}>
@@ -713,19 +1046,11 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
           border: '1px solid var(--border-primary)',
         }}
       >
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
+        <div className="os-manual-heading flex items-start justify-between mb-3 gap-4">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
             <span className="text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>
               #{ticket.ticket_number}
             </span>
-            {ticket.tags?.includes('trade-member') && (
-              <span
-                className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide"
-                style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: 'var(--color-info)', border: '1px solid rgba(99,102,241,0.3)' }}
-              >
-                Trade
-              </span>
-            )}
             <h1 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
               {ticket.subject}
             </h1>
@@ -743,7 +1068,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Assignee dropdown */}
             <div className="relative">
               <button
@@ -850,7 +1175,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
             </div>
 
             {/* Merge */}
-            {mergeCandidates.length > 0 && (
+            {(ticket.status === 'open' || ticket.status === 'pending') && mergeCandidates.length > 0 && (
               <button
                 onClick={() => setShowMergeModal(true)}
                 className="text-xs font-medium px-2.5 py-1.5 rounded-lg flex items-center gap-1.5"
@@ -1077,7 +1402,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
       </div>
 
       {/* Main content: thread + sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4">
         {/* Left: Conversation thread + Composer */}
         <div className="space-y-4">
           {/* AI Context (collapsible) */}
@@ -1349,7 +1674,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
                         <button
                           key={cr.id}
                           onClick={() => {
-                            setReplyContent(interpolateCanned(cr.content));
+                            updateReplyFromAgent(interpolateCanned(cr.content));
                             setShowCannedDropdown(false);
                           }}
                           className="w-full text-left px-3 py-2 text-xs transition-colors"
@@ -1379,7 +1704,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
               <textarea
                 ref={replyTextareaRef}
                 value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
+                onChange={(e) => updateReplyFromAgent(e.target.value)}
                 rows={5}
                 placeholder={replyMode === 'note' ? 'Write an internal note...' : 'Write your reply...'}
                 className="w-full text-sm rounded-lg px-3 py-2 resize-y focus:outline-none focus:ring-2"
@@ -1423,8 +1748,8 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
                 </div>
               </div>
             )}
-            <div className="flex items-center justify-between px-4 pb-4">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-4 pb-4 flex-wrap gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
                 {/* Agent Context toggle */}
                 <button
                   onClick={() => setShowAgentContext(!showAgentContext)}
@@ -1456,7 +1781,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
                   )}
                 </button>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {replyMode === 'reply' && (
                   <>
                     <button
@@ -1489,7 +1814,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
                   onClick={() => sendMessage()}
                   disabled={!replyContent.trim() || sending}
                   className="text-xs px-4 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-40"
-                  style={{ backgroundColor: 'var(--color-accent)' }}
+                  style={{ backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-fg)' }}
                 >
                   {sending ? 'Sending...' : replyMode === 'note' ? 'Add Note' : 'Send Reply'}
                 </button>
@@ -1632,12 +1957,20 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
             <div
               className="rounded-xl p-3 flex items-center gap-2 text-xs font-medium"
               style={{
-                backgroundColor: actionResult.type === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                border: `1px solid ${actionResult.type === 'success' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                color: actionResult.type === 'success' ? 'var(--color-success)' : 'var(--color-danger)',
+                backgroundColor: actionResult.type === 'success'
+                  ? 'rgba(34,197,94,0.1)'
+                  : actionResult.type === 'pending' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                border: `1px solid ${actionResult.type === 'success'
+                  ? 'rgba(34,197,94,0.3)'
+                  : actionResult.type === 'pending' ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                color: actionResult.type === 'success'
+                  ? 'var(--color-success)'
+                  : actionResult.type === 'pending' ? 'var(--color-warning)' : 'var(--color-danger)',
               }}
             >
-              {actionResult.type === 'success' ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+              {actionResult.type === 'success'
+                ? <CheckCircle2 size={14} />
+                : actionResult.type === 'pending' ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
               {actionResult.message}
               <button onClick={() => setActionResult(null)} className="ml-auto"><X size={12} /></button>
             </div>
@@ -1874,9 +2207,13 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
 
                                   {/* Action buttons */}
                                   <div className="flex gap-2 pt-1">
-                                    {!orderDetail.cancelledAt && orderDetail.fulfillmentStatus === 'UNFULFILLED' && (
+                                    {!orderDetail.cancelledAt && (
                                       <button
-                                        onClick={(e) => { e.stopPropagation(); setShowCancelModal(true); }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCancelRestock(cancellationRestockAllowed);
+                                          setShowCancelModal(true);
+                                        }}
                                         className="flex-1 text-[11px] font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
                                         style={{ backgroundColor: 'rgba(239,68,68,0.08)', color: 'var(--color-danger)', border: '1px solid rgba(239,68,68,0.2)' }}
                                         onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.15)'; }}
@@ -1950,9 +2287,9 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
                     Issue refund to customer
                   </label>
 
-                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-primary)' }}>
-                    <input type="checkbox" checked={cancelRestock} onChange={(e) => setCancelRestock(e.target.checked)} className="rounded" />
-                    Restock items
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: cancellationRestockAllowed ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+                    <input type="checkbox" checked={cancelRestock} disabled={!cancellationRestockAllowed} onChange={(e) => setCancelRestock(e.target.checked)} className="rounded" />
+                    {cancellationRestockAllowed ? 'Restock items' : 'Do not restock (fulfilled/tracking risk)'}
                   </label>
                 </div>
 
@@ -1966,11 +2303,15 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
                   </button>
                   <button
                     onClick={handleCancelOrder}
-                    disabled={cancelLoading}
+                    disabled={cancelLoading || cancelPendingOrderId === expandedOrderId}
                     className="flex-1 text-xs font-medium px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
                     style={{ backgroundColor: 'var(--color-danger)', color: '#fff' }}
                   >
-                    {cancelLoading ? <><Loader2 size={12} className="animate-spin" /> Cancelling...</> : 'Confirm Cancel'}
+                    {cancelLoading
+                      ? <><Loader2 size={12} className="animate-spin" /> Cancelling...</>
+                      : cancelPendingOrderId === expandedOrderId
+                        ? <><Loader2 size={12} className="animate-spin" /> Processing...</>
+                        : 'Confirm Cancel'}
                   </button>
                 </div>
               </div>
@@ -2061,7 +2402,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
                   <button onClick={() => setShowMergeModal(false)} style={{ color: 'var(--text-tertiary)' }}><X size={16} /></button>
                 </div>
                 <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
-                  Pick another open ticket from this customer. Its messages move into this thread and it closes as merged.
+                  Pick another active ticket from this customer. Its original history stays intact, links to this case, and the source ticket closes.
                 </p>
                 <div className="space-y-1.5 max-h-56 overflow-y-auto mb-4">
                   {mergeCandidates.map((pt) => (
@@ -2282,7 +2623,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
                         </p>
                         <button
                           onClick={() => {
-                            setReplyContent((prev) => prev ? `${prev}\n\n${doc.content}` : doc.content);
+                            updateReplyFromAgent((prev) => prev ? `${prev}\n\n${doc.content}` : doc.content);
                             setKbExpanded(null);
                           }}
                           className="text-[10px] font-medium px-2 py-1 rounded transition-colors"

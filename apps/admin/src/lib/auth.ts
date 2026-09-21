@@ -3,12 +3,19 @@ import { cookies } from 'next/headers';
 
 // A missing JWT_SECRET in production would make session tokens forgeable with
 // a publicly known string — fail closed instead of falling back.
-const rawJwtSecret = process.env.JWT_SECRET;
-if (!rawJwtSecret && process.env.NODE_ENV === 'production') {
-  throw new Error('JWT_SECRET must be configured in production');
-}
-const JWT_SECRET = new TextEncoder().encode(rawJwtSecret || 'admin-secret-key-change-me');
 const COOKIE_NAME = 'admin_token';
+
+let jwtSecret: Uint8Array | null = null;
+
+function getJwtSecret(): Uint8Array {
+  if (jwtSecret) return jwtSecret;
+  const raw = process.env.JWT_SECRET;
+  if (!raw && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be configured in production');
+  }
+  jwtSecret = new TextEncoder().encode(raw || 'admin-secret-key-change-me');
+  return jwtSecret;
+}
 
 export type UserRole = 'admin' | 'agent';
 
@@ -27,12 +34,12 @@ export async function signToken(payload: JWTPayload): Promise<string> {
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('24h')
     .setIssuedAt()
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 }
 
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, getJwtSecret());
     return payload as unknown as JWTPayload;
   } catch {
     return null;

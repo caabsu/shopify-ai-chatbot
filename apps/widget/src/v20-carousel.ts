@@ -10,7 +10,9 @@
  *   </div>
  *   <script src="https://your-backend/widget/v20-carousel.js" defer></script>
  *
- * Consumes window.outlightReviews from review-widget.js
+ * Uses product review data when installed on a product page. On homepages it
+ * fetches the brand-wide featured feed directly, so no companion widget or
+ * hard-coded review content is required.
  */
 
 import './styles/v20-carousel.css';
@@ -54,6 +56,7 @@ interface ReviewData {
   data?: Review[];
   results?: Review[];
   summary?: { average_rating: number; total_count: number };
+  selection?: 'featured' | 'published';
 }
 
 declare global {
@@ -63,6 +66,74 @@ declare global {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
+
+interface IntegrationInfo {
+  backendUrl: string;
+  brandSlug: string;
+  productHandle: string;
+  limit: number;
+  refreshSeconds: number;
+}
+
+function getIntegrationInfo(container: HTMLElement): IntegrationInfo {
+  const script = Array.from(document.querySelectorAll<HTMLScriptElement>('script[src]'))
+    .find((candidate) => candidate.src.includes('/widget/v20-carousel.js'));
+  const productReviewRoot = document.querySelector<HTMLElement>(
+    '#outlight-reviews[data-product-handle], [data-outlight-reviews][data-product-handle]',
+  );
+  const productHandle = container.dataset.productHandle
+    || productReviewRoot?.dataset.productHandle
+    || '';
+  const backendUrl = container.dataset.apiBase
+    || script?.dataset.apiBase
+    || (script?.src ? new URL(script.src).origin : window.location.origin);
+  const brandSlug = container.dataset.brand || script?.dataset.brand || '';
+  const limit = Math.max(1, Math.min(Number(container.dataset.maxCards) || 12, 50));
+  const refreshSeconds = Math.max(0, Number(container.dataset.refreshSeconds) || 60);
+
+  return { backendUrl, brandSlug, productHandle, limit, refreshSeconds };
+}
+
+async function fetchReviewData(info: IntegrationInfo): Promise<ReviewData> {
+  const headers: Record<string, string> = {};
+  const brandParam = info.brandSlug ? `brand=${encodeURIComponent(info.brandSlug)}` : '';
+  if (info.brandSlug) headers['X-Brand'] = info.brandSlug;
+
+  if (!info.productHandle) {
+    const params = new URLSearchParams();
+    params.set('limit', String(info.limit));
+    if (info.brandSlug) params.set('brand', info.brandSlug);
+    const response = await fetch(`${info.backendUrl}/api/reviews/featured?${params}`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Homepage review request failed (${response.status})`);
+    return response.json() as Promise<ReviewData>;
+  }
+
+  const brandSuffix = brandParam ? `&${brandParam}` : '';
+  const encodedHandle = encodeURIComponent(info.productHandle);
+  const [reviewsResponse, summaryResponse] = await Promise.all([
+    fetch(
+      `${info.backendUrl}/api/reviews/product/${encodedHandle}?page=1&per_page=${info.limit}&sort=newest${brandSuffix}`,
+      { headers, cache: 'no-store' },
+    ),
+    fetch(
+      `${info.backendUrl}/api/reviews/product/${encodedHandle}/summary${brandParam ? `?${brandParam}` : ''}`,
+      { headers, cache: 'no-store' },
+    ),
+  ]);
+
+  if (!reviewsResponse.ok || !summaryResponse.ok) {
+    throw new Error('Product review request failed');
+  }
+
+  const [reviewsData, summary] = await Promise.all([
+    reviewsResponse.json() as Promise<{ reviews?: Review[] }>,
+    summaryResponse.json() as Promise<{ average_rating: number; total_count: number }>,
+  ]);
+  return { reviews: reviewsData.reviews ?? [], summary };
+}
 
 function esc(str: string): string {
   if (!str) return '';
@@ -157,7 +228,15 @@ function render(container: HTMLElement, data: ReviewData): void {
   else if (data.data) reviews = data.data;
   else if (data.results) reviews = data.results;
 
-  if (!reviews.length) return;
+  if (!reviews.length) {
+    container.innerHTML = `
+      <div class="v20-empty">
+        <span class="v20-empty-kicker">Customer stories</span>
+        <p>${esc(container.dataset.emptyText || 'Published reviews will appear here soon.')}</p>
+      </div>
+    `;
+    return;
+  }
 
   // Sort: photos first
   reviews = reviews.slice().sort((a, b) => {
@@ -170,7 +249,7 @@ function render(container: HTMLElement, data: ReviewData): void {
   // Compute rating
   let avgRating = 0;
   let totalCount = reviews.length;
-  if (summary && summary.average_rating) {
+  if (summary) {
     avgRating = summary.average_rating;
     totalCount = summary.total_count || totalCount;
   } else {
@@ -320,49 +399,83 @@ function render(container: HTMLElement, data: ReviewData): void {
       || document.querySelector('[data-outlight-reviews]');
     if (reviewsSection) {
       reviewsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
     }
+    const reviewsUrl = container.dataset.reviewsUrl;
+    if (reviewsUrl) window.location.assign(reviewsUrl);
   });
+  if (
+    !document.getElementById('outlight-reviews')
+    && !document.querySelector('[data-outlight-reviews]')
+    && !container.dataset.reviewsUrl
+  ) {
+    readAllBtn.closest('.v20-cta-wrap')?.remove();
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────
 
-function init(): void {
+function renderSkeleton(container: HTMLElement): void {
+  container.classList.add('v20-section');
+  let html = '<div class="v20-header"><div class="v20-skel-bar w40" style="height:14px;margin-bottom:12px"></div><div class="v20-skel-bar w60" style="height:36px"></div></div>';
+  html += '<div class="v20-carousel-wrap"><div class="v20-carousel v20-skeleton">';
+  for (let i = 0; i < 5; i++) {
+    html += '<div class="v20-card"><div class="v20-card-content" style="position:relative;padding:28px">';
+    html += '<div class="v20-skel-bar w40"></div><div class="v20-skel-bar w60"></div>';
+    html += '<div class="v20-skel-bar w80"></div><div class="v20-skel-bar w40"></div>';
+    html += '</div></div>';
+  }
+  html += '</div></div>';
+  container.innerHTML = html;
+}
+
+async function init(): Promise<void> {
   const container = document.getElementById('outlight-v20-carousel');
   if (!container) return;
+  const info = getIntegrationInfo(container);
 
-  // Render skeleton
-  container.classList.add('v20-section');
-  let skelHTML = '<div class="v20-header"><div class="v20-skel-bar w40" style="height:14px;margin-bottom:12px"></div><div class="v20-skel-bar w60" style="height:36px"></div></div>';
-  skelHTML += '<div class="v20-carousel-wrap"><div class="v20-carousel v20-skeleton">';
-  for (let i = 0; i < 5; i++) {
-    skelHTML += '<div class="v20-card"><div class="v20-card-content" style="position:relative;padding:28px">';
-    skelHTML += '<div class="v20-skel-bar w40"></div><div class="v20-skel-bar w60"></div>';
-    skelHTML += '<div class="v20-skel-bar w80"></div><div class="v20-skel-bar w40"></div>';
-    skelHTML += '</div></div>';
+  if (info.productHandle && window.outlightReviews) {
+    render(container, window.outlightReviews);
+  } else {
+    renderSkeleton(container);
   }
-  skelHTML += '</div></div>';
-  container.innerHTML = skelHTML;
 
-  function tryRender(): boolean {
-    if (window.outlightReviews) {
-      render(container, window.outlightReviews);
-      return true;
+  const refresh = async () => {
+    try {
+      const data = await fetchReviewData(info);
+      render(container, data);
+    } catch (error) {
+      if (info.productHandle && window.outlightReviews) {
+        render(container, window.outlightReviews);
+        return;
+      }
+      console.error('[review-carousel] Unable to refresh reviews:', error);
+      container.innerHTML = `
+        <div class="v20-empty v20-empty--error">
+          <span class="v20-empty-kicker">Customer stories</span>
+          <p>Reviews are temporarily unavailable.</p>
+        </div>
+      `;
     }
-    return false;
+  };
+
+  await refresh();
+
+  if (info.productHandle) {
+    window.addEventListener('outlight-reviews-loaded', () => {
+      if (window.outlightReviews) render(container, window.outlightReviews);
+    });
   }
 
-  if (!tryRender()) {
-    window.addEventListener('outlight-reviews-loaded', () => tryRender());
-    let attempts = 0;
-    const poll = setInterval(() => {
-      attempts++;
-      if (tryRender() || attempts > 20) clearInterval(poll);
-    }, 500);
+  if (info.refreshSeconds > 0) {
+    window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refresh();
+    }, info.refreshSeconds * 1000);
   }
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => void init());
 } else {
-  init();
+  void init();
 }

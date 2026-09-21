@@ -9,12 +9,13 @@ export async function GET() {
   const brandId = session.brandId;
 
   // Run status counts in parallel
-  const [allRes, publishedRes, pendingRes, rejectedRes, archivedRes] = await Promise.all([
+  const [allRes, publishedRes, pendingRes, rejectedRes, archivedRes, featuredRes] = await Promise.all([
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('brand_id', brandId),
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('status', 'published'),
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('status', 'pending'),
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('status', 'rejected'),
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('status', 'archived'),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('brand_id', brandId).eq('status', 'published').eq('featured', true),
   ]);
 
   // For with_photos and with_replies, fetch review IDs first then count distinct
@@ -65,6 +66,7 @@ export async function GET() {
     pending: pendingRes.count ?? 0,
     rejected: rejectedRes.count ?? 0,
     archived: archivedRes.count ?? 0,
+    featured: featuredRes.count ?? 0,
     with_photos: withPhotos,
     with_replies: withReplies,
   });

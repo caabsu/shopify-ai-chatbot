@@ -106,7 +106,7 @@ Collect context:
         ↓
 Run configurable rules first (auto-approve/deny if matched)
         ↓
-If no rule matched → AI review via Claude:
+If no rule matched → AI review via DeepSeek V4 Pro:
   - System prompt with return policy, brand guidelines
   - All context above
   - Output: { decision: approve|deny|needs_review, confidence: 0-1, reasoning: "..." }
@@ -116,7 +116,7 @@ If confidence < threshold → flag for human review with AI recommendation
 ```
 
 **AI capabilities:**
-- Photo analysis (if photos uploaded — Claude vision)
+- Photo analysis, when enabled, uses the separately configured vision model
 - Policy compliance check
 - Fraud detection signals (excessive returns, pattern matching)
 - Suggested resolution type (refund vs store credit based on reason)

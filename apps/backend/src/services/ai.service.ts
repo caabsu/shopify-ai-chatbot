@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
 import { toolDefinitions } from '../tools/definitions.js';
@@ -9,9 +8,22 @@ import { graphql } from './shopify-admin.service.js';
 import * as knowledgeService from './knowledge.service.js';
 import * as conversationService from './conversation.service.js';
 import { loadSupportContext } from './support-context.service.js';
+import {
+  createConfiguredDeepSeekClient,
+  normalizeSupportModelGeneration,
+} from './support-model-tool.service.js';
+import {
+  selectStorefrontModel,
+} from './storefront-model-routing.js';
+import { recordSupportGenerationRun } from './ai-generation-ledger.service.js';
+import { runStorefrontToolLoop } from './storefront-tool-loop.service.js';
+import type {
+  DeepSeekToolMessage,
+  RequiredToolDefinition,
+} from './deepseek-tool-call.service.js';
 import type { AiResponse, NavigationButton, ProductCard, CartData } from '../types/index.js';
 
-const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
+const STOREFRONT_PROMPT_VERSION = 'storefront-support-2026-07-deepseek-v1';
 
 // Per-brand config cache
 type AiConfigData = { systemPrompt: string; brandVoice: string; promotions: string };
@@ -527,7 +539,7 @@ export async function processMessage(
 
   // 4. Load conversation history
   const messages = await conversationService.getMessages(conversationId);
-  const claudeMessages: Anthropic.MessageParam[] = messages
+  const conversationMessages: DeepSeekToolMessage[] = messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => ({
       role: m.role as 'user' | 'assistant',
@@ -538,10 +550,20 @@ export async function processMessage(
   // processMessage is used directly and the current turn is not already saved.
   const lastConversationMessage = messages[messages.length - 1];
   if (!(lastConversationMessage?.role === 'user' && lastConversationMessage.content === userMessage)) {
-    claudeMessages.push({ role: 'user', content: userMessage });
+    conversationMessages.push({ role: 'user', content: userMessage });
   }
 
-  // 5. Call Claude with tool loop
+  const priorCustomerMessages = messages
+    .filter((message) => message.role === 'user')
+    .map((message) => message.content);
+  if (priorCustomerMessages.at(-1) === userMessage) priorCustomerMessages.pop();
+  const route = selectStorefrontModel({
+    currentMessage: userMessage,
+    priorCustomerMessages,
+  });
+
+  // 5. Run the DeepSeek tool loop. The loop itself prevents a Flash model
+  // from executing privileged order mutations and replays that turn on Pro.
   const toolContext: ToolContext = {
     conversationId,
     customerEmail: context?.customerEmail,
@@ -555,149 +577,101 @@ export async function processMessage(
   let cartData: CartData | null = null;
   const toolsUsed: string[] = [];
   let conversationStatus = 'active';
-  let totalTokensInput = 0;
-  let totalTokensOutput = 0;
+  const deepSeekTools: RequiredToolDefinition[] = toolDefinitions.map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.input_schema,
+  }));
 
-  let currentMessages = [...claudeMessages];
-  const maxIterations = 10;
+  const loopResult = await runStorefrontToolLoop({
+    client: createConfiguredDeepSeekClient(),
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...conversationMessages,
+    ],
+    tools: deepSeekTools,
+    route,
+    maxTokens: config.ai.maxTokens,
+    temperature: config.ai.temperature,
+    maxIterations: 10,
+    executeTool: (name, input) => executeTool(name, input, toolContext),
+    async onGeneration(response, attempt, routeReasons) {
+      await recordSupportGenerationRun({
+        purpose: 'storefront_chat',
+        generation: normalizeSupportModelGeneration(response.generation),
+        brandId: context?.brandId,
+        promptVersion: STOREFRONT_PROMPT_VERSION,
+        routerVersion: route.router_version,
+        routerDecision: {
+          initial_tier: route.tier,
+          attempt_tier: response.generation.tier,
+          reasons: routeReasons,
+        },
+        attempt,
+      });
+    },
+    async onToolResult(toolName, result) {
+      if (!result.success || !result.data) return;
+      const data = result.data as Record<string, unknown>;
 
-  let finalResponse: Anthropic.Message | null = null;
-
-  for (let i = 0; i < maxIterations; i++) {
-    const response = await anthropic.messages.create({
-      model: config.ai.model,
-      max_tokens: config.ai.maxTokens,
-      temperature: config.ai.temperature,
-      system: systemPrompt,
-      messages: currentMessages,
-      tools: toolDefinitions,
-    });
-
-    totalTokensInput += response.usage.input_tokens;
-    totalTokensOutput += response.usage.output_tokens;
-
-    if (response.stop_reason === 'end_turn' || response.stop_reason === 'max_tokens') {
-      finalResponse = response;
-      break;
-    }
-
-    if (response.stop_reason === 'tool_use') {
-      // Extract tool_use blocks
-      const toolUseBlocks = response.content.filter(
-        (block): block is Anthropic.ContentBlockParam & { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } =>
-          block.type === 'tool_use'
-      );
-
-      // Add assistant response to messages
-      currentMessages.push({ role: 'assistant', content: response.content });
-
-      // Execute each tool and build tool_result blocks
-      const toolResults: Array<{
-        type: 'tool_result';
-        tool_use_id: string;
-        content: string;
-      }> = [];
-
-      for (const toolUse of toolUseBlocks) {
-        toolsUsed.push(toolUse.name);
-
-        const result = await executeTool(
-          toolUse.name,
-          toolUse.input,
-          toolContext
-        );
-
-        // Extract navigation buttons, product cards, cart data from results
-        if (result.success && result.data) {
-          const data = result.data as Record<string, unknown>;
-
-          if (data.type === 'navigation') {
-            navigationButtons.push({
-              url: data.url as string,
-              label: data.label as string,
-            });
-          }
-
-          if (data.type === 'escalation') {
-            conversationStatus = 'escalated';
-          }
-
-          // Check for product data
-          if (toolUse.name === 'search_products' && data.products) {
-            const products = data.products as Array<Record<string, unknown>>;
-            for (const p of products) {
-              productCards.push({
-                id: (p.product_id as string) || (p.id as string) || '',
-                title: (p.title as string) || '',
-                description: productText(p.description).slice(0, 200),
-                price: formatCatalogPrice(p),
-                currency: (p.currency as string) || 'USD',
-                imageUrl: firstCatalogImage(p),
-                productUrl: (p.url as string) || (p.productUrl as string) || '',
-                available: catalogAvailability(p),
-              });
-            }
-          }
-
-          // Check for cart data
-          if ((toolUse.name === 'manage_cart' || toolUse.name === 'get_cart') && data) {
-            try {
-              cartData = data as unknown as CartData;
-            } catch {
-              // Cart data shape may vary
-            }
-          }
-
-          // Extract customer identity from verified order lookups
-          if (toolUse.name === 'lookup_order' && data.found && data.customerEmail) {
-            try {
-              const conv = await conversationService.getConversation(conversationId);
-              if (conv && !conv.customer_email) {
-                await conversationService.updateConversation(conversationId, {
-                  customer_email: data.customerEmail as string,
-                  customer_phone: (data.customerPhone as string) || undefined,
-                });
-                toolContext.customerEmail = data.customerEmail as string;
-              }
-            } catch (err) {
-              console.error('[ai.service] Failed to update customer identity:', err instanceof Error ? err.message : err);
-            }
-          }
-        }
-
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: toolUse.id,
-          content: JSON.stringify(result),
+      if (data.type === 'navigation') {
+        navigationButtons.push({
+          url: data.url as string,
+          label: data.label as string,
         });
       }
 
-      // Add tool results as a user message
-      currentMessages.push({ role: 'user', content: toolResults });
+      if (data.type === 'escalation') conversationStatus = 'escalated';
 
-      continue;
-    }
-
-    // Unexpected stop reason
-    finalResponse = response;
-    break;
-  }
-
-  // 6. Extract final text
-  let responseText = '';
-  if (finalResponse) {
-    for (const block of finalResponse.content) {
-      if (block.type === 'text') {
-        responseText += block.text;
+      if (toolName === 'search_products' && data.products) {
+        const products = data.products as Array<Record<string, unknown>>;
+        for (const product of products) {
+          productCards.push({
+            id: (product.product_id as string) || (product.id as string) || '',
+            title: (product.title as string) || '',
+            description: productText(product.description).slice(0, 200),
+            price: formatCatalogPrice(product),
+            currency: (product.currency as string) || 'USD',
+            imageUrl: firstCatalogImage(product),
+            productUrl: (product.url as string) || (product.productUrl as string) || '',
+            available: catalogAvailability(product),
+          });
+        }
       }
-    }
-  }
+
+      if (toolName === 'manage_cart' || toolName === 'get_cart') {
+        cartData = data as unknown as CartData;
+      }
+
+      if (toolName === 'lookup_order' && data.found && data.customerEmail) {
+        try {
+          const conversation = await conversationService.getConversation(conversationId);
+          if (conversation && !conversation.customer_email) {
+            await conversationService.updateConversation(conversationId, {
+              customer_email: data.customerEmail as string,
+              customer_phone: (data.customerPhone as string) || undefined,
+            });
+            toolContext.customerEmail = data.customerEmail as string;
+          }
+        } catch (error) {
+          console.error(
+            '[ai.service] Failed to update customer identity:',
+            error instanceof Error ? error.message : error,
+          );
+        }
+      }
+    },
+  });
+
+  toolsUsed.push(...loopResult.toolsUsed);
+  let responseText = loopResult.text;
 
   if (!responseText) {
     responseText = "I'm sorry, I wasn't able to generate a response. Please try again.";
   }
 
   const latencyMs = Date.now() - startTime;
+  const finalGeneration = loopResult.generations.at(-1);
 
   return {
     response: responseText,
@@ -707,9 +681,9 @@ export async function processMessage(
     toolsUsed: [...new Set(toolsUsed)],
     conversationStatus,
     metadata: {
-      model: config.ai.model,
-      tokensInput: totalTokensInput,
-      tokensOutput: totalTokensOutput,
+      model: finalGeneration?.actualModel ?? finalGeneration?.requestedModel ?? 'deepseek-unavailable',
+      tokensInput: loopResult.tokensInput,
+      tokensOutput: loopResult.tokensOutput,
       latencyMs,
     },
   };

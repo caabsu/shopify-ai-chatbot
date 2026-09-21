@@ -18,6 +18,12 @@ import {
   Trash2,
   Image,
   X,
+  PencilLine,
+  Save,
+  Home,
+  RotateCcw,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { useBrand } from '@/components/brand-context';
 import { StatusPill } from '@/components/ui/StatusPill';
@@ -70,6 +76,22 @@ interface FilterCounts {
   rejected: number;
   archived: number;
   with_photos: number;
+  featured: number;
+}
+
+interface ReviewEditDraft {
+  customer_name: string;
+  customer_email: string;
+  customer_nickname: string;
+  rating: number;
+  title: string;
+  body: string;
+  variant_title: string;
+  status: Review['status'];
+  featured: boolean;
+  verified_purchase: boolean;
+  incentivized: boolean;
+  submitted_at: string;
 }
 
 // Human labels for review statuses. Colors come from the design tokens (StatusPill).
@@ -89,6 +111,31 @@ function timeAgo(dateStr: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+function toDateTimeLocal(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function reviewToDraft(review: Review): ReviewEditDraft {
+  return {
+    customer_name: review.customer_name ?? '',
+    customer_email: review.customer_email ?? '',
+    customer_nickname: review.customer_nickname ?? '',
+    rating: review.rating,
+    title: review.title ?? '',
+    body: review.body ?? '',
+    variant_title: review.variant_title ?? '',
+    status: review.status,
+    featured: review.featured,
+    verified_purchase: review.verified_purchase,
+    incentivized: review.incentivized,
+    submitted_at: toDateTimeLocal(review.submitted_at || review.created_at),
+  };
 }
 
 function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
@@ -213,6 +260,7 @@ export default function AllReviewsPage() {
   const [productFilter, setProductFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [mediaFilter, setMediaFilter] = useState('');
+  const [placementFilter, setPlacementFilter] = useState('');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
 
@@ -223,6 +271,7 @@ export default function AllReviewsPage() {
     rejected: 0,
     archived: 0,
     with_photos: 0,
+    featured: 0,
   });
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -233,6 +282,12 @@ export default function AllReviewsPage() {
   const [replyAuthor, setReplyAuthor] = useState('');
   const [replySaving, setReplySaving] = useState(false);
   const [aiDrafting, setAiDrafting] = useState(false);
+
+  // Review editing state
+  const [editDraft, setEditDraft] = useState<ReviewEditDraft | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [editSaved, setEditSaved] = useState(false);
 
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -266,6 +321,7 @@ export default function AllReviewsPage() {
         rejected: data.rejected ?? 0,
         archived: data.archived ?? 0,
         with_photos: data.with_photos ?? 0,
+        featured: data.featured ?? 0,
       });
     } catch {
       // ignore
@@ -283,6 +339,7 @@ export default function AllReviewsPage() {
     if (productFilter) params.set('product_id', productFilter);
     if (sourceFilter) params.set('source', sourceFilter);
     if (mediaFilter) params.set('has_media', mediaFilter);
+    if (placementFilter) params.set('featured', placementFilter);
     if (search) params.set('search', search);
     if (sort) params.set('sort', sort);
 
@@ -296,7 +353,7 @@ export default function AllReviewsPage() {
       setReviews([]);
     }
     setLoading(false);
-  }, [page, statusFilter, ratingFilter, productFilter, sourceFilter, mediaFilter, search, sort]);
+  }, [page, statusFilter, ratingFilter, productFilter, sourceFilter, mediaFilter, placementFilter, search, sort]);
 
   useEffect(() => {
     loadCounts();
@@ -330,7 +387,7 @@ export default function AllReviewsPage() {
     }
   }
 
-  async function bulkAction(action: 'publish' | 'reject' | 'archive' | 'delete') {
+  async function bulkAction(action: 'publish' | 'reject' | 'archive' | 'delete' | 'feature' | 'unfeature') {
     if (selected.size === 0) return;
     setBulkLoading(true);
     try {
@@ -356,12 +413,16 @@ export default function AllReviewsPage() {
     setExpandedId(review.id);
     setReplyText('');
     setReplyAuthor('');
+    setEditDraft(reviewToDraft(review));
+    setEditError('');
+    setEditSaved(false);
 
     try {
       const res = await fetch(`/api/reviews/${review.id}`);
       if (res.ok) {
         const data = await res.json();
         const detail = data.review ?? data;
+        setEditDraft(reviewToDraft({ ...review, ...detail }));
         setReviews((prev) =>
           prev.map((r) =>
             r.id === review.id
@@ -377,6 +438,58 @@ export default function AllReviewsPage() {
     } catch {
       // ignore
     }
+  }
+
+  async function handleSaveReview(reviewId: string) {
+    if (!editDraft) return;
+    const submittedAt = new Date(editDraft.submitted_at);
+    if (Number.isNaN(submittedAt.getTime())) {
+      setEditError('Enter a valid submitted date.');
+      return;
+    }
+    setEditSaving(true);
+    setEditError('');
+    setEditSaved(false);
+
+    try {
+      const res = await fetch(`/api/reviews/${reviewId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...editDraft,
+          title: editDraft.title || null,
+          customer_nickname: editDraft.customer_nickname || null,
+          variant_title: editDraft.variant_title || null,
+          submitted_at: submittedAt.toISOString(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Unable to save review');
+      }
+
+      const updated = data.review as Review;
+      setReviews((prev) =>
+        prev.map((review) => (
+          review.id === reviewId
+            ? { ...review, ...updated }
+            : review
+        )),
+      );
+      setEditDraft(reviewToDraft(updated));
+      setEditSaved(true);
+      void loadCounts();
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : 'Unable to save review');
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  function resetReviewDraft(review: Review) {
+    setEditDraft(reviewToDraft(review));
+    setEditError('');
+    setEditSaved(false);
   }
 
   async function handleSaveReply(reviewId: string) {
@@ -463,6 +576,17 @@ export default function AllReviewsPage() {
           <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
             {total} {total === 1 ? 'review' : 'reviews'}
           </span>
+          {brandSlug && (
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full"
+              style={{
+                color: 'var(--color-accent)',
+                backgroundColor: 'color-mix(in srgb, var(--color-accent) 9%, transparent)',
+              }}
+            >
+              {brandSlug.replace(/-/g, ' ')}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <select
@@ -517,7 +641,7 @@ export default function AllReviewsPage() {
             {selected.size} selected
           </span>
           <div className="flex items-center gap-2 ml-auto">
-            {(['publish', 'reject', 'archive', 'delete'] as const).map((action) => (
+            {(['publish', 'feature', 'unfeature', 'reject', 'archive', 'delete'] as const).map((action) => (
               <button
                 key={action}
                 onClick={() => bulkAction(action)}
@@ -533,6 +657,12 @@ export default function AllReviewsPage() {
                   <span className="flex items-center gap-1">
                     <Trash2 size={11} /> Delete
                   </span>
+                ) : action === 'feature' ? (
+                  <span className="flex items-center gap-1">
+                    <Home size={11} /> Add to homepage
+                  </span>
+                ) : action === 'unfeature' ? (
+                  'Remove from homepage'
                 ) : (
                   action.charAt(0).toUpperCase() + action.slice(1)
                 )}
@@ -581,6 +711,38 @@ export default function AllReviewsPage() {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Storefront placement */}
+          <div>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 mb-2"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              Storefront
+            </p>
+            <div className="space-y-0.5">
+              <button
+                onClick={() => {
+                  setPlacementFilter(placementFilter === 'true' ? '' : 'true');
+                  setPage(1);
+                }}
+                className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[13px] transition-colors"
+                style={{
+                  backgroundColor: placementFilter === 'true'
+                    ? 'color-mix(in srgb, var(--color-accent) 10%, transparent)'
+                    : 'transparent',
+                  color: placementFilter === 'true' ? 'var(--color-accent)' : 'var(--text-secondary)',
+                  fontWeight: placementFilter === 'true' ? 500 : 400,
+                }}
+              >
+                <Home size={12} />
+                <span>Homepage</span>
+                <span className="text-[11px] ml-auto" style={{ color: 'var(--text-tertiary)' }}>
+                  {counts.featured}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -823,6 +985,18 @@ export default function AllReviewsPage() {
                           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                             <div className="flex items-center gap-1.5">
                               <StatusPill kind="review" value={review.status} label={REVIEW_LABELS[review.status]} />
+                              {review.featured && (
+                                <span
+                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
+                                  style={{
+                                    backgroundColor: 'color-mix(in srgb, var(--color-accent) 12%, transparent)',
+                                    color: 'var(--color-accent)',
+                                  }}
+                                  title="Displayed in homepage review integrations"
+                                >
+                                  <Home size={9} /> Homepage
+                                </span>
+                              )}
                               {review.verified_purchase && (
                                 <span
                                   className="text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
@@ -864,15 +1038,270 @@ export default function AllReviewsPage() {
                             }}
                           >
                             <div className="pl-8 space-y-4 pt-3">
-                              {/* Review title and body */}
-                              {review.title && (
-                                <h4 className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                  {review.title}
-                                </h4>
+                              {/* Review editor */}
+                              {editDraft && (
+                                <div
+                                  className="rounded-xl p-4 space-y-4"
+                                  style={{
+                                    backgroundColor: 'var(--bg-primary)',
+                                    border: '1px solid var(--border-primary)',
+                                  }}
+                                >
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <PencilLine size={13} style={{ color: 'var(--color-accent)' }} />
+                                        <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                          Edit review
+                                        </h4>
+                                      </div>
+                                      <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                                        Saved changes flow to product and homepage review widgets automatically.
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => resetReviewDraft(review)}
+                                        disabled={editSaving}
+                                        className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg disabled:opacity-50"
+                                        style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-primary)' }}
+                                      >
+                                        <RotateCcw size={11} /> Reset
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveReview(review.id)}
+                                        disabled={
+                                          editSaving
+                                          || !editDraft.body.trim()
+                                          || !editDraft.customer_name.trim()
+                                          || !editDraft.customer_email.trim()
+                                          || !editDraft.submitted_at
+                                        }
+                                        className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg text-white disabled:opacity-50"
+                                        style={{ backgroundColor: 'var(--color-accent)' }}
+                                      >
+                                        {editSaving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+                                        {editSaving ? 'Saving' : 'Save review'}
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {editError && (
+                                    <div
+                                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                                      style={{ color: 'var(--color-danger)', backgroundColor: 'rgba(239,68,68,0.08)' }}
+                                    >
+                                      <AlertCircle size={13} /> {editError}
+                                    </div>
+                                  )}
+                                  {editSaved && (
+                                    <div
+                                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                                      style={{ color: 'var(--color-success)', backgroundColor: 'rgba(34,197,94,0.08)' }}
+                                    >
+                                      <CheckCircle2 size={13} /> Review saved and storefront data refreshed.
+                                    </div>
+                                  )}
+
+                                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                                    <label className="space-y-1.5">
+                                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                        Customer name
+                                      </span>
+                                      <input
+                                        value={editDraft.customer_name}
+                                        onChange={(event) => setEditDraft({ ...editDraft, customer_name: event.target.value })}
+                                        className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+                                        style={inputStyle}
+                                      />
+                                    </label>
+                                    <label className="space-y-1.5">
+                                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                        Public display name
+                                      </span>
+                                      <input
+                                        value={editDraft.customer_nickname}
+                                        onChange={(event) => setEditDraft({ ...editDraft, customer_nickname: event.target.value })}
+                                        placeholder="Uses customer name when blank"
+                                        className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+                                        style={inputStyle}
+                                      />
+                                    </label>
+                                    <label className="space-y-1.5">
+                                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                        Customer email
+                                      </span>
+                                      <input
+                                        type="email"
+                                        value={editDraft.customer_email}
+                                        onChange={(event) => setEditDraft({ ...editDraft, customer_email: event.target.value })}
+                                        className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+                                        style={inputStyle}
+                                      />
+                                    </label>
+                                    <label className="space-y-1.5">
+                                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                        Submitted
+                                      </span>
+                                      <input
+                                        type="datetime-local"
+                                        value={editDraft.submitted_at}
+                                        onChange={(event) => setEditDraft({ ...editDraft, submitted_at: event.target.value })}
+                                        className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+                                        style={inputStyle}
+                                      />
+                                    </label>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                      Rating
+                                    </span>
+                                    <div className="flex items-center gap-1" role="radiogroup" aria-label="Review rating">
+                                      {[1, 2, 3, 4, 5].map((rating) => (
+                                        <button
+                                          key={rating}
+                                          type="button"
+                                          role="radio"
+                                          aria-checked={editDraft.rating === rating}
+                                          onClick={() => setEditDraft({ ...editDraft, rating })}
+                                          className="p-1 rounded transition-transform hover:scale-110"
+                                          aria-label={`${rating} star${rating === 1 ? '' : 's'}`}
+                                        >
+                                          <Star
+                                            size={22}
+                                            fill={rating <= editDraft.rating ? 'var(--color-star)' : 'none'}
+                                            stroke={rating <= editDraft.rating ? 'var(--color-star)' : 'var(--text-tertiary)'}
+                                          />
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                                    <label className="space-y-1.5">
+                                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                        Review title
+                                      </span>
+                                      <input
+                                        value={editDraft.title}
+                                        onChange={(event) => setEditDraft({ ...editDraft, title: event.target.value })}
+                                        placeholder="Optional"
+                                        className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+                                        style={inputStyle}
+                                      />
+                                    </label>
+                                    <label className="space-y-1.5">
+                                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                        Product variant
+                                      </span>
+                                      <input
+                                        value={editDraft.variant_title}
+                                        onChange={(event) => setEditDraft({ ...editDraft, variant_title: event.target.value })}
+                                        placeholder="Optional"
+                                        className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+                                        style={inputStyle}
+                                      />
+                                    </label>
+                                  </div>
+
+                                  <label className="block space-y-1.5">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                      Review text
+                                    </span>
+                                    <textarea
+                                      value={editDraft.body}
+                                      onChange={(event) => setEditDraft({ ...editDraft, body: event.target.value })}
+                                      rows={5}
+                                      className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 resize-y"
+                                      style={inputStyle}
+                                    />
+                                  </label>
+
+                                  <div
+                                    className="grid grid-cols-1 xl:grid-cols-[minmax(180px,0.7fr)_1fr] gap-4 rounded-lg p-3"
+                                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-secondary)' }}
+                                  >
+                                    <label className="space-y-1.5">
+                                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                                        Publication status
+                                      </span>
+                                      <select
+                                        value={editDraft.status}
+                                        onChange={(event) => {
+                                          const status = event.target.value as Review['status'];
+                                          setEditDraft({
+                                            ...editDraft,
+                                            status,
+                                            featured: status === 'published' ? editDraft.featured : false,
+                                          });
+                                        }}
+                                        className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none"
+                                        style={inputStyle}
+                                      >
+                                        <option value="published">Published</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="rejected">Rejected</option>
+                                        <option value="archived">Archived</option>
+                                      </select>
+                                    </label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                      {[
+                                        {
+                                          key: 'featured',
+                                          label: 'Show on homepage',
+                                          description: 'Includes this review in brand homepage integrations.',
+                                          disabled: editDraft.status !== 'published',
+                                        },
+                                        {
+                                          key: 'verified_purchase',
+                                          label: 'Verified purchase',
+                                          description: 'Shows the verified badge on storefront widgets.',
+                                          disabled: false,
+                                        },
+                                        {
+                                          key: 'incentivized',
+                                          label: 'Incentivized',
+                                          description: 'Shows the configured incentive disclosure.',
+                                          disabled: false,
+                                        },
+                                      ].map((option) => (
+                                        <label
+                                          key={option.key}
+                                          className="flex items-start gap-2 rounded-lg p-2.5"
+                                          style={{
+                                            backgroundColor: 'var(--bg-primary)',
+                                            border: '1px solid var(--border-secondary)',
+                                            opacity: option.disabled ? 0.55 : 1,
+                                          }}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={Boolean(editDraft[option.key as keyof ReviewEditDraft])}
+                                            disabled={option.disabled}
+                                            onChange={(event) => setEditDraft({
+                                              ...editDraft,
+                                              [option.key]: event.target.checked,
+                                            })}
+                                            className="mt-0.5"
+                                            style={{ accentColor: 'var(--color-accent)' }}
+                                          />
+                                          <span>
+                                            <span className="block text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                              {option.label}
+                                            </span>
+                                            <span className="block text-[10px] leading-snug mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                                              {option.description}
+                                            </span>
+                                          </span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
                               )}
-                              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                                &ldquo;{review.body}&rdquo;
-                              </p>
 
                               {/* Media gallery — clickable for lightbox */}
                               {review.media && review.media.length > 0 && (

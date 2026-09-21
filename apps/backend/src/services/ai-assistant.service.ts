@@ -1,13 +1,33 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
 import * as ticketService from './ticket.service.js';
 import * as customerProfileService from './customer-profile.service.js';
 import { loadSupportContext } from './support-context.service.js';
+import { callSupportRequiredTool } from './support-model-tool.service.js';
+import { selectAutopilotModel, type AutopilotModelTier } from './autopilot-model-routing.js';
+import type { RequiredToolDefinition } from './deepseek-tool-call.service.js';
+import { recordSupportGenerationRun } from './ai-generation-ledger.service.js';
 
-const anthropic = new Anthropic({ apiKey: config.anthropic.apiKey });
+const TEXT_TOOL: RequiredToolDefinition = {
+  name: 'write_support_text',
+  description: 'Return the requested support text.',
+  inputSchema: {
+    type: 'object',
+    required: ['text'],
+    properties: { text: { type: 'string' } },
+  },
+};
 
-const AI_MODEL = 'claude-sonnet-4-20250514';
+const STEPS_TOOL: RequiredToolDefinition = {
+  name: 'suggest_support_steps',
+  description: 'Return actionable next steps for the support agent.',
+  inputSchema: {
+    type: 'object',
+    required: ['steps'],
+    properties: {
+      steps: { type: 'array', minItems: 1, maxItems: 5, items: { type: 'string' } },
+    },
+  },
+};
 
 async function loadBrandVoice(brandId?: string): Promise<string> {
   let query = supabase
@@ -20,17 +40,17 @@ async function loadBrandVoice(brandId?: string): Promise<string> {
   return row?.value ?? 'Friendly and helpful. Speak like a knowledgeable store associate.';
 }
 
-async function loadTicketContext(ticketId: string): Promise<{
+async function loadTicketContext(ticketId: string, brandId?: string): Promise<{
   ticket: NonNullable<Awaited<ReturnType<typeof ticketService.getTicket>>>;
   messages: Awaited<ReturnType<typeof ticketService.getTicketMessages>>;
   customerProfile: Awaited<ReturnType<typeof customerProfileService.getCustomerByEmail>> | null;
 }> {
-  const ticket = await ticketService.getTicket(ticketId);
+  const ticket = await ticketService.getTicket(ticketId, brandId);
   if (!ticket) {
     throw new Error(`Ticket not found: ${ticketId}`);
   }
 
-  const messages = await ticketService.getTicketMessages(ticketId);
+  const messages = await ticketService.getTicketMessages(ticketId, brandId);
 
   let customerProfile = null;
   if (ticket.customer_email) {
@@ -55,9 +75,28 @@ function buildThreadText(messages: Awaited<ReturnType<typeof ticketService.getTi
     .join('\n\n');
 }
 
+function ticketModelTier(
+  ticket: NonNullable<Awaited<ReturnType<typeof ticketService.getTicket>>>,
+  threadText: string,
+): AutopilotModelTier {
+  const triage = (ticket.metadata?.ai_triage ?? {}) as Record<string, unknown>;
+  return selectAutopilotModel({
+    trigger: 'new_ticket',
+    subject: ticket.subject,
+    currentThreadText: threadText,
+    triageIntent: typeof triage.intent === 'string' ? triage.intent : null,
+    authorizedCancellationCount: 0,
+    authorizedRefundCount: 0,
+    authorizedAddressChangeCount: 0,
+    relatedTickets: [],
+    knownOrderNames: [],
+    previousActionTypes: [],
+  }).tier;
+}
+
 // ── Draft Reply ────────────────────────────────────────────────────────────
 export async function draftReply(ticketId: string, brandId?: string): Promise<string> {
-  const { ticket, messages, customerProfile } = await loadTicketContext(ticketId);
+  const { ticket, messages, customerProfile } = await loadTicketContext(ticketId, brandId);
   const brandVoice = await loadBrandVoice(brandId ?? ticket.brand_id);
   const threadText = buildThreadText(messages);
   const supportContext = await loadSupportContext(brandId ?? ticket.brand_id, `${ticket.subject}\n\n${threadText}`).catch(() => '');
@@ -88,20 +127,25 @@ ${supportContext}
 Write a professional, empathetic reply that addresses the customer's concern. Be concise but thorough. Do not include any preamble or meta-commentary — just the reply text that would be sent to the customer.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: AI_MODEL,
-      max_tokens: 1024,
+    const tier = ticketModelTier(ticket, threadText);
+    const response = await callSupportRequiredTool<{ text?: string }>({
+      tier,
+      max_tokens: 1_024,
       temperature: 0.7,
       system: systemPrompt,
-      messages: [
-        { role: 'user', content: `Here is the conversation thread so far:\n\n${threadText}\n\nPlease draft a reply to the customer.` },
-      ],
+      user: `Here is the conversation thread so far:\n\n${threadText}\n\nPlease draft a reply to the customer.`,
+      tool: TEXT_TOOL,
     });
-
-    const text = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('');
+    await recordSupportGenerationRun({
+      purpose: 'ticket_manual_draft',
+      generation: response.generation,
+      brandId: ticket.brand_id,
+      ticketId: ticket.id,
+      promptVersion: 'ticket-manual-draft-2026-07-v1',
+      routerVersion: 'ticket-assistant-router-v1',
+      routerDecision: { tier, reason: tier === 'pro' ? 'mutation_or_policy_risk' : 'routine_draft' },
+    });
+    const text = typeof response.value.text === 'string' ? response.value.text : '';
 
     console.log(`[ai-assistant.service] Generated draft reply for ticket #${ticket.ticket_number}`);
     return text || 'Unable to generate a draft reply.';
@@ -112,8 +156,8 @@ Write a professional, empathetic reply that addresses the customer's concern. Be
 }
 
 // ── Summarize Thread ───────────────────────────────────────────────────────
-export async function summarizeThread(ticketId: string): Promise<string> {
-  const { ticket, messages } = await loadTicketContext(ticketId);
+export async function summarizeThread(ticketId: string, brandId?: string): Promise<string> {
+  const { ticket, messages } = await loadTicketContext(ticketId, brandId);
   const threadText = buildThreadText(messages);
 
   if (messages.length === 0) {
@@ -123,20 +167,24 @@ export async function summarizeThread(ticketId: string): Promise<string> {
   const systemPrompt = `You are a support team assistant. Summarize the following support ticket conversation in 2-3 concise sentences. Focus on: what the customer wants, what has been done so far, and what remains unresolved.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: AI_MODEL,
+    const response = await callSupportRequiredTool<{ text?: string }>({
+      tier: 'flash',
       max_tokens: 256,
       temperature: 0.3,
       system: systemPrompt,
-      messages: [
-        { role: 'user', content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\n${threadText}` },
-      ],
+      user: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\n${threadText}`,
+      tool: TEXT_TOOL,
     });
-
-    const text = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('');
+    await recordSupportGenerationRun({
+      purpose: 'ticket_summary',
+      generation: response.generation,
+      brandId: ticket.brand_id,
+      ticketId: ticket.id,
+      promptVersion: 'ticket-summary-2026-07-v1',
+      routerVersion: 'ticket-assistant-router-v1',
+      routerDecision: { tier: 'flash', reason: 'conversation_summarization' },
+    });
+    const text = typeof response.value.text === 'string' ? response.value.text : '';
 
     console.log(`[ai-assistant.service] Generated summary for ticket #${ticket.ticket_number}`);
     return text || 'Unable to generate a summary.';
@@ -148,7 +196,7 @@ export async function summarizeThread(ticketId: string): Promise<string> {
 
 // ── Suggest Next Steps ─────────────────────────────────────────────────────
 export async function suggestNextSteps(ticketId: string, brandId?: string): Promise<string[]> {
-  const { ticket, messages, customerProfile } = await loadTicketContext(ticketId);
+  const { ticket, messages, customerProfile } = await loadTicketContext(ticketId, brandId);
   const brandVoice = await loadBrandVoice(brandId ?? ticket.brand_id);
   const threadText = buildThreadText(messages);
   const supportContext = await loadSupportContext(brandId ?? ticket.brand_id, `${ticket.subject}\n\n${threadText}`).catch(() => '');
@@ -161,34 +209,33 @@ export async function suggestNextSteps(ticketId: string, brandId?: string): Prom
   const systemPrompt = `You are a support team assistant. Based on the ticket conversation, suggest 3-5 actionable next steps the agent should take. Be specific and practical.${customerContext}
 ${supportContext}
 
-Respond with ONLY a JSON array of strings, like: ["Step 1", "Step 2", "Step 3"]. No other text.`;
+Return 3-5 concise steps through the required tool.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: AI_MODEL,
+    const tier = ticketModelTier(ticket, threadText);
+    const response = await callSupportRequiredTool<{ steps?: unknown }>({
+      tier,
       max_tokens: 512,
       temperature: 0.5,
       system: systemPrompt,
-      messages: [
-        { role: 'user', content: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\n${threadText}` },
-      ],
+      user: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\n${threadText}`,
+      tool: STEPS_TOOL,
     });
-
-    const text = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('');
-
-    try {
-      const steps = JSON.parse(text) as string[];
-      if (Array.isArray(steps)) {
-        console.log(`[ai-assistant.service] Generated ${steps.length} next steps for ticket #${ticket.ticket_number}`);
-        return steps;
-      }
-    } catch {
-      // If JSON parsing fails, try to extract lines
-      const lines = text.split('\n').filter((l) => l.trim().length > 0).map((l) => l.replace(/^\d+\.\s*/, '').trim());
-      if (lines.length > 0) return lines;
+    await recordSupportGenerationRun({
+      purpose: 'ticket_next_steps',
+      generation: response.generation,
+      brandId: ticket.brand_id,
+      ticketId: ticket.id,
+      promptVersion: 'ticket-next-steps-2026-07-v1',
+      routerVersion: 'ticket-assistant-router-v1',
+      routerDecision: { tier, reason: tier === 'pro' ? 'mutation_or_policy_risk' : 'routine_safe_actions' },
+    });
+    const steps = Array.isArray(response.value.steps)
+      ? response.value.steps.filter((step): step is string => typeof step === 'string').slice(0, 5)
+      : [];
+    if (steps.length > 0) {
+      console.log(`[ai-assistant.service] Generated ${steps.length} next steps for ticket #${ticket.ticket_number}`);
+      return steps;
     }
 
     return ['Review the customer conversation for any missed details', 'Follow up with the customer for more information', 'Escalate if needed'];

@@ -5,10 +5,18 @@ import { jwtVerify } from 'jose';
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'admin-secret-key-change-me');
 
 // Pages agents ARE allowed to access
-const AGENT_ALLOWED = ['/agent', '/api/tickets', '/api/orders', '/api/knowledge', '/api/auth', '/api/settings/canned-responses'];
+const AGENT_ALLOWED = ['/agent', '/api/tickets', '/api/support', '/api/orders', '/api/knowledge', '/api/auth', '/api/settings/canned-responses'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (process.env.SUPPORTOS_READ_ONLY_PREVIEW === '1' && pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/') && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+    return NextResponse.json({ error: 'This local preview is read-only. Customer emails and orders are unchanged.' }, { status: 409 });
+  }
+  // This one server-to-server endpoint performs constant-time bearer-secret
+  // authentication in its Node route. It never accepts browser sessions.
+  if (pathname === '/api/internal/support-automation') return NextResponse.next();
+  if (/^\/(?:funnel|trade)(?:\/|$)/.test(pathname)) return NextResponse.redirect(new URL('/support', request.url));
+  if (/^\/api\/(?:funnel|trade)(?:\/|$)/.test(pathname)) return NextResponse.json({ error: 'This module has been retired.' }, { status: 410 });
 
   // Allow login page and auth API routes
   if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {

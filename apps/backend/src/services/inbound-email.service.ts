@@ -1,10 +1,21 @@
 import { supabase } from '../config/supabase.js';
 import type { Ticket } from '../types/index.js';
-import { classifyEmail } from './email-classifier.service.js';
+import {
+  classifyEmail,
+  EMAIL_CLASSIFIER_PROMPT_VERSION,
+} from './email-classifier.service.js';
 import { sendTicketConfirmation } from './email.service.js';
 import { triageTicket } from './ticket-triage.service.js';
 import { proposeForTicket, replanOnCustomerReply } from './autopilot.service.js';
 import * as ticketService from './ticket.service.js';
+import { normalizeCustomerEmail } from './customer-support-context.service.js';
+import {
+  selectSameIssueTicketCandidate,
+} from './inbound-ticket-routing-policy.js';
+import type {
+  CustomerTicketMessage,
+  CustomerTicketThread,
+} from './customer-support-context.service.js';
 import {
   extractEmailAddress,
   getConfiguredSenderAddresses,
@@ -40,13 +51,24 @@ interface InboundThreadMessage {
 }
 
 interface ExistingTicketMatch {
-  ticket: Pick<Ticket, 'id' | 'status' | 'ticket_number' | 'brand_id' | 'metadata'>;
-  matchMethod: 'message_id' | 'ticket_number' | 'subject';
+  ticket: Pick<Ticket, 'id' | 'status' | 'ticket_number' | 'brand_id' | 'metadata' | 'customer_email'> & {
+    merged_into_ticket_id?: string | null;
+  };
+  matchMethod: 'duplicate_message_id' | 'message_id' | 'ticket_number' | 'same_customer_same_issue';
 }
 
 export interface InboundEmailResult {
   statusCode: number;
   body: Record<string, unknown>;
+}
+
+interface InboundAppendResult {
+  appended: boolean;
+  duplicate: boolean;
+  ticket_id: string;
+  ticket_number: number;
+  message_id: string;
+  redirected: boolean;
 }
 
 export async function processInboundEmailWebhook(opts: {
@@ -107,11 +129,35 @@ export async function processInboundEmailWebhook(opts: {
 
   const existing = await findExistingTicket(email, brandId);
   if (existing) {
-    await appendCustomerEmail(existing.ticket, email, existing.matchMethod);
-    console.log(`[webhook] Email reply added to ticket #${existing.ticket.ticket_number} from ${email.senderEmail} by ${existing.matchMethod}`);
+    if (existing.matchMethod === 'duplicate_message_id') {
+      console.log(`[webhook] Duplicate inbound Message-ID ignored for ticket #${existing.ticket.ticket_number}`);
+      return {
+        statusCode: 200,
+        body: {
+          success: true,
+          action: 'duplicate_ignored',
+          ticketNumber: existing.ticket.ticket_number,
+          matchMethod: existing.matchMethod,
+        },
+      };
+    }
+    const appended = await appendCustomerEmail(existing.ticket, email, existing.matchMethod);
+    if (appended.duplicate) {
+      console.log(`[webhook] Duplicate inbound Message-ID ignored for ticket #${appended.ticket_number}`);
+      return {
+        statusCode: 200,
+        body: {
+          success: true,
+          action: 'duplicate_ignored',
+          ticketNumber: appended.ticket_number,
+          matchMethod: 'duplicate_message_id_constraint',
+        },
+      };
+    }
+    console.log(`[webhook] Email reply added to ticket #${appended.ticket_number} from ${email.senderEmail} by ${existing.matchMethod}${appended.redirected ? ' (redirected from linked source)' : ''}`);
     return {
       statusCode: 200,
-      body: { success: true, action: 'reply_added', ticketNumber: existing.ticket.ticket_number, matchMethod: existing.matchMethod },
+      body: { success: true, action: 'reply_added', ticketNumber: appended.ticket_number, matchMethod: existing.matchMethod, redirected: appended.redirected },
     };
   }
 
@@ -145,6 +191,12 @@ export async function processInboundEmailWebhook(opts: {
     classification: classification.classification,
     classification_confidence: classification.confidence,
     metadata: {
+      ...(classification.generation ? {
+        classification_generation: {
+          ...classification.generation,
+          prompt_version: EMAIL_CLASSIFIER_PROMPT_VERSION,
+        },
+      } : {}),
       inbound_email: {
         recipient_addresses: email.recipientAddresses,
         message_id: email.messageId,
@@ -155,12 +207,47 @@ export async function processInboundEmailWebhook(opts: {
     },
   });
 
-  await addInitialEmailMessages(ticket.id, email, ownAddresses);
+  const canonicalDuplicateTicketId = await addInitialEmailMessages(ticket.id, email, ownAddresses, brandId);
+  if (canonicalDuplicateTicketId && canonicalDuplicateTicketId !== ticket.id) {
+    // Two webhook workers can both miss the preflight lookup and create a
+    // ticket before the global Message-ID constraint chooses the winner. Keep
+    // the losing ticket out of every active workflow and link it to the
+    // canonical ticket; never confirm, triage, or plan the loser.
+    const now = new Date().toISOString();
+    const { error: closeDuplicateError } = await supabase
+      .from('tickets')
+      .update({
+        status: 'closed',
+        closed_at: now,
+        merged_into_ticket_id: canonicalDuplicateTicketId,
+        metadata: {
+          ...(ticket.metadata ?? {}),
+          duplicate_inbound_message_id: email.messageId,
+          merged_into_ticket_id: canonicalDuplicateTicketId,
+          merged_reason: 'concurrent_inbound_message_id',
+        },
+        updated_at: now,
+      })
+      .eq('id', ticket.id)
+      .eq('status', 'open');
+    if (closeDuplicateError) {
+      console.error('[webhook] Failed to close concurrent duplicate ticket:', closeDuplicateError.message);
+      throw new Error('Failed to reconcile concurrent inbound duplicate');
+    }
+    const canonical = await ticketService.getTicket(canonicalDuplicateTicketId, brandId);
+    console.log(`[webhook] Concurrent duplicate ticket #${ticket.ticket_number} linked to #${canonical?.ticket_number ?? canonicalDuplicateTicketId}`);
+    return {
+      statusCode: 200,
+      body: {
+        success: true,
+        action: 'duplicate_ignored',
+        ticketNumber: canonical?.ticket_number ?? null,
+        matchMethod: 'duplicate_message_id_constraint',
+      },
+    };
+  }
 
   if (classification.classification === 'customer_support') {
-    // AI auto-triage (fire-and-forget): intent, sentiment, priority suggestion.
-    triageTicket(ticket.id).catch((err) => console.error('[webhook] triage failed:', err));
-
     // Don't confirm auto-responders (out-of-office etc.) — replying to a robot
     // risks a mail loop and never reaches a human anyway.
     if (!isAutoReplyEmail(email.subject)) {
@@ -174,8 +261,26 @@ export async function processInboundEmailWebhook(opts: {
     }
   }
 
-  // Autopilot: build the AI action plan for this ticket (brand-gated inside).
-  proposeForTicket(ticket.id, 'new_ticket').catch((err) => console.error('[webhook] autopilot failed:', err));
+  // Build the plan only after triage commits. Intent, language, sentiment, and
+  // suggested priority are part of both retrieval scope and planner context.
+  if (classification.classification === 'customer_support') {
+    try {
+      await triageTicket(ticket.id);
+    } catch (err) {
+      console.error('[webhook] triage failed; continuing with the complete inbound thread:', err);
+    }
+  }
+  const initialPlan = await proposeForTicket(ticket.id, 'new_ticket');
+  if (!initialPlan) {
+    // The coverage sweep remains a durable recovery path, but webhook success
+    // should mean the first synchronous planning attempt actually finished.
+    // This prevents a short-lived worker from acknowledging intake and dropping
+    // its fire-and-forget planner promise before a plan is stored.
+    console.warn('[webhook] initial Autopilot plan was deferred to coverage recovery', {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+    });
+  }
 
   console.log(`[webhook] Email ticket #${ticket.ticket_number} created from ${email.senderEmail}`);
   return {
@@ -237,41 +342,134 @@ function normalizeInboundEmail(payload: InboundEmailPayload): NormalizedInboundE
 }
 
 async function findExistingTicket(email: NormalizedInboundEmail, brandId: string): Promise<ExistingTicketMatch | null> {
+  if (email.messageId) {
+    const duplicate = await findTicketByEmailMessageIds(expandMessageIds([email.messageId]), brandId);
+    if (duplicate) return verifiedCustomerMatch(duplicate, email.senderEmail, brandId, 'duplicate_message_id');
+  }
   const messageIds = expandMessageIds([email.inReplyTo, ...email.references]);
   if (messageIds.length > 0) {
     const match = await findTicketByEmailMessageIds(messageIds, brandId);
-    if (match) return { ticket: match, matchMethod: 'message_id' };
+    if (match) return verifiedCustomerMatch(match, email.senderEmail, brandId, 'message_id');
   }
 
   const ticketNumber = parseTicketNumber(email.subject);
   if (ticketNumber) {
     const { data } = await supabase
       .from('tickets')
-      .select('id, status, ticket_number, brand_id, metadata')
+      .select('id, status, ticket_number, brand_id, metadata, customer_email, merged_into_ticket_id')
       .eq('ticket_number', ticketNumber)
       .eq('brand_id', brandId)
       .maybeSingle();
 
-    if (data) return { ticket: data as ExistingTicketMatch['ticket'], matchMethod: 'ticket_number' };
+    if (data) return verifiedCustomerMatch(data as ExistingTicketMatch['ticket'], email.senderEmail, brandId, 'ticket_number');
   }
 
-  if (/^(re|fwd|fw):/i.test(email.subject)) {
-    const cleanSubject = email.subject.replace(/^(Re:|RE:|Fwd:|FW:)\s*/i, '').trim();
-    const { data } = await supabase
-      .from('tickets')
-      .select('id, status, ticket_number, brand_id, metadata')
-      .eq('customer_email', email.senderEmail)
-      .eq('brand_id', brandId)
-      .in('status', ['open', 'pending'])
-      .ilike('subject', `%${cleanSubject.slice(0, 80)}%`)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  const sameIssue = await findActiveSameCustomerIssue(email, brandId);
+  return sameIssue
+    ? verifiedCustomerMatch(sameIssue, email.senderEmail, brandId, 'same_customer_same_issue')
+    : null;
+}
 
-    if (data) return { ticket: data as ExistingTicketMatch['ticket'], matchMethod: 'subject' };
+async function findActiveSameCustomerIssue(
+  email: NormalizedInboundEmail,
+  brandId: string,
+): Promise<ExistingTicketMatch['ticket'] | null> {
+  const normalizedEmail = normalizeCustomerEmail(email.senderEmail);
+  if (!normalizedEmail) return null;
+  const escapedEmail = normalizedEmail.replace(/[\\%_]/g, '\\$&');
+  const { data: ticketRows, error: ticketError } = await supabase
+    .from('tickets')
+    .select('id, status, ticket_number, brand_id, metadata, customer_email, merged_into_ticket_id, subject, source, order_id, conversation_id, context_version, created_at, updated_at, first_response_at')
+    .eq('brand_id', brandId)
+    .in('status', ['open', 'pending'])
+    .ilike('customer_email', escapedEmail)
+    .order('updated_at', { ascending: false })
+    .limit(50);
+  if (ticketError) {
+    console.warn('[webhook] Same-customer issue lookup failed; continuing with a new ticket', {
+      senderEmail: normalizedEmail,
+      error: ticketError.message,
+    });
+    return null;
+  }
+  if (!ticketRows?.length) return null;
+
+  const ticketIds = ticketRows.map((ticket) => String(ticket.id));
+  const { data: messageRows, error: messageError } = await supabase
+    .from('ticket_messages')
+    .select('id, ticket_id, sender_type, sender_name, content, created_at, email_message_id, metadata')
+    .in('ticket_id', ticketIds)
+    .eq('is_internal_note', false)
+    .in('sender_type', ['customer', 'agent'])
+    .order('created_at', { ascending: true })
+    .limit(1000);
+  if (messageError) {
+    console.warn('[webhook] Same-customer message lookup failed; continuing with a new ticket', {
+      senderEmail: normalizedEmail,
+      error: messageError.message,
+    });
+    return null;
   }
 
-  return null;
+  const messagesByTicket = new Map<string, CustomerTicketMessage[]>();
+  for (const raw of messageRows ?? []) {
+    const message = raw as CustomerTicketMessage;
+    messagesByTicket.set(message.ticket_id, [
+      ...(messagesByTicket.get(message.ticket_id) ?? []),
+      message,
+    ]);
+  }
+  const candidates = ticketRows.map((raw) => {
+    const row = raw as ExistingTicketMatch['ticket'] & {
+      subject: string;
+      source: string;
+      order_id: string | null;
+      conversation_id: string | null;
+      context_version: number;
+      created_at: string;
+      updated_at: string;
+      first_response_at: string | null;
+    };
+    const messages = messagesByTicket.get(row.id) ?? [];
+    const lastCustomerAt = Math.max(
+      0,
+      ...messages
+        .filter((message) => message.sender_type === 'customer')
+        .map((message) => Date.parse(message.created_at)),
+    );
+    const lastAgentAt = Math.max(
+      0,
+      ...messages
+        .filter((message) => message.sender_type === 'agent')
+        .map((message) => Date.parse(message.created_at)),
+    );
+    return {
+      ...row,
+      messages,
+      response_state: messages.every((message) => message.sender_type !== 'customer')
+        ? 'no_customer_message'
+        : lastAgentAt === 0
+          ? 'unanswered'
+          : lastCustomerAt > lastAgentAt
+            ? 'awaiting_us'
+            : 'awaiting_customer',
+    } as CustomerTicketThread;
+  });
+  const selected = selectSameIssueTicketCandidate({
+    subject: email.subject,
+    body: email.body,
+    receivedAt: new Date().toISOString(),
+  }, candidates);
+  if (!selected) return null;
+  const match = ticketRows.find((ticket) => ticket.id === selected.id);
+  if (match) {
+    console.log('[webhook] Routed unthreaded contact into active same-customer issue', {
+      senderEmail: normalizedEmail,
+      ticketNumber: match.ticket_number,
+      subject: email.subject,
+    });
+  }
+  return match as ExistingTicketMatch['ticket'] | null;
 }
 
 async function findTicketByEmailMessageIds(
@@ -310,7 +508,7 @@ async function findTicketByEmailMessageIds(
 async function getTicketForBrand(ticketId: string, brandId: string): Promise<ExistingTicketMatch['ticket'] | null> {
   const { data } = await supabase
     .from('tickets')
-    .select('id, status, ticket_number, brand_id, metadata')
+    .select('id, status, ticket_number, brand_id, metadata, customer_email, merged_into_ticket_id')
     .eq('id', ticketId)
     .eq('brand_id', brandId)
     .maybeSingle();
@@ -318,65 +516,120 @@ async function getTicketForBrand(ticketId: string, brandId: string): Promise<Exi
   return data ? data as ExistingTicketMatch['ticket'] : null;
 }
 
+async function verifiedCustomerMatch(
+  candidate: ExistingTicketMatch['ticket'],
+  senderEmail: string,
+  brandId: string,
+  matchMethod: ExistingTicketMatch['matchMethod'],
+): Promise<ExistingTicketMatch | null> {
+  const sender = normalizeCustomerEmail(senderEmail);
+  if (!sender || normalizeCustomerEmail(candidate.customer_email) !== sender) {
+    console.warn('[webhook] Refused cross-customer email thread match; creating a new ticket', {
+      matchMethod,
+      candidateTicketNumber: candidate.ticket_number,
+      senderEmail,
+    });
+    return null;
+  }
+
+  const canonical = await followMergedTicket(candidate, brandId);
+  if (!canonical || normalizeCustomerEmail(canonical.customer_email) !== sender) {
+    console.warn('[webhook] Refused invalid merged-ticket redirect; creating a new ticket', {
+      matchMethod,
+      candidateTicketNumber: candidate.ticket_number,
+      senderEmail,
+    });
+    return null;
+  }
+  return { ticket: canonical, matchMethod };
+}
+
+async function followMergedTicket(
+  initial: ExistingTicketMatch['ticket'],
+  brandId: string,
+): Promise<ExistingTicketMatch['ticket'] | null> {
+  let ticket = initial;
+  const visited = new Set<string>();
+  for (let depth = 0; depth < 10; depth++) {
+    if (visited.has(ticket.id)) return null;
+    visited.add(ticket.id);
+    const target = ticket.merged_into_ticket_id ?? ticket.metadata?.merged_into_ticket_id;
+    if (typeof target !== 'string' || !target) return ticket;
+    const next = await getTicketForBrand(target, brandId);
+    if (!next) return null;
+    ticket = next;
+  }
+  return null;
+}
+
 async function appendCustomerEmail(
   ticket: ExistingTicketMatch['ticket'],
   email: NormalizedInboundEmail,
   matchMethod: ExistingTicketMatch['matchMethod'],
-): Promise<void> {
-  await ticketService.addTicketMessage(ticket.id, {
-    sender_type: 'customer',
-    sender_name: email.senderName || undefined,
-    sender_email: email.senderEmail,
-    content: email.body,
-    content_html: email.html || undefined,
-    email_message_id: email.messageId ?? undefined,
-    metadata: {
-      inbound_email: true,
-      match_method: matchMethod,
-      in_reply_to: email.inReplyTo,
-      references: email.references,
-      recipient_addresses: email.recipientAddresses,
-      raw_body_preview: preview(email.rawBody),
-      raw_html_preview: preview(email.rawHtml),
+): Promise<InboundAppendResult> {
+  const { data, error } = await supabase.rpc('append_inbound_customer_message', {
+    p_candidate_ticket_id: ticket.id,
+    p_brand_id: ticket.brand_id,
+    p_customer_email: email.senderEmail,
+    p_message: {
+      sender_name: email.senderName || null,
+      content: email.body,
+      content_html: email.html || null,
+      email_message_id: email.messageId,
+      metadata: {
+        inbound_email: true,
+        match_method: matchMethod,
+        in_reply_to: email.inReplyTo,
+        references: email.references,
+        recipient_addresses: email.recipientAddresses,
+        raw_body_preview: preview(email.rawBody),
+        raw_html_preview: preview(email.rawHtml),
+      },
     },
   });
-
-  const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (ticket.status === 'resolved' || ticket.status === 'closed' || ticket.status === 'pending') {
-    // A customer reply always returns the ticket to the active queue —
-    // including tickets parked as pending/awaiting-customer.
-    updatePayload.status = 'open';
+  if (error) {
+    const missingRpc = error.code === 'PGRST202' || /append_inbound_customer_message/i.test(error.message || '');
+    throw new Error(missingRpc
+      ? 'Atomic inbound routing is unavailable; apply migration 014 before processing replies'
+      : `Atomic inbound append failed: ${error.message}`);
+  }
+  if (!data || typeof data !== 'object') throw new Error('Atomic inbound append returned no result');
+  const result = data as Partial<InboundAppendResult>;
+  if (typeof result.appended !== 'boolean'
+      || typeof result.duplicate !== 'boolean'
+      || typeof result.ticket_id !== 'string'
+      || !Number.isInteger(result.ticket_number)
+      || typeof result.message_id !== 'string'
+      || typeof result.redirected !== 'boolean') {
+    throw new Error('Atomic inbound append returned an invalid result');
   }
 
-  // A customer reply wakes a snoozed ticket — the wait is over.
-  const metadata = (ticket.metadata as Record<string, unknown> | null) ?? null;
-  if (metadata && metadata.snoozed_until) {
-    const cleared = { ...metadata };
-    delete cleared.snoozed_until;
-    updatePayload.metadata = cleared;
-    if (!updatePayload.status && ticket.status === 'pending') updatePayload.status = 'open';
-
-    await supabase.from('ticket_events').insert({
-      ticket_id: ticket.id,
-      event_type: 'snooze_woke',
-      actor: 'customer',
-      old_value: String(metadata.snoozed_until),
-      new_value: 'customer_reply',
-    });
+  // A reply changes the situation — rebuild the canonical ticket's plan.
+  if (!result.duplicate) {
+    try {
+      await triageTicket(result.ticket_id);
+    } catch (err) {
+      console.error('[webhook] reply triage failed; continuing to replan:', err);
+    }
+    const replacement = await replanOnCustomerReply(result.ticket_id);
+    if (!replacement) {
+      console.error('[webhook] autopilot replan produced no durable plan:', {
+        ticket_id: result.ticket_id,
+        ticket_number: result.ticket_number,
+      });
+    }
   }
-
-  await supabase.from('tickets').update(updatePayload).eq('id', ticket.id);
-
-  // A reply changes the situation — rebuild the Autopilot plan (brand-gated inside).
-  replanOnCustomerReply(ticket.id).catch((err) => console.error('[webhook] autopilot replan failed:', err));
+  return result as InboundAppendResult;
 }
 
 async function addInitialEmailMessages(
   ticketId: string,
   email: NormalizedInboundEmail,
   ownAddresses: Set<string>,
-): Promise<void> {
+  brandId: string,
+): Promise<string | null> {
   if (email.threadMessages.length > 0) {
+    let sawCurrentMessage = false;
     for (const threadMessage of email.threadMessages) {
       const senderEmail = normalizeEmailAddress(threadMessage.from_email);
       const rawContent = threadMessage.text || threadMessage.body || stripHtml(threadMessage.html || '');
@@ -384,25 +637,50 @@ async function addInitialEmailMessages(
       const cleanHtml = cleanInboundHtml(threadMessage.html || '');
       if (!content.trim()) continue;
 
-      await ticketService.addTicketMessage(ticketId, {
+      const threadMessageId = normalizeMessageId(threadMessage.message_id);
+      if (threadMessageId && threadMessageId === email.messageId) sawCurrentMessage = true;
+      const inserted = await ticketService.addTicketMessage(ticketId, {
         sender_type: senderEmail && ownAddresses.has(senderEmail) ? 'agent' : 'customer',
         sender_name: threadMessage.from_name || undefined,
         sender_email: senderEmail || undefined,
         content,
         content_html: cleanHtml || undefined,
-        email_message_id: normalizeMessageId(threadMessage.message_id) ?? undefined,
+        email_message_id: threadMessageId ?? undefined,
         metadata: {
           sent_at: threadMessage.date || undefined,
           is_thread_history: true,
           raw_body_preview: preview(rawContent),
           raw_html_preview: preview(threadMessage.html || ''),
         },
-      });
+      }, brandId);
+      if (threadMessageId && threadMessageId === email.messageId && inserted.ticket_id !== ticketId) {
+        return inserted.ticket_id;
+      }
     }
-    return;
+    // Some providers send only prior thread history in `thread_messages` and
+    // keep the newly received message in the top-level fields. Persist it
+    // explicitly so its global Message-ID remains the concurrency winner.
+    if (email.messageId && !sawCurrentMessage) {
+      const inserted = await ticketService.addTicketMessage(ticketId, {
+        sender_type: 'customer',
+        sender_name: email.senderName || undefined,
+        sender_email: email.senderEmail,
+        content: email.body,
+        content_html: email.html || undefined,
+        email_message_id: email.messageId,
+        metadata: {
+          inbound_email: true,
+          recipient_addresses: email.recipientAddresses,
+          raw_body_preview: preview(email.rawBody),
+          raw_html_preview: preview(email.rawHtml),
+        },
+      }, brandId);
+      if (inserted.ticket_id !== ticketId) return inserted.ticket_id;
+    }
+    return null;
   }
 
-  await ticketService.addTicketMessage(ticketId, {
+  const inserted = await ticketService.addTicketMessage(ticketId, {
     sender_type: 'customer',
     sender_name: email.senderName || undefined,
     sender_email: email.senderEmail,
@@ -415,7 +693,8 @@ async function addInitialEmailMessages(
       raw_body_preview: preview(email.rawBody),
       raw_html_preview: preview(email.rawHtml),
     },
-  });
+  }, brandId);
+  return inserted.ticket_id !== ticketId ? inserted.ticket_id : null;
 }
 
 function isOwnOrAutomatedSender(senderEmail: string, ownAddresses: Set<string>): boolean {

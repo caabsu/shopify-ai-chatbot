@@ -1,38 +1,69 @@
 {% comment %}
-  Outlight V20 — Full-Bleed Photo Review Carousel
-  Thin shell — all rendering logic is in the hosted v20-carousel.js
-  Changes deploy automatically via Railway, no need to re-paste code.
+  Brand-aware full-bleed review carousel.
+  On product pages it shows product reviews. On homepages it reads the brand's
+  curated homepage reviews directly from supportOS.
 {% endcomment %}
 
-{%- assign v20_skip = 'all,best-sellers,top-sellers,outdoor-lighting,new-arrivals' | split: ',' -%}
-{%- assign v20_collection = '' -%}
-{%- for col in product.collections -%}
-  {%- unless v20_skip contains col.handle -%}
-    {%- if v20_collection == '' -%}
-      {%- assign v20_collection = col.title -%}
-    {%- endif -%}
-  {%- endunless -%}
-{%- endfor -%}
-{%- if v20_collection == '' -%}
-  {%- assign v20_collection = product.type | default: 'Lighting' -%}
+{%- if product != blank -%}
+  {%- assign v20_skip = 'all,best-sellers,top-sellers,outdoor-lighting,new-arrivals' | split: ',' -%}
+  {%- assign v20_collection = '' -%}
+  {%- for col in product.collections -%}
+    {%- unless v20_skip contains col.handle -%}
+      {%- if v20_collection == '' -%}
+        {%- assign v20_collection = col.title -%}
+      {%- endif -%}
+    {%- endunless -%}
+  {%- endfor -%}
+  {%- if v20_collection == '' -%}
+    {%- assign v20_collection = product.type | default: 'Lighting' -%}
+  {%- endif -%}
+  {%- assign v20_heading = product.title | append: ' — ' | append: v20_collection -%}
+{%- else -%}
+  {%- assign v20_heading = section.settings.homepage_heading | default: 'Loved in homes like yours' -%}
 {%- endif -%}
-{%- assign v20_heading = product.title | append: ' — ' | append: v20_collection -%}
 
-<div id="outlight-v20-carousel"
+<div
+  id="outlight-v20-carousel"
   data-heading="{{ v20_heading }}"
+  data-brand="{{ section.settings.brand_slug | default: 'outlight' }}"
+  {% if product != blank %}data-product-handle="{{ product.handle }}"{% endif %}
+  {% if section.settings.reviews_url != blank %}data-reviews-url="{{ section.settings.reviews_url }}"{% endif %}
   data-accent="{{ section.settings.star_color | default: '#C5A059' }}"
   data-max-cards="{{ section.settings.max_cards | default: 12 }}"
+  data-refresh-seconds="{{ section.settings.refresh_seconds | default: 60 }}"
   data-no-photo-bg="{{ section.settings.no_photo_bg | default: '#f4f0eb' }}">
 </div>
 
-<script src="https://shopify-ai-chatbot-production-9ab4.up.railway.app/widget/v20-carousel.js?v=2" defer></script>
+<script
+  src="https://shopify-ai-chatbot-production-9ab4.up.railway.app/widget/v20-carousel.js?v=3"
+  data-brand="{{ section.settings.brand_slug | default: 'outlight' }}"
+  defer>
+</script>
 
 {% schema %}
 {
-  "name": "Review Carousel V20",
+  "name": "Live review carousel",
   "tag": "section",
   "class": "section-v20-reviews",
   "settings": [
+    {
+      "type": "text",
+      "id": "brand_slug",
+      "label": "Brand slug",
+      "default": "outlight",
+      "info": "Use the brand slug from supportOS, for example warm-by-design."
+    },
+    {
+      "type": "text",
+      "id": "homepage_heading",
+      "label": "Homepage heading",
+      "default": "Loved in homes like yours"
+    },
+    {
+      "type": "url",
+      "id": "reviews_url",
+      "label": "All reviews page"
+    },
     {
       "type": "color",
       "id": "star_color",
@@ -53,13 +84,23 @@
       "max": 20,
       "step": 1,
       "default": 12
+    },
+    {
+      "type": "range",
+      "id": "refresh_seconds",
+      "label": "Live refresh interval",
+      "min": 0,
+      "max": 300,
+      "step": 15,
+      "unit": "s",
+      "default": 60,
+      "info": "Set to 0 to refresh only on page load."
     }
   ],
   "presets": [
     {
-      "name": "Review Carousel V20"
+      "name": "Live review carousel"
     }
-  ],
-  "templates": ["product"]
+  ]
 }
 {% endschema %}

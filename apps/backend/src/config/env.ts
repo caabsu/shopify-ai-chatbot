@@ -28,17 +28,31 @@ export const config = {
     shop: requireEnv('SHOPIFY_SHOP'),
     clientId: requireEnv('SHOPIFY_CLIENT_ID'),
     clientSecret: requireEnv('SHOPIFY_CLIENT_SECRET'),
-    apiVersion: optionalEnv('SHOPIFY_API_VERSION', '2025-01'),
+    apiVersion: optionalEnv('SHOPIFY_API_VERSION', '2026-07'),
   },
-  anthropic: {
-    apiKey: requireEnv('ANTHROPIC_API_KEY'),
+  deepseek: {
+    /**
+     * `auto` prefers Vercel AI Gateway, then native DeepSeek. There is
+     * deliberately no legacy-provider fallback.
+     */
+    provider: optionalEnv('AUTOPILOT_AI_PROVIDER', 'auto'),
+    gatewayApiKey: optionalEnv('AI_GATEWAY_API_KEY', ''),
+    gatewayBaseUrl: optionalEnv('AI_GATEWAY_BASE_URL', 'https://ai-gateway.vercel.sh/v1'),
+    nativeApiKey: optionalEnv('DEEPSEEK_API_KEY', ''),
+    nativeBaseUrl: optionalEnv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1'),
+    flashModel: optionalEnv('AUTOPILOT_FLASH_MODEL', 'deepseek/deepseek-v4.1-flash'),
+    proModel: optionalEnv('AUTOPILOT_PRO_MODEL', 'deepseek/deepseek-v4-pro'),
+    nativeFlashModel: optionalEnv('AUTOPILOT_NATIVE_FLASH_MODEL', 'deepseek-flash'),
+    nativeProModel: optionalEnv('AUTOPILOT_NATIVE_PRO_MODEL', 'deepseek-v4-pro'),
+    requestTimeoutMs: parseInt(optionalEnv('AUTOPILOT_AI_TIMEOUT_MS', '180000'), 10),
+    gatewayZeroDataRetention: optionalEnv('AUTOPILOT_GATEWAY_ZDR', 'false') === 'true',
+    gatewayDisallowTraining: optionalEnv('AUTOPILOT_GATEWAY_DISALLOW_TRAINING', 'true') !== 'false',
   },
   supabase: {
     url: requireEnv('SUPABASE_URL'),
     serviceRoleKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
   },
   ai: {
-    model: optionalEnv('AI_MODEL', 'claude-sonnet-4-6'),
     maxTokens: parseInt(optionalEnv('AI_MAX_TOKENS', '4096'), 10),
     temperature: parseFloat(optionalEnv('AI_TEMPERATURE', '0.7')),
   },

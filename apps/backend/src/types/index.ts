@@ -198,6 +198,7 @@ export interface Ticket {
   tags: string[];
   conversation_id: string | null;
   order_id: string | null;
+  merged_into_ticket_id?: string | null;
   metadata: Record<string, unknown> | null;
   first_response_at: string | null;
   resolved_at: string | null;
@@ -208,6 +209,8 @@ export interface Ticket {
   sla_breached: boolean;
   created_at: string;
   updated_at: string;
+  /** Monotonic concurrency token bumped by meaningful ticket/message changes. */
+  context_version?: number;
 }
 
 export interface TicketMessage {

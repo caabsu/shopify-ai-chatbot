@@ -85,7 +85,7 @@ The system has two layers:
     │  ┌──────────────────────────────────────────────────────────────────┐    │
     │  │                  Connected Services                               │    │
     │  │                                                                  │    │
-    │  │  Shopify Admin API  ┃  Claude AI  ┃  Supabase  ┃  Email (SMTP) │    │
+    │  │  Shopify Admin API  ┃ DeepSeek V4 ┃  Supabase  ┃  Email (SMTP) │    │
     │  └──────────────────────────────────────────────────────────────────┘    │
     │                                                                          │
     └──────────────────────────────────────────────────────────────────────────┘
@@ -213,8 +213,8 @@ Customer has a question or issue
               ┌─────────────┼──────────────┼──────────────┼─────────────┐
               │             ▼              ▼              ▼             │
               │  ┌──────────────┐  ┌──────────────┐  ┌────────────┐   │
-              │  │   Supabase   │  │  Shopify API  │  │  Claude AI │   │
-              │  │   (Postgres) │  │  (Admin +     │  │  (Anthropic│   │
+              │  │   Supabase   │  │  Shopify API  │  │ DeepSeek V4│   │
+              │  │   (Postgres) │  │  (Admin +     │  │ (Gateway)  │   │
               │  │              │  │   Storefront) │  │   API)     │   │
               │  └──────────────┘  └──────────────┘  └────────────┘   │
               │                                                        │
@@ -752,14 +752,14 @@ When a VA clicks a ticket, they see the full workspace:
 
 ## 8. AI Agent Tools for VAs
 
-The VA has AI tools available directly in the ticket workspace. These are powered by Claude, using the ticket context and Shopify data.
+The VA has AI tools available directly in the ticket workspace. These are powered by routed DeepSeek V4, using the ticket context and Shopify data.
 
 ### 8.1 AI Draft Reply
 
 The VA clicks "AI Draft" and the system:
 
-1. Sends to Claude: the full ticket thread, customer profile, order history, KB articles, and the VA's instructions (if any)
-2. Claude generates a professional reply draft
+1. Sends to DeepSeek V4: the full ticket thread, customer profile, order history, KB articles, and the VA's instructions (if any)
+2. DeepSeek generates a professional reply draft
 3. Draft appears in the composer as editable text
 4. VA reviews, edits if needed, then sends
 
@@ -826,7 +826,7 @@ Displayed as a small badge on the ticket:
 - Angry (red)
 - Happy (green)
 
-Calculated from the latest customer message using simple heuristics or Claude analysis. Helps VAs prioritize and adjust tone.
+Calculated from the latest customer message using simple heuristics or DeepSeek V4 analysis. Helps VAs prioritize and adjust tone.
 
 ---
 
@@ -1114,7 +1114,7 @@ Settings
 └── Integrations
     ├── Shopify connection status
     ├── Email provider status
-    ├── AI (Claude) configuration
+    ├── AI (DeepSeek V4) configuration
     └── Webhook URLs
 ```
 

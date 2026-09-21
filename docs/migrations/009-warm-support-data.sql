@@ -122,8 +122,8 @@ CROSS JOIN (
       'delivery',
       'wbd_delivery_expectations',
       'Warm by Design delivery expectations',
-      $fact$Warm by Design policy copy says orders are prepared for shipment and customers are notified with tracking after shipment. Use Shopify fulfillment and tracking data when available. If no tracking is available, do not invent a tracking link or carrier. For general delivery expectations, use 3 to 4 weeks only when no more specific Shopify order data is available.$fact$,
-      '{"fallback_delivery_window":"3-4 weeks","tracking_rule":"only use Shopify-provided tracking"}'::jsonb,
+      $fact$Warm by Design policy copy says orders are prepared for shipment and customers are notified with tracking after shipment. Use Shopify fulfillment and tracking data when available. If no tracking is available, do not invent a tracking link or carrier. For the current fulfillment backlog, use about two weeks unless more specific verified Shopify order data is available.$fact$,
+      '{"fallback_delivery_window":"about 2 weeks","tracking_rule":"only use Shopify-provided tracking"}'::jsonb,
       105,
       true,
       'Warm by Design support configuration'
