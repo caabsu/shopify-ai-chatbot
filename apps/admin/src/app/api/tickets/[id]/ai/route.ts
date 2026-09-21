@@ -401,7 +401,7 @@ ${supportContext}`;
     uncertainties?: unknown;
   }>({
     tier: draftTier,
-    maxTokens: draftTier === 'pro' ? 2_048 : 1_024,
+    maxTokens: draftTier === 'pro' ? 6_000 : 1_024,
     temperature: 0.6,
     system: systemPrompt,
     user: `Ticket #${ticket.ticket_number} — "${ticket.subject}" (${ticket.status}, ${ticket.priority} priority)\n\nFull conversation history:\n${conversationText}\n\nWrite a reply to the customer.`,

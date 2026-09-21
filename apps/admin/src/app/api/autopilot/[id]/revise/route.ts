@@ -3,10 +3,10 @@ import { getSession, getToken } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001').replace(/\/$/, '');
-const BACKEND_TIMEOUT_MS = 110_000;
+const BACKEND_TIMEOUT_MS = 240_000;
 
 export const runtime = 'nodejs';
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 async function readBackendJson(res: Response): Promise<Record<string, unknown>> {
   const text = await res.text();
