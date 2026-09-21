@@ -366,6 +366,7 @@ export interface AutopilotPlan {
     model_confidence?: number;
     overall_confidence: number;
     quality_assessment?: {
+      jev?: import('../../../backend/src/services/support-ai').DraftReview;
       version: 'support-quality-v1';
       passed: boolean;
       confidence: number;

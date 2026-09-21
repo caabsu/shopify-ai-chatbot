@@ -8,6 +8,11 @@ const deployedFromRepositoryRoot = existsSync(
 );
 
 const nextConfig: NextConfig = {
+  webpack(config) {
+    // Shared NodeNext services use .js specifiers in TypeScript source.
+    config.resolve.extensionAlias = { ...config.resolve.extensionAlias, '.js': ['.ts', '.tsx', '.js'] };
+    return config;
+  },
   distDir: process.env.SUPPORTOS_NEXT_DIST_DIR || '.next',
   output: 'standalone',
   // The root Vercel project builds this app from the monorepo, while the

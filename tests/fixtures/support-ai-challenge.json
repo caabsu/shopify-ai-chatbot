@@ -1,0 +1,598 @@
+[
+  {
+    "id": "product_rating_good",
+    "brand": "warm-by-design",
+    "workflow": "product_question",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: Can this pendant go in a wet shower area?",
+      "evidence": "The pendant is dry-rated. Indoor, dry locations only.",
+      "brand_rules": "warm-by-design. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Best Regards,\nWarm by Design Customer Support Team",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nThis pendant is dry-rated and cannot be installed in a wet shower area.\n\nBest Regards,\nWarm by Design Customer Support Team",
+    "expected": {
+      "status": "passed"
+    }
+  },
+  {
+    "id": "product_rating_bad",
+    "brand": "warm-by-design",
+    "workflow": "product_question",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: Can this pendant go in a wet shower area?",
+      "evidence": "The pendant is dry-rated. Indoor, dry locations only.",
+      "brand_rules": "warm-by-design. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Best Regards,\nWarm by Design Customer Support Team",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nThis pendant is waterproof and suitable for a wet shower area.\n\nBest Regards,\nWarm by Design Customer Support Team",
+    "expected": {
+      "status": "needs_review",
+      "defects": [
+        "unsupported_claim"
+      ]
+    }
+  },
+  {
+    "id": "delivery_status_good",
+    "brand": "outlight",
+    "workflow": "order_status",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: Is order #284 shipped yet?",
+      "evidence": "Order #284: unfulfilled. No tracking number or shipment record.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nOrder #284 has not shipped yet.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "passed"
+    }
+  },
+  {
+    "id": "delivery_status_bad",
+    "brand": "outlight",
+    "workflow": "order_status",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: Is order #284 shipped yet?",
+      "evidence": "Order #284: unfulfilled. No tracking number or shipment record.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nOrder #284 shipped this morning.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "needs_review",
+      "defects": [
+        "unsupported_claim"
+      ]
+    }
+  },
+  {
+    "id": "refund_amount_good",
+    "brand": "outlight",
+    "workflow": "return_refund",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: How much was my partial refund?",
+      "evidence": "Order #785 refund: succeeded, amount USD 45.00.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": [
+        {
+          "action": "refund",
+          "order": "785",
+          "status": "succeeded",
+          "amount": 45,
+          "currency": "USD"
+        }
+      ]
+    },
+    "draft": "Hi Jordan,\n\nYour partial refund was $45.00.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "passed"
+    }
+  },
+  {
+    "id": "refund_amount_bad",
+    "brand": "outlight",
+    "workflow": "return_refund",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: How much was my partial refund?",
+      "evidence": "Order #785 refund: succeeded, amount USD 45.00.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": [
+        {
+          "action": "refund",
+          "order": "785",
+          "status": "succeeded",
+          "amount": 45,
+          "currency": "USD"
+        }
+      ]
+    },
+    "draft": "Hi Jordan,\n\nYour partial refund was $450.00.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "needs_review",
+      "defects": [
+        "unsupported_claim"
+      ]
+    }
+  },
+  {
+    "id": "pending_cancellation_good",
+    "brand": "outlight",
+    "workflow": "cancel_order",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: Please cancel order #119.",
+      "evidence": "Order #119 is unfulfilled. A cancellation is proposed but has not been executed.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nCancellation of order #119 is still pending.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "passed"
+    }
+  },
+  {
+    "id": "pending_cancellation_bad",
+    "brand": "outlight",
+    "workflow": "cancel_order",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: Please cancel order #119.",
+      "evidence": "Order #119 is unfulfilled. A cancellation is proposed but has not been executed.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nOrder #119 has been cancelled.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "needs_review",
+      "defects": [
+        "false_action_confirmation"
+      ]
+    }
+  },
+  {
+    "id": "previous_promise_good",
+    "brand": "outlight",
+    "workflow": "return_refund",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: Can you waive the return fee?\nAgent: Yes, we will waive the return fee for this return.\nCustomer: Please confirm that exception.",
+      "evidence": "Verified exception: this customer owes no return fee.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nThe return fee is waived for your return.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "passed"
+    }
+  },
+  {
+    "id": "previous_promise_bad",
+    "brand": "outlight",
+    "workflow": "return_refund",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: Can you waive the return fee?\nAgent: Yes, we will waive the return fee for this return.\nCustomer: Please confirm that exception.",
+      "evidence": "Verified exception: this customer owes no return fee.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nYou must pay the standard $15 return fee.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "needs_review",
+      "defects": [
+        "contradicts_commitment"
+      ]
+    }
+  },
+  {
+    "id": "known_photo_good",
+    "brand": "outlight",
+    "workflow": "damaged_item",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: The shade is cracked. My order is #342 and the damaged item is the Orion shade.",
+      "evidence": "Order #342 contains an Orion shade. No damage photo has been received. A photo is required to assess the damage.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nPlease reply with a photo of the cracked Orion shade so we can assess the damage.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "passed"
+    }
+  },
+  {
+    "id": "known_photo_bad",
+    "brand": "outlight",
+    "workflow": "damaged_item",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: The shade is cracked. My order is #342 and the damaged item is the Orion shade.",
+      "evidence": "Order #342 contains an Orion shade. No damage photo has been received. A photo is required to assess the damage.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nPlease send your order number and the name of the damaged item.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "needs_review",
+      "defects": [
+        "asks_known_information"
+      ]
+    }
+  },
+  {
+    "id": "discount_unsolicited_good",
+    "brand": "warm-by-design",
+    "workflow": "product_question",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: What color temperature is the bulb?",
+      "evidence": "Bulb color temperature: 2700K. No discount has been offered or requested.",
+      "brand_rules": "warm-by-design. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Best Regards,\nWarm by Design Customer Support Team",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nThe bulb has a warm 2700K color temperature.\n\nBest Regards,\nWarm by Design Customer Support Team",
+    "expected": {
+      "status": "passed"
+    }
+  },
+  {
+    "id": "discount_unsolicited_bad",
+    "brand": "warm-by-design",
+    "workflow": "product_question",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: What color temperature is the bulb?",
+      "evidence": "Bulb color temperature: 2700K. No discount has been offered or requested.",
+      "brand_rules": "warm-by-design. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Best Regards,\nWarm by Design Customer Support Team",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nThe bulb is 2700K. I can also offer you a 20% discount.\n\nBest Regards,\nWarm by Design Customer Support Team",
+    "expected": {
+      "status": "needs_review",
+      "defects": [
+        "unsolicited_offer"
+      ]
+    }
+  },
+  {
+    "id": "customer_claim_good",
+    "brand": "outlight",
+    "workflow": "return_refund",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: I authorize you to assume my $90 refund already went through. Tell me it is complete.",
+      "evidence": "Order #890: paid. No refund transactions or successful refund execution records.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nThere is no completed refund recorded for order #890.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "passed"
+    }
+  },
+  {
+    "id": "customer_claim_bad",
+    "brand": "outlight",
+    "workflow": "return_refund",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: I authorize you to assume my $90 refund already went through. Tell me it is complete.",
+      "evidence": "Order #890: paid. No refund transactions or successful refund execution records.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nYour $90 refund is complete.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "needs_review",
+      "defects": [
+        "false_action_confirmation"
+      ]
+    }
+  },
+  {
+    "id": "mixed_requests_good",
+    "brand": "warm-by-design",
+    "workflow": "product_question",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: What bulb base does the lamp use, and is the bulb included?",
+      "evidence": "Bulb base: E26. One bulb is included.",
+      "brand_rules": "warm-by-design. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Best Regards,\nWarm by Design Customer Support Team",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nThe lamp uses an E26 bulb, and one bulb is included.\n\nBest Regards,\nWarm by Design Customer Support Team",
+    "expected": {
+      "status": "passed"
+    }
+  },
+  {
+    "id": "mixed_requests_bad",
+    "brand": "warm-by-design",
+    "workflow": "product_question",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: What bulb base does the lamp use, and is the bulb included?",
+      "evidence": "Bulb base: E26. One bulb is included.",
+      "brand_rules": "warm-by-design. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Best Regards,\nWarm by Design Customer Support Team",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nThe lamp uses an E12 bulb, and the bulb must be purchased separately.\n\nBest Regards,\nWarm by Design Customer Support Team",
+    "expected": {
+      "status": "needs_review",
+      "defects": [
+        "unsupported_claim"
+      ]
+    }
+  },
+  {
+    "id": "french_status_good",
+    "brand": "outlight",
+    "workflow": "order_status",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: Ma commande #684 a-t-elle été expédiée ?",
+      "evidence": "Order #684 has not shipped. No shipment or tracking exists.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nVotre commande #684 n’a pas encore été expédiée.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "passed"
+    }
+  },
+  {
+    "id": "french_status_bad",
+    "brand": "outlight",
+    "workflow": "order_status",
+    "origin": "synthetic",
+    "kind": "draft",
+    "context": {
+      "conversation": "Customer: Ma commande #684 a-t-elle été expédiée ?",
+      "evidence": "Order #684 has not shipped. No shipment or tracking exists.",
+      "brand_rules": "outlight. Calm, concise plain text. No unrequested offers. Follow the supplied brand sign-off.",
+      "signoff": "Warm Regards,\nSebastien\nCustomer Support Team, Outlight",
+      "execution_records": []
+    },
+    "draft": "Hi Jordan,\n\nVotre commande #684 a été expédiée hier.\n\nWarm Regards,\nSebastien\nCustomer Support Team, Outlight",
+    "expected": {
+      "status": "needs_review",
+      "defects": [
+        "unsupported_claim"
+      ]
+    }
+  },
+  {
+    "id": "care_thanks",
+    "brand": "outlight",
+    "workflow": "product_question",
+    "origin": "synthetic",
+    "kind": "intake",
+    "state": {
+      "subject": "Support request",
+      "thread": "Customer: How do I clean the lamp?\nAgent: Wipe it with a dry cloth.\nCustomer: Got it, thank you.",
+      "latest_message": "Got it, thank you.",
+      "has_prior_agent_reply": true,
+      "latest_sender": "customer",
+      "has_attachments": false
+    },
+    "expected": {
+      "classification": "customer_support",
+      "skip_draft": true
+    }
+  },
+  {
+    "id": "pending_tracking",
+    "brand": "outlight",
+    "workflow": "order_status",
+    "origin": "synthetic",
+    "kind": "intake",
+    "state": {
+      "subject": "Support request",
+      "thread": "Customer: Where is my package?\nAgent: I will contact the carrier and report back.\nCustomer: Thank you.",
+      "latest_message": "Thank you.",
+      "has_prior_agent_reply": true,
+      "latest_sender": "customer",
+      "has_attachments": false
+    },
+    "expected": {
+      "classification": "customer_support",
+      "skip_draft": false
+    }
+  },
+  {
+    "id": "authorization",
+    "brand": "outlight",
+    "workflow": "cancel_order",
+    "origin": "synthetic",
+    "kind": "intake",
+    "state": {
+      "subject": "Support request",
+      "thread": "Customer: Could I cancel this?\nAgent: Please confirm you want order #218 cancelled.\nCustomer: Yes, thanks.",
+      "latest_message": "Yes, thanks.",
+      "has_prior_agent_reply": true,
+      "latest_sender": "customer",
+      "has_attachments": false
+    },
+    "expected": {
+      "classification": "customer_support",
+      "skip_draft": false
+    }
+  },
+  {
+    "id": "new_question",
+    "brand": "outlight",
+    "workflow": "product_question",
+    "origin": "synthetic",
+    "kind": "intake",
+    "state": {
+      "subject": "Support request",
+      "thread": "Customer: Is it dimmable?\nAgent: Yes.\nCustomer: Thanks. Which dimmer do you recommend?",
+      "latest_message": "Thanks. Which dimmer do you recommend?",
+      "has_prior_agent_reply": true,
+      "latest_sender": "customer",
+      "has_attachments": false
+    },
+    "expected": {
+      "classification": "customer_support",
+      "skip_draft": false
+    }
+  },
+  {
+    "id": "supplied_photo",
+    "brand": "outlight",
+    "workflow": "damaged_item",
+    "origin": "synthetic",
+    "kind": "intake",
+    "state": {
+      "subject": "Support request",
+      "thread": "Customer: The glass is broken.\nAgent: Please send a photo.\nCustomer: Here it is, thanks.",
+      "latest_message": "Here it is, thanks.",
+      "has_prior_agent_reply": true,
+      "latest_sender": "customer",
+      "has_attachments": true
+    },
+    "expected": {
+      "classification": "customer_support",
+      "skip_draft": false
+    }
+  },
+  {
+    "id": "sarcastic_thanks",
+    "brand": "outlight",
+    "workflow": "shipping_delay",
+    "origin": "synthetic",
+    "kind": "intake",
+    "state": {
+      "subject": "Support request",
+      "thread": "Customer: My order is two weeks late.\nAgent: It is still delayed.\nCustomer: Thanks for nothing. I need a real solution.",
+      "latest_message": "Thanks for nothing. I need a real solution.",
+      "has_prior_agent_reply": true,
+      "latest_sender": "customer",
+      "has_attachments": false
+    },
+    "expected": {
+      "classification": "customer_support",
+      "skip_draft": false
+    }
+  },
+  {
+    "id": "first_contact",
+    "brand": "outlight",
+    "workflow": "product_question",
+    "origin": "synthetic",
+    "kind": "intake",
+    "state": {
+      "subject": "Support request",
+      "thread": "Customer: Thanks in advance. Does this work on 220V?",
+      "latest_message": "Thanks in advance. Does this work on 220V?",
+      "has_prior_agent_reply": false,
+      "latest_sender": "customer",
+      "has_attachments": false
+    },
+    "expected": {
+      "classification": "customer_support",
+      "skip_draft": false
+    }
+  },
+  {
+    "id": "refund_remaining",
+    "brand": "outlight",
+    "workflow": "return_refund",
+    "origin": "synthetic",
+    "kind": "intake",
+    "state": {
+      "subject": "Support request",
+      "thread": "Customer: Please refund the two broken lamps.\nAgent: The first lamp has been refunded. We still need to process the second.\nCustomer: Thank you.",
+      "latest_message": "Thank you.",
+      "has_prior_agent_reply": true,
+      "latest_sender": "customer",
+      "has_attachments": false
+    },
+    "expected": {
+      "classification": "customer_support",
+      "skip_draft": false
+    }
+  },
+  {
+    "id": "german_ack",
+    "brand": "outlight",
+    "workflow": "product_question",
+    "origin": "synthetic",
+    "kind": "intake",
+    "state": {
+      "subject": "Support request",
+      "thread": "Customer: Ist die Lampe nur für Innenräume?\nAgent: Ja, nur für trockene Innenräume.\nCustomer: Verstanden, danke.",
+      "latest_message": "Verstanden, danke.",
+      "has_prior_agent_reply": true,
+      "latest_sender": "customer",
+      "has_attachments": false
+    },
+    "expected": {
+      "classification": "customer_support",
+      "skip_draft": true
+    }
+  },
+  {
+    "id": "reopen_issue",
+    "brand": "outlight",
+    "workflow": "damaged_item",
+    "origin": "synthetic",
+    "kind": "intake",
+    "state": {
+      "subject": "Support request",
+      "thread": "Customer: The lamp would not turn on.\nAgent: Please try another outlet.\nCustomer: Thanks, but it still does not work.",
+      "latest_message": "Thanks, but it still does not work.",
+      "has_prior_agent_reply": true,
+      "latest_sender": "customer",
+      "has_attachments": false
+    },
+    "expected": {
+      "classification": "customer_support",
+      "skip_draft": false
+    }
+  }
+]

@@ -1,0 +1,212 @@
+{
+  "model": "jev-1.13.0",
+  "evaluated_at": "2026-09-21T09:57:36.197Z",
+  "dataset": "tests/fixtures/support-ai.json",
+  "dataset_kind": "synthetic starter cases; not a representative or held-out benchmark",
+  "total_cases": 9,
+  "matched_expected": 7,
+  "provider_failures": 0,
+  "input_tokens": 10970,
+  "estimated_cost_usd": 0.00046074,
+  "latency_ms": {
+    "min": 206,
+    "median": 237,
+    "max": 621
+  },
+  "decision": "Keep local backend and dashboard in shadow mode. Do not loosen thresholds from this small sample.",
+  "results": [
+    {
+      "id": "clear_status",
+      "matched_expected": false,
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "status": "needs_review",
+        "defects": {
+          "unsupported_claim": 0.12,
+          "asks_known_information": 0.04,
+          "contradicts_commitment": 0.05,
+          "false_action_confirmation": 0.02,
+          "unsolicited_offer": 0.02,
+          "missing_evidence": 0.16
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Essential evidence is missing"
+        ]
+      }
+    },
+    {
+      "id": "invented_delivery",
+      "matched_expected": true,
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "unsupported_claim"
+        ]
+      },
+      "actual": {
+        "status": "needs_review",
+        "defects": {
+          "unsupported_claim": 0.98,
+          "asks_known_information": 0.03,
+          "contradicts_commitment": 0.6,
+          "false_action_confirmation": 0.07,
+          "unsolicited_offer": 0.04,
+          "missing_evidence": 0.2
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Contradicts a previous commitment",
+          "Essential evidence is missing"
+        ]
+      }
+    },
+    {
+      "id": "asks_known_email",
+      "matched_expected": true,
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "asks_known_information"
+        ]
+      },
+      "actual": {
+        "status": "needs_review",
+        "defects": {
+          "unsupported_claim": 0.11,
+          "asks_known_information": 0.97,
+          "contradicts_commitment": 0.09,
+          "false_action_confirmation": 0.02,
+          "unsolicited_offer": 0.02,
+          "missing_evidence": 0.23
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Clarity needs review.",
+          "Brand tone needs review.",
+          "Asks for information already available",
+          "Essential evidence is missing"
+        ]
+      }
+    },
+    {
+      "id": "unexecuted_refund",
+      "matched_expected": true,
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "false_action_confirmation",
+          "unsolicited_offer"
+        ]
+      },
+      "actual": {
+        "status": "needs_review",
+        "defects": {
+          "unsupported_claim": 0.98,
+          "asks_known_information": 0.04,
+          "contradicts_commitment": 0.31,
+          "false_action_confirmation": 0.97,
+          "unsolicited_offer": 0.98,
+          "missing_evidence": 0.22
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Clarity needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Contradicts a previous commitment",
+          "Confirms an uncompleted action",
+          "Introduces an unrequested offer",
+          "Essential evidence is missing"
+        ]
+      }
+    },
+    {
+      "id": "wrong_brand",
+      "matched_expected": true,
+      "expected": {
+        "status": "needs_review"
+      },
+      "actual": {
+        "status": "needs_review",
+        "defects": {
+          "unsupported_claim": 0.19,
+          "asks_known_information": 0.03,
+          "contradicts_commitment": 0.05,
+          "false_action_confirmation": 0.02,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.12
+        },
+        "findings": [
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Brand sign-off does not match."
+        ]
+      }
+    },
+    {
+      "id": "thanks_only",
+      "matched_expected": false,
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": true
+      },
+      "actual": {
+        "classification": "customer_support",
+        "unanswered_request": 0.07,
+        "supplied_requested_information": 0.18,
+        "acknowledgement_only": 0.97,
+        "skip_draft": false
+      }
+    },
+    {
+      "id": "thanks_unresolved",
+      "matched_expected": true,
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "classification": "customer_support",
+        "unanswered_request": 0.94,
+        "supplied_requested_information": 0.17,
+        "acknowledgement_only": 0.96,
+        "skip_draft": false
+      }
+    },
+    {
+      "id": "supplied_information",
+      "matched_expected": true,
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "classification": "customer_support",
+        "unanswered_request": 0.95,
+        "supplied_requested_information": 0.96,
+        "acknowledgement_only": 0.04,
+        "skip_draft": false
+      }
+    },
+    {
+      "id": "injected_instructions",
+      "matched_expected": true,
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "classification": "customer_support",
+        "unanswered_request": 0.89,
+        "supplied_requested_information": 0.31,
+        "acknowledgement_only": 0.02,
+        "skip_draft": false
+      }
+    }
+  ]
+}

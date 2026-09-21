@@ -14,7 +14,7 @@ export type SupportModelAccess = DeepSeekAccessProvider;
 
 export interface SupportModelGeneration {
   /** Access layer used for the request. `rules` is deterministic, not an LLM. */
-  access_provider: SupportModelAccess | 'rules';
+  access_provider: SupportModelAccess | 'rules' | 'typesafe';
   /** Actual inference provider when the access layer reports it. */
   provider: string;
   model: string;

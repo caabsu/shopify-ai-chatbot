@@ -165,6 +165,7 @@ export async function processInboundEmailWebhook(opts: {
     from: email.senderEmail,
     subject: email.subject,
     body: email.body,
+    brandId,
   });
 
   console.log(`[webhook] Email from ${email.senderEmail} classified as: ${classification.classification} (confidence: ${classification.confidence.toFixed(2)})`);

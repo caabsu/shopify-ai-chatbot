@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { DraftQuality } from './DraftQuality';
+import type { DraftReview } from '@/lib/support-ai';
 import { TicketAutomationControl } from '@/components/support/TicketAutomationControl';
 import {
   ArrowLeft, Tag, User, Bot, Cpu, MessageSquare, Plus, X,
@@ -236,6 +238,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
   // Composer state
   const [replyMode, setReplyMode] = useState<'reply' | 'note'>('reply');
   const [replyContent, setReplyContent] = useState('');
+  const [draftQuality, setDraftQuality] = useState<{text: string; review: DraftReview} | null>(null);
   const [draftGenerationId, setDraftGenerationId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
@@ -325,6 +328,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
     setReplyMode('reply');
     setReplyContent('');
     setDraftGenerationId(null);
+    setDraftQuality(null);
     pendingSendRef.current = null;
     setSending(false);
     setShowStatusDropdown(false);
@@ -590,6 +594,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
           pendingSendRef.current = null;
           setReplyContent('');
           setDraftGenerationId(null);
+    setDraftQuality(null);
         }
       } else {
         setActionResult({ type: 'error', message: responseError(payload, 'Failed to send reply') });
@@ -632,6 +637,7 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
           ? result.text
           : '';
       if (action === 'draft') {
+        setDraftQuality(result.quality ? {text, review: result.quality as DraftReview} : null);
         setReplyContent(text);
         setDraftGenerationId(typeof result.generation_id === 'string' ? result.generation_id : null);
         const confidence = Number(result.confidence);
@@ -1701,7 +1707,8 @@ export function TicketDetail({ ticketId, basePath = '/tickets' }: TicketDetailPr
 
             {/* Textarea */}
             <div className="p-4">
-              <textarea
+              {replyMode === 'reply' && draftQuality && <DraftQuality review={draftQuality.review} stale={draftQuality.text !== replyContent} />}
+                <textarea
                 ref={replyTextareaRef}
                 value={replyContent}
                 onChange={(e) => updateReplyFromAgent(e.target.value)}

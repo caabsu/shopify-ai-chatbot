@@ -1,3 +1,4 @@
+import { scopedJev, jevEnabledForBrand } from '@/lib/support-ai';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
@@ -409,6 +410,11 @@ ${supportContext}`;
   const draft = response.value;
   const text = plainifyEmailDraft(String(draft.email_body ?? '')).trim();
   if (!text) throw new Error('Draft model returned an empty email');
+  const jevReview = jevEnabledForBrand(String(ticket.brand_id))
+    ? await scopedJev(supabase, String(ticket.brand_id), String(ticket.id)).review(text, {
+      conversation: conversationText, evidence: `${customerContext}\n${orderContext}\n${kbContent}\n${supportContext}`,
+      brand_rules: supportContext, signoff: '', evidence_incomplete: !shopifyEvidenceVerified,
+    }) : undefined;
   const rawConfidence = clamp01(draft.confidence);
   const evidenceCoverage = clamp01(draft.evidence_coverage);
   const uncertainties = Array.isArray(draft.uncertainties)
@@ -487,6 +493,7 @@ ${supportContext}`;
     model_tier: response.generation.tier,
     prompt_version: AI_PROMPT_VERSION,
     confidence: rawConfidence,
+    quality: jevReview,
     evidence_coverage: evidenceCoverage,
     uncertainties,
     learning: {

@@ -1,3 +1,5 @@
+import { jevApprovalError } from '../../../backend/src/services/jev-approval-policy';
+import { jevEnabledForBrand } from '../../../backend/src/services/jev-store';
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
@@ -265,6 +267,12 @@ export async function executeAutopilotRequest(
       'PLAN_CONTENT_CHANGED',
       'The plan content changed after the batch preview. The newer plan was not substituted or run.',
     );
+  }
+
+  if (decision === 'approve' && decisionMode === 'batch_threshold' && !resumingExecution) {
+    const jevError = jevApprovalError({ actions: plan.actions, review: plan.analysis.quality_assessment?.jev,
+      required: jevEnabledForBrand(session.brandId) });
+    if (jevError) return conflictResponse('JEV_REVIEW_REQUIRED', jevError);
   }
 
   if (decision === 'approve' && !resumingExecution) {

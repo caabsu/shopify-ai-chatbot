@@ -1,0 +1,2275 @@
+{
+  "deployment": "dpl_7aheJXrFJa76FFGUCgW6xYNeqxjy",
+  "deployed_at": "2026-09-16T11:00:31.989Z",
+  "recovered_at": "2026-09-21T22:29:01.566Z",
+  "git_metadata_commit": "5a9329654950edcee67192925a02bcfd061666a6",
+  "source": "Vercel CLI deployment source files; differs from GitHub commit contents",
+  "files": [
+    {
+      "path": "src/.claude/launch.json",
+      "uid": "58e7345c45c5a93837835892e4d02bd3c9c5b5d5"
+    },
+    {
+      "path": "src/.claude/settings.local.json",
+      "uid": "8fb6d26032ad621a0f2e882792ca981dfda7578a"
+    },
+    {
+      "path": "src/.codex/config.toml",
+      "uid": "40319698b33bb211b964762acd8294524164a55b"
+    },
+    {
+      "path": "src/.cursor/mcp.json",
+      "uid": "f56f7293055930d58a60a78a5424390e9707b4b3"
+    },
+    {
+      "path": "src/.gemini/settings.json",
+      "uid": "e23a56b3148e87b70da1f0f2dbce7f6e19679928"
+    },
+    {
+      "path": "src/.mcp.json",
+      "uid": "e23a56b3148e87b70da1f0f2dbce7f6e19679928"
+    },
+    {
+      "path": "src/.railway-cache-bust",
+      "uid": "5f3b1215d1bcd07d4579c219e8c53d487b032dcd"
+    },
+    {
+      "path": "src/.railwayignore",
+      "uid": "c009a4a612cbee37848ab934c79cb41d0ff653b5"
+    },
+    {
+      "path": "src/.superpowers/brainstorm/11856-1775949635/.events",
+      "uid": "2e0dbfc95cae874c8991a59020ff10a773166bf2"
+    },
+    {
+      "path": "src/.superpowers/brainstorm/11856-1775949635/.server-stopped",
+      "uid": "8987603ee02faa4ee99eedcbe10030d44c9b83ac"
+    },
+    {
+      "path": "src/.superpowers/brainstorm/11856-1775949635/.server.pid",
+      "uid": "c37e093f23eff787a81b50669654d28934b8b8fe"
+    },
+    {
+      "path": "src/.superpowers/brainstorm/11856-1775949635/dashboard-approach.html",
+      "uid": "64a8670fa00876c5558edb00f1b3a58ee2e81024"
+    },
+    {
+      "path": "src/.superpowers/brainstorm/794-1774159915/.server.pid",
+      "uid": "aa0b17b59729a65ec51bbc4dfba69d65a339c4e2"
+    },
+    {
+      "path": "src/.vercelignore",
+      "uid": "10fb161705cf699a2009255e783567924c72604b"
+    },
+    {
+      "path": "src/.vscode/mcp.json",
+      "uid": "f096067006c63ff43f69fb4759792de9a810b4b7"
+    },
+    {
+      "path": "src/.zed/settings.json",
+      "uid": "bd9136e276cc323402d8f19b6dd5f27182325c7a"
+    },
+    {
+      "path": "src/AGENTS.md",
+      "uid": "ebea562f591c51e3a219c3a9cf8f2dbb202f352c"
+    },
+    {
+      "path": "src/ARCHITECTURE.md",
+      "uid": "05dbd4c0a3f289e9f974cd6c373d3e0dbe86c798"
+    },
+    {
+      "path": "src/CLAUDE.md",
+      "uid": "f06d4bdb9f62c6b0b3084648d6e13c135eb811e6"
+    },
+    {
+      "path": "src/IMPLEMENTATION.md",
+      "uid": "e43e72f2078ca0fad07ef5bef09f99cc9f1150d0"
+    },
+    {
+      "path": "src/Procfile",
+      "uid": "5fc821428a78a40d307250e388abfa4a9917e9cc"
+    },
+    {
+      "path": "src/README.md",
+      "uid": "da24ef5e85a10f91e4c58be0ddbef4e4b1197a0f"
+    },
+    {
+      "path": "src/agent-users-migration.sql",
+      "uid": "68e64ade203a98414157e32b6c9d3df412c88a27"
+    },
+    {
+      "path": "src/apps/admin/next-env.d.ts",
+      "uid": "345f22e8b971720b9811b52fe36b626676728455"
+    },
+    {
+      "path": "src/apps/admin/next.config.ts",
+      "uid": "f5061216189672c64059fe60c544b826d359a398"
+    },
+    {
+      "path": "src/apps/admin/package.json",
+      "uid": "1d448c3e00b2241b3a10e10f4eac820c054e12d3"
+    },
+    {
+      "path": "src/apps/admin/postcss.config.mjs",
+      "uid": "ccb8b6288e0fe829534eb4c452a48bc27bbcdf01"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/activity/page.tsx",
+      "uid": "e51f16879b761f9272df29bd2b27358ffbb00986"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/ai-config/page.tsx",
+      "uid": "2040153b95747f866f7621cf89661e95a66bc4a4"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/autopilot/page.tsx",
+      "uid": "8cde625a95e3c2a1da7e366c3e30866e3fea25df"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/capabilities/page.tsx",
+      "uid": "2816e4271a59397a3c44d5c09f9dfcce56054e24"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/chatbot/ai-config/page.tsx",
+      "uid": "cc055650ff3b14526767e2973ba16f95a3d831cb"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/chatbot/capabilities/page.tsx",
+      "uid": "92228460fb09a57a5c614b86a3e226a4e9e211b8"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/chatbot/conversations/[id]/page.tsx",
+      "uid": "b2b5c382769cc59989e0c386b97434e760d0b991"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/chatbot/conversations/page.tsx",
+      "uid": "a84fd89f54184ca211096d0922aa1e1a20452d9a"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/chatbot/design-agent/page.tsx",
+      "uid": "9c79ccd5c0896c06e40bce16deeac411b9a0bf2d"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/chatbot/design/page.tsx",
+      "uid": "e54ba549dfaa02f6a445c310a1941e9332003eee"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/chatbot/features/page.tsx",
+      "uid": "c67d9c06b24f65636db305738f1bbf18f5fe740e"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/chatbot/playground/page.tsx",
+      "uid": "65699477391e85e458534d05aedb9d73db7ccb1c"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/contact-form/design/page.tsx",
+      "uid": "f437e29e138e1a25d686eee46a222443dca95861"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/conversations/[id]/page.tsx",
+      "uid": "faaac9a28090902186df45ac20f0cd5b6cec1156"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/conversations/page.tsx",
+      "uid": "a19863c653687f767755e62ebf15a5becb14669a"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/design/page.tsx",
+      "uid": "f12756dae8952026d890b60c6605049bb8b46e4e"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/features/page.tsx",
+      "uid": "266c36a2f5dd36cbbe933b183eb398629e012422"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/insights/page.tsx",
+      "uid": "ad1ae4ef1e6bb3c4bfd15b517963283cb21c6b8e"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/knowledge/page.tsx",
+      "uid": "a8acf35e39abec372c7a3e441ca36ec13a08bbca"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/layout.tsx",
+      "uid": "c0b8796f2131c9144faf1111a9c5e7f470962496"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/overview/page.tsx",
+      "uid": "297b12529e5b4e887c89faecb92b20af780af93d"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/playground/page.tsx",
+      "uid": "58c9fe707dcc374910a9b93f8203b95bb248eed8"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/[id]/page.tsx",
+      "uid": "10b299c0a5ff50a6c8d9dc84b9274f01bccab58f"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/analytics/page.tsx",
+      "uid": "4e1b783d38837ff3460f0a35ad3fa3462a608e69"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/design/page.tsx",
+      "uid": "366001be6b742b722e3f133165f1b07a9c1fa6a0"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/emails/[type]/page.tsx",
+      "uid": "473b7d7d36f7fd928b5ad16b3095bf2fb76e1bad"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/emails/page.tsx",
+      "uid": "480320f1ad053ed2dfb11c43148d2593756530f7"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/label-presets/page.tsx",
+      "uid": "1016a71a2ec8f028c27e23258f24420438b40e2a"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/label-stats/page.tsx",
+      "uid": "aae5181f09a25ad85a9306bad629102a361a546f"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/page.tsx",
+      "uid": "c0b80b0d790f77fe7c5d7a98321b89e83fc885ff"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/playground/page.tsx",
+      "uid": "7173bee3afe29a7ee64752bd784f7e2fbcfc0bb3"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/rma/page.tsx",
+      "uid": "045e0167cab7c886be7e2b2b7f698bb0f0d29c77"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/rules/page.tsx",
+      "uid": "c7a99f3ff7cb28963c127a88c59ce645463c5a31"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/returns/settings/page.tsx",
+      "uid": "0a14077c625913ecc85f4a7d3c2814d08266872e"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/analytics/page.tsx",
+      "uid": "0760c8c143380256206d96a9348151418ff108d7"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/design/page.tsx",
+      "uid": "edd564a1552e2c2255cf6373b69a399366e7b789"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/emails/[type]/page.tsx",
+      "uid": "2671c4f824c253c8aa54f278a19692b9db2767e0"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/emails/page.tsx",
+      "uid": "58c93f11dd03a8381f66d05ed29adf2b80865545"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/import/page.tsx",
+      "uid": "a8c571bbac02d28ae51f49efd49ac7c23fe22c55"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/page.tsx",
+      "uid": "2b647123d87dc6dda0b61258ab56b14480ab09d3"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/playground/page.tsx",
+      "uid": "86931e20dd8ce486cbf3ffc132c3476e0e764bdb"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/products/page.tsx",
+      "uid": "dc77574c79eceedeb5d411c487a383bd04189b51"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/settings/page.tsx",
+      "uid": "ccdc6f335bcccff1637e49a2bc9f045dd3a13bc2"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/widgets/full-bleed-carousel/design/page.tsx",
+      "uid": "dbb3a3ee382317ea3219c0fc0456b027b019d85f"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/widgets/full-bleed-carousel/playground/page.tsx",
+      "uid": "b390d2c0007bb007ea304782282153977c824c37"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/widgets/page.tsx",
+      "uid": "1785c1baad787b3078637e5cbc864bad9152870e"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/widgets/photo-reviews/design/page.tsx",
+      "uid": "de54d99b2a969c99d4f88bfd55a9c7301614ceda"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/reviews/widgets/photo-reviews/playground/page.tsx",
+      "uid": "f368d9e9015ab13bf76422ac965bb576236e9ade"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/settings/canned-responses/page.tsx",
+      "uid": "dbdddacee1173e257222a12643eeaae4e8b52d0e"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/settings/general/page.tsx",
+      "uid": "c6716824d7a062907b902c29c6f351446b1784ed"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/settings/page.tsx",
+      "uid": "8ea755184ae0b4f2e9de586cefbc8d887c54c0c5"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/settings/returns/page.tsx",
+      "uid": "eff8f7a36d64f85e0134d7527675a354eb25ddbb"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/settings/sla/page.tsx",
+      "uid": "9d8b1e10ca41eb46c62424cba38932526f15383a"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/settings/team/page.tsx",
+      "uid": "e8951d96b2326f470ac142d7607aa1ddc240b930"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/support/page.tsx",
+      "uid": "e4d4cbb8571aca4c1d63c327e0c2f62f0a8d63d8"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/support/settings/page.tsx",
+      "uid": "57dfdac4fa0c6f6a204b75e38c4831a5e6a8a7dc"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/tickets/[id]/page.tsx",
+      "uid": "e003983842a687626b1e9ab410a2eda29aa9a441"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/tickets/page.tsx",
+      "uid": "a209efc3c42786feabb9c65d7efc06d740501ce2"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/tracking/design/page.tsx",
+      "uid": "802d12725e9d547076a377e2fbde2d924fcbed64"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/tracking/insights/page.tsx",
+      "uid": "f2ce0b49032ac8b1a8536cc76d06e184c6a68aa7"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/tracking/playground/page.tsx",
+      "uid": "42515ad04d856e7b9ebfb1cc9e301d3b2736a561"
+    },
+    {
+      "path": "src/apps/admin/src/app/(dashboard)/tracking/settings/page.tsx",
+      "uid": "38806fa68316a8584829707543c4711e8e098f34"
+    },
+    {
+      "path": "src/apps/admin/src/app/agent/layout.tsx",
+      "uid": "749d6c28f97c06fe583810465a4b90aaee2c35a6"
+    },
+    {
+      "path": "src/apps/admin/src/app/agent/returns/[id]/page.tsx",
+      "uid": "e58e36e2713718336fca4b12b8f0a1cee4a7cf65"
+    },
+    {
+      "path": "src/apps/admin/src/app/agent/returns/page.tsx",
+      "uid": "80ce7267884e8da6a3c50b84b7329b0418d0846f"
+    },
+    {
+      "path": "src/apps/admin/src/app/agent/tickets/[id]/page.tsx",
+      "uid": "12e0aeaf1d13268e923309ae47c876ef4e071017"
+    },
+    {
+      "path": "src/apps/admin/src/app/agent/tickets/page.tsx",
+      "uid": "305ff15e3de85bda4bc03bd71abb9a42af4c0ca6"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/activity/route.ts",
+      "uid": "f9ea61c5e7b83922e37c03766e72614a2ec2a813"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/agents/roster/route.ts",
+      "uid": "b6dd135c91ba203d566b68904846a5ee3269e207"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/agents/route.ts",
+      "uid": "ffe84bea38dd89b750e9fc8c7b697680ac87b743"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/ai-config/route.ts",
+      "uid": "8f88d00b00ab83c6dd149a5ab2ed8a820920b22a"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/analytics/route.ts",
+      "uid": "f5eaea4e1770cb3cf398735d6bf6fdc999146b00"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/auth/brands/[slug]/route.ts",
+      "uid": "67c3753605f7eefc45bbfd4997f50e47a6224c59"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/auth/brands/route.ts",
+      "uid": "a08667f7f033286b27f7499d6deb29df93be9ef1"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/auth/login/route.ts",
+      "uid": "06d649bdffd325770adfeda75b8ff7f8f168f6ed"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/auth/logout/route.ts",
+      "uid": "013a06348e76ecdedce3d2974827b9780a4f25e1"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/auth/me/route.ts",
+      "uid": "31842547bc6415801f91422da9039292060087ce"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/autopilot/[id]/reconcile/route.ts",
+      "uid": "46c82234fcdc29085687ae73b87dff1f2e20045a"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/autopilot/[id]/refresh/route.ts",
+      "uid": "7f824e3e61cc8439e7d440e8ee62cf935c2f3e41"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/autopilot/[id]/revise/route.ts",
+      "uid": "0118715b3c71b4816c7988b4c992eff47fde8f36"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/autopilot/[id]/route.ts",
+      "uid": "35fd99dd05504de3ac45a352b9e7aef2d068520b"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/autopilot/batch/preview/route.ts",
+      "uid": "17a034bb55ab7331f017d54333a17669d9382e1d"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/autopilot/route.ts",
+      "uid": "75c590f1209953c68097ab24a5adb23ff27a9cd3"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/brand/route.ts",
+      "uid": "0ef1df1401d0a8fd71480228d94dbaab5cb538aa"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/contact-form/design/route.ts",
+      "uid": "fc120952295cc10d9d8f2a59a89e1741c34fbd13"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/conversations/[id]/route.ts",
+      "uid": "08513ff85f782911b69284458f476efa7fbde2ba"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/conversations/route.ts",
+      "uid": "87b2824e7a2d4f370123d1002aefd979e4a1b710"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/design-agent/route.ts",
+      "uid": "875665e14e9c78e74bad03806b984c507a8bc3b5"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/design/route.ts",
+      "uid": "6613ca66034e803d38fbef42be113435756c1046"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/emails/stats/route.ts",
+      "uid": "b61e3866a5f57003feea4f467e56f6616b772aee"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/feature-toggles/route.ts",
+      "uid": "935d0685ed61dd00ba68cd523f3d60d919fa1928"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/internal/support-automation/route.ts",
+      "uid": "2b3cb7ac9ea701e6c9f3ba8c9ff36306012899af"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/knowledge/[id]/route.ts",
+      "uid": "b144d44886fb53dc61ee8f0c72495b2d4d5d2116"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/knowledge/route.ts",
+      "uid": "0e0f1e26562aa565855288365eed754d633a29af"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/knowledge/search/route.ts",
+      "uid": "b5c5d87f1b5654d4b24cb0dcfdb8e11f1f5a5311"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/orders/[id]/route.ts",
+      "uid": "6b3ff72d5be447768defd3597191caa151c5a704"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/playground/route.ts",
+      "uid": "70c83d4731477d7c8e5e4d98358c88dd067a7931"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/[id]/approve-no-return/route.ts",
+      "uid": "5061465af849ca26232a7c029bf03da68b9945aa"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/[id]/approve/route.ts",
+      "uid": "90e2ba7f0056ddbb527d499e5c8bc3f2ace0dffc"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/[id]/create-label/route.ts",
+      "uid": "aa97cbd085d04f939f77e38b2da2c2699dfeeb09"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/[id]/deny/route.ts",
+      "uid": "4960ee67b81808ff1497bd026cf152a31eafeec8"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/[id]/refund/route.ts",
+      "uid": "b2ae3274dc6ced77a076267bbc8ed6788b8a238c"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/[id]/route.ts",
+      "uid": "8d706c5f6e86a97cba2bf755ac61b17b98606b59"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/analytics/route.ts",
+      "uid": "7e9115e9158505b1d41e866bf0695d90a263dd8d"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/emails/[type]/route.ts",
+      "uid": "0ad3ff4910085c33d1e4ffba03833920694e435e"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/emails/[type]/test/route.ts",
+      "uid": "d28876660af01b780b7e982c3714a0499d9595a7"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/emails/route.ts",
+      "uid": "ba417fffc685fb109581261ff7161f28b6205811"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/label-presets/[sku]/route.ts",
+      "uid": "1bcc0a12cc601c0a083b65bc9dff3f4843b5fd89"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/label-presets/route.ts",
+      "uid": "020c11dad953344d4de363c3aa0d697ce40a9efa"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/label-stats/route.ts",
+      "uid": "2395247c281b3dcf37abb2304ef36f922ce5f855"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/portal-design/route.ts",
+      "uid": "c1e90aaaabd2266eee68717929accbd14d74265b"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/rma/route.ts",
+      "uid": "8ac3cbdd08cc4b92bd463f7d5256653964ee5261"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/route.ts",
+      "uid": "eb94e2e7f86ed4810b8798840adecf5d8284b5f4"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/rules/[id]/route.ts",
+      "uid": "9a57643698e2073f585250c075d5c268207ed6bc"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/rules/route.ts",
+      "uid": "3d7ac7f366be8a967cf40ed3c2ee98ac6a2c10b0"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/settings/route.ts",
+      "uid": "7c80b6ea7dc5a0078ade48205c8dbf128d1c74d3"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/stats/route.ts",
+      "uid": "ff7495191f427d654ba7d838d56a7ab8bd0c85c3"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/returns/upload/route.ts",
+      "uid": "9c98d6ecf96fbfb8dde4184db55c5cf1238442f4"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/[id]/reply/route.ts",
+      "uid": "743586c00b7638059a4146e87ec270491c9213ec"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/[id]/route.ts",
+      "uid": "17c8be3fd7c62312d1fa61cb7126a943cfe5dba5"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/analytics/refresh/route.ts",
+      "uid": "df881a6eccaa7a9a8b57f39c35d986f7ecbbab75"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/analytics/route.ts",
+      "uid": "b917bc603bfd38789a12cdfe74ddba20f55987c1"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/bulk/route.ts",
+      "uid": "bdee470701fcfcb7fd9346caaf7056e9eb111188"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/design/route.ts",
+      "uid": "bd2f54c6e06357a04be4cccb799ecb9a7f6ac6e2"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/emails/[type]/route.ts",
+      "uid": "96688cbcfa35166a0220621e274b8ad02a43de46"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/emails/[type]/test/route.ts",
+      "uid": "74e5c004240238542fe2698ae6609144d5a8ac15"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/emails/route.ts",
+      "uid": "8b60c3ab2492de76b4b052d4e3bfbc403ccc19de"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/import/route.ts",
+      "uid": "4686092ac61fb1cf923c6bc44fc128daad44a46a"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/products/route.ts",
+      "uid": "a68ac061174c65f6c599e338cd3b4a29aec9b1bc"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/products/sync/route.ts",
+      "uid": "cfe181f50c7e200f166900acd1cee2e182e4fc40"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/route.ts",
+      "uid": "fa03af579838b4b45cefe56c4ec83b115d063cfb"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/settings/route.ts",
+      "uid": "79a6568b9d1ef72cc4d3d929e69ff1a67b18b671"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/stats/route.ts",
+      "uid": "da79f00946c0660ab6eb38bbfc7999029a151f83"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/reviews/upload/route.ts",
+      "uid": "fc5f5f118826db31d4b014d504b0f96ffc3dcf7b"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/settings/canned-responses/route.ts",
+      "uid": "cf1a829a942e561281fa3f7778458bf1829fb4b6"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/support/[id]/state/route.ts",
+      "uid": "c162b4a50ea930030f3b71c4bcda6f52286604f6"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/support/[id]/takeover/route.ts",
+      "uid": "cf40da8b9643e2f63937be513cc1aa9c684a6d50"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/support/route.ts",
+      "uid": "80adefc440d9cf3f99efba775efed04f7bcd3147"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/support/settings/route.ts",
+      "uid": "0472667d5e217cdf99631d8b89ca21464bfe124b"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/support/usage/route.ts",
+      "uid": "f03577f678ff17d4d95563b24faa78222aad074a"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/[id]/ai/route.ts",
+      "uid": "5fb12b802d36588f21ad4c2de99f324caa0818dc"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/[id]/customer/route.ts",
+      "uid": "7b6efc93e28be7f91320464571ec5c3cd0573636"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/[id]/merge/route.ts",
+      "uid": "18f8b0ada6d0d572fba9593d2fa37ab4bedc933e"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/[id]/messages/route.ts",
+      "uid": "532e9547fe31f1794d32eb7444eab5923ed81a28"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/[id]/route.ts",
+      "uid": "4fc00df3b07ef17f4eb3e1974a337e867a1498f6"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/ai-auto-close/route.ts",
+      "uid": "90a316f8cbe6b919ac3ac14fdf0aeed4107d5408"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/bulk/route.ts",
+      "uid": "bc5de4dc8395a328e81f09e095e8e15264d1ff56"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/close-all/route.ts",
+      "uid": "67170061bbd744821e6b14f340a94682ca3b763c"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/delete-all-email/route.ts",
+      "uid": "7cf48671920a6a3a012b12a6ea0bd818296fc722"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/route.ts",
+      "uid": "ccdcf85eefbf3ec574deae8153cc01fcb259b845"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tickets/stats/route.ts",
+      "uid": "d4a67b1e8d94f76d95a7d8ab64debf321e83db95"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tracking/design/route.ts",
+      "uid": "0e6faa0f9f1d9152b6d03fd11691b4e93e5675c5"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tracking/insights/route.ts",
+      "uid": "b2a3925662bc9f08570f4d8d70112af3f8ad7a2b"
+    },
+    {
+      "path": "src/apps/admin/src/app/api/tracking/settings/route.ts",
+      "uid": "db768f505b158f983c806d3740e3b034311d7ef4"
+    },
+    {
+      "path": "src/apps/admin/src/app/globals.css",
+      "uid": "83e7afc31589cb2e01c00cec8f65d65cc64ac2b4"
+    },
+    {
+      "path": "src/apps/admin/src/app/layout.tsx",
+      "uid": "724a15fed85812506247bf2eca4ae2868d9fb50a"
+    },
+    {
+      "path": "src/apps/admin/src/app/login/[slug]/page.tsx",
+      "uid": "6d08d4c7ce896ba57a060c78ec3b7bf9010bcaaa"
+    },
+    {
+      "path": "src/apps/admin/src/app/login/page.tsx",
+      "uid": "d2d4d948a9f9ef70a7ca23d6715b923569258985"
+    },
+    {
+      "path": "src/apps/admin/src/app/page.tsx",
+      "uid": "5b57d3d98db7ac0d97ee3f1b6dcc33ced6adf3bd"
+    },
+    {
+      "path": "src/apps/admin/src/app/supportos.css",
+      "uid": "be2c4f632c75e9fa7bb991abee5cb01fec5961b3"
+    },
+    {
+      "path": "src/apps/admin/src/components/agent-sidebar.tsx",
+      "uid": "889f60bbfd7e2280febd2a9174838c3cca49af73"
+    },
+    {
+      "path": "src/apps/admin/src/components/autopilot/BatchRunPanel.tsx",
+      "uid": "3f126c1992ccc277b59e68e0ae889ad882c7394c"
+    },
+    {
+      "path": "src/apps/admin/src/components/brand-context.tsx",
+      "uid": "87a320724416ef6a4e1c10ffd4feacf559d9b46f"
+    },
+    {
+      "path": "src/apps/admin/src/components/chat-markdown.tsx",
+      "uid": "92188fe8e25fb4f5bd6693facc9cebc55cea939b"
+    },
+    {
+      "path": "src/apps/admin/src/components/dashboard-shell.tsx",
+      "uid": "5253053e020217bf0dfe86832c65c4e407b5813d"
+    },
+    {
+      "path": "src/apps/admin/src/components/header.tsx",
+      "uid": "9b4d4d78538c87be8d6b06b5a7da0ae04e6d255a"
+    },
+    {
+      "path": "src/apps/admin/src/components/navigation.tsx",
+      "uid": "b8d8691e73ed5a9997100aa74202b20c28164953"
+    },
+    {
+      "path": "src/apps/admin/src/components/returns/ReturnDetail.tsx",
+      "uid": "df394b7524b2e02456fca7133431e887b2405d9e"
+    },
+    {
+      "path": "src/apps/admin/src/components/sidebar.tsx",
+      "uid": "a1486eb37190ce50dd5d84193ee42abc2a0de303"
+    },
+    {
+      "path": "src/apps/admin/src/components/support/QualityEvidence.tsx",
+      "uid": "34a6438fd72cd74a539a751db79ca794610d42f4"
+    },
+    {
+      "path": "src/apps/admin/src/components/support/SupportWorkspace.tsx",
+      "uid": "962a4d6782ab6066dd2725482e050e269151e07b"
+    },
+    {
+      "path": "src/apps/admin/src/components/support/TicketAutomationControl.tsx",
+      "uid": "e638d7ba379ddc7861f191d20b8726cc58ad11df"
+    },
+    {
+      "path": "src/apps/admin/src/components/theme-provider.tsx",
+      "uid": "9537471c1f7f614b78fb3dad410ece448a29999d"
+    },
+    {
+      "path": "src/apps/admin/src/components/tickets/TicketDetail.tsx",
+      "uid": "294eadd3a800eac48586ba749f44094e106aaa79"
+    },
+    {
+      "path": "src/apps/admin/src/components/tickets/TicketInbox.tsx",
+      "uid": "70355e3e42ab8cf2dd9f15623986d13fbff003f8"
+    },
+    {
+      "path": "src/apps/admin/src/components/tickets/TicketWorkflowBar.tsx",
+      "uid": "fc5110c7cb06535286886da65afa650e7e9ef6a3"
+    },
+    {
+      "path": "src/apps/admin/src/components/ui/Button.tsx",
+      "uid": "c09b4e8d05f6f9d9643fcc051bd768dce61003fa"
+    },
+    {
+      "path": "src/apps/admin/src/components/ui/StatusPill.tsx",
+      "uid": "86b4c1ba119aa5a549c181a7b6bd05ad42fd9a7c"
+    },
+    {
+      "path": "src/apps/admin/src/lib/api.ts",
+      "uid": "4ce3ccfb95ca75afdce8f48cfabc92cd7c9d9314"
+    },
+    {
+      "path": "src/apps/admin/src/lib/auth.ts",
+      "uid": "91f32f064ea0b58c48c98a4caa160caad62a8186"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-batch-policy.test.ts",
+      "uid": "100298467d107b9c364e036de8e100f9960c1272"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-batch-policy.ts",
+      "uid": "1a533dbfafc87e7072cc84db2d0e7345841f6605"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-client.test.ts",
+      "uid": "91b4789041e24541dd93a8c745bb163063f1821e"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-client.ts",
+      "uid": "a45ec5d5408d1b8720deaf65208b71eedea7e17b"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-evidence.ts",
+      "uid": "4a821afe39c6e01a7cf96ac30ec94c82d1277434"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-execution-policy.test.ts",
+      "uid": "93059409848d5abbe4467fa930c59ab6e832d88e"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-execution-policy.ts",
+      "uid": "b6d3d169818195620eb823de6c4f868432626812"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-execution-scope.test.ts",
+      "uid": "d92dea998eb69da3988653508e589326b3d1d842"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-execution-scope.ts",
+      "uid": "af71659d700df8dd9f8387ca9dd0eea8b9c523e1"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-executor.ts",
+      "uid": "3a7e315ca7b3b93e791a8a9db45478c07d10a751"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-learning.test.ts",
+      "uid": "1dbe070109311b0871704a6290ea17f15d2123c6"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-learning.ts",
+      "uid": "3e023a2c2217b68d31c6714470882d5f389a993e"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-plan-fingerprint.ts",
+      "uid": "2f7f7d117e756aa11dc96938d3d40cb5306d0392"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-provider-reconciliation.test.ts",
+      "uid": "54eaebed2147977a82954c467272d3dd8752880f"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-provider-reconciliation.ts",
+      "uid": "c37d5687a9caa58c88eda9f6043515fb0ffb4196"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-reply-policy.test.ts",
+      "uid": "e781ca8703574dac81f3cbfea17676ddf0fe4918"
+    },
+    {
+      "path": "src/apps/admin/src/lib/autopilot-reply-policy.ts",
+      "uid": "fdc0a917b985b9d4b8fd1f1c0807a4b32fe15796"
+    },
+    {
+      "path": "src/apps/admin/src/lib/brand-tokens.ts",
+      "uid": "633e448c10b82a52bfeab6bb4f77e7cd62adb4cc"
+    },
+    {
+      "path": "src/apps/admin/src/lib/csat.ts",
+      "uid": "473cd59a48775e558ffac4db21011027f8f742d8"
+    },
+    {
+      "path": "src/apps/admin/src/lib/email.ts",
+      "uid": "d831afc506603ea7e52fe05e3695878a3d8e53c0"
+    },
+    {
+      "path": "src/apps/admin/src/lib/return-email-defaults.ts",
+      "uid": "dec0ba96d534f24406058565f27b018481740262"
+    },
+    {
+      "path": "src/apps/admin/src/lib/shopify.ts",
+      "uid": "f976db3ea405d0665c04a7230a727130010a4918"
+    },
+    {
+      "path": "src/apps/admin/src/lib/supabase.ts",
+      "uid": "e015611c7017ae9a833b9652059837825b1e2037"
+    },
+    {
+      "path": "src/apps/admin/src/lib/support-automation-db.test.ts",
+      "uid": "702db054510049f2aa61470a13214e3e3eec3d8c"
+    },
+    {
+      "path": "src/apps/admin/src/lib/support-automation-policy.test.ts",
+      "uid": "ee7fb612b1c587bc5c4866e7af1974e80d64c8d5"
+    },
+    {
+      "path": "src/apps/admin/src/lib/support-automation-policy.ts",
+      "uid": "1ed6b539d236c13a656813bc8b8dd6607fc67cce"
+    },
+    {
+      "path": "src/apps/admin/src/lib/support-automation-types.ts",
+      "uid": "d6da3e91dc4bd6ba023842181b004aba935c0f7b"
+    },
+    {
+      "path": "src/apps/admin/src/lib/support-automation.ts",
+      "uid": "6c762d811bb260e0252c3eaf462b6bbfaa14ee25"
+    },
+    {
+      "path": "src/apps/admin/src/lib/support-context.ts",
+      "uid": "4076173a72041970c9307a06aa2b61a62eea3c3f"
+    },
+    {
+      "path": "src/apps/admin/src/lib/support-manual-control.ts",
+      "uid": "df2508bb060858768105e4cb4e803b565dc9d0b5"
+    },
+    {
+      "path": "src/apps/admin/src/lib/support-model.test.ts",
+      "uid": "b72a2e8154b08345eb4734d32abf1bc80d69e79e"
+    },
+    {
+      "path": "src/apps/admin/src/lib/support-model.ts",
+      "uid": "62ba76b20fd7e165e98de18990ab8da552c0c758"
+    },
+    {
+      "path": "src/apps/admin/src/lib/types.ts",
+      "uid": "7a2e99e1a41f3f8be79ebd46e74cfd494dec391e"
+    },
+    {
+      "path": "src/apps/admin/src/lib/utils.ts",
+      "uid": "2173f5692be691dff2fcbd57e4739d4548d1ba6f"
+    },
+    {
+      "path": "src/apps/admin/src/middleware.ts",
+      "uid": "0bcfe0cdc0ad58fce5b3f277a55dea0183913e5b"
+    },
+    {
+      "path": "src/apps/admin/tsconfig.json",
+      "uid": "ea5a948fd60a5268148324f20e777ee4b9e86f5e"
+    },
+    {
+      "path": "src/apps/admin/tsconfig.tsbuildinfo",
+      "uid": "99a3e750a2a6e10e0c212e6283dc9eeceaeae4e9"
+    },
+    {
+      "path": "src/apps/admin/vercel.json",
+      "uid": "13a5681c7409c8b255a70c7a9ffa0ffb1c70278c"
+    },
+    {
+      "path": "src/apps/backend/package.json",
+      "uid": "673549160fc6689c3c1daeb6bd5a925ea9e6f3a0"
+    },
+    {
+      "path": "src/apps/backend/src/config/brand-shopify.ts",
+      "uid": "b8958c5308b36c4c603a3cc2fb6f04056e97498e"
+    },
+    {
+      "path": "src/apps/backend/src/config/brand.ts",
+      "uid": "b33e4ab8821a3d5c99dfe522ba6376b46ecd83ec"
+    },
+    {
+      "path": "src/apps/backend/src/config/env.ts",
+      "uid": "1af92426405b3e40d9a7e7069747f406278e4120"
+    },
+    {
+      "path": "src/apps/backend/src/config/migrate.ts",
+      "uid": "e9caadfa6bde553eca9f4b69e63f7a73daf996e5"
+    },
+    {
+      "path": "src/apps/backend/src/config/supabase.ts",
+      "uid": "c510459b0b64f35fcc994c8b738057c6c1518249"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/agent.controller.ts",
+      "uid": "f5b74462b12692767d539de849cdd979156b0a98"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/chat.controller.ts",
+      "uid": "7a0eae886767283a111d8c27acc8ed522ff18de8"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/contact-form-settings.controller.ts",
+      "uid": "c89624a40aa7c72a893557861735490d7986df49"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/health.controller.ts",
+      "uid": "1cd2d63b16c7e17f09ebddaab2baa2147e0dab9a"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/quiz.controller.ts",
+      "uid": "f7edc4373a39cd0124617d7bcdb99ed6b59edf30"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/return.controller.ts",
+      "uid": "af10ba206932a06351c2d1e69acdbeb7d106fc0c"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/review.controller.ts",
+      "uid": "8e05124eb96fca9620dad0e4b637fec69b22a371"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/rma.controller.ts",
+      "uid": "c77f4c80d931d5bf921d47c084da0f635e38474b"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/ticket.controller.ts",
+      "uid": "7ab10b8f90d232275d4aa4ff88659f8f172a1aa2"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/tracking.controller.ts",
+      "uid": "b6839ce5c7fbcb7662af1d474a04cbc17655e607"
+    },
+    {
+      "path": "src/apps/backend/src/controllers/trade.controller.ts",
+      "uid": "cb011ceafbcb3db861f1681b524267f2f973aad4"
+    },
+    {
+      "path": "src/apps/backend/src/index.ts",
+      "uid": "b9f1daa87bf9280a1e7f0f94acb493240421adc9"
+    },
+    {
+      "path": "src/apps/backend/src/middleware/agent-auth.middleware.ts",
+      "uid": "e0e0465d03b092c96bed7559dc21d7e619466ece"
+    },
+    {
+      "path": "src/apps/backend/src/middleware/rate-limit.middleware.ts",
+      "uid": "418e61671887f75f5fb074983e5f632a9bef258c"
+    },
+    {
+      "path": "src/apps/backend/src/migrations/003-quiz-funnel-tables.sql",
+      "uid": "6c13552e14e206f9cd0ef3e1b172561bd5713d19"
+    },
+    {
+      "path": "src/apps/backend/src/migrations/trade-archived-status.sql",
+      "uid": "8da6c3620fa8e306f7ed94d26e57b13c10b68b31"
+    },
+    {
+      "path": "src/apps/backend/src/migrations/trade-program-tables.sql",
+      "uid": "cad03b16c1f21a667ec73b94fd2e74fb97bcc51c"
+    },
+    {
+      "path": "src/apps/backend/src/services/activity-log.service.ts",
+      "uid": "ceebf8b676b9048829c508ce0831ce9e388280d0"
+    },
+    {
+      "path": "src/apps/backend/src/services/ai-assistant.service.ts",
+      "uid": "b16276c22aac52e2e1f6bc93a99f1bc881a69eae"
+    },
+    {
+      "path": "src/apps/backend/src/services/ai-generation-ledger-policy.test.ts",
+      "uid": "a0e4f151fc1924e3c435619b1a3e73d18e8ea664"
+    },
+    {
+      "path": "src/apps/backend/src/services/ai-generation-ledger-policy.ts",
+      "uid": "6b9553ef548e20f24eae9376b2e743f8047b48f1"
+    },
+    {
+      "path": "src/apps/backend/src/services/ai-generation-ledger.service.ts",
+      "uid": "fff42931de90390a31e32606db0048fb46728210"
+    },
+    {
+      "path": "src/apps/backend/src/services/ai.service.ts",
+      "uid": "6ecbd9c7c110962851b40703069d32eea242924b"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-action-policy.test.ts",
+      "uid": "d8c581461c79666250b3a496503d60cc2d202933"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-action-policy.ts",
+      "uid": "220e13231359e4f55c68ceadf62a0519cf5df260"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-coverage-policy.test.ts",
+      "uid": "9047ed08366a0f4387101dc6aff47d68506f8bd6"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-coverage-policy.ts",
+      "uid": "8f8d5ef09428339dcb56d9124b5a6f6a42e8270b"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-evidence.test.ts",
+      "uid": "de12f478c163e4edf056d3e7cae395432268702d"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-evidence.ts",
+      "uid": "6a4257877007f196d1dd09917c29452a2d38e1be"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-learning-policy.test.ts",
+      "uid": "746194ee61cdb04bd34f2247fad864a558875f63"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-learning-policy.ts",
+      "uid": "d77182591062e8b69c5ef5ea81bc13c5e5e0671b"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-learning.service.ts",
+      "uid": "5850fc4e7cc52fc7e3dbdc2f6e4503d7739092ea"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-memory.service.ts",
+      "uid": "afcd5552d56cba0583f49ab08b93437c46ce685a"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-model-routing.test.ts",
+      "uid": "03449f6c89aea65d0d3724475a652d14218b6136"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-model-routing.ts",
+      "uid": "b0b720fdd24c4b0db6e3b85ad34b316949bc0f9a"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-persistence.test.ts",
+      "uid": "92984e13352d0429ef76c68a8b4b69b66d683405"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-persistence.ts",
+      "uid": "78ad47c674aca5e10215f5a678559b97cf1925e6"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-refresh-policy.test.ts",
+      "uid": "5a249761367f3c3a64bc1b256a94bbc336770d11"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-refresh-policy.ts",
+      "uid": "ac44b32a7597371a17ca85eb579fbdf83fb7687c"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-review-fallback.test.ts",
+      "uid": "d0614ad0584b7198683f256a9dd9906fffb78a23"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-review-fallback.ts",
+      "uid": "be45aa57483618449b90cb57cac3fa7f1e90af2a"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-revision-policy.test.ts",
+      "uid": "df2555d670f529b8e506358fa53720620425f8e0"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-revision-policy.ts",
+      "uid": "16dd787289af4c97b722d579ed36f2ef02ac53bc"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-safe-draft.test.ts",
+      "uid": "89e3eb8c81232bd1510e27ca2e4a107890513e4d"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-safe-draft.ts",
+      "uid": "d88c3741432b1cdb5b30e44c8cee7933569e0894"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-validation-repair-policy.test.ts",
+      "uid": "f9756634461fd68b86dd5f0e8a610c1073803979"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot-validation-repair-policy.ts",
+      "uid": "688541739f78b089e2e59d1d16e1cb5f41cf1570"
+    },
+    {
+      "path": "src/apps/backend/src/services/autopilot.service.ts",
+      "uid": "a109830b93a60384d7827c159bf8928748281d01"
+    },
+    {
+      "path": "src/apps/backend/src/services/brand-email-config.service.ts",
+      "uid": "7848706127052f2db568896a6b6dff776f0b2a5f"
+    },
+    {
+      "path": "src/apps/backend/src/services/contact-form-settings.service.ts",
+      "uid": "8dba57ee277a6b0c89df96c6624c8ce58957c9e0"
+    },
+    {
+      "path": "src/apps/backend/src/services/conversation.service.ts",
+      "uid": "06be77f6beec8773eb052a5bed3e6028820655c4"
+    },
+    {
+      "path": "src/apps/backend/src/services/customer-profile.service.ts",
+      "uid": "ea35b03f8267a221cd7d72f530f52664035f6330"
+    },
+    {
+      "path": "src/apps/backend/src/services/customer-support-context.service.test.ts",
+      "uid": "196e457f830938104e7671d38f8aadef0c8199a9"
+    },
+    {
+      "path": "src/apps/backend/src/services/customer-support-context.service.ts",
+      "uid": "ffe03e9ff22116301e3213a77cd3e2e356ea5971"
+    },
+    {
+      "path": "src/apps/backend/src/services/deepseek-tool-call.service.test.ts",
+      "uid": "0bcf6ea3582f5303be986ca7bd7ff10331bfeccc"
+    },
+    {
+      "path": "src/apps/backend/src/services/deepseek-tool-call.service.ts",
+      "uid": "15e5dbb162aefa9c5f9d08b94b911dcb5710fb47"
+    },
+    {
+      "path": "src/apps/backend/src/services/email-classifier.service.ts",
+      "uid": "9bc27a6362d25d859d6635f6830eea95a56a19ee"
+    },
+    {
+      "path": "src/apps/backend/src/services/email-classifier.test.ts",
+      "uid": "e82ce50eb7042b9d05dfd597418d497795e2e36b"
+    },
+    {
+      "path": "src/apps/backend/src/services/email.service.ts",
+      "uid": "e5bfd240649303c905ccbcb2530a6515753c659d"
+    },
+    {
+      "path": "src/apps/backend/src/services/inbound-email.service.ts",
+      "uid": "4db02c9901361b1b19140f3126ea1de1d9de9190"
+    },
+    {
+      "path": "src/apps/backend/src/services/inbound-ticket-routing-policy.test.ts",
+      "uid": "d3e9f26719767d30007fc250496dd8021d95e41c"
+    },
+    {
+      "path": "src/apps/backend/src/services/inbound-ticket-routing-policy.ts",
+      "uid": "de9d0e3674be48f2c7d37c751ac663f8ec49e32e"
+    },
+    {
+      "path": "src/apps/backend/src/services/knowledge.service.ts",
+      "uid": "4b428c5d44d60551cc8d8c9a707df1076260e8f8"
+    },
+    {
+      "path": "src/apps/backend/src/services/product-sync.service.ts",
+      "uid": "e073bd169c9fc00870efbdb375f4dd55c201a4f8"
+    },
+    {
+      "path": "src/apps/backend/src/services/quiz-analytics.service.ts",
+      "uid": "72541ed635c8f477f46d53b52f82d633a6e5c2bd"
+    },
+    {
+      "path": "src/apps/backend/src/services/quiz-image.service.ts",
+      "uid": "221de5c09a1ee4e0cf5f46ad04ea507bc2732704"
+    },
+    {
+      "path": "src/apps/backend/src/services/quiz-mood-tagger.service.ts",
+      "uid": "ef7d366a13b81bbda4b624958026ccbd18aa4f3e"
+    },
+    {
+      "path": "src/apps/backend/src/services/quiz-recommendation.service.ts",
+      "uid": "fa04e38d6198b312e6c1c5ef9d7267d9698ae75a"
+    },
+    {
+      "path": "src/apps/backend/src/services/quiz.service.ts",
+      "uid": "d01493a5e403bd09a0455ae9de4c6a2bf5b5dcae"
+    },
+    {
+      "path": "src/apps/backend/src/services/redstag.service.ts",
+      "uid": "7d61c2543cd74de003ecf9312dd7004e0a684c4e"
+    },
+    {
+      "path": "src/apps/backend/src/services/refund.service.ts",
+      "uid": "ce6c742e9cd969938270144c13775b6fb625b80e"
+    },
+    {
+      "path": "src/apps/backend/src/services/return-ai.service.ts",
+      "uid": "80350abc197e283df7dc04f76cf72cd61cf17986"
+    },
+    {
+      "path": "src/apps/backend/src/services/return-email-template.service.ts",
+      "uid": "b944b611c720450611dee70798f1ed5338095e7c"
+    },
+    {
+      "path": "src/apps/backend/src/services/return-rules.service.ts",
+      "uid": "4c907259d0d7233748c3665d58647f83f5983c0b"
+    },
+    {
+      "path": "src/apps/backend/src/services/return-settings.service.ts",
+      "uid": "e2e86ff1e009e858a41c3b7e97959a6f385e7fee"
+    },
+    {
+      "path": "src/apps/backend/src/services/return.service.ts",
+      "uid": "4928abf8e3613cc8493a29cacf0f0c70d9f0747a"
+    },
+    {
+      "path": "src/apps/backend/src/services/review-analytics.service.ts",
+      "uid": "8d95743aa98bbfb82e4e725adc26ba179342f37e"
+    },
+    {
+      "path": "src/apps/backend/src/services/review-email.service.ts",
+      "uid": "855fde0ea52b9d63ab4dfd076ae7d64a9b13fb4f"
+    },
+    {
+      "path": "src/apps/backend/src/services/review-import.service.ts",
+      "uid": "205539a26660ff3b086d8363ffc4bccca7f8a2e4"
+    },
+    {
+      "path": "src/apps/backend/src/services/review-moderation.service.ts",
+      "uid": "4b5fa91fc79d1097c18cb548cc8aef0590809b3d"
+    },
+    {
+      "path": "src/apps/backend/src/services/review-settings.service.ts",
+      "uid": "0b8bca0225d92bfdbb0040294ab67d171e12db9c"
+    },
+    {
+      "path": "src/apps/backend/src/services/review.service.ts",
+      "uid": "63820ee98d85572331a9e5709a1f8dec18d3e2d6"
+    },
+    {
+      "path": "src/apps/backend/src/services/rma-sync.service.ts",
+      "uid": "567d11405154c5c5c29035f3967f072a3d6d0469"
+    },
+    {
+      "path": "src/apps/backend/src/services/shippo.service.ts",
+      "uid": "5f538cced1b2ae2d5b3593daf01c54220b555ed5"
+    },
+    {
+      "path": "src/apps/backend/src/services/shopify-actions.service.ts",
+      "uid": "8e6fee7217dab31de801d09f6a6fd411080ce284"
+    },
+    {
+      "path": "src/apps/backend/src/services/shopify-admin.service.ts",
+      "uid": "f447e6ba0b9779e397910a84278206c74c84a885"
+    },
+    {
+      "path": "src/apps/backend/src/services/shopify-auth.service.ts",
+      "uid": "e404eeb0524361b7153ac2294ee7022d6b6c422c"
+    },
+    {
+      "path": "src/apps/backend/src/services/shopify-mcp.service.ts",
+      "uid": "6c8e5634156d4721a59ccffe7413125180372a79"
+    },
+    {
+      "path": "src/apps/backend/src/services/sla.service.ts",
+      "uid": "f6c1f266b5fd4ef708dc5968432d59c213d8af3b"
+    },
+    {
+      "path": "src/apps/backend/src/services/storefront-model-routing.test.ts",
+      "uid": "37d8a29457bf327e808e6fb9b526be836c145d06"
+    },
+    {
+      "path": "src/apps/backend/src/services/storefront-model-routing.ts",
+      "uid": "475a8fc18e53e1a2ae2dabd8043b4728c618547c"
+    },
+    {
+      "path": "src/apps/backend/src/services/storefront-tool-loop.service.test.ts",
+      "uid": "46874998bc2e1473e6f28a8d546c7d01ed195273"
+    },
+    {
+      "path": "src/apps/backend/src/services/storefront-tool-loop.service.ts",
+      "uid": "866220f280655ea2d6eb05417d811e59455f0dbc"
+    },
+    {
+      "path": "src/apps/backend/src/services/support-automation-worker.service.ts",
+      "uid": "e43bf28b7a086ee606c05d869f8cdaace62baf3b"
+    },
+    {
+      "path": "src/apps/backend/src/services/support-context.service.ts",
+      "uid": "b07e637bc45774ce4890dfd996a126da95be1ab6"
+    },
+    {
+      "path": "src/apps/backend/src/services/support-model-tool.service.test.ts",
+      "uid": "fb1724f1515d311e99e9913267f15ae0ac7bb4c2"
+    },
+    {
+      "path": "src/apps/backend/src/services/support-model-tool.service.ts",
+      "uid": "c76b00dca1b69538775828312546b7e2b6f44b9c"
+    },
+    {
+      "path": "src/apps/backend/src/services/support-quality-policy.test.ts",
+      "uid": "6f4d22e19f6dbb320e8ab7bafef42cdb9d288d35"
+    },
+    {
+      "path": "src/apps/backend/src/services/support-quality-policy.ts",
+      "uid": "873f1166d651cf67ccb76e9637fae450bee9766c"
+    },
+    {
+      "path": "src/apps/backend/src/services/support-quality.service.ts",
+      "uid": "161f79fe0f22e572e74bebb60157f6c64fe8a46d"
+    },
+    {
+      "path": "src/apps/backend/src/services/support-retention-policy.test.ts",
+      "uid": "82a25c04611a3cf8d3fc75ce8673d7f0cd0afc18"
+    },
+    {
+      "path": "src/apps/backend/src/services/support-retention-policy.ts",
+      "uid": "660e4e111a2e76546da28e7bed4c0ac9f9c06ecf"
+    },
+    {
+      "path": "src/apps/backend/src/services/ticket-maintenance.service.ts",
+      "uid": "85b4ecb8d4e61282049e23d8c60c2900629a4cb6"
+    },
+    {
+      "path": "src/apps/backend/src/services/ticket-triage.service.ts",
+      "uid": "d334fdbaaae6f29cbd85de2dd9f99dacb245c270"
+    },
+    {
+      "path": "src/apps/backend/src/services/ticket.service.ts",
+      "uid": "d15281b37bf87080d34641581d03cfd7ee54c7d9"
+    },
+    {
+      "path": "src/apps/backend/src/services/tracking-settings.service.ts",
+      "uid": "9cb2df72ee263e8da1076338133675a659e1339e"
+    },
+    {
+      "path": "src/apps/backend/src/services/tracking.service.ts",
+      "uid": "0592af8204bf336527bdffaa88f7264d045c5386"
+    },
+    {
+      "path": "src/apps/backend/src/services/trade-approval.service.ts",
+      "uid": "af4e4e7f9d286a4446881985aa11c0f1c2ceb2c5"
+    },
+    {
+      "path": "src/apps/backend/src/services/trade-email.service.ts",
+      "uid": "4c2d197c3ebd1b1e78037e21e63529ee1275d465"
+    },
+    {
+      "path": "src/apps/backend/src/services/trade-shopify.service.ts",
+      "uid": "4618518918913cd0e353c30cb3dfe66b54a6dc46"
+    },
+    {
+      "path": "src/apps/backend/src/services/trade.service.ts",
+      "uid": "301a354f763685c339d1e1bcc53c16d7591b1298"
+    },
+    {
+      "path": "src/apps/backend/src/tools/definitions.ts",
+      "uid": "8ce130247d759bd5433128a0acd067e9a0e2582c"
+    },
+    {
+      "path": "src/apps/backend/src/tools/router.ts",
+      "uid": "681818e8470e63aabc2f1480548ed0caebbefaaf"
+    },
+    {
+      "path": "src/apps/backend/src/types/index.ts",
+      "uid": "f0194445fafc53fad0078955a2b30a5959161172"
+    },
+    {
+      "path": "src/apps/backend/tsconfig.json",
+      "uid": "9ba336fbab3076bb04344392026f1f7688a9e2af"
+    },
+    {
+      "path": "src/apps/trade-portal/AGENTS.md",
+      "uid": "b402af8a6533dfc73cc5af9164ae5e0c366af9cc"
+    },
+    {
+      "path": "src/apps/trade-portal/CLAUDE.md",
+      "uid": "c140473a3a5fbe89301c99d9d0d1b76c5971f2c3"
+    },
+    {
+      "path": "src/apps/trade-portal/README.md",
+      "uid": "7ba16f1bf099196063e5d413cf00a5aa850b043d"
+    },
+    {
+      "path": "src/apps/trade-portal/app/SidebarWrapper.tsx",
+      "uid": "541ce067018415670f80453909ae667c51958d98"
+    },
+    {
+      "path": "src/apps/trade-portal/app/account/page.tsx",
+      "uid": "bc465f38e7ebcef578db3d7df03be893392b3158"
+    },
+    {
+      "path": "src/apps/trade-portal/app/api/auth/callback/route.ts",
+      "uid": "abdb345f1c76e5e1629a174899347edcb8e60ff1"
+    },
+    {
+      "path": "src/apps/trade-portal/app/api/auth/login/route.ts",
+      "uid": "073b13c22a6f886041410f989848993baf91dccb"
+    },
+    {
+      "path": "src/apps/trade-portal/app/api/auth/logout/route.ts",
+      "uid": "81500fbd7b712ca9f3781a0cd03323d783c5343f"
+    },
+    {
+      "path": "src/apps/trade-portal/app/api/portal/concierge/route.ts",
+      "uid": "e080ca2b6813917930dbe4987277267ea33216e0"
+    },
+    {
+      "path": "src/apps/trade-portal/app/api/portal/me/route.ts",
+      "uid": "5b104816c00bb4ee81022bb55721c178d04885cd"
+    },
+    {
+      "path": "src/apps/trade-portal/app/api/portal/orders/route.ts",
+      "uid": "cd853f70d9f106b3b5e12b1839c5244d40d455bd"
+    },
+    {
+      "path": "src/apps/trade-portal/app/api/portal/resources/route.ts",
+      "uid": "8b3e6a4be804899b1fd30ea7fa520059b9ae3bcc"
+    },
+    {
+      "path": "src/apps/trade-portal/app/concierge/page.tsx",
+      "uid": "bce777455e778efaaebf1cb8705d006a647fc6cf"
+    },
+    {
+      "path": "src/apps/trade-portal/app/favicon.ico",
+      "uid": "9ecfcc8f0ead0bf3d2d7c39e084b88f41cc89a2e"
+    },
+    {
+      "path": "src/apps/trade-portal/app/globals.css",
+      "uid": "719cb0fc3f630f5f3d18d1fdbb218d5aade1fec7"
+    },
+    {
+      "path": "src/apps/trade-portal/app/layout.tsx",
+      "uid": "409fa2ca405f0a50410bd173bd5efda20e9e72c3"
+    },
+    {
+      "path": "src/apps/trade-portal/app/login/page.tsx",
+      "uid": "185bbe5b9550baee517ff32d7989f90a98d6b3df"
+    },
+    {
+      "path": "src/apps/trade-portal/app/orders/page.tsx",
+      "uid": "89086c2cae8ca4ab6aaa75ddf655e96d1b265a58"
+    },
+    {
+      "path": "src/apps/trade-portal/app/page.tsx",
+      "uid": "64103e0cf1ff6b32cdacb00b2631358da4301cd3"
+    },
+    {
+      "path": "src/apps/trade-portal/app/resources/page.tsx",
+      "uid": "4b08f0c933c8d86ce55dbc8bfac826bc16ac5832"
+    },
+    {
+      "path": "src/apps/trade-portal/components/sidebar.tsx",
+      "uid": "ab0a113083e09ae58b4bf82945d249fc26c4db2f"
+    },
+    {
+      "path": "src/apps/trade-portal/lib/auth.ts",
+      "uid": "5c4660e4417b75f97f768e98008690a2fb0e45f0"
+    },
+    {
+      "path": "src/apps/trade-portal/middleware.ts",
+      "uid": "198b31528e2af2ea787f5f0f4ea6da0bdb455016"
+    },
+    {
+      "path": "src/apps/trade-portal/next-env.d.ts",
+      "uid": "9bfff799abb9a4d30186f7a8b68f91ac35157611"
+    },
+    {
+      "path": "src/apps/trade-portal/next.config.ts",
+      "uid": "5b81639ad4de805cd3e8caaaaddfbae2c7b5b55b"
+    },
+    {
+      "path": "src/apps/trade-portal/package-lock.json",
+      "uid": "50704f718bf28d01b1ffbf3aa2f7f4d603ebd5d6"
+    },
+    {
+      "path": "src/apps/trade-portal/package.json",
+      "uid": "c3c86207f3f1071453f32be6deb7778751c88b69"
+    },
+    {
+      "path": "src/apps/trade-portal/postcss.config.mjs",
+      "uid": "8f8be689e9af58f80351df6e6b551146822f42a4"
+    },
+    {
+      "path": "src/apps/trade-portal/public/file.svg",
+      "uid": "fb380eeffe87d50b597383664c02982964d0d28c"
+    },
+    {
+      "path": "src/apps/trade-portal/public/globe.svg",
+      "uid": "2eba23b01a46733bb8423e6d38ebf5f7e95abec5"
+    },
+    {
+      "path": "src/apps/trade-portal/public/next.svg",
+      "uid": "3f3e95622612b989c5bd6a03299a308c6f3c7e6b"
+    },
+    {
+      "path": "src/apps/trade-portal/public/vercel.svg",
+      "uid": "cebb8852d58c8886be3e9051a26957f42bb82f1a"
+    },
+    {
+      "path": "src/apps/trade-portal/public/window.svg",
+      "uid": "54c48e0daa6caa317fe1b4c419007fd93e948db9"
+    },
+    {
+      "path": "src/apps/trade-portal/tsconfig.json",
+      "uid": "3cce6f8b2540d983756b909e9e5c181034da4c38"
+    },
+    {
+      "path": "src/apps/trade-portal/tsconfig.tsbuildinfo",
+      "uid": "ec04ca00bfcf41f30a59605aa33577a9f4b4d94a"
+    },
+    {
+      "path": "src/apps/widget-warm/package-lock.json",
+      "uid": "287a7dfc8f6a3797403e12dbf6b7bb572b957f17"
+    },
+    {
+      "path": "src/apps/widget-warm/package.json",
+      "uid": "7218a1f044f9515e3b4606ba1a93610c30c0dcda"
+    },
+    {
+      "path": "src/apps/widget-warm/seed-brand.sql",
+      "uid": "3dbf5238c9c241d89ca489c07bb367f7afbd48c2"
+    },
+    {
+      "path": "src/apps/widget-warm/seed-brand.ts",
+      "uid": "fb4fb55466b769cc2439de49cd5f98c42cd2f9a5"
+    },
+    {
+      "path": "src/apps/widget-warm/src/chatbot/api/client.ts",
+      "uid": "a5f2f158cac8346c27f7c6ac995ae5b1bdf99efe"
+    },
+    {
+      "path": "src/apps/widget-warm/src/chatbot/chatbot.ts",
+      "uid": "f6021d49854213890d0f4a57f9493325001dca98"
+    },
+    {
+      "path": "src/apps/widget-warm/src/chatbot/state/store.ts",
+      "uid": "70ba740e5dd4d90bf22ac70ec373ed9dd8d4a974"
+    },
+    {
+      "path": "src/apps/widget-warm/src/chatbot/styles/chatbot.css",
+      "uid": "702f7b1e6f0de8c6221d804c0f3fda32f01ae6e8"
+    },
+    {
+      "path": "src/apps/widget-warm/src/chatbot/ui/ChatWindow.ts",
+      "uid": "2c177899655601c175a2b2cc476ee5aeb3474ee1"
+    },
+    {
+      "path": "src/apps/widget-warm/src/chatbot/ui/FloatingButton.ts",
+      "uid": "476dc0cfe639b9ffaf066ed6a91538fd9ea80870"
+    },
+    {
+      "path": "src/apps/widget-warm/src/chatbot/ui/Header.ts",
+      "uid": "8628fb3f345f144431e0a861a125d819e088d83a"
+    },
+    {
+      "path": "src/apps/widget-warm/src/chatbot/ui/InputBar.ts",
+      "uid": "b55ed937237fc0d6b33081daab800b55be1c35eb"
+    },
+    {
+      "path": "src/apps/widget-warm/src/chatbot/ui/MessageList.ts",
+      "uid": "e600e6d73481e8be311e6773f1c54fd242916dbe"
+    },
+    {
+      "path": "src/apps/widget-warm/src/contact/api/client.ts",
+      "uid": "39a295e56957f39ce137a3ee8dfde4e44134c4a9"
+    },
+    {
+      "path": "src/apps/widget-warm/src/contact/contact.ts",
+      "uid": "caa571ac61102d485d88dbb33dfe15bd4981d812"
+    },
+    {
+      "path": "src/apps/widget-warm/src/contact/styles/contact.css",
+      "uid": "7a669303e9f8a8a73ca28a50a70d062f69783883"
+    },
+    {
+      "path": "src/apps/widget-warm/src/contact/ui/ContactPage.ts",
+      "uid": "4effbdef0975c412b6cc84d7d506f130e8aca4c6"
+    },
+    {
+      "path": "src/apps/widget-warm/src/returns/api/client.ts",
+      "uid": "f4704b1bb59833a2962c37affa279ae91fa02c1d"
+    },
+    {
+      "path": "src/apps/widget-warm/src/returns/returns.ts",
+      "uid": "fab9d5ad3ebaa2b48ac0edbce7b052909a683c41"
+    },
+    {
+      "path": "src/apps/widget-warm/src/returns/styles/returns.css",
+      "uid": "609ccf129ff3e7f1a16ee958862e6b2f75b6138b"
+    },
+    {
+      "path": "src/apps/widget-warm/src/returns/ui/ReturnsPortal.ts",
+      "uid": "ee4d8b96cb1fcb8859b2f40a3f74a936395f4fe1"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/api/client.ts",
+      "uid": "59f16069801f90d27c9578a64c0872c04266f715"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/reviews.ts",
+      "uid": "0f77a16f774f154715489dc94ba8efa8b23a56f3"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/state/store.ts",
+      "uid": "4d6e8a0234fe45c8422a8076ccde0397399aef30"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/styles/reviews.css",
+      "uid": "9fad1762ccb194684c13266b386ff5964687716d"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/ui/FilterRow.ts",
+      "uid": "4748818ffce66ee4068541e75ed6ba99d6adc3c1"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/ui/HomepageReviews.ts",
+      "uid": "bc2be455d6c5498da716a79ebeb45d17397dcb0a"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/ui/Lightbox.ts",
+      "uid": "a7e0f8b262a5e336600a79959087678463426274"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/ui/ReviewCard.ts",
+      "uid": "64b35b1c6dcc1b25f311c324ada70f0bca9a2f80"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/ui/ReviewComposer.ts",
+      "uid": "614cb9739c6d383935c02b3dc097db1813cf9599"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/ui/ReviewList.ts",
+      "uid": "71deb734b7c12f1236eafcbe7102f30152273bbf"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/ui/ReviewSummary.ts",
+      "uid": "d4beafcac830984ed13a83de148f18d6cb535b19"
+    },
+    {
+      "path": "src/apps/widget-warm/src/reviews/ui/stars.ts",
+      "uid": "fdd82e46e031a11c51a69fe604e485c6172ec193"
+    },
+    {
+      "path": "src/apps/widget-warm/tsconfig.json",
+      "uid": "22dd9836f50c334ef1e0f2989fef6a11db42ec98"
+    },
+    {
+      "path": "src/apps/widget-warm/vite.chatbot.config.ts",
+      "uid": "03e07ef54429dd66184209fc6007858299a8430f"
+    },
+    {
+      "path": "src/apps/widget-warm/vite.contact.config.ts",
+      "uid": "839b119a32926cf4335f49925918a2e463c41405"
+    },
+    {
+      "path": "src/apps/widget-warm/vite.returns.config.ts",
+      "uid": "04fea170e2168d3828447adf8984910f81749120"
+    },
+    {
+      "path": "src/apps/widget-warm/vite.reviews.config.ts",
+      "uid": "e8c8fd473d5b2b30741ab3ce5777a621c18aeef8"
+    },
+    {
+      "path": "src/apps/widget-warm/vite.shared.ts",
+      "uid": "bb811ebd8d1db6756e58b831f4b5549c89773eb9"
+    },
+    {
+      "path": "src/apps/widget/vite.shared.ts",
+      "uid": "bb811ebd8d1db6756e58b831f4b5549c89773eb9"
+    },
+    {
+      "path": "src/apps/widget/index.html",
+      "uid": "c98997499c367b6b4efc2b3a937df8d6ed3ca787"
+    },
+    {
+      "path": "src/apps/widget/package.json",
+      "uid": "ba035ad7c12c7f520e4bc48dee51162872f8dcf1"
+    },
+    {
+      "path": "src/apps/widget/preview.html",
+      "uid": "8dd070eb775d376e94e1cb50d193da27cba2de59"
+    },
+    {
+      "path": "src/apps/widget/src/api/client.ts",
+      "uid": "f5418d0b33fa583f8c4716c3a9d113300d035f67"
+    },
+    {
+      "path": "src/apps/widget/src/contact-form.ts",
+      "uid": "ca857e3d8dc16934d921bb8984b8459f38897f65"
+    },
+    {
+      "path": "src/apps/widget/src/returns-portal.ts",
+      "uid": "44f27b7c83b18e6c38105a4ba4d6d69264005961"
+    },
+    {
+      "path": "src/apps/widget/src/review-badge.ts",
+      "uid": "808d858b2aac50840e3768baa69fbbb5f83c05d1"
+    },
+    {
+      "path": "src/apps/widget/src/review-widget.ts",
+      "uid": "f2db44bc3bd04b318a361fae19eb1ceab009cc9e"
+    },
+    {
+      "path": "src/apps/widget/src/state/store.ts",
+      "uid": "5f4f6cc083227debcf1a3ee901d2f5c636d2b9a2"
+    },
+    {
+      "path": "src/apps/widget/src/styles/returns-portal.css",
+      "uid": "1c1287acac20c3f54e93e04eb90349d4990fa295"
+    },
+    {
+      "path": "src/apps/widget/src/styles/review-widget.css",
+      "uid": "538338e88f077f2424d489c65224a19061b01a8b"
+    },
+    {
+      "path": "src/apps/widget/src/styles/tracking-widget.css",
+      "uid": "95ed1063e2b3765d0209f5bbd6d5903327dd9e7d"
+    },
+    {
+      "path": "src/apps/widget/src/styles/v20-carousel.css",
+      "uid": "93930d135fabe2e86b5000e19e3a684530e7eadc"
+    },
+    {
+      "path": "src/apps/widget/src/styles/widget.css",
+      "uid": "58be2bb855169b7baba3cd0d5bfc3a3245fce3e8"
+    },
+    {
+      "path": "src/apps/widget/src/tracking-widget.ts",
+      "uid": "6f189aa668e7556bf4b10cebff38dd1e54287c45"
+    },
+    {
+      "path": "src/apps/widget/src/ui/ChatWindow.ts",
+      "uid": "f06ab683a2a56b72223219cb58a3f4873117581a"
+    },
+    {
+      "path": "src/apps/widget/src/ui/FloatingButton.ts",
+      "uid": "f1b95aeadcea5aa6fbaf65f214fc3d019c100f58"
+    },
+    {
+      "path": "src/apps/widget/src/ui/Header.ts",
+      "uid": "d343fdd39b6a1c24037901f8184127176d86a02a"
+    },
+    {
+      "path": "src/apps/widget/src/ui/InputBar.ts",
+      "uid": "1a4be5aafaab624441a821d44c1e4d488ac186df"
+    },
+    {
+      "path": "src/apps/widget/src/ui/MessageList.ts",
+      "uid": "ebaafe5f27c6edcd6c5711b3c70cde80b1e2c013"
+    },
+    {
+      "path": "src/apps/widget/src/ui/PresetActions.ts",
+      "uid": "9fea70f4fb6bfa77ed1dfa6a22640a2cee94b226"
+    },
+    {
+      "path": "src/apps/widget/src/v20-carousel.ts",
+      "uid": "41bac41f4f2b4926448532fe9cb6c4205faf1195"
+    },
+    {
+      "path": "src/apps/widget/src/widget.ts",
+      "uid": "13fd7be1324aba5236615156d35eb50f1f4844b8"
+    },
+    {
+      "path": "src/apps/widget/tsconfig.json",
+      "uid": "b07373072ed38678c16304dbaabf75bd3047ba79"
+    },
+    {
+      "path": "src/apps/widget/vite.config.ts",
+      "uid": "c8c084167bc267e83fd4defe926585f46ba722a3"
+    },
+    {
+      "path": "src/apps/widget/vite.contact-form.config.ts",
+      "uid": "a7fb78e1acc64095a6bccbf1d55730951c21f334"
+    },
+    {
+      "path": "src/apps/widget/vite.returns-portal.config.ts",
+      "uid": "e4770455e2edae76180d5cba3d7e6d0c9fe80ad0"
+    },
+    {
+      "path": "src/apps/widget/vite.review-badge.config.ts",
+      "uid": "851f10d3af642b9361eb2a53ab4b84df4f7bcef1"
+    },
+    {
+      "path": "src/apps/widget/vite.review-widget.config.ts",
+      "uid": "608f7c28e6e333ccdc09a00f45f126ed68c3dd7a"
+    },
+    {
+      "path": "src/apps/widget/vite.tracking-widget.config.ts",
+      "uid": "4d9f67a87fe82db7b9469a16bd24bc462dc7a22c"
+    },
+    {
+      "path": "src/apps/widget/vite.v20-carousel.config.ts",
+      "uid": "c93ca11083640fc26dce2881c45f6322416fb27e"
+    },
+    {
+      "path": "src/docs/AUTOPILOT-LEARNING-ARCHITECTURE.md",
+      "uid": "944e5fb58c09b0218c15db395785c99711a75643"
+    },
+    {
+      "path": "src/docs/DESIGN-SYSTEM.md",
+      "uid": "1da0add362869a6e7daef4b0ef59ca3472c87a4b"
+    },
+    {
+      "path": "src/docs/PLATFORM-OVERHAUL.md",
+      "uid": "c6042355a3f597674534d2679715f4a5dcd0b031"
+    },
+    {
+      "path": "src/docs/RENAME-RUNBOOK.md",
+      "uid": "dbf2b33b56e16bc99268b20fb0d635396dc0a731"
+    },
+    {
+      "path": "src/docs/SUPPORTOS-UPGRADE-2026-09.md",
+      "uid": "a3c8baa0b172db07c94722fd3319a3c4a4671a1d"
+    },
+    {
+      "path": "src/docs/customer-360-profile.md",
+      "uid": "93a5ab3bc1199b672f4adb1004be0a6ae250e476"
+    },
+    {
+      "path": "src/docs/design-explorations/index.html",
+      "uid": "8f48816e37d3e7c7afccec77ba21d34aca88ebe2"
+    },
+    {
+      "path": "src/docs/design-explorations/tickets/direction-a.html",
+      "uid": "3d7a63ed7c19102b359f202e4b7d6e850e3f7bc3"
+    },
+    {
+      "path": "src/docs/design-explorations/tickets/direction-b.html",
+      "uid": "5da7543be8b3c80b56ee481fa6532744abd6c0b0"
+    },
+    {
+      "path": "src/docs/design-explorations/tickets/direction-c.html",
+      "uid": "9aa57beb140a9123a72c85cc600ef5a365a08490"
+    },
+    {
+      "path": "src/docs/design-explorations/tickets/direction-c2.html",
+      "uid": "765dba4ad8291a9c625c2341ca0e74280e4537f7"
+    },
+    {
+      "path": "src/docs/design-explorations/tickets/direction-c3.html",
+      "uid": "cb2c07a8d2a578109229aa7d4b1c53b1f246cafd"
+    },
+    {
+      "path": "src/docs/design-explorations/tickets/direction-c4.html",
+      "uid": "09057ba8a0b629865aacdc51b1a993960ba88de6"
+    },
+    {
+      "path": "src/docs/migrations/001-reviews-schema.sql",
+      "uid": "1fe90bd202e58bb9a216160a21457f5602801fa8"
+    },
+    {
+      "path": "src/docs/migrations/002-tracking-tables.sql",
+      "uid": "2a2b4aaa4ef6750f26361609e36d7aca06f525fa"
+    },
+    {
+      "path": "src/docs/migrations/003-multi-brand-hardening.sql",
+      "uid": "d258b2235800bd03629bd39e4aba6dfc2995932a"
+    },
+    {
+      "path": "src/docs/migrations/004-warm-by-design-shop.sql",
+      "uid": "cf0806f4c02c08af27d8408b0eace6a32ebb147c"
+    },
+    {
+      "path": "src/docs/migrations/005-warm-review-widget-url.sql",
+      "uid": "3c10fe170db103a25746e27da2dc652d8ee6bf33"
+    },
+    {
+      "path": "src/docs/migrations/006-warm-support-email.sql",
+      "uid": "254f11cf97ed09515ef3bfd0fa2bbc1c324d71c1"
+    },
+    {
+      "path": "src/docs/migrations/007-warm-knowledge-base.sql",
+      "uid": "1a064968201a8d043fb31e77fd49101332938393"
+    },
+    {
+      "path": "src/docs/migrations/008-ticket-inbox-email-routing-hardening.sql",
+      "uid": "f0f077c4ef23f8201d6577bbda302bac80d0071d"
+    },
+    {
+      "path": "src/docs/migrations/009-warm-support-data.sql",
+      "uid": "d00e58aabd3e88aac48c96b5f72c7b4b89462f98"
+    },
+    {
+      "path": "src/docs/migrations/010-ticket-helpdesk-v2.sql",
+      "uid": "20bac2617bd76cd08a42d91f012034b20d9ae502"
+    },
+    {
+      "path": "src/docs/migrations/011-autopilot.sql",
+      "uid": "2fa78eb8f682e0d7529523fb74c6002ee689e2ce"
+    },
+    {
+      "path": "src/docs/migrations/012-autopilot-learning-loop.sql",
+      "uid": "57a3dff5843ff980295770f46c616957f528c1ee"
+    },
+    {
+      "path": "src/docs/migrations/013-autopilot-customer-context.sql",
+      "uid": "d0fd81ce0901b1d0f71d8f6b9a894ac5b5209897"
+    },
+    {
+      "path": "src/docs/migrations/014-manual-ticket-link.sql",
+      "uid": "244094702cb6573d7b84e2311a2562a89821f05d"
+    },
+    {
+      "path": "src/docs/migrations/015-autopilot-batch-learning.sql",
+      "uid": "4e6f94415b8f856ee247811ac6d793fb7eb766a1"
+    },
+    {
+      "path": "src/docs/migrations/016-autopilot-execution-scope-locks.sql",
+      "uid": "a26fbd6d61ef72df2ac65b9fd12bb18e035dce6b"
+    },
+    {
+      "path": "src/docs/migrations/017-ai-generation-runs.sql",
+      "uid": "78ee2543d74a640574376cf53fcac6961fc70daf"
+    },
+    {
+      "path": "src/docs/returns-portal-architecture.md",
+      "uid": "47b068cfca7d89b68cf790136fdf19eb33a04405"
+    },
+    {
+      "path": "src/docs/skio-subscription-integration.md",
+      "uid": "16f0bb919b454d9e73790c268ec4e035e53ac13c"
+    },
+    {
+      "path": "src/docs/superpowers/plans/2026-03-21-reviews-system.md",
+      "uid": "115cc475d98d21a7b363620042c76eea5f72266e"
+    },
+    {
+      "path": "src/docs/superpowers/plans/2026-03-23-order-tracking.md",
+      "uid": "d13d343fccebd76c5a6fe242e2e07916b11e496f"
+    },
+    {
+      "path": "src/docs/superpowers/plans/2026-05-03-warm-review-widget-implementation.md",
+      "uid": "afe91d6b426dbccc34f2918a374f67b68b1ac4b9"
+    },
+    {
+      "path": "src/docs/superpowers/specs/2026-03-21-reviews-system-design.md",
+      "uid": "3be2778dda8fc145c4cf8454b98b66ef8366f922"
+    },
+    {
+      "path": "src/docs/superpowers/specs/2026-04-13-warm-by-design-brand-design.md",
+      "uid": "1c74e2d0046bde0e0de512331efd08e9668b3b4f"
+    },
+    {
+      "path": "src/supabase/migrations/20260710000012_autopilot_learning_loop.sql",
+      "uid": "57a3dff5843ff980295770f46c616957f528c1ee"
+    },
+    {
+      "path": "src/supabase/migrations/20260710000013_autopilot_customer_context.sql",
+      "uid": "d0fd81ce0901b1d0f71d8f6b9a894ac5b5209897"
+    },
+    {
+      "path": "src/supabase/migrations/20260710000014_manual_ticket_link.sql",
+      "uid": "244094702cb6573d7b84e2311a2562a89821f05d"
+    },
+    {
+      "path": "src/supabase/migrations/20260717000015_autopilot_batch_learning.sql",
+      "uid": "4e6f94415b8f856ee247811ac6d793fb7eb766a1"
+    },
+    {
+      "path": "src/supabase/migrations/20260717000016_autopilot_execution_scope_locks.sql",
+      "uid": "a26fbd6d61ef72df2ac65b9fd12bb18e035dce6b"
+    },
+    {
+      "path": "src/supabase/migrations/20260717000017_ai_generation_runs.sql",
+      "uid": "78ee2543d74a640574376cf53fcac6961fc70daf"
+    },
+    {
+      "path": "src/supabase/migrations/20260216070845_create_conversations_table.sql",
+      "uid": "1f184b43f0c67b1d1475060a4671d4e83fc82615"
+    },
+    {
+      "path": "src/supabase/migrations/20260216070852_create_messages_table.sql",
+      "uid": "185834b04a88fcb6ea48c6008d74ba7f380c4af4"
+    },
+    {
+      "path": "src/supabase/migrations/20260216070857_create_knowledge_documents_table.sql",
+      "uid": "4f74ff6644c89ae4956e7b9102432c8dd4331526"
+    },
+    {
+      "path": "src/supabase/migrations/20260216070901_create_ai_config_table.sql",
+      "uid": "2f1bed9bf20ed94f2be8285a902d4dccd598427f"
+    },
+    {
+      "path": "src/supabase/migrations/20260216070911_create_return_requests_table.sql",
+      "uid": "c88533745d58868f03187bac3c70c8642d3f32d4"
+    },
+    {
+      "path": "src/supabase/migrations/20260216084839_create_brands_table.sql",
+      "uid": "32d670f383ecb61bd668b6ea00a5b645f904477a"
+    },
+    {
+      "path": "src/supabase/migrations/20260216084859_add_brand_id_to_tables.sql",
+      "uid": "49b4d1781a02d0cb262bc8f0ca15cc8636dc811a"
+    },
+    {
+      "path": "src/supabase/migrations/20260216084908_create_feature_toggles.sql",
+      "uid": "fedd0ad0df53ed72e14afbd1b1c6dba2d4156de8"
+    },
+    {
+      "path": "src/supabase/migrations/20260310032324_create_ticket_system_tables.sql",
+      "uid": "5102c1337c97c959adf8cc6b7b7db2f0a317fb37"
+    },
+    {
+      "path": "src/supabase/migrations/20260312063723_recreate_returns_portal_tables.sql",
+      "uid": "28fd9b87a40cd50a5b0f5810beae02e84510ea91"
+    },
+    {
+      "path": "src/supabase/migrations/20260312072542_create_return_email_templates_and_settings.sql",
+      "uid": "72dbc9ee16f74f5a79812510788701b256bfd57c"
+    },
+    {
+      "path": "src/supabase/migrations/20260329053629_quiz_funnel_tables.sql",
+      "uid": "ca7ae4ef56b6a7d97dbe6ebc6bbdc6d27fd80320"
+    },
+    {
+      "path": "src/supabase/migrations/20260330013859_create_product_mood_tags.sql",
+      "uid": "2e5fe88f222938507ce6c5cec7fd604d09803e33"
+    },
+    {
+      "path": "src/supabase/migrations/20260330021241_add_selection_mode_to_quiz_sessions.sql",
+      "uid": "4414474a9bd6150e53e875b21e8b4f55799c43e1"
+    },
+    {
+      "path": "src/supabase/migrations/20260717000018_fix_autopilot_plan_generation_lineage.sql",
+      "uid": "34859b6a0c53bd779922307b5fccd322c4c7bfb7"
+    },
+    {
+      "path": "src/supabase/migrations/20260810000019_canonicalize_autopilot_plan_persistence.sql",
+      "uid": "5cb70b8f5dbe24e49413ca60ccc03561d98bac6b"
+    },
+    {
+      "path": "src/supabase/migrations/20260819000020_wbd_two_week_fulfillment_estimate.sql",
+      "uid": "3b01f1915f50558ecd03086062937ace5f78f85b"
+    },
+    {
+      "path": "src/supabase/migrations/20260916000021_support_automation.sql",
+      "uid": "0b9474c3bf10ca9fe87bd79a2e651cc82dbc44f3"
+    },
+    {
+      "path": "src/nixpacks.toml",
+      "uid": "c33d8c90aadfb68b067806700daec7826db62997"
+    },
+    {
+      "path": "src/opencode.json",
+      "uid": "74658739d7f6064d06bb4bb6c4473ad81b1e038d"
+    },
+    {
+      "path": "src/outlight-contact-form.liquid",
+      "uid": "0d54301d83f5994d674b89921248930bc38b8d1b"
+    },
+    {
+      "path": "src/package-lock.json",
+      "uid": "4ccd3cbb8bc40b312bea2bfe2874ebbbcaa8855a"
+    },
+    {
+      "path": "src/package.json",
+      "uid": "d6442a6ffe81d66aca6bf931270e2d75ac93f070"
+    },
+    {
+      "path": "src/quiz-funnel-mocks/concept-1-the-reveal.html",
+      "uid": "159a67521400f70ab67893e9b86c284b17ce97c6"
+    },
+    {
+      "path": "src/quiz-funnel-mocks/concept-2-the-style-profile.html",
+      "uid": "2e9df02c210f699a70c9f79b7d849aa602afa223"
+    },
+    {
+      "path": "src/quiz-funnel-mocks/quiz-tracker.js",
+      "uid": "3733d001d136dee699a030a47c517f9799dccd36"
+    },
+    {
+      "path": "src/scripts/audit-autopilot-batch.mts",
+      "uid": "689394ac61bb59bf771a9b9fd15dd7bf61e0c265"
+    },
+    {
+      "path": "src/scripts/audit-autopilot-coverage.mjs",
+      "uid": "2212481d283aec49db97992642608698bc11d266"
+    },
+    {
+      "path": "src/scripts/audit-autopilot-order-bindings.mts",
+      "uid": "55c133a3803fbb3199c0edb15bb13ec39ce16032"
+    },
+    {
+      "path": "src/scripts/check-deepseek-only-runtime.mjs",
+      "uid": "702a6408410fbd0c2ed5f8c5ab1e1c48ae98d526"
+    },
+    {
+      "path": "src/scripts/diagnostics/check-ticket-inflow.mjs",
+      "uid": "12da7e8e295dc922ee9c00f5e2d528ce77d08b25"
+    },
+    {
+      "path": "src/scripts/inspect-autopilot-tickets.mts",
+      "uid": "49dd37ea8422217192eaef998c9ecf156a634d17"
+    },
+    {
+      "path": "src/scripts/outlight-support-email-webhook-gmailapi.gs",
+      "uid": "fa8733f5802c1dde0c0c0145ff4a827b10172ec7"
+    },
+    {
+      "path": "src/scripts/outlight-support-email-webhook.gs",
+      "uid": "36c0615d04fb3a22ed07d68c874571fe603ca4bb"
+    },
+    {
+      "path": "src/scripts/probe-support-models.mts",
+      "uid": "d4e18dc9ddbf66e0e68aa5bafac2111846211de0"
+    },
+    {
+      "path": "src/scripts/recover-autopilot-ticket.mts",
+      "uid": "29e38b5c9c96cfb2c293455adc27940b8e60cc5d"
+    },
+    {
+      "path": "src/scripts/repair-autopilot-coverage.mts",
+      "uid": "ca647853016260ef7e44ecdeaf81745bdcb5d605"
+    },
+    {
+      "path": "src/scripts/repair-autopilot-terminal-parks.mts",
+      "uid": "fd40e83582ac5a381f3f6bef51f725c50b65a548"
+    },
+    {
+      "path": "src/scripts/restore-sent-replies-to-gmail.mjs",
+      "uid": "d74cb6e58ec286e945fa7c83b0237700b50c57c5"
+    },
+    {
+      "path": "src/scripts/revise-autopilot-ticket.mts",
+      "uid": "536cee88f999143564c2f7a11397d54f9577b70c"
+    },
+    {
+      "path": "src/scripts/seed-warm-support-data.mjs",
+      "uid": "086f0547522669e2f60c7bd59e67b8ba5d245b48"
+    },
+    {
+      "path": "src/scripts/support-email-webhook.gs",
+      "uid": "477f8241d70a96707ae8dcf0def2847b66cb7745"
+    },
+    {
+      "path": "src/scripts/supportos-model-audit.mjs",
+      "uid": "a3bc2b6d2532e93abca678fec0d964a562b3bc2d"
+    },
+    {
+      "path": "src/scripts/supportos-preview.mjs",
+      "uid": "c8bbfbb6f67db2f0785bc97a839f2c9791cb41f0"
+    },
+    {
+      "path": "src/scripts/update-warm-brand-design.cjs",
+      "uid": "c5f7f4f899e42a13cf25b48622c97c0f4ba59046"
+    },
+    {
+      "path": "src/scripts/warm-support-email-webhook.gs",
+      "uid": "edf3bc3fb41a4ec05b735db2b72fca60f08731b6"
+    },
+    {
+      "path": "src/scripts/warm-support-email-webhook.test.cjs",
+      "uid": "502a2a7840c937440d6b20bea978e49da7602630"
+    },
+    {
+      "path": "src/theme-sections/outlight-product-reviews.liquid",
+      "uid": "30791d653acf84682f36f0b7b5bfd49db67e4c2f"
+    },
+    {
+      "path": "src/theme-sections/outlight-review-carousel-v20.liquid",
+      "uid": "52cb95ac6d0a511f7c8424fffc8942b7f5356ef1"
+    },
+    {
+      "path": "src/theme-sections/warm-by-design-home-reviews.liquid",
+      "uid": "66b112279bce2adcd916fbbe53025457315c8009"
+    },
+    {
+      "path": "src/vercel.json",
+      "uid": "5eb1881e1aab2adb3ea1e26d56904e9e0574d4b4"
+    }
+  ],
+  "completed": 566,
+  "failures": []
+}

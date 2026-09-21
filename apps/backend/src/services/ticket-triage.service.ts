@@ -1,3 +1,4 @@
+import { assessTicketIntake } from './ticket-intelligence.service.js';
 import { supabase } from '../config/supabase.js';
 import { calculateSlaDeadline } from './sla.service.js';
 import type { RequiredToolDefinition } from './deepseek-tool-call.service.js';
@@ -72,7 +73,15 @@ export async function triageTicket(ticketId: string): Promise<TriageResult | nul
     const body = [...(recentMessages ?? [])].reverse().map((m) => m.content).join('\n\n').slice(-4000);
     if (!body.trim()) return null;
 
-    const response = await callSupportRequiredTool<Partial<TriageResult>>({
+    const intake = await assessTicketIntake(ticketId, ticket.brand_id as string);
+    const useJev = intake?.evaluation.mode === 'active' && intake.evaluation.status === 'completed';
+    const response = useJev ? {
+      value: { intent: intake.intent, sentiment: intake.sentiment, suggested_priority: intake.priority,
+        summary: intake.intent.replace(/_/g, ' '), language: 'und', suggested_tags: [intake.intent.replace(/_/g, '-')] } as Partial<TriageResult>,
+      generation: { access_provider: 'typesafe', provider: 'typesafe', model: intake.evaluation.model,
+        requested_model: intake.evaluation.model, tier: 'flash', thinking: 'disabled', latency_ms: 0,
+        usage: {}, response_id: intake.evaluation.run_id } as SupportModelGeneration,
+    } : await callSupportRequiredTool<Partial<TriageResult>>({
       tier: 'flash',
       max_tokens: 400,
       temperature: 0,
@@ -88,7 +97,7 @@ Tags are up to three short kebab-case values. Language is an ISO 639-1 code.`,
       },
     });
     const parsed = response.value;
-    await recordSupportGenerationRun({
+    if (!useJev) await recordSupportGenerationRun({
       purpose: 'ticket_triage',
       generation: response.generation,
       brandId: ticket.brand_id as string,

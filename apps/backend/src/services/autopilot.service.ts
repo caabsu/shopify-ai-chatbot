@@ -1,3 +1,5 @@
+import { assessTicketIntake } from './ticket-intelligence.service.js';
+import { jevEnabledForBrand } from './jev-store.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { assessSupportQuality, type SupportQualityAssessment } from './support-quality.service.js';
 import { retentionDecision, retentionRefundAmount, retentionOfferReply, addRetentionContext, retentionOrderIdForRequests, shopifyMoneyAmount, type RetentionOffer, type RetentionDecision } from './support-retention-policy.js';
@@ -2231,9 +2233,12 @@ async function buildSupportPlan(
         .test(revision.instruction)
     ),
   );
+  const acknowledgementAssessment = isCustomerAcknowledgementOnly(ctx.latestCustomerMessage) && jevEnabledForBrand(t.brand_id)
+    ? await assessTicketIntake(t.id, t.brand_id) : null;
   if (
     ctx.currentTicketResponseState === 'awaiting_us'
     && isCustomerAcknowledgementOnly(ctx.latestCustomerMessage)
+    && (!jevEnabledForBrand(t.brand_id) || acknowledgementAssessment?.skip_draft === true)
     && !reviewerRequestsNewWork
     && ctx.operatorVerifiedHistoricalOutcomes.length === 0
     && !ctx.authorizedCancellationOrderIds.some((id) => !ctx.readOnlyCrossBrandOrderIds.has(id))
@@ -2974,12 +2979,16 @@ ${JSON.stringify({
   }
   const qualityPolicy = `CURRENT OWNER POLICY (supersedes conflicting older compensation/cancellation rules): For a first clear cancellation request on an eligible paid, unshipped, untracked Warm by Design order, offer a 30% total refund while keeping delivery, or cancellation with the remaining refund. Prior partial refunds count toward the 30% total; never offer an additional 30% on top of them. Wait for an explicit later customer choice after the sent offer before automatic cancellation/refund. Do not offer retention on an already cancelled or fully refunded order, an expired/uncaptured payment, an unsupported destination, or a legacy order the integration cannot fulfill. The 30% offer is authorized by this policy; it is not an invented discount. Conditional threats are not cancellation instructions. Answer all other current questions and do not substitute the offer for unrelated requests. Verified historical order outcomes may be described accurately without repeating the action.\n\n${ctx.supportContext}\nRetention evidence: ${JSON.stringify(ctx.retention)}\nFirst-offer draft, if applicable: ${ctx.retentionOfferText || '(none)'}`
     + (revision?.instruction ? `\nSaved human reviewer instruction: ${revision.instruction}` : '');
-  const verifyDraft = (draftActions: AutopilotAction[]) => assessSupportQuality({
+  const verifyDraft = (draftActions: AutopilotAction[]) => {
+    applyActionDependencies(draftActions);
+    return assessSupportQuality({
+    brandId: t.brand_id, ticketId: t.id, signoff: brand.signoffBlock,
     thread: ctx.threadText, customer: { name: ctx.customerName, history: ctx.customerHistoryBlock },
     orders: ctx.ordersBlock, knowledge: ctx.kbBlock,
     policy: qualityPolicy, actions: draftActions,
     highImpact: draftActions.some(a => ['cancel_order', 'refund_order'].includes(a.type)),
-  });
+    });
+  };
   let quality = await verifyDraft(accepted.actions);
   let verificationCost = quality.cost_usd ?? 0;
   // One bounded correction uses verifier feedback as evidence, never as a

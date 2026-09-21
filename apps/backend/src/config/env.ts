@@ -1,3 +1,4 @@
+import { getJevConfig } from '../services/support-ai.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { existsSync } from 'fs';
@@ -12,7 +13,7 @@ const envPath = envCandidates.find((p) => existsSync(p));
 if (envPath) dotenv.config({ path: envPath });
 
 function requireEnv(key: string): string {
-  const value = process.env[key];
+  const value = process.env[key]?.trim();
   if (!value) {
     throw new Error(`Missing required environment variable: ${key}`);
   }
@@ -24,6 +25,7 @@ function optionalEnv(key: string, defaultValue: string): string {
 }
 
 export const config = {
+  jev: getJevConfig(),
   shopify: {
     shop: requireEnv('SHOPIFY_SHOP'),
     clientId: requireEnv('SHOPIFY_CLIENT_ID'),

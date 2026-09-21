@@ -1,3 +1,6 @@
+import { supabase } from '../config/supabase.js';
+import { scopedJev, jevEnabledForBrand } from './jev-store.js';
+import type { DraftReview } from './support-ai.js';
 import { callSupportRequiredTool } from './support-model-tool.service.js';
 import { validSupportQuality, SUPPORT_QUALITY_CHECKS } from './support-quality-policy.js';
 
@@ -10,9 +13,23 @@ export interface SupportQualityAssessment {
   model?: string;
   checked_at: string;
   cost_usd?: number;
+  jev?: DraftReview;
 }
-export async function assessSupportQuality(input: { thread: string; customer: { name: string | null; history: string }; orders: string; knowledge: string; policy: string; actions: unknown; highImpact: boolean }): Promise<SupportQualityAssessment> {
+export interface SupportQualityInput { brandId?: string; ticketId?: string; signoff?: string; thread: string; customer: { name: string | null; history: string }; orders: string; knowledge: string; policy: string; actions: unknown; highImpact: boolean }
+
+export async function assessSupportQuality(input: SupportQualityInput): Promise<SupportQualityAssessment> {
   const checkedAt = new Date().toISOString();
+  let jev: DraftReview | undefined;
+  if (input.brandId && input.ticketId && jevEnabledForBrand(input.brandId)) {
+    const actions = Array.isArray(input.actions) ? input.actions : [];
+    const replies = actions.filter(a => a?.type === 'send_reply').map(a => String(a.params?.reply_text ?? ''));
+    if (replies.length) jev = await scopedJev(supabase, input.brandId, input.ticketId).review(replies.join('\n\n'), {
+      conversation: `${input.thread}\nCustomer history:\n${input.customer.history}`,
+      evidence: `${input.orders}\n${input.knowledge}\n${input.policy}`,
+      brand_rules: input.policy, signoff: input.signoff ?? '', ordered_plan: input.actions,
+      execution_contract: 'This is a conditional ordered plan, not a record of completed work. send_reply is fenced by the existing executor: a statement confirming a mutation must depend on that exact authorized action and cannot send until the provider outcome is verified. Historical outcomes must be present in authoritative evidence. A mere proposed action without the matching dependency is insufficient.',
+    });
+  }
   try {
     const result = await callSupportRequiredTool<{ confidence: number; summary: string; checks: SupportQualityAssessment['checks'] }>({
       tier: input.highImpact ? 'pro' : 'flash',
@@ -27,9 +44,9 @@ export async function assessSupportQuality(input: { thread: string; customer: { 
     });
     const value = result.value;
     const valid = validSupportQuality(value);
-    return { version: 'support-quality-v1', passed: valid, confidence: valid ? value.confidence : 0, checks: Array.isArray(value.checks) ? value.checks.filter(c => c && typeof c.name === 'string' && typeof c.passed === 'boolean' && typeof c.detail === 'string').slice(0, 8) : [], summary: typeof value.summary === 'string' ? value.summary.slice(0, 800) : 'Quality assessment was incomplete.', model: result.generation.model, checked_at: checkedAt, cost_usd: result.generation.cost_usd };
+    return { version: 'support-quality-v1', passed: valid && (!jev || jev.mode !== 'active' || jev.status === 'passed'), confidence: valid ? value.confidence : 0, jev, checks: Array.isArray(value.checks) ? value.checks.filter(c => c && typeof c.name === 'string' && typeof c.passed === 'boolean' && typeof c.detail === 'string').slice(0, 8) : [], summary: (typeof value.summary === 'string' ? value.summary.slice(0, 800) : 'Quality assessment was incomplete.') + (jev && jev.status !== 'passed' && jev.mode === 'active' ? ` Jev requires review: ${jev.findings.join('; ')}` : ''), model: result.generation.model, checked_at: checkedAt, cost_usd: (result.generation.cost_usd ?? 0) + (jev?.cached ? 0 : jev?.usage?.estimated_cost_usd ?? 0) };
   } catch (error) {
     console.warn('[support-quality] Independent assessment unavailable:', error instanceof Error ? error.message : 'unknown error');
-    return { version: 'support-quality-v1', passed: false, confidence: 0, checks: [], summary: 'Independent quality assessment unavailable. Keep this draft for human review.', checked_at: checkedAt };
+    return { version: 'support-quality-v1', passed: false, confidence: 0, jev, checks: [], summary: 'Independent quality assessment unavailable. Keep this draft for human review.', checked_at: checkedAt };
   }
 }

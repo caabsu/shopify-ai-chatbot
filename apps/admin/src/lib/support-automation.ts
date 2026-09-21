@@ -36,13 +36,18 @@ async function executionFence(job: SupportAutomationJob) {
 export async function runSupportAutomation() {
   const now = new Date();
   const workerDeadline = now.getTime() + 200000;
-  const settingsResult = await supabase.from('support_automation_settings').select('*').eq('enabled', true);
+  const allowedBrands = (process.env.SUPPORT_AUTOMATION_BRAND_IDS ?? '').split(',').map(id => id.trim()).filter(Boolean);
+  let settingsQuery = supabase.from('support_automation_settings').select('*').eq('enabled', true);
+  if (allowedBrands.length) settingsQuery = settingsQuery.in('brand_id', allowedBrands);
+  const settingsResult = await settingsQuery;
   if (settingsResult.error) throw new Error('Support automation schema is unavailable.');
   let scheduled = 0;
   let completed = 0;
   let reviewed = 0;
   // Never re-run a mutation whose provider outcome is unknown after a crash.
-  const interrupted = await supabase.from('support_automation_jobs').select('*').eq('status', 'running').lt('started_at', new Date(now.getTime() - 15 * 60000).toISOString()).limit(25);
+  let interruptedQuery = supabase.from('support_automation_jobs').select('*').eq('status', 'running').lt('started_at', new Date(now.getTime() - 15 * 60000).toISOString()).limit(25);
+  if (allowedBrands.length) interruptedQuery = interruptedQuery.in('brand_id', allowedBrands);
+  const interrupted = await interruptedQuery;
   if (interrupted.error) throw new Error('Could not inspect interrupted automation runs.');
   for (const job of (interrupted.data || []) as SupportAutomationJob[]) await holdTicket(job, 'Worker interrupted. Inspect action receipts and reconcile provider outcomes before retrying.');
 

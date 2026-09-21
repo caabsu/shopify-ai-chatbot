@@ -1,3 +1,5 @@
+import { supabase } from '../config/supabase.js';
+import { jevEnabledForBrand, scopedJev } from './jev-store.js';
 import type { RequiredToolDefinition } from './deepseek-tool-call.service.js';
 import {
   callSupportRequiredTool,
@@ -54,10 +56,23 @@ export async function classifyEmail(opts: {
   from: string;
   subject: string;
   body: string;
+  brandId?: string;
 }): Promise<ClassificationResult> {
   const { from, subject, body } = opts;
   const deterministic = classifyEmailDeterministically(from, subject);
   if (deterministic) return deterministic;
+  if (opts.brandId && jevEnabledForBrand(opts.brandId)) {
+    const intake = await scopedJev(supabase, opts.brandId).intake({
+      subject, thread: `[customer: ${from}] ${body}`, latest_message: body,
+      latest_sender: 'customer', has_prior_agent_reply: false, has_attachments: false,
+    });
+    if (intake.evaluation.mode === 'active' && intake.evaluation.status === 'completed') {
+      return { classification: intake.classification as EmailClassification,
+        confidence: intake.classification_probability,
+        reason: `Jev ${intake.evaluation.model}: ${intake.classification_requires_review ? 'uncertain classification retained for support review' : intake.classification}` };
+    }
+  }
+
 
   const truncatedBody = body.length > 2_000 ? `${body.slice(0, 2_000)}...` : body;
   try {

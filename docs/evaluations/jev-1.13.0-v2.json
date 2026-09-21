@@ -1,0 +1,4959 @@
+{
+  "model": "jev-1.13.0",
+  "rubric_version": "support-quality-v2",
+  "generated_at": "2026-09-21T12:37:13.051Z",
+  "evidence_type": "synthetic_regression_only",
+  "production_reliability_established": false,
+  "local_mode": "shadow",
+  "deployed_environments_changed": false,
+  "exact_expected_outcomes_matched": 39,
+  "total": 47,
+  "distinct_provider_calls": 47,
+  "failed_calls": 0,
+  "input_tokens": 71432,
+  "estimated_total_jev_cost_usd": 0.0030001440000000015,
+  "cost_note": "Distinct paid Jev judgments only; excludes writing, tool/data access, human review, and cached report regeneration.",
+  "suites": [
+    {
+      "name": "starter",
+      "fixture_path": "tests/fixtures/support-ai.json",
+      "generated_at": "2026-09-21T12:32:40.703Z",
+      "matched": 8,
+      "total": 9
+    },
+    {
+      "name": "challenge",
+      "fixture_path": "tests/fixtures/support-ai-challenge.json",
+      "generated_at": "2026-09-21T12:32:40.993Z",
+      "matched": 26,
+      "total": 30
+    },
+    {
+      "name": "classification",
+      "fixture_path": "tests/fixtures/support-ai-classification.json",
+      "generated_at": "2026-09-21T12:32:41.282Z",
+      "matched": 5,
+      "total": 8
+    }
+  ],
+  "metrics": {
+    "draft_quality": {
+      "total": 25,
+      "approved": 9,
+      "unsafe_approvals": 0,
+      "approval_precision": 1,
+      "approval_coverage": 0.36,
+      "acceptable_drafts": 11,
+      "acceptable_drafts_sent_to_review": 2,
+      "unacceptable_drafts": 14,
+      "unacceptable_drafts_blocked": 14,
+      "unavailable_assessments": 0
+    },
+    "intake": {
+      "total": 22,
+      "classification_mismatches": 3,
+      "raw_classification_mismatches": 0,
+      "classification_abstentions": 3,
+      "customer_support_excluded": 0,
+      "unavailable_assessments": 0,
+      "skipped_drafts": 0,
+      "unsafe_skips": 0,
+      "unnecessary_drafts": 3
+    },
+    "reliability_target": {
+      "approved_reply_correctness": 0.999,
+      "confidence_level": 0.95,
+      "zero_error_audits_needed_per_stratum": 2995,
+      "supported_by_held_out_audits": false,
+      "strata": [
+        {
+          "stratum": "outlight:cancel_order",
+          "audited_approved_drafts": 0,
+          "errors": 0,
+          "correctness_lower_bound_95": null,
+          "target_supported": false
+        },
+        {
+          "stratum": "outlight:damaged_item",
+          "audited_approved_drafts": 0,
+          "errors": 0,
+          "correctness_lower_bound_95": null,
+          "target_supported": false
+        },
+        {
+          "stratum": "outlight:order_status",
+          "audited_approved_drafts": 0,
+          "errors": 0,
+          "correctness_lower_bound_95": null,
+          "target_supported": false
+        },
+        {
+          "stratum": "outlight:return_refund",
+          "audited_approved_drafts": 0,
+          "errors": 0,
+          "correctness_lower_bound_95": null,
+          "target_supported": false
+        },
+        {
+          "stratum": "outlight:unspecified",
+          "audited_approved_drafts": 0,
+          "errors": 0,
+          "correctness_lower_bound_95": null,
+          "target_supported": false
+        },
+        {
+          "stratum": "warm-by-design:product_question",
+          "audited_approved_drafts": 0,
+          "errors": 0,
+          "correctness_lower_bound_95": null,
+          "target_supported": false
+        },
+        {
+          "stratum": "warm-by-design:unspecified",
+          "audited_approved_drafts": 0,
+          "errors": 0,
+          "correctness_lower_bound_95": null,
+          "target_supported": false
+        }
+      ],
+      "excluded_duplicate_audit_units": 0,
+      "excluded_duplicate_audit_inputs": 0,
+      "note": "Synthetic examples and tuning data cannot establish production reliability. Audits require independently human-labeled, representative held-out tickets under a frozen policy. Bounds are per stratum, not a simultaneous guarantee across brands. Human approval remains required."
+    }
+  },
+  "limitations": [
+    "All 47 examples are synthetic and labeled during development, not independently audited representative historical tickets.",
+    "The starter suite was used during rubric refinement; challenge and classification labels were fixed before their first live v2 runs.",
+    "Nine draft approvals are too few to establish 99.9% correctness; thresholds were not relaxed to improve the match rate.",
+    "No acknowledgement met the skip threshold, so safe suppression has not been demonstrated by these live examples.",
+    "All three classification mismatches are conservative routing abstentions; raw class predictions matched all 22 labels.",
+    "The suite does not measure writer quality, repair improvement, production incident rate, or end-to-end cost per accepted reply.",
+    "Human approval remains required. Audit support in a report never authorizes automatic sending."
+  ],
+  "results": [
+    {
+      "id": "clear_status",
+      "brand": "outlight",
+      "kind": "draft",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "passed",
+        "mode": "active",
+        "run_id": "60fc15f7-71ec-4ea6-9c9e-50d7aebeeb0b",
+        "model": "jev-1.13.0",
+        "draft_hash": "72472386df6e967ecd68545739cba17dc0f82eae7ea94c97743c256d9daeab24",
+        "assessed_at": "2026-09-21T12:32:40.702Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.96,
+            "confidence": 0.96,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.02,
+              "2": 0.01,
+              "3": 0.97
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.97,
+            "confidence": 0.97,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.03,
+              "3": 0.97
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.82,
+            "confidence": 0.82,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.01,
+              "2": 0.17,
+              "3": 0.82
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.12,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.05,
+          "false_action_confirmation": 0.04,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.08
+        },
+        "findings": [],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1559,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.00006547800000000001
+        }
+      },
+      "input_fingerprint": "04fcc4896cb75daab828e0e3476d2e909b39400fcdb00d2a8fa7cd998dfc643b",
+      "passed": true
+    },
+    {
+      "id": "invented_delivery",
+      "brand": "outlight",
+      "kind": "draft",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "unsupported_claim"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "d3a61ccb-b642-40ff-b54d-e8bced1df90f",
+        "model": "jev-1.13.0",
+        "draft_hash": "2fbf7b3dfaa548f0485773bbe1baf71fead9655a53a099d82cadd379bda5e4a9",
+        "assessed_at": "2026-09-21T12:32:40.702Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 1.69,
+            "confidence": 0.01,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.15,
+              "1": 0.41000000000000003,
+              "2": 0.05,
+              "3": 0.39
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.94,
+            "confidence": 0.94,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0.01,
+              "1": 0.01,
+              "2": 0.03,
+              "3": 0.95
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 0.96,
+            "confidence": 0.87,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.09,
+              "1": 0.87,
+              "2": 0.03,
+              "3": 0.01
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.98,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.09,
+          "false_action_confirmation": 0.11,
+          "unsolicited_offer": 0.04,
+          "missing_evidence": 0.06
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1546,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.00006493200000000001
+        }
+      },
+      "input_fingerprint": "04fcc4896cb75daab828e0e3476d2e909b39400fcdb00d2a8fa7cd998dfc643b",
+      "passed": true
+    },
+    {
+      "id": "asks_known_email",
+      "brand": "outlight",
+      "kind": "draft",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "asks_known_information"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "568992d5-5a18-42ab-bd28-fff1fc463323",
+        "model": "jev-1.13.0",
+        "draft_hash": "d7851afdb206ea351272ca19ba0880fc42e678bf27eec23c161c3b039bce72d4",
+        "assessed_at": "2026-09-21T12:32:40.702Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 0.12,
+            "confidence": 0.88,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.93,
+              "1": 0.04,
+              "2": 0,
+              "3": 0.03
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 1.91,
+            "confidence": 0.3,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0.08,
+              "1": 0.23,
+              "2": 0.39,
+              "3": 0.3
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 1.17,
+            "confidence": 0.75,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.04,
+              "1": 0.77,
+              "2": 0.17,
+              "3": 0.02
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.25,
+          "asks_known_information": 0.97,
+          "contradicts_commitment": 0.06,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.08
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Clarity needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Asks for information already available"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1548,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000065016
+        }
+      },
+      "input_fingerprint": "04fcc4896cb75daab828e0e3476d2e909b39400fcdb00d2a8fa7cd998dfc643b",
+      "passed": true
+    },
+    {
+      "id": "unexecuted_refund",
+      "brand": "outlight",
+      "kind": "draft",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "false_action_confirmation",
+          "unsolicited_offer"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "04414cff-94f7-4e22-9ea9-f36da60d18de",
+        "model": "jev-1.13.0",
+        "draft_hash": "301ac500fe31cf1a95201890512d771ff35f3876980be0168398ddb3391b6cc6",
+        "assessed_at": "2026-09-21T12:32:40.702Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 0.01,
+            "confidence": 0.99,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 1,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.32,
+            "confidence": 0.32,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0.16,
+              "1": 0.07,
+              "2": 0.05,
+              "3": 0.72
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 0.76,
+            "confidence": 0.75,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.25,
+              "1": 0.75,
+              "2": 0,
+              "3": 0
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.98,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.07,
+          "false_action_confirmation": 0.97,
+          "unsolicited_offer": 0.98,
+          "missing_evidence": 0.06
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Clarity needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Confirms an uncompleted action",
+          "Introduces an unrequested offer"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1542,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000064764
+        }
+      },
+      "input_fingerprint": "04fcc4896cb75daab828e0e3476d2e909b39400fcdb00d2a8fa7cd998dfc643b",
+      "passed": true
+    },
+    {
+      "id": "wrong_brand",
+      "brand": "warm-by-design",
+      "kind": "draft",
+      "expected": {
+        "status": "needs_review"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "78b58467-4ca4-43b8-a4a9-baac663d10eb",
+        "model": "jev-1.13.0",
+        "draft_hash": "4a061df1d865c4c390bc391ed92b651b206ae652d10e06e61ec13d0bf34b1837",
+        "assessed_at": "2026-09-21T12:32:40.703Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.99,
+            "confidence": 0.99,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.88,
+            "confidence": 0.88,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.11,
+              "3": 0.89
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.04,
+            "confidence": 0.5,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.03,
+              "1": 0.17,
+              "2": 0.53,
+              "3": 0.27
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.09,
+          "asks_known_information": 0.04,
+          "contradicts_commitment": 0.05,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.09
+        },
+        "findings": [
+          "Brand tone needs review.",
+          "Brand sign-off does not match."
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1487,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000062454
+        }
+      },
+      "input_fingerprint": "34a82aa1186067e2d6082689850cf1e1ee32b0b14a2e79368d44e72837252bf0",
+      "passed": true
+    },
+    {
+      "id": "thanks_only",
+      "brand": "outlight",
+      "kind": "intake",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": true
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "befcde1e659661e6d4b45cbe043e4aad0b6ba8efdb594445721e98c7a4013b73",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "internal": 0,
+                "promotional": 0,
+                "automated": 0,
+                "customer_support": 1,
+                "spam": 0,
+                "transactional": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "product_question",
+              "confidence": 1,
+              "probabilities": {
+                "other": 0,
+                "address_change": 0,
+                "shipping_delay": 0,
+                "wholesale_trade": 0,
+                "return_refund": 0,
+                "order_status": 0,
+                "feedback": 0,
+                "damaged_item": 0,
+                "discount_inquiry": 0,
+                "product_question": 1,
+                "cancel_order": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 0.99,
+              "probabilities": {
+                "neutral": 0,
+                "angry": 0,
+                "positive": 1,
+                "frustrated": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "low",
+              "confidence": 1,
+              "probabilities": {
+                "low": 1,
+                "high": 0,
+                "urgent": 0,
+                "medium": 0
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.08
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.05
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.97
+            }
+          },
+          "run_id": "fad8ccad-5e73-45b6-8e0b-5daec6d71de2",
+          "usage": {
+            "input_tokens": 1473,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.00006186600000000001
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "product_question",
+        "sentiment": "positive",
+        "priority": "low",
+        "unanswered_request": 0.08,
+        "supplied_requested_information": 0.05,
+        "acknowledgement_only": 0.97,
+        "skip_draft": false
+      },
+      "input_fingerprint": "c31b64a0739b8490e787fcdf2c1cb957330502d115234b0de7a4149e493e3d6b",
+      "passed": false
+    },
+    {
+      "id": "thanks_unresolved",
+      "brand": "outlight",
+      "kind": "intake",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "6cb987a2afd44d31b88c168606eaf4c8a4e0c224971e11d1b5524000ae146936",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "internal": 0,
+                "automated": 0,
+                "customer_support": 1,
+                "promotional": 0,
+                "transactional": 0,
+                "spam": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "cancel_order",
+              "confidence": 1,
+              "probabilities": {
+                "damaged_item": 0,
+                "cancel_order": 1,
+                "feedback": 0,
+                "product_question": 0,
+                "wholesale_trade": 0,
+                "other": 0,
+                "discount_inquiry": 0,
+                "return_refund": 0,
+                "shipping_delay": 0,
+                "address_change": 0,
+                "order_status": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 0.99,
+              "probabilities": {
+                "frustrated": 0,
+                "positive": 0.99,
+                "angry": 0,
+                "neutral": 0.01
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.81,
+              "probabilities": {
+                "urgent": 0.01,
+                "high": 0.09,
+                "low": 0.05,
+                "medium": 0.85
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.95
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.05
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.95
+            }
+          },
+          "run_id": "97cc4a79-0b42-412a-a63f-e4afa865515f",
+          "usage": {
+            "input_tokens": 1477,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.00006203400000000001
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "cancel_order",
+        "sentiment": "positive",
+        "priority": "medium",
+        "unanswered_request": 0.95,
+        "supplied_requested_information": 0.05,
+        "acknowledgement_only": 0.95,
+        "skip_draft": false
+      },
+      "input_fingerprint": "833cb39606b01f694a5f116486bc008a19f0279f3bcb3d345fc34207fd3cdad0",
+      "passed": true
+    },
+    {
+      "id": "supplied_information",
+      "brand": "outlight",
+      "kind": "intake",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "c3059add326deda8d68237209608a1dcc14468034a5225f417c85498ecedacb3",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "internal": 0,
+                "automated": 0,
+                "spam": 0,
+                "promotional": 0,
+                "customer_support": 1,
+                "transactional": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "order_status",
+              "confidence": 1,
+              "probabilities": {
+                "shipping_delay": 0,
+                "order_status": 1,
+                "cancel_order": 0,
+                "damaged_item": 0,
+                "product_question": 0,
+                "discount_inquiry": 0,
+                "feedback": 0,
+                "other": 0,
+                "address_change": 0,
+                "return_refund": 0,
+                "wholesale_trade": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 0.52,
+              "probabilities": {
+                "frustrated": 0,
+                "angry": 0,
+                "positive": 0.64,
+                "neutral": 0.36
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.94,
+              "probabilities": {
+                "urgent": 0,
+                "high": 0.01,
+                "medium": 0.96,
+                "low": 0.03
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.94
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.96
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.06
+            }
+          },
+          "run_id": "a71d36c2-204e-4274-8e8e-78e3b7be675a",
+          "usage": {
+            "input_tokens": 1477,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.00006203400000000001
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "order_status",
+        "sentiment": "positive",
+        "priority": "medium",
+        "unanswered_request": 0.94,
+        "supplied_requested_information": 0.96,
+        "acknowledgement_only": 0.06,
+        "skip_draft": false
+      },
+      "input_fingerprint": "47915046b156ed31c4706c4106373e6fe23e942ef39bd0c7a1b64a7748f67660",
+      "passed": true
+    },
+    {
+      "id": "injected_instructions",
+      "brand": "outlight",
+      "kind": "intake",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "7fee58c42bf83173716a94fa2fdc5b8cdd943da7be848a744d2c761e71f86a58",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 0.94,
+              "probabilities": {
+                "promotional": 0,
+                "automated": 0,
+                "spam": 0.05,
+                "transactional": 0,
+                "customer_support": 0.95,
+                "internal": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "damaged_item",
+              "confidence": 0.98,
+              "probabilities": {
+                "shipping_delay": 0,
+                "return_refund": 0,
+                "cancel_order": 0,
+                "discount_inquiry": 0,
+                "other": 0.01,
+                "feedback": 0,
+                "damaged_item": 0.99,
+                "wholesale_trade": 0,
+                "product_question": 0,
+                "address_change": 0,
+                "order_status": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "frustrated",
+              "confidence": 0.29,
+              "probabilities": {
+                "positive": 0,
+                "frustrated": 0.47000000000000003,
+                "angry": 0.29,
+                "neutral": 0.24
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.9,
+              "probabilities": {
+                "medium": 0.93,
+                "high": 0,
+                "urgent": 0,
+                "low": 0.07
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.06
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.02
+            }
+          },
+          "run_id": "b2ebff96-36f4-4acd-b4d7-43d7da34b961",
+          "usage": {
+            "input_tokens": 1476,
+            "output_tokens": 325,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000061992
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 0.95,
+        "classification_confidence": 0.94,
+        "intent": "damaged_item",
+        "sentiment": "frustrated",
+        "priority": "medium",
+        "unanswered_request": 0.91,
+        "supplied_requested_information": 0.06,
+        "acknowledgement_only": 0.02,
+        "skip_draft": false
+      },
+      "input_fingerprint": "4f10ace0cf0347d02e6e62d24474157be9c41dc8929c7b3499bc1f74f520bb92",
+      "passed": true
+    },
+    {
+      "id": "product_rating_good",
+      "brand": "warm-by-design",
+      "kind": "draft",
+      "workflow": "product_question",
+      "origin": "synthetic",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "passed",
+        "mode": "active",
+        "run_id": "875ae25f-d770-44ca-bb1e-fcbfb55edf03",
+        "model": "jev-1.13.0",
+        "draft_hash": "4c7a9394b23d8401554c5cc18e8736cd3538e735c77f2c74fb3e6b99e3764e69",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 3,
+            "confidence": 1,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.98,
+            "confidence": 0.98,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.02,
+              "3": 0.98
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.71,
+            "confidence": 0.71,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.28,
+              "3": 0.72
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.09,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.05,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.04,
+          "missing_evidence": 0.07
+        },
+        "findings": [],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1528,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000064176
+        }
+      },
+      "input_fingerprint": "bc39817087c29f41ff85a1f7c599e5344ca86f56cadea0849e98218131a4061d",
+      "passed": true
+    },
+    {
+      "id": "product_rating_bad",
+      "brand": "warm-by-design",
+      "kind": "draft",
+      "workflow": "product_question",
+      "origin": "synthetic",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "unsupported_claim"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "9e2fc351-97f2-4910-b90e-cf7f372af71c",
+        "model": "jev-1.13.0",
+        "draft_hash": "2993ec3473ed1deb8d78963703454a92e175d41a22c1ad875324c8b6151d7b6f",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.71,
+            "confidence": 0.71,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.03,
+              "1": 0.1,
+              "2": 0.01,
+              "3": 0.86
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.95,
+            "confidence": 0.95,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.03,
+              "3": 0.97
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 0.93,
+            "confidence": 0.84,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.12,
+              "1": 0.84,
+              "2": 0.03,
+              "3": 0.01
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.98,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.36,
+          "false_action_confirmation": 0.04,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.05
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Contradicts a previous commitment"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1525,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.00006405
+        }
+      },
+      "input_fingerprint": "bc39817087c29f41ff85a1f7c599e5344ca86f56cadea0849e98218131a4061d",
+      "passed": true
+    },
+    {
+      "id": "delivery_status_good",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "order_status",
+      "origin": "synthetic",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "passed",
+        "mode": "active",
+        "run_id": "fa1c416a-d603-417e-8ca8-db7c0836063b",
+        "model": "jev-1.13.0",
+        "draft_hash": "86ae09af5eac62911660a4f427e8c368258f111c3daed8bfb5f88bd9a8befe39",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.99,
+            "confidence": 0.99,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.98,
+            "confidence": 0.98,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.02,
+              "3": 0.98
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.81,
+            "confidence": 0.81,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.01,
+              "2": 0.17,
+              "3": 0.82
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.07,
+          "asks_known_information": 0.04,
+          "contradicts_commitment": 0.05,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.09
+        },
+        "findings": [],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1535,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.00006447
+        }
+      },
+      "input_fingerprint": "101e7a719996eaa0918a43138b5902c1fb2d85da46aff5efd7b5113d9068b41c",
+      "passed": true
+    },
+    {
+      "id": "delivery_status_bad",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "order_status",
+      "origin": "synthetic",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "unsupported_claim"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "d6d681ed-d53d-45b0-a8a8-e103b89cf4c9",
+        "model": "jev-1.13.0",
+        "draft_hash": "34dd90ef3388a13c48c9df9f5195b22317fe3e9826e3fe42c9e7fe339e344ab4",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.66,
+            "confidence": 0.66,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.05,
+              "1": 0.08,
+              "2": 0.03,
+              "3": 0.84
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.93,
+            "confidence": 0.93,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0.01,
+              "1": 0.01,
+              "2": 0.04,
+              "3": 0.94
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 1.01,
+            "confidence": 0.84,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.07,
+              "1": 0.86,
+              "2": 0.05,
+              "3": 0.02
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.98,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.07,
+          "false_action_confirmation": 0.97,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.07
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Confirms an uncompleted action"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1534,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000064428
+        }
+      },
+      "input_fingerprint": "101e7a719996eaa0918a43138b5902c1fb2d85da46aff5efd7b5113d9068b41c",
+      "passed": true
+    },
+    {
+      "id": "refund_amount_good",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "return_refund",
+      "origin": "synthetic",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "passed",
+        "mode": "active",
+        "run_id": "0f5157cb-0547-4fd1-8a3a-d6937b40182b",
+        "model": "jev-1.13.0",
+        "draft_hash": "2d8d8e72bee5bf81c6efe211617753c34d1c94c42e42ee5d234f041f85a124d9",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 3,
+            "confidence": 1,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.97,
+            "confidence": 0.97,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.03,
+              "3": 0.97
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.78,
+            "confidence": 0.78,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.01,
+              "2": 0.2,
+              "3": 0.79
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.06,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.04,
+          "false_action_confirmation": 0.05,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.1
+        },
+        "findings": [],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1579,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000066318
+        }
+      },
+      "input_fingerprint": "135ba22fc8ccbf2be218567db2c5bb4c2d21281b16274d5532c48a5c1fc895e1",
+      "passed": true
+    },
+    {
+      "id": "refund_amount_bad",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "return_refund",
+      "origin": "synthetic",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "unsupported_claim"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "5675ee1d-d95a-4d4b-a4d2-1cb97d346bdc",
+        "model": "jev-1.13.0",
+        "draft_hash": "ae14f79cfbd921d1ca2a6f3e9c4ff937391a11d3428aec0d82a2bcf9b6381238",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.96,
+            "confidence": 0.96,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.01,
+              "2": 0,
+              "3": 0.99
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.83,
+            "confidence": 0.83,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.15,
+              "3": 0.85
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 1.28,
+            "confidence": 0.66,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.03,
+              "1": 0.7,
+              "2": 0.23,
+              "3": 0.04
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.97,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.2,
+          "false_action_confirmation": 0.32,
+          "unsolicited_offer": 0.04,
+          "missing_evidence": 0.05
+        },
+        "findings": [
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Contradicts a previous commitment",
+          "Confirms an uncompleted action"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1580,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.00006636
+        }
+      },
+      "input_fingerprint": "135ba22fc8ccbf2be218567db2c5bb4c2d21281b16274d5532c48a5c1fc895e1",
+      "passed": true
+    },
+    {
+      "id": "pending_cancellation_good",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "cancel_order",
+      "origin": "synthetic",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "b5b6565d-6baf-4198-ae30-aa104830d0ad",
+        "model": "jev-1.13.0",
+        "draft_hash": "c8fe0a647037efc61cf012821a2280f937748790d98cd11a4f178a6a17773e95",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.61,
+            "confidence": 0.61,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.01,
+              "1": 0.07,
+              "2": 0.22,
+              "3": 0.7
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.89,
+            "confidence": 0.89,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.11,
+              "3": 0.89
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.51,
+            "confidence": 0.51,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.03,
+              "2": 0.42,
+              "3": 0.55
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.21,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.07,
+          "false_action_confirmation": 0.04,
+          "unsolicited_offer": 0.06,
+          "missing_evidence": 0.14
+        },
+        "findings": [
+          "Unsupported factual claim"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1538,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000064596
+        }
+      },
+      "input_fingerprint": "db8fff5d8331778d818b46dcbf41aa7dcc3e8f336a08c61ab7ff8e393df2fe40",
+      "passed": false
+    },
+    {
+      "id": "pending_cancellation_bad",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "cancel_order",
+      "origin": "synthetic",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "false_action_confirmation"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "22af9e3b-8ce5-4fa5-9a3d-f53fb1e70835",
+        "model": "jev-1.13.0",
+        "draft_hash": "b0d2db01877bfbedbb8ff2bfd8b94fa257446ad0fa516253fca546802a36633f",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.27,
+            "confidence": 0.27,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.06,
+              "1": 0.24,
+              "2": 0.07,
+              "3": 0.63
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.92,
+            "confidence": 0.92,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0.01,
+              "1": 0,
+              "2": 0.05,
+              "3": 0.94
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 1.39,
+            "confidence": 0.55,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.03,
+              "1": 0.64,
+              "2": 0.25,
+              "3": 0.08
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.96,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.1,
+          "false_action_confirmation": 0.98,
+          "unsolicited_offer": 0.06,
+          "missing_evidence": 0.1
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Confirms an uncompleted action"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1536,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000064512
+        }
+      },
+      "input_fingerprint": "db8fff5d8331778d818b46dcbf41aa7dcc3e8f336a08c61ab7ff8e393df2fe40",
+      "passed": true
+    },
+    {
+      "id": "previous_promise_good",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "return_refund",
+      "origin": "synthetic",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "67746dc7-0f9b-4d4e-b9f9-918e878f585a",
+        "model": "jev-1.13.0",
+        "draft_hash": "b594e1b7a6c89c2fb11833f61e392612e4e495737d18a3103bd11e4c6b46092a",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.93,
+            "confidence": 0.93,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.03,
+              "2": 0.02,
+              "3": 0.95
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.98,
+            "confidence": 0.98,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.02,
+              "3": 0.98
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.84,
+            "confidence": 0.84,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.01,
+              "2": 0.14,
+              "3": 0.85
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.13,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.04,
+          "false_action_confirmation": 0.48,
+          "unsolicited_offer": 0.05,
+          "missing_evidence": 0.11
+        },
+        "findings": [
+          "Confirms an uncompleted action"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1545,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.00006489
+        }
+      },
+      "input_fingerprint": "7bca80249e2b92ff0c8f400cf675a674d86055333ad03b2923595eff2f4a68b1",
+      "passed": false
+    },
+    {
+      "id": "previous_promise_bad",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "return_refund",
+      "origin": "synthetic",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "contradicts_commitment"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "133c911b-8b3a-4adf-aa79-cc1fc19f296f",
+        "model": "jev-1.13.0",
+        "draft_hash": "c5c6f6162d31ad34638ccad6e856947a5a8e46f5b697cc904836b06618e3bf98",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 1.09,
+            "confidence": 0.24,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.33,
+              "1": 0.45,
+              "2": 0.01,
+              "3": 0.21
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.88,
+            "confidence": 0.88,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0.03,
+              "1": 0.01,
+              "2": 0.03,
+              "3": 0.9299999999999999
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 0.69,
+            "confidence": 0.67,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.32,
+              "1": 0.68,
+              "2": 0,
+              "3": 0
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.95,
+          "asks_known_information": 0.06,
+          "contradicts_commitment": 0.95,
+          "false_action_confirmation": 0.1,
+          "unsolicited_offer": 0.06,
+          "missing_evidence": 0.06
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Contradicts a previous commitment"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1547,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000064974
+        }
+      },
+      "input_fingerprint": "7bca80249e2b92ff0c8f400cf675a674d86055333ad03b2923595eff2f4a68b1",
+      "passed": true
+    },
+    {
+      "id": "known_photo_good",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "damaged_item",
+      "origin": "synthetic",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "passed",
+        "mode": "active",
+        "run_id": "91b66e05-0239-440a-ab25-06e42b08e767",
+        "model": "jev-1.13.0",
+        "draft_hash": "08cdc8a84198174cdb08f9c52d5b184a03ec70f386dea495b6473dd6cacf1252",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.99,
+            "confidence": 0.99,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.99,
+            "confidence": 0.99,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.85,
+            "confidence": 0.85,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.14,
+              "3": 0.86
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.1,
+          "asks_known_information": 0.07,
+          "contradicts_commitment": 0.05,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.12
+        },
+        "findings": [],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1562,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000065604
+        }
+      },
+      "input_fingerprint": "8a6fe1b180ee7447f7e3635c4a819438d45eb78afa56c3d7e8035d3995af9222",
+      "passed": true
+    },
+    {
+      "id": "known_photo_bad",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "damaged_item",
+      "origin": "synthetic",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "asks_known_information"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "3cf73e68-0988-4134-87ae-73a50fd13bea",
+        "model": "jev-1.13.0",
+        "draft_hash": "d49b9261bbbfab8426c0754c8554e92259c30ff3ecdf2be46fe485e880c4b9d0",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 0.47,
+            "confidence": 0.53,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.64,
+              "1": 0.3,
+              "2": 0.02,
+              "3": 0.04
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.04,
+            "confidence": 0.39,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0.08,
+              "1": 0.12,
+              "2": 0.48,
+              "3": 0.32
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 1.39,
+            "confidence": 0.59,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.01,
+              "1": 0.63,
+              "2": 0.31,
+              "3": 0.05
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.26,
+          "asks_known_information": 0.97,
+          "contradicts_commitment": 0.06,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.04,
+          "missing_evidence": 0.09
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Clarity needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Asks for information already available"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1558,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000065436
+        }
+      },
+      "input_fingerprint": "8a6fe1b180ee7447f7e3635c4a819438d45eb78afa56c3d7e8035d3995af9222",
+      "passed": true
+    },
+    {
+      "id": "discount_unsolicited_good",
+      "brand": "warm-by-design",
+      "kind": "draft",
+      "workflow": "product_question",
+      "origin": "synthetic",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "passed",
+        "mode": "active",
+        "run_id": "d7a25604-d9c1-4ab7-a3b5-fa5c4afeed56",
+        "model": "jev-1.13.0",
+        "draft_hash": "f010ca237c6e09f0a24f065bceea69dfe8c7a186e9efa7ba7ca2fe213cf12084",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 3,
+            "confidence": 1,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.96,
+            "confidence": 0.96,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.04,
+              "3": 0.96
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.83,
+            "confidence": 0.83,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.16,
+              "3": 0.84
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.08,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.05,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.08
+        },
+        "findings": [],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1532,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000064344
+        }
+      },
+      "input_fingerprint": "b6c023597515562eecb43eadd2550c2e608790300e86d3b526d43d4ffaf28fe8",
+      "passed": true
+    },
+    {
+      "id": "discount_unsolicited_bad",
+      "brand": "warm-by-design",
+      "kind": "draft",
+      "workflow": "product_question",
+      "origin": "synthetic",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "unsolicited_offer"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "bed66fc1-0c1a-4a76-b5e9-3168781880c2",
+        "model": "jev-1.13.0",
+        "draft_hash": "aabe41ea22aae292b270fb1deba5cfd880eeb5e5a889aa5910f0b97a1ecbce11",
+        "assessed_at": "2026-09-21T12:32:40.991Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.96,
+            "confidence": 0.96,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.02,
+              "2": 0,
+              "3": 0.98
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 1.95,
+            "confidence": 0.84,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.11,
+              "2": 0.84,
+              "3": 0.05
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 1.1,
+            "confidence": 0.88,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.01,
+              "1": 0.88,
+              "2": 0.11,
+              "3": 0
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.92,
+          "asks_known_information": 0.07,
+          "contradicts_commitment": 0.09,
+          "false_action_confirmation": 0.06,
+          "unsolicited_offer": 0.98,
+          "missing_evidence": 0.06
+        },
+        "findings": [
+          "Clarity needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Introduces an unrequested offer"
+        ],
+        "repair_instructions": [
+          "Remove filler, repeated apologies and irrelevant options. Make the answer direct and concise.",
+          "Rewrite the tone and identity to match the supplied brand rules and customer situation.",
+          "Remove factual claims and delivery predictions not supported by the evidence. Use only verified facts.",
+          "Remove unsolicited refunds, cancellations, discounts, and alternatives. Answer only what the customer asked."
+        ],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1540,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.00006468000000000001
+        }
+      },
+      "input_fingerprint": "b6c023597515562eecb43eadd2550c2e608790300e86d3b526d43d4ffaf28fe8",
+      "passed": true
+    },
+    {
+      "id": "customer_claim_good",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "return_refund",
+      "origin": "synthetic",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "passed",
+        "mode": "active",
+        "run_id": "03cc88a7-2ca0-45df-ae62-823b49488df5",
+        "model": "jev-1.13.0",
+        "draft_hash": "704d47c7d98ad4508c44321956e3e3c496774eda34f83df6bca3248c5267de1f",
+        "assessed_at": "2026-09-21T12:32:40.992Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.98,
+            "confidence": 0.98,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.01,
+              "2": 0.01,
+              "3": 0.98
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.99,
+            "confidence": 0.99,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.01,
+              "3": 0.99
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.57,
+            "confidence": 0.57,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.05,
+              "2": 0.32,
+              "3": 0.63
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.08,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.07,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.04,
+          "missing_evidence": 0.09
+        },
+        "findings": [],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1548,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000065016
+        }
+      },
+      "input_fingerprint": "5773e12386e7cc3c274e6924c944c1af40239c2940b21691b24534ae60f26478",
+      "passed": true
+    },
+    {
+      "id": "customer_claim_bad",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "return_refund",
+      "origin": "synthetic",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "false_action_confirmation"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "68a2c1b6-3e40-4962-9d68-867c9e4af547",
+        "model": "jev-1.13.0",
+        "draft_hash": "920621891327d52a28521d3a483bb1e36dfd05566e6809390919a7eacb389ad4",
+        "assessed_at": "2026-09-21T12:32:40.992Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.57,
+            "confidence": 0.57,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.05,
+              "1": 0.13,
+              "2": 0.03,
+              "3": 0.79
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.95,
+            "confidence": 0.95,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0.01,
+              "1": 0,
+              "2": 0.02,
+              "3": 0.97
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 1.06,
+            "confidence": 0.77,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.08,
+              "1": 0.81,
+              "2": 0.07,
+              "3": 0.04
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.97,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.08,
+          "false_action_confirmation": 0.98,
+          "unsolicited_offer": 0.07,
+          "missing_evidence": 0.07
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Confirms an uncompleted action"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1543,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000064806
+        }
+      },
+      "input_fingerprint": "5773e12386e7cc3c274e6924c944c1af40239c2940b21691b24534ae60f26478",
+      "passed": true
+    },
+    {
+      "id": "mixed_requests_good",
+      "brand": "warm-by-design",
+      "kind": "draft",
+      "workflow": "product_question",
+      "origin": "synthetic",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "passed",
+        "mode": "active",
+        "run_id": "84169afe-4105-406d-b57a-7e443ed45ba3",
+        "model": "jev-1.13.0",
+        "draft_hash": "69309e7e04441c73640f1e88c97d2856972cd0711453e120ce76a3ff4d1ab320",
+        "assessed_at": "2026-09-21T12:32:40.992Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 3,
+            "confidence": 1,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.99,
+            "confidence": 0.99,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.01,
+              "3": 0.99
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.86,
+            "confidence": 0.86,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.13,
+              "3": 0.87
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.11,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.04,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.09
+        },
+        "findings": [],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1533,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000064386
+        }
+      },
+      "input_fingerprint": "bfc9785c9acac6c21afde74fdcb15362948e1b47498a4e08d58d3a66c022d2cd",
+      "passed": true
+    },
+    {
+      "id": "mixed_requests_bad",
+      "brand": "warm-by-design",
+      "kind": "draft",
+      "workflow": "product_question",
+      "origin": "synthetic",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "unsupported_claim"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "5af0954d-880b-4736-8325-f6fd3ed28945",
+        "model": "jev-1.13.0",
+        "draft_hash": "355815d58033fd7b4898a6ed178ee8452e7a5575cd8f4d6d5ee59b71f63e4c54",
+        "assessed_at": "2026-09-21T12:32:40.992Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.92,
+            "confidence": 0.92,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.01,
+              "1": 0.03,
+              "2": 0,
+              "3": 0.96
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.93,
+            "confidence": 0.93,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.06,
+              "3": 0.94
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 1.2,
+            "confidence": 0.71,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.05,
+              "1": 0.75,
+              "2": 0.16,
+              "3": 0.04
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.97,
+          "asks_known_information": 0.06,
+          "contradicts_commitment": 0.43,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.05,
+          "missing_evidence": 0.06
+        },
+        "findings": [
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Contradicts a previous commitment"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1535,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.00006447
+        }
+      },
+      "input_fingerprint": "bfc9785c9acac6c21afde74fdcb15362948e1b47498a4e08d58d3a66c022d2cd",
+      "passed": true
+    },
+    {
+      "id": "french_status_good",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "order_status",
+      "origin": "synthetic",
+      "expected": {
+        "status": "passed"
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "passed",
+        "mode": "active",
+        "run_id": "f13ff8b0-6c05-4b6e-8f32-7448d7c2b7fc",
+        "model": "jev-1.13.0",
+        "draft_hash": "3c66ba9fa9d3f0a11539037145bd471fefe908832dbedda95d2b9afd0405b2f8",
+        "assessed_at": "2026-09-21T12:32:40.992Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.99,
+            "confidence": 0.99,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.96,
+            "confidence": 0.96,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0,
+              "2": 0.04,
+              "3": 0.96
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 2.55,
+            "confidence": 0.55,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0,
+              "1": 0.03,
+              "2": 0.4,
+              "3": 0.57
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.07,
+          "asks_known_information": 0.04,
+          "contradicts_commitment": 0.05,
+          "false_action_confirmation": 0.03,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.1
+        },
+        "findings": [],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1545,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.00006489
+        }
+      },
+      "input_fingerprint": "38cf04bfae9b5ccd8b0b2bd5a40a90d194a806edf7f18b8f17241d9926a95a92",
+      "passed": true
+    },
+    {
+      "id": "french_status_bad",
+      "brand": "outlight",
+      "kind": "draft",
+      "workflow": "order_status",
+      "origin": "synthetic",
+      "expected": {
+        "status": "needs_review",
+        "defects": [
+          "unsupported_claim"
+        ]
+      },
+      "actual": {
+        "version": "support-quality-v2",
+        "status": "needs_review",
+        "mode": "active",
+        "run_id": "fe740a49-6fc1-4fe9-89d0-d9c9091387f2",
+        "model": "jev-1.13.0",
+        "draft_hash": "64b66adb44035d2ca6d6cf3b54f126b023cba6fe4b5b4540f1b744c9ea305073",
+        "assessed_at": "2026-09-21T12:32:40.992Z",
+        "cached": true,
+        "scores": {
+          "coverage": {
+            "type": "score",
+            "score": 2.5,
+            "confidence": 0.5,
+            "legend": {
+              "0": "Misses the main request.",
+              "1": "Addresses the main request but misses a material question.",
+              "2": "Addresses the requests but leaves a necessary next step unclear.",
+              "3": "Addresses every request with an answer, an honest supported limitation, or a clear necessary next step."
+            },
+            "probabilities": {
+              "0": 0.07,
+              "1": 0.12,
+              "2": 0.03,
+              "3": 0.78
+            }
+          },
+          "clarity": {
+            "type": "score",
+            "score": 2.9,
+            "confidence": 0.9,
+            "legend": {
+              "0": "Confusing or difficult to understand.",
+              "1": "Substantial filler, repetition, or irrelevant options obscure the answer.",
+              "2": "Understandable with minor unnecessary wording.",
+              "3": "Direct, easy to understand, and appropriately concise."
+            },
+            "probabilities": {
+              "0": 0.01,
+              "1": 0.01,
+              "2": 0.07,
+              "3": 0.91
+            }
+          },
+          "brand_tone": {
+            "type": "score",
+            "score": 0.89,
+            "confidence": 0.83,
+            "legend": {
+              "0": "Wrong brand identity, rude, or clearly inappropriate.",
+              "1": "Substantially inconsistent with the brand rules or insensitive to the situation.",
+              "2": "Generally matches the brand with minor tone issues.",
+              "3": "Matches the brand and is appropriately warm, professional, and sensitive to the situation."
+            },
+            "probabilities": {
+              "0": 0.14,
+              "1": 0.84,
+              "2": 0.02,
+              "3": 0
+            }
+          }
+        },
+        "defects": {
+          "unsupported_claim": 0.98,
+          "asks_known_information": 0.05,
+          "contradicts_commitment": 0.09,
+          "false_action_confirmation": 0.98,
+          "unsolicited_offer": 0.03,
+          "missing_evidence": 0.06
+        },
+        "findings": [
+          "Coverage needs review.",
+          "Brand tone needs review.",
+          "Unsupported factual claim",
+          "Confirms an uncompleted action"
+        ],
+        "repair_instructions": [],
+        "repair_attempted": false,
+        "usage": {
+          "input_tokens": 1543,
+          "output_tokens": 158,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "estimated_cost_usd": 0.000064806
+        }
+      },
+      "input_fingerprint": "38cf04bfae9b5ccd8b0b2bd5a40a90d194a806edf7f18b8f17241d9926a95a92",
+      "passed": true
+    },
+    {
+      "id": "care_thanks",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "product_question",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": true
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "43ee1832f9a5403d1211f56d734dd803094ff38c17d397232c554cb3c3e1593a",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "spam": 0,
+                "automated": 0,
+                "internal": 0,
+                "promotional": 0,
+                "customer_support": 1,
+                "transactional": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "product_question",
+              "confidence": 0.99,
+              "probabilities": {
+                "shipping_delay": 0,
+                "cancel_order": 0,
+                "order_status": 0,
+                "damaged_item": 0,
+                "product_question": 0.99,
+                "discount_inquiry": 0,
+                "feedback": 0.01,
+                "return_refund": 0,
+                "other": 0,
+                "address_change": 0,
+                "wholesale_trade": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 1,
+              "probabilities": {
+                "neutral": 0,
+                "angry": 0,
+                "positive": 1,
+                "frustrated": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "low",
+              "confidence": 0.99,
+              "probabilities": {
+                "urgent": 0,
+                "high": 0,
+                "medium": 0,
+                "low": 1
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.06
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.04
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.96
+            }
+          },
+          "run_id": "1ca0f335-6410-4581-a31c-6bf267171b9e",
+          "usage": {
+            "input_tokens": 1492,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000062664
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "product_question",
+        "sentiment": "positive",
+        "priority": "low",
+        "unanswered_request": 0.06,
+        "supplied_requested_information": 0.04,
+        "acknowledgement_only": 0.96,
+        "skip_draft": false
+      },
+      "input_fingerprint": "7267736bfcbfeb7df8b5aea36c7a149c62fd670ec6b1e071b1ab142545286543",
+      "passed": false
+    },
+    {
+      "id": "pending_tracking",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "order_status",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "8b2a85aefad2fade3fc45cc33db76b24a64cf1ee1682b06d7720ccc7ccf15842",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "automated": 0,
+                "internal": 0,
+                "transactional": 0,
+                "customer_support": 1,
+                "spam": 0,
+                "promotional": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "order_status",
+              "confidence": 0.99,
+              "probabilities": {
+                "other": 0,
+                "cancel_order": 0,
+                "damaged_item": 0,
+                "feedback": 0,
+                "order_status": 1,
+                "product_question": 0,
+                "shipping_delay": 0,
+                "return_refund": 0,
+                "discount_inquiry": 0,
+                "address_change": 0,
+                "wholesale_trade": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 0.98,
+              "probabilities": {
+                "angry": 0,
+                "neutral": 0.02,
+                "frustrated": 0,
+                "positive": 0.98
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.78,
+              "probabilities": {
+                "medium": 0.83,
+                "urgent": 0,
+                "low": 0.14,
+                "high": 0.03
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.95
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.05
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.95
+            }
+          },
+          "run_id": "43e43e45-5550-49c0-8fd0-bd7d68b63b85",
+          "usage": {
+            "input_tokens": 1485,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.00006237
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "order_status",
+        "sentiment": "positive",
+        "priority": "medium",
+        "unanswered_request": 0.95,
+        "supplied_requested_information": 0.05,
+        "acknowledgement_only": 0.95,
+        "skip_draft": false
+      },
+      "input_fingerprint": "9b8f333588c50a5b331f07f4817825a510751a4765b20096c7849fe11bc240b3",
+      "passed": true
+    },
+    {
+      "id": "authorization",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "cancel_order",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "94ea88da2e5946f09ec847336ad07f48b60c2601a9bbaa6257f1b653ce8029f5",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "internal": 0,
+                "automated": 0,
+                "customer_support": 1,
+                "spam": 0,
+                "promotional": 0,
+                "transactional": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "cancel_order",
+              "confidence": 1,
+              "probabilities": {
+                "shipping_delay": 0,
+                "other": 0,
+                "return_refund": 0,
+                "order_status": 0,
+                "address_change": 0,
+                "feedback": 0,
+                "damaged_item": 0,
+                "wholesale_trade": 0,
+                "cancel_order": 1,
+                "discount_inquiry": 0,
+                "product_question": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 0.9,
+              "probabilities": {
+                "positive": 0.92,
+                "neutral": 0.08,
+                "frustrated": 0,
+                "angry": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.86,
+              "probabilities": {
+                "high": 0.04,
+                "urgent": 0.01,
+                "low": 0.05,
+                "medium": 0.9
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.96
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.05
+            }
+          },
+          "run_id": "ce8dd089-6eb5-4c14-bc1e-00ba95b0d98b",
+          "usage": {
+            "input_tokens": 1489,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000062538
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "cancel_order",
+        "sentiment": "positive",
+        "priority": "medium",
+        "unanswered_request": 0.92,
+        "supplied_requested_information": 0.96,
+        "acknowledgement_only": 0.05,
+        "skip_draft": false
+      },
+      "input_fingerprint": "a2224b39da4d17a5e2e949bc2595dfb624eb038971daa8198f9a8744a92b9e98",
+      "passed": true
+    },
+    {
+      "id": "new_question",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "product_question",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "51290222d8c83198f18dbe19195f8f81211c93ff0010f3e45271a207fa7e3694",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "promotional": 0,
+                "customer_support": 1,
+                "spam": 0,
+                "automated": 0,
+                "transactional": 0,
+                "internal": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "product_question",
+              "confidence": 1,
+              "probabilities": {
+                "product_question": 1,
+                "shipping_delay": 0,
+                "discount_inquiry": 0,
+                "return_refund": 0,
+                "feedback": 0,
+                "order_status": 0,
+                "cancel_order": 0,
+                "address_change": 0,
+                "damaged_item": 0,
+                "wholesale_trade": 0,
+                "other": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 0.51,
+              "probabilities": {
+                "neutral": 0.37,
+                "positive": 0.63,
+                "angry": 0,
+                "frustrated": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "low",
+              "confidence": 0.4,
+              "probabilities": {
+                "medium": 0.45,
+                "urgent": 0,
+                "high": 0,
+                "low": 0.55
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.97
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.07
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.02
+            }
+          },
+          "run_id": "9ebcf892-fad1-4822-9eec-7930cd3526a6",
+          "usage": {
+            "input_tokens": 1491,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.00006262200000000001
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "product_question",
+        "sentiment": "positive",
+        "priority": "low",
+        "unanswered_request": 0.97,
+        "supplied_requested_information": 0.07,
+        "acknowledgement_only": 0.02,
+        "skip_draft": false
+      },
+      "input_fingerprint": "9e2a5e37d678879bbb3c15f9449d554fc5d87de52e4711e61fca1706d4162815",
+      "passed": true
+    },
+    {
+      "id": "supplied_photo",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "damaged_item",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "b1c11a0a37e920c8eb473e76ebf7bde84af041b001f4ee3888c2f4181dbdae82",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "customer_support": 1,
+                "internal": 0,
+                "automated": 0,
+                "promotional": 0,
+                "spam": 0,
+                "transactional": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "damaged_item",
+              "confidence": 1,
+              "probabilities": {
+                "cancel_order": 0,
+                "other": 0,
+                "feedback": 0,
+                "return_refund": 0,
+                "shipping_delay": 0,
+                "wholesale_trade": 0,
+                "address_change": 0,
+                "order_status": 0,
+                "discount_inquiry": 0,
+                "product_question": 0,
+                "damaged_item": 1
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 0.86,
+              "probabilities": {
+                "positive": 0.89,
+                "neutral": 0.11,
+                "frustrated": 0,
+                "angry": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.91,
+              "probabilities": {
+                "high": 0.05,
+                "medium": 0.93,
+                "urgent": 0.01,
+                "low": 0.01
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.93
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.9
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.15
+            }
+          },
+          "run_id": "fa48846a-f017-4909-9e38-7d51fdb73a19",
+          "usage": {
+            "input_tokens": 1487,
+            "output_tokens": 323,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000062454
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "damaged_item",
+        "sentiment": "positive",
+        "priority": "medium",
+        "unanswered_request": 0.93,
+        "supplied_requested_information": 0.9,
+        "acknowledgement_only": 0.15,
+        "skip_draft": false
+      },
+      "input_fingerprint": "17f2c1f0bfc363bd100de5e7f09dcdf4295f6ab3d7d14179365d453d66449259",
+      "passed": true
+    },
+    {
+      "id": "sarcastic_thanks",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "shipping_delay",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "c82574a344a5437233561318f01dc9d7c25c5d7e4c3c3ad068f818225a4bce16",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "internal": 0,
+                "automated": 0,
+                "promotional": 0,
+                "customer_support": 1,
+                "spam": 0,
+                "transactional": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "shipping_delay",
+              "confidence": 1,
+              "probabilities": {
+                "order_status": 0,
+                "shipping_delay": 1,
+                "feedback": 0,
+                "other": 0,
+                "address_change": 0,
+                "wholesale_trade": 0,
+                "damaged_item": 0,
+                "cancel_order": 0,
+                "product_question": 0,
+                "return_refund": 0,
+                "discount_inquiry": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "frustrated",
+              "confidence": 0.43,
+              "probabilities": {
+                "neutral": 0,
+                "positive": 0,
+                "frustrated": 0.58,
+                "angry": 0.42
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "high",
+              "confidence": 0.99,
+              "probabilities": {
+                "medium": 0,
+                "low": 0,
+                "high": 0.99,
+                "urgent": 0.01
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.96
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.06
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.02
+            }
+          },
+          "run_id": "46f163be-12ac-414c-954a-64917345da5c",
+          "usage": {
+            "input_tokens": 1497,
+            "output_tokens": 324,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.00006287400000000001
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "shipping_delay",
+        "sentiment": "frustrated",
+        "priority": "high",
+        "unanswered_request": 0.96,
+        "supplied_requested_information": 0.06,
+        "acknowledgement_only": 0.02,
+        "skip_draft": false
+      },
+      "input_fingerprint": "b13270c091e53b7fb62c19fe0f6aeabf7721e65a53e433b8884fa36d2ed33b92",
+      "passed": true
+    },
+    {
+      "id": "first_contact",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "product_question",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "83da859835b928602dc9f983780fe05542a6ee874732c4fa2d082b0f752a82ec",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "spam": 0,
+                "transactional": 0,
+                "automated": 0,
+                "internal": 0,
+                "promotional": 0,
+                "customer_support": 1
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "product_question",
+              "confidence": 1,
+              "probabilities": {
+                "damaged_item": 0,
+                "discount_inquiry": 0,
+                "return_refund": 0,
+                "order_status": 0,
+                "address_change": 0,
+                "feedback": 0,
+                "wholesale_trade": 0,
+                "other": 0,
+                "cancel_order": 0,
+                "product_question": 1,
+                "shipping_delay": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 0.35,
+              "probabilities": {
+                "neutral": 0.49,
+                "positive": 0.51,
+                "frustrated": 0,
+                "angry": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "low",
+              "confidence": 0.46,
+              "probabilities": {
+                "medium": 0.4,
+                "high": 0,
+                "low": 0.6,
+                "urgent": 0
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.97
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.06
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.02
+            }
+          },
+          "run_id": "35284a62-6e26-47d9-a332-7ce702208b4d",
+          "usage": {
+            "input_tokens": 1489,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000062538
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "product_question",
+        "sentiment": "positive",
+        "priority": "low",
+        "unanswered_request": 0.97,
+        "supplied_requested_information": 0.06,
+        "acknowledgement_only": 0.02,
+        "skip_draft": false
+      },
+      "input_fingerprint": "1f1968c3464a964055c80b4817c1f7317e77a27f92d635ac200a3ab689562629",
+      "passed": true
+    },
+    {
+      "id": "refund_remaining",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "return_refund",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "586193add21fbd9ca6313a49e8a27c24d82c2da0a6f306278556cb28bd41ecf3",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "customer_support": 1,
+                "promotional": 0,
+                "automated": 0,
+                "internal": 0,
+                "transactional": 0,
+                "spam": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "return_refund",
+              "confidence": 0.93,
+              "probabilities": {
+                "return_refund": 0.93,
+                "damaged_item": 0.05,
+                "other": 0,
+                "wholesale_trade": 0,
+                "order_status": 0,
+                "feedback": 0.02,
+                "product_question": 0,
+                "address_change": 0,
+                "cancel_order": 0,
+                "discount_inquiry": 0,
+                "shipping_delay": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 0.96,
+              "probabilities": {
+                "frustrated": 0,
+                "angry": 0,
+                "positive": 0.97,
+                "neutral": 0.03
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.7,
+              "probabilities": {
+                "medium": 0.78,
+                "urgent": 0.06,
+                "low": 0.15,
+                "high": 0.01
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.94
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.05
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.93
+            }
+          },
+          "run_id": "b9047c11-8383-49e8-8019-dc5f02535dff",
+          "usage": {
+            "input_tokens": 1493,
+            "output_tokens": 323,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000062706
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "return_refund",
+        "sentiment": "positive",
+        "priority": "medium",
+        "unanswered_request": 0.94,
+        "supplied_requested_information": 0.05,
+        "acknowledgement_only": 0.93,
+        "skip_draft": false
+      },
+      "input_fingerprint": "de69d6390c76298bdf7bf1d93d5f62ccbbdd01b4d8998cd84af8cbe66a83ff1f",
+      "passed": true
+    },
+    {
+      "id": "german_ack",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "product_question",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": true
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "166a02d8874a42179132df3b10be18b72d7cc9e13803133b9f153e3987023dc5",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "spam": 0,
+                "internal": 0,
+                "promotional": 0,
+                "customer_support": 1,
+                "transactional": 0,
+                "automated": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "product_question",
+              "confidence": 0.99,
+              "probabilities": {
+                "other": 0,
+                "address_change": 0,
+                "cancel_order": 0,
+                "damaged_item": 0,
+                "discount_inquiry": 0,
+                "product_question": 0.99,
+                "wholesale_trade": 0,
+                "shipping_delay": 0,
+                "order_status": 0,
+                "return_refund": 0,
+                "feedback": 0.01
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "positive",
+              "confidence": 0.98,
+              "probabilities": {
+                "angry": 0,
+                "neutral": 0.02,
+                "positive": 0.98,
+                "frustrated": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "low",
+              "confidence": 1,
+              "probabilities": {
+                "high": 0,
+                "urgent": 0,
+                "low": 1,
+                "medium": 0
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.07
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.05
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.96
+            }
+          },
+          "run_id": "d10bb9d2-0035-474f-8d5d-b6f025a7354c",
+          "usage": {
+            "input_tokens": 1504,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000063168
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "product_question",
+        "sentiment": "positive",
+        "priority": "low",
+        "unanswered_request": 0.07,
+        "supplied_requested_information": 0.05,
+        "acknowledgement_only": 0.96,
+        "skip_draft": false
+      },
+      "input_fingerprint": "35ce8ab23efbf03471de184e9ac8275dff55448c49cef5f755996d9a24201c64",
+      "passed": false
+    },
+    {
+      "id": "reopen_issue",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "damaged_item",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "83d7836f0e1ef1ff4f760a47ea6e97d8fa53eaca4b307c90a0102cbaecc8f873",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "promotional": 0,
+                "automated": 0,
+                "transactional": 0,
+                "customer_support": 1,
+                "spam": 0,
+                "internal": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "damaged_item",
+              "confidence": 0.94,
+              "probabilities": {
+                "return_refund": 0,
+                "order_status": 0,
+                "wholesale_trade": 0,
+                "shipping_delay": 0,
+                "cancel_order": 0,
+                "product_question": 0.04,
+                "discount_inquiry": 0,
+                "damaged_item": 0.94,
+                "feedback": 0,
+                "other": 0.02,
+                "address_change": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "frustrated",
+              "confidence": 0.64,
+              "probabilities": {
+                "frustrated": 0.73,
+                "angry": 0,
+                "positive": 0,
+                "neutral": 0.27
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.99,
+              "probabilities": {
+                "medium": 0.99,
+                "high": 0,
+                "urgent": 0,
+                "low": 0.01
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.96
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.55
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.04
+            }
+          },
+          "run_id": "8c9c67c0-ca10-42d0-bbba-f08928fec95c",
+          "usage": {
+            "input_tokens": 1495,
+            "output_tokens": 325,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.00006279
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "damaged_item",
+        "sentiment": "frustrated",
+        "priority": "medium",
+        "unanswered_request": 0.96,
+        "supplied_requested_information": 0.55,
+        "acknowledgement_only": 0.04,
+        "skip_draft": false
+      },
+      "input_fingerprint": "20dfdd8044de2c29e22f45f0a2931eeefb5774e31e44938c736cf8e7b17278eb",
+      "passed": true
+    },
+    {
+      "id": "marketing_pitch",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "classification",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "promotional",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "01fe78ab13c91158b794dd6ecee153b01066c15750be00f0cdc879d16b4b9611",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "promotional",
+              "confidence": 0.92,
+              "probabilities": {
+                "transactional": 0,
+                "automated": 0,
+                "spam": 0.05,
+                "internal": 0,
+                "promotional": 0.94,
+                "customer_support": 0.01
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "other",
+              "confidence": 0.99,
+              "probabilities": {
+                "damaged_item": 0,
+                "cancel_order": 0,
+                "wholesale_trade": 0,
+                "feedback": 0,
+                "return_refund": 0,
+                "discount_inquiry": 0,
+                "product_question": 0,
+                "order_status": 0,
+                "address_change": 0,
+                "shipping_delay": 0,
+                "other": 1
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "neutral",
+              "confidence": 0.83,
+              "probabilities": {
+                "frustrated": 0,
+                "positive": 0.12,
+                "neutral": 0.88,
+                "angry": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "low",
+              "confidence": 0.95,
+              "probabilities": {
+                "high": 0,
+                "urgent": 0,
+                "low": 0.97,
+                "medium": 0.03
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.64
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.05
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.02
+            }
+          },
+          "run_id": "db1c5539-b846-4bbe-9574-fd958a506218",
+          "usage": {
+            "input_tokens": 1500,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.00006300000000000001
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "promotional",
+        "classification_requires_review": true,
+        "classification_probability": 0.01,
+        "classification_confidence": 0,
+        "intent": "other",
+        "sentiment": "neutral",
+        "priority": "low",
+        "unanswered_request": 0.64,
+        "supplied_requested_information": 0.05,
+        "acknowledgement_only": 0.02,
+        "skip_draft": false
+      },
+      "input_fingerprint": "3b1dc468d785afad77edda41be2f3509d9adadaea8ce9a57aed2d514fe7f2964",
+      "passed": false
+    },
+    {
+      "id": "shipping_notification",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "classification",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "transactional",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "7d4d1a54c416c103600b5cd94b9cec667a8ff19bf6bbad6d0fd8bd93078bc8f9",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "transactional",
+              "confidence": 0.5,
+              "probabilities": {
+                "customer_support": 0.01,
+                "automated": 0.41,
+                "spam": 0,
+                "internal": 0,
+                "promotional": 0,
+                "transactional": 0.58
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "order_status",
+              "confidence": 0.79,
+              "probabilities": {
+                "discount_inquiry": 0,
+                "wholesale_trade": 0,
+                "cancel_order": 0,
+                "order_status": 0.81,
+                "return_refund": 0,
+                "damaged_item": 0,
+                "product_question": 0,
+                "feedback": 0.04,
+                "address_change": 0,
+                "shipping_delay": 0,
+                "other": 0.15
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "neutral",
+              "confidence": 1,
+              "probabilities": {
+                "angry": 0,
+                "positive": 0,
+                "neutral": 1,
+                "frustrated": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "low",
+              "confidence": 0.99,
+              "probabilities": {
+                "urgent": 0,
+                "high": 0,
+                "low": 1,
+                "medium": 0
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.09
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.05
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.09
+            }
+          },
+          "run_id": "5508e94e-0f33-4859-a50c-ae395ef426f1",
+          "usage": {
+            "input_tokens": 1501,
+            "output_tokens": 323,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000063042
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "transactional",
+        "classification_requires_review": true,
+        "classification_probability": 0.01,
+        "classification_confidence": 0,
+        "intent": "order_status",
+        "sentiment": "neutral",
+        "priority": "low",
+        "unanswered_request": 0.09,
+        "supplied_requested_information": 0.05,
+        "acknowledgement_only": 0.09,
+        "skip_draft": false
+      },
+      "input_fingerprint": "fccbccbf9cdb9a4bdadf471fedc72d812a25cda9135b0c4d1faf592e0c54af87",
+      "passed": false
+    },
+    {
+      "id": "out_of_office",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "classification",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "automated",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "07b22b8b0ae00e58b3eab6413f7ca6feb8bc3fea3e228be2a89d45e7df919559",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "automated",
+              "confidence": 0.99,
+              "probabilities": {
+                "spam": 0,
+                "internal": 0,
+                "promotional": 0,
+                "customer_support": 0.01,
+                "transactional": 0,
+                "automated": 0.99
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "other",
+              "confidence": 0.82,
+              "probabilities": {
+                "other": 0.84,
+                "address_change": 0,
+                "feedback": 0.16,
+                "damaged_item": 0,
+                "discount_inquiry": 0,
+                "return_refund": 0,
+                "wholesale_trade": 0,
+                "shipping_delay": 0,
+                "order_status": 0,
+                "product_question": 0,
+                "cancel_order": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "neutral",
+              "confidence": 1,
+              "probabilities": {
+                "angry": 0,
+                "neutral": 1,
+                "positive": 0,
+                "frustrated": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "low",
+              "confidence": 1,
+              "probabilities": {
+                "high": 0,
+                "urgent": 0,
+                "low": 1,
+                "medium": 0
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.14
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.05
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.58
+            }
+          },
+          "run_id": "8bbed99b-a878-4bc5-be1d-1594f849d3e3",
+          "usage": {
+            "input_tokens": 1495,
+            "output_tokens": 321,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.00006279
+          }
+        },
+        "classification": "automated",
+        "predicted_classification": "automated",
+        "classification_requires_review": false,
+        "classification_probability": 0.99,
+        "classification_confidence": 0.99,
+        "intent": "other",
+        "sentiment": "neutral",
+        "priority": "low",
+        "unanswered_request": 0.14,
+        "supplied_requested_information": 0.05,
+        "acknowledgement_only": 0.58,
+        "skip_draft": false
+      },
+      "input_fingerprint": "2922d9ae7c6aee3744819acb1935b3b87c9f73af167296d64bbe8db07294e419",
+      "passed": true
+    },
+    {
+      "id": "phishing_prize",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "classification",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "spam",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "f0afe08fa277a0d6a8ce195cf40dfa412855b09666021db4c762b9110e36a7b4",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "spam",
+              "confidence": 0.98,
+              "probabilities": {
+                "promotional": 0,
+                "internal": 0,
+                "customer_support": 0.01,
+                "automated": 0,
+                "spam": 0.99,
+                "transactional": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "other",
+              "confidence": 1,
+              "probabilities": {
+                "other": 1,
+                "discount_inquiry": 0,
+                "feedback": 0,
+                "address_change": 0,
+                "damaged_item": 0,
+                "shipping_delay": 0,
+                "order_status": 0,
+                "wholesale_trade": 0,
+                "product_question": 0,
+                "cancel_order": 0,
+                "return_refund": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "neutral",
+              "confidence": 0.94,
+              "probabilities": {
+                "angry": 0.02,
+                "frustrated": 0,
+                "positive": 0.02,
+                "neutral": 0.96
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "urgent",
+              "confidence": 0.53,
+              "probabilities": {
+                "high": 0.1,
+                "urgent": 0.64,
+                "medium": 0.04,
+                "low": 0.22
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.5
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.06
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.01
+            }
+          },
+          "run_id": "b65983e3-8c45-4fc5-a09e-94f2f1a149ba",
+          "usage": {
+            "input_tokens": 1506,
+            "output_tokens": 320,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000063252
+          }
+        },
+        "classification": "spam",
+        "predicted_classification": "spam",
+        "classification_requires_review": false,
+        "classification_probability": 0.99,
+        "classification_confidence": 0.98,
+        "intent": "other",
+        "sentiment": "neutral",
+        "priority": "urgent",
+        "unanswered_request": 0.5,
+        "supplied_requested_information": 0.06,
+        "acknowledgement_only": 0.01,
+        "skip_draft": false
+      },
+      "input_fingerprint": "92e18561b68b86c4c60cd702a1745ff20470f968e7e75e013f687ac70670ded1",
+      "passed": true
+    },
+    {
+      "id": "vendor_internal",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "classification",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "internal",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "a429816c23429044321d52e2de2199562afb864ffb1045db2ed145320f93cdbb",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "internal",
+              "confidence": 0.39,
+              "probabilities": {
+                "spam": 0,
+                "internal": 0.5,
+                "promotional": 0,
+                "automated": 0,
+                "transactional": 0.03,
+                "customer_support": 0.47
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "other",
+              "confidence": 1,
+              "probabilities": {
+                "other": 1,
+                "address_change": 0,
+                "feedback": 0,
+                "damaged_item": 0,
+                "discount_inquiry": 0,
+                "product_question": 0,
+                "wholesale_trade": 0,
+                "shipping_delay": 0,
+                "order_status": 0,
+                "cancel_order": 0,
+                "return_refund": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "neutral",
+              "confidence": 1,
+              "probabilities": {
+                "angry": 0,
+                "neutral": 1,
+                "positive": 0,
+                "frustrated": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.88,
+              "probabilities": {
+                "high": 0.01,
+                "urgent": 0.01,
+                "medium": 0.9,
+                "low": 0.08
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.96
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.14
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.02
+            }
+          },
+          "run_id": "a224fd6a-61f5-44ca-a7d6-00b9971ce536",
+          "usage": {
+            "input_tokens": 1504,
+            "output_tokens": 320,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000063168
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "internal",
+        "classification_requires_review": true,
+        "classification_probability": 0.47,
+        "classification_confidence": 0,
+        "intent": "other",
+        "sentiment": "neutral",
+        "priority": "medium",
+        "unanswered_request": 0.96,
+        "supplied_requested_information": 0.14,
+        "acknowledgement_only": 0.02,
+        "skip_draft": false
+      },
+      "input_fingerprint": "4b4bc1f4845416bae73dc2aa099eca4f84ff77f93f8f3589d8a2d089eb27a042",
+      "passed": false
+    },
+    {
+      "id": "forwarded_receipt_request",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "classification",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "551761766bf99148fe75193bcde62f678eddc280a6ca37ecd0dcd53f3949de42",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "spam": 0,
+                "transactional": 0,
+                "customer_support": 1,
+                "internal": 0,
+                "promotional": 0,
+                "automated": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "address_change",
+              "confidence": 1,
+              "probabilities": {
+                "other": 0,
+                "feedback": 0,
+                "return_refund": 0,
+                "discount_inquiry": 0,
+                "damaged_item": 0,
+                "product_question": 0,
+                "wholesale_trade": 0,
+                "shipping_delay": 0,
+                "address_change": 1,
+                "cancel_order": 0,
+                "order_status": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "neutral",
+              "confidence": 0.98,
+              "probabilities": {
+                "frustrated": 0.02,
+                "neutral": 0.98,
+                "positive": 0,
+                "angry": 0
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.74,
+              "probabilities": {
+                "low": 0,
+                "high": 0.16,
+                "urgent": 0.03,
+                "medium": 0.81
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.97
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.08
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.02
+            }
+          },
+          "run_id": "6e876803-4038-4c58-b42e-ef9e96b31507",
+          "usage": {
+            "input_tokens": 1532,
+            "output_tokens": 322,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000064344
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "address_change",
+        "sentiment": "neutral",
+        "priority": "medium",
+        "unanswered_request": 0.97,
+        "supplied_requested_information": 0.08,
+        "acknowledgement_only": 0.02,
+        "skip_draft": false
+      },
+      "input_fingerprint": "da7ab2ca6b36890d58165dd2a97f038169e83a27020328809f781d30789b66d3",
+      "passed": true
+    },
+    {
+      "id": "marketing_reply_customer",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "classification",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "0d00a8492c2cc2b4a881f8fa06185870bba9333243315f5d6621ed6282ad99ff",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 1,
+              "probabilities": {
+                "automated": 0,
+                "internal": 0,
+                "spam": 0,
+                "promotional": 0,
+                "transactional": 0,
+                "customer_support": 1
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "damaged_item",
+              "confidence": 1,
+              "probabilities": {
+                "cancel_order": 0,
+                "return_refund": 0,
+                "order_status": 0,
+                "feedback": 0,
+                "discount_inquiry": 0,
+                "shipping_delay": 0,
+                "product_question": 0,
+                "damaged_item": 1,
+                "wholesale_trade": 0,
+                "address_change": 0,
+                "other": 0
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "frustrated",
+              "confidence": 0.49,
+              "probabilities": {
+                "frustrated": 0.62,
+                "positive": 0,
+                "angry": 0,
+                "neutral": 0.38
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.7,
+              "probabilities": {
+                "low": 0,
+                "urgent": 0.01,
+                "medium": 0.78,
+                "high": 0.21
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.98
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.06
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.01
+            }
+          },
+          "run_id": "5b7a9f86-8803-4fa2-9a21-81c65d0be84c",
+          "usage": {
+            "input_tokens": 1504,
+            "output_tokens": 325,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.000063168
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 1,
+        "classification_confidence": 1,
+        "intent": "damaged_item",
+        "sentiment": "frustrated",
+        "priority": "medium",
+        "unanswered_request": 0.98,
+        "supplied_requested_information": 0.06,
+        "acknowledgement_only": 0.01,
+        "skip_draft": false
+      },
+      "input_fingerprint": "8da5ab657f28538e112f0d38dbceee3db4a8559dd621de309f4dff09694dda9f",
+      "passed": true
+    },
+    {
+      "id": "support_with_injection",
+      "brand": "outlight",
+      "kind": "intake",
+      "workflow": "classification",
+      "origin": "synthetic",
+      "expected": {
+        "classification": "customer_support",
+        "skip_draft": false
+      },
+      "actual": {
+        "evaluation": {
+          "status": "completed",
+          "mode": "active",
+          "model": "jev-1.13.0",
+          "request_hash": "b29667d2d16801cdd7eba8d6d540050a6eb1f5eb1903456d5eae7ee70c1985aa",
+          "cached": true,
+          "answers": {
+            "classification": {
+              "type": "choice",
+              "choice": "customer_support",
+              "confidence": 0.99,
+              "probabilities": {
+                "promotional": 0,
+                "customer_support": 0.99,
+                "automated": 0,
+                "spam": 0.01,
+                "transactional": 0,
+                "internal": 0
+              }
+            },
+            "intent": {
+              "type": "choice",
+              "choice": "damaged_item",
+              "confidence": 0.88,
+              "probabilities": {
+                "feedback": 0,
+                "return_refund": 0,
+                "product_question": 0,
+                "damaged_item": 0.89,
+                "other": 0,
+                "order_status": 0.06,
+                "wholesale_trade": 0,
+                "discount_inquiry": 0,
+                "cancel_order": 0,
+                "address_change": 0,
+                "shipping_delay": 0.05
+              }
+            },
+            "sentiment": {
+              "type": "choice",
+              "choice": "frustrated",
+              "confidence": 0.72,
+              "probabilities": {
+                "positive": 0,
+                "frustrated": 0.79,
+                "neutral": 0.05,
+                "angry": 0.16
+              }
+            },
+            "priority": {
+              "type": "choice",
+              "choice": "medium",
+              "confidence": 0.56,
+              "probabilities": {
+                "medium": 0.66,
+                "high": 0.32,
+                "low": 0,
+                "urgent": 0.02
+              }
+            },
+            "unanswered_request": {
+              "type": "noul",
+              "noul": 0.96
+            },
+            "supplied_requested_information": {
+              "type": "noul",
+              "noul": 0.06
+            },
+            "acknowledgement_only": {
+              "type": "noul",
+              "noul": 0.01
+            }
+          },
+          "run_id": "62f92a25-ba6b-43f7-bb27-f55e2ebb6554",
+          "usage": {
+            "input_tokens": 1497,
+            "output_tokens": 325,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "estimated_cost_usd": 0.00006287400000000001
+          }
+        },
+        "classification": "customer_support",
+        "predicted_classification": "customer_support",
+        "classification_requires_review": false,
+        "classification_probability": 0.99,
+        "classification_confidence": 0.99,
+        "intent": "damaged_item",
+        "sentiment": "frustrated",
+        "priority": "medium",
+        "unanswered_request": 0.96,
+        "supplied_requested_information": 0.06,
+        "acknowledgement_only": 0.01,
+        "skip_draft": false
+      },
+      "input_fingerprint": "02591b5a257149a655473cfeab240fb19119b08234f53fa1d356157a0e7e554d",
+      "passed": true
+    }
+  ]
+}

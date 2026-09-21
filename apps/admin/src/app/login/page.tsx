@@ -13,10 +13,11 @@ export default function LoginPortalPage() {
   const router = useRouter();
   const [brands, setBrands] = useState<BrandOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/brands')
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error('Brand service unavailable'); return r.json(); })
       .then((data) => {
         const list: BrandOption[] = data.brands || [];
         setBrands(list);
@@ -26,7 +27,7 @@ export default function LoginPortalPage() {
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setError(true); setLoading(false); });
   }, [router]);
 
   if (loading) {
@@ -71,7 +72,8 @@ export default function LoginPortalPage() {
           ))}
         </div>
 
-        {brands.length === 0 && (
+        {error && <div role="alert" className="text-center text-sm text-red-700">Brand portals could not be loaded. Please retry in a moment.<button className="block mx-auto mt-3 underline" onClick={() => window.location.reload()}>Retry</button></div>}
+        {!error && brands.length === 0 && (
           <div className="text-center text-sm text-gray-500">
             No brands configured.
           </div>
