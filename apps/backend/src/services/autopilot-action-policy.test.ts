@@ -134,6 +134,20 @@ test('an address unit after a street suffix is not mistaken for an order number'
   assert.deepEqual(referencedOrderNamesFromText('Please update order #1153.'), ['#1153']);
 });
 
+test('plural order labels bind all adjacent references without scanning unrelated numbers', () => {
+  assert.deepEqual(referencedOrderNamesFromText(
+    'I made two purchases (Order Numbers 1390 and 1396). The sale went from 50% to 60%. 45 Rockefeller Plaza, NY 10111.',
+  ), ['#1390', '#1396']);
+  assert.deepEqual(referencedOrderNamesFromText('Orders 1117, 1118 and 1120 are late.'),
+    ['#1117', '#1118', '#1120']);
+  assert.deepEqual(referencedOrderNamesFromText('Order nos. WBD1025 & WBD1026'),
+    ['#wbd1025', '#wbd1026']);
+  assert.deepEqual(referencedOrderNamesFromMessages([
+    { sender_type: 'agent', content: 'Order Numbers 9998 and 9999' },
+    { sender_type: 'customer', content: 'Order Numbers 1390 and 1396\nOn Monday Support wrote:\nOrders 9998 and 9999' },
+  ]), ['#1390', '#1396']);
+});
+
 test('email security and tracking tokens are not mistaken for order numbers', () => {
   assert.deepEqual(
     referencedOrderNamesFromText(

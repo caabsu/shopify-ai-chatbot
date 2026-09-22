@@ -95,6 +95,12 @@ function orderReferenceTokens(text: string): Set<string> {
   const contextual = [...text.matchAll(/\border\s+(?:(?:number|no\.?)\s*)?(?:(?:is|:|=)\s*)?#?\s*([a-z0-9][a-z0-9_-]{1,63})\b/gi)]
     .map((match) => match[1].toLowerCase())
     .filter(isPlausibleShopifyOrderName);
+  // A plural label applies to the whole adjacent list, including references
+  // without hashtags. Do not scan unrelated bare numbers elsewhere in a mail.
+  const lists = [...text.matchAll(/\b(?:orders\s+(?:(?:numbers?|nos?\.?)\s*)?|order\s+(?:numbers|nos\.?)\s*)(?:(?:are|is|:|=)\s*)?#?\s*([a-z0-9][a-z0-9_-]{1,63}(?:\s*(?:,\s*(?:and\s+)?|and\s+|&\s*)#?\s*[a-z0-9][a-z0-9_-]{1,63})*)/gi)]
+    .flatMap((match) => match[1].match(/\b[a-z0-9][a-z0-9_-]{1,63}\b/gi) ?? [])
+    .map((reference) => reference.toLowerCase())
+    .filter(isPlausibleShopifyOrderName);
   const hashtags = [...text.matchAll(/#\s*([a-z0-9][a-z0-9_-]{1,63})\b/gi)]
     .filter((match) => !followsAddressUnitLabel(match.index ?? 0))
     .map((match) => match[1].toLowerCase())
@@ -125,7 +131,7 @@ function orderReferenceTokens(text: string): Set<string> {
     })
     .map((match) => match[1].toLowerCase())
     .filter(isPlausibleShopifyOrderName);
-  return new Set([...contextual, ...hashtags, ...prefixed].map((reference) => `#${reference}`));
+  return new Set([...contextual, ...lists, ...hashtags, ...prefixed].map((reference) => `#${reference}`));
 }
 
 export function proactivelyOffersOrderCancellationOrRefund(text: string): boolean {
