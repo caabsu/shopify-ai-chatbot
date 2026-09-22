@@ -23,6 +23,7 @@ import { validateFinalReplyOutcomes } from '@/lib/autopilot-reply-policy';
 import { retentionDeliveryAllowed, retentionRefundAmount, shopifyMoneyAmount } from '../../../backend/src/services/support-retention-policy';
 import {
   cancellationRefundWasSubmitted,
+  partialRefundWasSubmitted,
   pollProviderPostcondition,
 } from '@/lib/autopilot-provider-reconciliation';
 import {
@@ -2264,6 +2265,37 @@ async function executeAction(
         executionReceiptId,
       ));
       if (!res.success) throw new DefinitiveActionExecutionError(res.message);
+      const refundTransactionIdsBefore = new Set(detail.transactions.filter((tx) => tx.kind === 'REFUND').map((tx) => tx.id));
+      const refundedBefore = Number.parseFloat(detail.totalRefunded || '0');
+      let refundVerified = false;
+      try {
+        const confirmation = await runProvider((signal) => pollProviderPostcondition({
+          load: (pollSignal) => getOrderDetails(orderId, session.brandSlug, pollSignal),
+          isSatisfied: (candidate) => partialRefundWasSubmitted({
+            refundId: res.refundId,
+            expectedAmount: amount,
+            refundedBefore,
+            refundedAfter: Number.parseFloat(candidate.totalRefunded || '0'),
+            refunds: candidate.refunds,
+            transactions: candidate.transactions,
+            refundTransactionIdsBefore,
+          }),
+          signal,
+          timeoutMs: CANCELLATION_POSTCONDITION_MAX_WAIT_MS,
+          intervalMs: CANCELLATION_POSTCONDITION_POLL_INTERVAL_MS,
+        }));
+        assertOrderBelongsToTicket(confirmation.value, ticket, action);
+        refundVerified = confirmation.satisfied;
+      } catch {
+        // The provider may have accepted the mutation. Preserve its reference
+        // and fence retries instead of treating a read failure as a failed write.
+      }
+      if (!refundVerified) throw new ProviderOutcomePendingError(
+        `Shopify created refund ${res.refundId ?? ''} for ${detail.name}, but the payment submission is failed or unconfirmed; reconciliation is required.`,
+        res.refundId,
+      );
+      action.params.refund_verified = true;
+      action.params.refund_submitted = true;
       const { error: refundEventError } = await supabase.from('ticket_events').insert({
         ticket_id: ticket.id, event_type: 'order_refunded', actor: 'ai', actor_id: session.userId ?? null,
         new_value: `${detail.name}: $${amount.toFixed(2)}`,
@@ -2279,7 +2311,7 @@ async function executeAction(
         );
       }
       return {
-        summary: `Refunded $${amount.toFixed(2)} on ${detail.name}`,
+        summary: `Refund of $${amount.toFixed(2)} submitted to the original payment method for ${detail.name}`,
         providerReference: res.refundId,
       };
     }

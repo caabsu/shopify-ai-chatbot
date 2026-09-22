@@ -270,7 +270,13 @@ function normalizeIdentityName(value: string | null | undefined): string | null 
     'rn', 'lpn', 'np', 'md', 'do', 'dds', 'dmd', 'phd', 'esq', 'cpa',
     'jr', 'sr', 'ii', 'iii', 'iv',
   ]);
-  const parts = String(value ?? '')
+  let raw = String(value ?? '').trim();
+  const commaParts = raw.split(',').map((part) => part.trim());
+  if (commaParts.length === 2 && commaParts.every(Boolean)
+      && !credentialSuffixes.has(commaParts[1].toLowerCase().replace(/\./g, ''))) {
+    raw = `${commaParts[1]} ${commaParts[0]}`;
+  }
+  const parts = raw
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()

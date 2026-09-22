@@ -359,6 +359,16 @@ test('professional credentials do not hide an exact customer-name match', () => 
   }), ['customer_name']);
 });
 
+test('surname-first email display names match the same live full name', () => {
+  assert.deepEqual(verifiedExplicitOrderIdentityEvidence({
+    ticketName: 'Sabella, Michael', ticketEmail: 'work@example.com', messages: [],
+    liveCustomerEmail: 'personal@example.com', liveCustomerName: 'Michael Sabella',
+  }), ['customer_name']);
+  assert.deepEqual(verifiedExplicitOrderIdentityEvidence({
+    ticketName: 'Different, Michael', messages: [], liveCustomerName: 'Michael Sabella',
+  }), []);
+});
+
 test('fulfilled cancellation remains reviewable but never restocks automatically', () => {
   const policy = cancellationPlanPolicy({ fulfillmentStatus: 'FULFILLED', trackingCount: 0 });
 

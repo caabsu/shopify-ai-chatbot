@@ -2,8 +2,30 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   cancellationRefundWasSubmitted,
+  partialRefundWasSubmitted,
   pollProviderPostcondition,
 } from './autopilot-provider-reconciliation';
+
+test('partial refunds require a receipt and a new accepted payment, not a failed refund record', () => {
+  const input = {refundId: 'refund-new', expectedAmount: 44.25, refundedBefore: 0, refundedAfter: 0,
+    refunds: [{id: 'refund-new', amount: '0'}], refundTransactionIdsBefore: new Set<string>(),
+    transactions: [{id: 'tx-new', kind: 'REFUND', status: 'FAILURE', amount: '44.25'}]};
+  assert.equal(partialRefundWasSubmitted(input), false);
+  assert.equal(partialRefundWasSubmitted({...input, transactions: [{...input.transactions[0], status: 'PENDING'}]}), true);
+  assert.equal(partialRefundWasSubmitted({...input, transactions: [{...input.transactions[0], status: 'SUCCESS'}]}), true);
+  assert.equal(partialRefundWasSubmitted({...input, refunds: [], transactions: [{...input.transactions[0], status: 'SUCCESS'}]}), false);
+  assert.equal(partialRefundWasSubmitted({...input, refundTransactionIdsBefore: new Set(['tx-new']), transactions: [{...input.transactions[0], status: 'SUCCESS'}]}), false);
+  assert.equal(partialRefundWasSubmitted({...input, transactions: [{...input.transactions[0], status: 'SUCCESS', amount: '25'}]}), false);
+});
+
+test('partial refund financial proof must match the returned receipt and exclude prior refunds', () => {
+  const input = {refundId: 'refund-new', expectedAmount: 25, refundedBefore: 10, refundedAfter: 35,
+    refunds: [{id: 'refund-new', amount: '25'}], refundTransactionIdsBefore: new Set<string>(), transactions: []};
+  assert.equal(partialRefundWasSubmitted(input), true);
+  assert.equal(partialRefundWasSubmitted({...input, refundedAfter: 10}), false);
+  assert.equal(partialRefundWasSubmitted({...input, refundId: undefined}), false);
+  assert.equal(partialRefundWasSubmitted({...input, refunds: [{id: 'refund-old', amount: '25'}]}), false);
+});
 
 test('accepts a newly submitted full pending Shopify refund', () => {
   assert.equal(cancellationRefundWasSubmitted({

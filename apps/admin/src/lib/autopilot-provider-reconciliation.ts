@@ -11,6 +11,31 @@ export interface ShopifyRefundTransaction {
   amount: string;
 }
 
+/** A refund record alone is not proof that its payment transaction succeeded. */
+export function partialRefundWasSubmitted(input: {
+  refundId?: string;
+  expectedAmount: number;
+  refundedBefore: number;
+  refundedAfter: number;
+  refunds: Array<{ id: string; amount: string }>;
+  transactions: ShopifyRefundTransaction[];
+  refundTransactionIdsBefore: ReadonlySet<string>;
+}): boolean {
+  if (!input.refundId || !Number.isFinite(input.expectedAmount) || input.expectedAmount <= 0) return false;
+  const receipt = input.refunds.find((refund) => refund.id === input.refundId);
+  if (!receipt) return false;
+  const matching = input.transactions.filter((transaction) => (
+    transaction.kind.toUpperCase() === 'REFUND'
+    && !input.refundTransactionIdsBefore.has(transaction.id)
+    && Math.abs(Number(transaction.amount) - input.expectedAmount) < 0.005
+  ));
+  if (matching.some((transaction) => ['FAILURE', 'ERROR'].includes(transaction.status.toUpperCase()))) return false;
+  if (matching.some((transaction) => ['PENDING', 'SUCCESS'].includes(transaction.status.toUpperCase()))) return true;
+  return Number.isFinite(input.refundedBefore) && Number.isFinite(input.refundedAfter)
+    && Number(receipt.amount) + 0.005 >= input.expectedAmount
+    && input.refundedAfter - input.refundedBefore + 0.005 >= input.expectedAmount;
+}
+
 /**
  * A Shopify cancellation refund is safe to describe as submitted once either
  * the financial projection has caught up or Shopify exposes a new full-value
