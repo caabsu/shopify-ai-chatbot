@@ -221,7 +221,7 @@ export const toolDefinitions: StorefrontToolDefinition[] = [
   {
     name: 'cancel_order',
     description:
-      'Cancel an unfulfilled order. ONLY use after: (1) identity is verified via lookup_order, (2) order fulfillment status is UNFULFILLED, (3) customer has explicitly confirmed they want to cancel. If order is partially or fully fulfilled, do NOT call this tool — direct the customer to contact support via email instead.',
+      'Cancel an unfulfilled order. ONLY use after: (1) identity is verified via lookup_order, (2) order fulfillment status is UNFULFILLED, (3) customer has explicitly confirmed they want to cancel. REQUIRES the order number AND the email address on the order: if the customer has not given that email in this chat, ask for it before calling this tool. The server re-checks the identity and the live order and refuses anything it cannot verify. When it refuses, follow the message it returns (usually escalate_to_human) and do not keep retrying. If order is partially or fully fulfilled, do NOT call this tool — direct the customer to contact support via email instead.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -233,8 +233,12 @@ export const toolDefinitions: StorefrontToolDefinition[] = [
           type: 'string',
           description: 'The order display number (e.g., "#1042")',
         },
+        email: {
+          type: 'string',
+          description: 'The email address on the order, as given by the customer. Checked against the order before anything is cancelled.',
+        },
       },
-      required: ['order_id', 'order_name'],
+      required: ['order_id', 'order_name', 'email'],
     },
   },
   {

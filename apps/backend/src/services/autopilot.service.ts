@@ -20,6 +20,7 @@ import {
   autopilotPlanRefreshReasons,
   autopilotTerminalRunNeedsRecovery,
 } from './autopilot-coverage-policy.js';
+import { isDisputeOsHoldTicket } from './dispute-os-policy.js';
 import {
   automaticSameCaseTicketIds,
   authorizedRefundAmountByOrderFromMessages,
@@ -411,6 +412,9 @@ export async function proposeForTicket(
     let t = ticket as Ticket;
 
     if (!(await isAutopilotBrand(t.brand_id))) return null;
+    // A Dispute OS hold ticket is an operator work item, not customer mail:
+    // it must never receive a plan (in particular "close as not support").
+    if (isDisputeOsHoldTicket(t)) return null;
     const routingMetadata = (t.metadata as Record<string, unknown> | null) ?? {};
     if (t.merged_into_ticket_id || typeof routingMetadata.merged_into_ticket_id === 'string') return null;
     if (t.status === 'closed' || (t.status === 'resolved' && trigger !== 'customer_reply')) return null;
@@ -687,6 +691,9 @@ export async function proposeForRecentTickets(limit = 6): Promise<number> {
     // Pass 1: never planned. Failed attempts use exponential cooldown but are
     // never permanently dropped from coverage.
     for (const t of batch) {
+      // proposeForTicket never plans a Dispute OS hold ticket; queueing one
+      // would only spend this run's capacity on it every cycle.
+      if (isDisputeOsHoldTicket(t)) continue;
       const meta = t.metadata || {};
       const projectedPlan = meta.autopilot as AutopilotPlan | undefined;
       const projectedPlanIsPending = Boolean(

@@ -456,7 +456,7 @@ async function loadPageContext(pageUrl?: string, brandId?: string): Promise<stri
 export async function processMessage(
   conversationId: string,
   userMessage: string,
-  context?: { customerEmail?: string; pageUrl?: string; cartId?: string; brandId?: string }
+  context?: { customerEmail?: string; pageUrl?: string; cartId?: string; brandId?: string; clientIp?: string }
 ): Promise<AiResponse> {
   const startTime = Date.now();
 
@@ -570,6 +570,7 @@ export async function processMessage(
     pageUrl: context?.pageUrl,
     cartId: context?.cartId,
     brandId: context?.brandId,
+    clientIp: context?.clientIp,
   };
 
   const navigationButtons: NavigationButton[] = [];

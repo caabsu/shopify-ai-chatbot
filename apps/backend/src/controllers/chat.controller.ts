@@ -4,6 +4,7 @@ import { supabase } from '../config/supabase.js';
 import { resolveBrandId } from '../config/brand.js';
 import * as conversationService from '../services/conversation.service.js';
 import * as aiService from '../services/ai.service.js';
+import { clientIp } from '../middleware/rate-limit.middleware.js';
 import type { PresetAction } from '../types/index.js';
 
 export const chatRouter = Router();
@@ -232,6 +233,8 @@ chatRouter.post('/message', async (req: Request, res: Response) => {
       pageUrl: currentPageUrl,
       cartId: (conversation.metadata as Record<string, unknown> | null)?.cartId as string | undefined,
       brandId,
+      // The session id is client-chosen, so order and email tools are also bounded per address.
+      clientIp: clientIp(req),
     });
 
     // Store assistant response
