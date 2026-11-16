@@ -26,6 +26,8 @@ import * as ticketService from './services/ticket.service.js';
 import { sendTicketConfirmation } from './services/email.service.js';
 import { processInboundEmailWebhook } from './services/inbound-email.service.js';
 import { rateLimit } from './middleware/rate-limit.middleware.js';
+import { agentAuthMiddleware } from './middleware/agent-auth.middleware.js';
+import { parseEscalationRequest } from './services/ticket-escalation-policy.js';
 import { triageTicket } from './services/ticket-triage.service.js';
 import { wakeExpiredSnoozes } from './services/ticket-maintenance.service.js';
 import { proposeForTicket as autopilotPropose, proposeForRecentTickets } from './services/autopilot.service.js';
@@ -2004,6 +2006,7 @@ const formRateLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 10, name: 'cont
 const webhookRateLimit = rateLimit({ windowMs: 60 * 1000, max: 240, name: 'email-webhook' });
 const loginRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, name: 'agent-login' });
 const csatRateLimit = rateLimit({ windowMs: 60 * 1000, max: 30, name: 'csat' });
+const escalateRateLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: 10, name: 'ticket-escalate' });
 const autopilotSweepLimit = Math.max(1, Number.parseInt(process.env.AUTOPILOT_SWEEP_LIMIT || '12', 10) || 12);
 app.use('/api/agents/login', loginRateLimit);
 
@@ -2066,14 +2069,15 @@ app.post('/api/tickets/form', formRateLimit, async (req, res) => {
 });
 
 // ── POST /api/tickets/escalate — Internal AI Escalation Endpoint (no auth) ──
-app.post('/api/tickets/escalate', async (req, res) => {
+app.post('/api/tickets/escalate', escalateRateLimit, async (req, res) => {
   try {
-    const { conversationId, customerEmail, customerName, reason, priority, summary, recommendedActions } = req.body;
-
-    if (!conversationId || !customerEmail || !reason) {
-      res.status(400).json({ error: 'conversationId, customerEmail, and reason are required' });
+    // Each accepted request creates a ticket and emails customerEmail, so the body is validated first.
+    const parsed = parseEscalationRequest(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
       return;
     }
+    const { conversationId, customerEmail, customerName, reason, priority, summary, recommendedActions } = parsed.value;
 
     const brandId = await resolveBrandId(req);
 
@@ -2286,7 +2290,7 @@ app.use('/api/returns', returnRouter);
 import { sendReturnConfirmation, sendReturnApproved, sendReturnApprovedNoReturn, sendReturnDenied, sendReturnRefunded } from './services/email.service.js';
 import { v4 as genTestId } from 'uuid';
 
-app.post('/api/returns/test-email', async (req, res) => {
+app.post('/api/returns/test-email', agentAuthMiddleware, async (req, res) => {
   try {
     const brandId = await resolveBrandId(req);
     const { type, to } = req.body;

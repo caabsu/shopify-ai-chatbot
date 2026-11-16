@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { isDisputesAccessDenied } from './storefront-tool-guard.js';
 import { config } from '../config/env.js';
 import { getTokenForBrand } from './shopify-auth.service.js';
 import { getBrandShopifyConfig } from '../config/brand-shopify.js';
+import type { ChatCancelOrderState } from './storefront-tool-guard.js';
 
 async function shopifyGraphql<T>(query: string, variables?: Record<string, unknown>, brandId?: string): Promise<T> {
   const token = await getTokenForBrand(brandId);
@@ -86,6 +88,35 @@ async function getCancellationEvidence(orderId: string, brandId?: string): Promi
     brandId,
   );
   return data.order;
+}
+
+/**
+ * Live order facts the storefront chat cancel gate decides on: identity,
+ * state, disputes and tags in one read, before any cancel mutation.
+ */
+export async function getChatCancelOrderState(orderId: string, brandId?: string): Promise<ChatCancelOrderState | null> {
+  const read = (withDisputes: boolean) => shopifyGraphql<{ order: ChatCancelOrderState | null }>(
+    `query ChatCancelGate($id: ID!) {
+      order(id: $id) {
+        id name email cancelledAt displayFulfillmentStatus tags
+        fulfillments { id }
+        refunds(first: 1) { id }
+        ${withDisputes ? 'disputes { status }' : ''}
+      }
+    }`,
+    { id: orderId },
+    brandId,
+  );
+  try {
+    return (await read(true)).order;
+  } catch (error) {
+    // A store whose app was never granted the disputes scope must not lose chat
+    // cancels altogether. Every other check (identity, state, tags, refunds,
+    // fulfillment) still applies; only the dispute check has nothing to read.
+    if (!isDisputesAccessDenied(error)) throw error;
+    const order = (await read(false)).order;
+    return order ? { ...order, disputes: [] } : null;
+  }
 }
 
 function expectedOutstandingRefund(order: CancellationEvidence): number | null {

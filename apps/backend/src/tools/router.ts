@@ -4,6 +4,12 @@ import * as shopifyActions from '../services/shopify-actions.service.js';
 import * as knowledgeService from '../services/knowledge.service.js';
 import * as conversationService from '../services/conversation.service.js';
 import * as ticketService from '../services/ticket.service.js';
+import { createRateLimiter } from '../middleware/rate-limit.middleware.js';
+import {
+  CHAT_ESCALATION_LIMIT_MESSAGE,
+  chatEscalationAllowed,
+  runGatedChatCancel,
+} from '../services/storefront-tool-guard.js';
 
 export interface ToolContext {
   conversationId: string;
@@ -11,7 +17,16 @@ export interface ToolContext {
   pageUrl?: string;
   cartId?: string;
   brandId?: string;
+  clientIp?: string;
 }
+
+// The chat message limit is keyed on a session id the client chooses. The
+// tools that cancel an order or send email are also bounded per client
+// address and per target, with the limiter the public routes use.
+const cancelIpLimit = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 10, name: 'chat-cancel-ip' });
+const cancelOrderLimit = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 5, name: 'chat-cancel-order' });
+const escalationConversationLimit = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 3, name: 'chat-escalation-conversation' });
+const escalationIpLimit = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 10, name: 'chat-escalation-ip' });
 
 export interface ToolResult {
   success: boolean;
@@ -127,15 +142,35 @@ export async function executeTool(
       }
 
       case 'cancel_order': {
-        const result = await shopifyActions.cancelOrder(
-          toolInput.order_id as string,
-          undefined,
-          context.brandId
+        // Server-side gate: identity, order state and holds are checked against
+        // Shopify before the cancel mutation, whatever the model says.
+        return await runGatedChatCancel(
+          {
+            orderId: toolInput.order_id,
+            orderName: toolInput.order_name,
+            email: toolInput.email,
+            brandId: context.brandId,
+            clientIp: context.clientIp,
+            conversationId: context.conversationId,
+          },
+          {
+            allowIp: (key) => cancelIpLimit(key).allowed,
+            allowOrder: (key) => cancelOrderLimit(key).allowed,
+            loadOrder: shopifyActions.getChatCancelOrderState,
+            cancelOrder: (orderId, brandId) => shopifyActions.cancelOrder(orderId, undefined, brandId),
+            log: (line) => console.warn(line),
+          }
         );
-        return { success: result.success, data: result };
       }
 
       case 'escalate_to_human': {
+        if (!chatEscalationAllowed(context, {
+          allowConversation: (key) => escalationConversationLimit(key).allowed,
+          allowIp: (key) => escalationIpLimit(key).allowed,
+        })) {
+          return { success: false, error: CHAT_ESCALATION_LIMIT_MESSAGE };
+        }
+
         await conversationService.updateConversation(context.conversationId, {
           status: 'escalated',
         });
