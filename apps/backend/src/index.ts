@@ -16,6 +16,7 @@ import { trackingRouter } from './controllers/tracking.controller.js';
 import { rmaRouter } from './controllers/rma.controller.js';
 import { quizRouter } from './controllers/quiz.controller.js';
 import { contactFormSettingsRouter } from './controllers/contact-form-settings.controller.js';
+import { disputeOsRouter } from './controllers/dispute-os.controller.js';
 import { processScheduledEmails, processScheduledReminders, expireOldRequests } from './services/review-email.service.js';
 import { registerWebhooks as registerReviewWebhooks } from './services/product-sync.service.js';
 import { supabase } from './config/supabase.js';
@@ -2473,6 +2474,9 @@ app.use('/api/rma', rmaRouter);
 
 // Quiz funnel routes
 app.use('/api/quiz', quizRouter);
+
+// Dispute OS brand-scoped integration routes (Misu)
+app.use('/api/integrations/dispute-os', disputeOsRouter);
 
 // Activity log endpoint
 import { getRecentEvents, getEventCounts } from './services/activity-log.service.js';

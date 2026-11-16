@@ -310,3 +310,14 @@ Value (JSON string): Array of 5 preset actions (track order, start return, find 
 - GET /api/widget/config
 - GET /widget/widget.js (static)
 - GET /widget/widget.css (static)
+
+## Version control
+
+GitHub is the source of truth for this repo and for every Misu system.
+
+- A change is not done until it is on GitHub. Push work in progress on a branch before ending a session; nothing should exist on only one computer.
+- Production runs what is on GitHub. Do not deploy from uncommitted or unpushed work.
+- Secrets never go to GitHub. They live in 1Password.
+- Commit and push only when asked. Never force-push or rewrite history on a shared branch.
+
+How this system connects to the others, its credentials and known cross-system issues are in the `misu-hq` repo (github.com/cainyong00/misu-hq).
