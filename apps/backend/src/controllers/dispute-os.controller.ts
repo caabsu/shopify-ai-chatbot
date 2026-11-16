@@ -2,17 +2,22 @@ import crypto from 'crypto';
 import { Router, Request, Response } from 'express';
 import { supabase } from '../config/supabase.js';
 import * as ticketService from '../services/ticket.service.js';
+import {
+  DISPUTE_OS_HOLD_CATEGORY,
+  DISPUTE_OS_HOLD_CLASSIFICATION,
+  DISPUTE_OS_HOLD_TAG,
+  escapeLikePattern,
+  getDisputeOsBrandId,
+  hasDisputeOsHoldMarker,
+  isSameEmail,
+  resolveDisputeOsHoldEventTarget,
+} from '../services/dispute-os-policy.js';
 import type { Ticket } from '../types/index.js';
 
 export const disputeOsRouter = Router();
 
-const MISU_DEFAULT_BRAND_ID = 'bfef87c0-0838-451f-9b84-9ae04ad1c20a';
 const MAX_LIMIT = 50;
 const SIGNATURE_MAX_SKEW_MS = 5 * 60 * 1000;
-
-function getDisputeOsBrandId(): string {
-  return (process.env.DISPUTE_OS_BRAND_ID || MISU_DEFAULT_BRAND_ID).trim();
-}
 
 function timingSafeStringEqual(a: string, b: string): boolean {
   const left = crypto.createHash('sha256').update(a).digest();
@@ -147,6 +152,8 @@ disputeOsRouter.get('/context', async (req: Request, res: Response) => {
 
   const rawEmail = typeof req.query.email === 'string' ? req.query.email.trim() : '';
   const emailNorm = rawEmail ? rawEmail.toLowerCase() : '';
+  // `ilike` is used for a case-insensitive exact match, never as a pattern.
+  const emailPattern = escapeLikePattern(emailNorm);
   const orderName = typeof req.query.orderName === 'string' ? req.query.orderName.trim() : '';
   const orderId = typeof req.query.orderId === 'string' ? req.query.orderId.trim() : '';
   const limitRaw = Number(req.query.limit ?? 25);
@@ -178,13 +185,14 @@ disputeOsRouter.get('/context', async (req: Request, res: Response) => {
           .from('tickets')
           .select('id, ticket_number, source, status, priority, category, subject, customer_email, customer_name, shopify_customer_id, conversation_id, order_id, classification, tags, created_at, updated_at')
           .eq('brand_id', brandId)
-          .ilike('customer_email', emailNorm)
+          .ilike('customer_email', emailPattern)
           .order('created_at', { ascending: false })
           .limit(limit),
       ]);
       if (byNorm.error) throw new Error(byNorm.error.message);
       if (byRaw.error) throw new Error(byRaw.error.message);
-      for (const row of [...(byNorm.data ?? []), ...(byRaw.data ?? [])]) {
+      const byRawExact = (byRaw.data ?? []).filter((row) => isSameEmail(row.customer_email, emailNorm));
+      for (const row of [...(byNorm.data ?? []), ...byRawExact]) {
         ticketMap.set(row.id, row);
       }
     }
@@ -207,7 +215,10 @@ disputeOsRouter.get('/context', async (req: Request, res: Response) => {
     ticketsError = err instanceof Error ? err.message : String(err);
   }
 
+  // Hold tickets are Dispute OS's own notifications, not customer history, so
+  // they are never handed back to it as evidence.
   const ticketsList = [...ticketMap.values()]
+    .filter((t) => !hasDisputeOsHoldMarker(t))
     .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
     .slice(0, limit);
 
@@ -263,13 +274,14 @@ disputeOsRouter.get('/context', async (req: Request, res: Response) => {
           .from('conversations')
           .select('id, shopify_customer_id, customer_email, customer_name, status, started_at, last_message_at, message_count, resolved, escalated_ticket_id')
           .eq('brand_id', brandId)
-          .ilike('customer_email', emailNorm)
+          .ilike('customer_email', emailPattern)
           .order('last_message_at', { ascending: false })
           .limit(limit),
       ]);
       if (byNorm.error) throw new Error(byNorm.error.message);
       if (byRaw.error) throw new Error(byRaw.error.message);
-      for (const row of [...(byNorm.data ?? []), ...(byRaw.data ?? [])]) {
+      const byRawExact = (byRaw.data ?? []).filter((row) => isSameEmail(row.customer_email, emailNorm));
+      for (const row of [...(byNorm.data ?? []), ...byRawExact]) {
         convoMap.set(row.id, row);
       }
     }
@@ -335,13 +347,14 @@ disputeOsRouter.get('/context', async (req: Request, res: Response) => {
     if (emailNorm) {
       const byEmail = await supabase
         .from('tracking_lookups')
-        .select('id, order_number, tracking_number, lookup_type, status, carrier, created_at')
+        .select('id, email, order_number, tracking_number, lookup_type, status, carrier, created_at')
         .eq('brand_id', brandId)
-        .ilike('email', emailNorm)
+        .ilike('email', emailPattern)
         .order('created_at', { ascending: false })
         .limit(limit);
       if (byEmail.error) throw new Error(byEmail.error.message);
       for (const row of byEmail.data ?? []) {
+        if (!isSameEmail(row.email, emailNorm)) continue;
         trackingMap.set(row.id, row);
       }
     }
@@ -459,25 +472,54 @@ disputeOsRouter.post('/hold-webhook', async (req: Request, res: Response) => {
     ].filter(Boolean);
     const noteContent = lines.join('\n');
 
-    // Look for an active hold escalation ticket for this Misu order so updates append rather than duplicate
+    // Hold tickets for this Misu order, in any status. An active one receives
+    // updates instead of a duplicate; an event already recorded on any of them
+    // is a repeat and changes nothing.
     const { data: existingRows, error: findErr } = await supabase
       .from('tickets')
       .select('*')
       .eq('brand_id', brandId)
       .in('order_id', orderVariants)
-      .in('status', ['open', 'pending'])
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(50);
 
     if (findErr) {
       res.status(500).json({ ok: false, error: `Failed to check existing tickets: ${findErr.message}` });
       return;
     }
 
-    const existingHold = (existingRows ?? []).find((t) => {
-      const tags = Array.isArray(t.tags) ? (t.tags as string[]) : [];
-      return tags.includes('dispute-os-hold') || t.category === 'dispute_hold';
-    }) as Ticket | undefined;
+    const holdTickets = ((existingRows ?? []) as Ticket[]).filter((t) => hasDisputeOsHoldMarker(t));
+
+    let recordedNotes: Array<{ ticket_id: unknown; content: unknown }> = [];
+    if (holdTickets.length > 0) {
+      const { data: noteRows, error: noteErr } = await supabase
+        .from('ticket_messages')
+        .select('ticket_id, content')
+        .in('ticket_id', holdTickets.map((t) => t.id))
+        .eq('sender_type', 'system')
+        .eq('is_internal_note', true);
+      if (noteErr) {
+        // Fail open: an unreadable history must never drop a hold event.
+        console.warn('[dispute-os] Could not check recorded hold events; treating the event as new:', noteErr.message);
+      } else {
+        recordedNotes = noteRows ?? [];
+      }
+    }
+
+    const target = resolveDisputeOsHoldEventTarget({ holdTickets, notes: recordedNotes, noteContent });
+
+    if (target.action === 'ignore_repeat') {
+      res.status(200).json({
+        ok: true,
+        action: 'duplicate_ignored',
+        ticketId: target.ticket.id,
+        ticketNumber: target.ticket.ticket_number,
+        brandId,
+      });
+      return;
+    }
+
+    const existingHold = target.action === 'append' ? target.ticket : undefined;
 
     if (existingHold) {
       await ticketService.addTicketMessage(existingHold.id, {
@@ -514,12 +556,13 @@ disputeOsRouter.post('/hold-webhook', async (req: Request, res: Response) => {
       source: 'ai_escalation',
       brand_id: brandId,
       priority,
-      category: 'dispute_hold',
+      // The hold marker is the tag: `tickets.category` only accepts support topics.
+      category: DISPUTE_OS_HOLD_CATEGORY,
       subject: `[Dispute OS Hold] ${orderKey} (${isUrgent ? 'Needs Operator' : `${riskLevel} risk`})`,
       customer_email: customerEmail,
       order_id: orderKey,
-      tags: ['dispute-os', 'dispute-os-hold', ...(isUrgent ? ['needs-operator'] : [])],
-      classification: 'dispute_hold',
+      tags: ['dispute-os', DISPUTE_OS_HOLD_TAG, ...(isUrgent ? ['needs-operator'] : [])],
+      classification: DISPUTE_OS_HOLD_CLASSIFICATION,
       metadata: {
         disputeOsEvent: event,
         orderId,
