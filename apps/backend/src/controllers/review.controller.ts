@@ -14,6 +14,58 @@ import { graphql } from '../services/shopify-admin.service.js';
 import { agentAuthMiddleware } from '../middleware/agent-auth.middleware.js';
 import type { ReviewRequestLineItem } from '../types/index.js';
 
+/** Resolves the latest non-cancelled physical merchandise fulfillment timestamp, excluding display-only gifts. */
+function latestPhysicalFulfillmentTimestamp(
+  fulfillments: unknown,
+): string | null {
+  if (!Array.isArray(fulfillments)) return null;
+  let bestMs = -Infinity;
+  let bestTs: string | null = null;
+  for (const raw of fulfillments) {
+    if (!raw || typeof raw !== 'object') continue;
+    const f = raw as Record<string, unknown>;
+    const st = String(f.status ?? 'success').toLowerCase();
+    if (st === 'cancelled' || st === 'error' || st === 'failure') continue;
+    if (f.requiresShipping === false || f.requires_shipping === false) continue;
+
+    const restLines = Array.isArray(f.line_items)
+      ? (f.line_items as Array<Record<string, unknown>>)
+      : [];
+    const gqlLines = Array.isArray(
+      (f.fulfillmentLineItems as Record<string, unknown> | undefined)?.edges,
+    )
+      ? ((f.fulfillmentLineItems as { edges: Array<{ node?: { lineItem?: Record<string, unknown> } }> }).edges)
+          .map((e) => e.node?.lineItem)
+          .filter((li): li is Record<string, unknown> => Boolean(li))
+      : [];
+    const fLines = restLines.length > 0 ? restLines : gqlLines;
+    if (fLines.length > 0) {
+      const hasPhysical = fLines.some((li) => {
+        const sku = String(li.sku ?? '').toUpperCase();
+        return (
+          !/^MISU-GIFT-.*-DISPLAY$/.test(sku) &&
+          li.requires_shipping !== false &&
+          li.requiresShipping !== false
+        );
+      });
+      if (!hasPhysical) continue;
+    }
+
+    const rawTs = typeof f.created_at === 'string'
+      ? f.created_at
+      : typeof f.createdAt === 'string'
+        ? f.createdAt
+        : null;
+    if (!rawTs) continue;
+    const ms = Date.parse(rawTs);
+    if (Number.isFinite(ms) && ms > bestMs) {
+      bestMs = ms;
+      bestTs = rawTs;
+    }
+  }
+  return bestTs;
+}
+
 export const reviewRouter = Router();
 
 // ── Simple in-memory rate limiter ─────────────────────────────────────────
@@ -900,8 +952,12 @@ reviewRouter.post('/webhooks/shopify/orders', async (req, res) => {
     const orderName = payload.name || payload.order_number || '';
     const orderNumberStr = String(orderName).replace(/^#/, '');
 
-    // Use fulfilled_at from the payload if available, otherwise created_at
-    const fulfilledAt = payload.fulfilled_at || payload.closed_at || payload.created_at || null;
+    const fulfilledAt =
+      latestPhysicalFulfillmentTimestamp(payload.fulfillments) ||
+      (typeof payload.closed_at === 'string' ? payload.closed_at : null) ||
+      (typeof payload.updated_at === 'string' ? payload.updated_at : null) ||
+      (typeof payload.created_at === 'string' ? payload.created_at : null) ||
+      null;
 
     await reviewEmailService.scheduleReviewRequest(
       {
@@ -986,7 +1042,7 @@ reviewRouter.post('/backfill-orders', agentAuthMiddleware, async (req, res) => {
               createdAt
               customer { id firstName lastName }
               displayFulfillmentStatus
-              fulfillments { createdAt }
+              fulfillments { status createdAt requiresShipping fulfillmentLineItems(first: 20) { edges { node { lineItem { sku requiresShipping } } } } }
               lineItems(first: 20) {
                 edges {
                   node {
@@ -1015,7 +1071,12 @@ reviewRouter.post('/backfill-orders', agentAuthMiddleware, async (req, res) => {
       createdAt: string;
       customer: { id: string; firstName: string | null; lastName: string | null } | null;
       displayFulfillmentStatus: string;
-      fulfillments: Array<{ createdAt: string }>;
+      fulfillments: Array<{
+        status?: string;
+        createdAt: string;
+        requiresShipping?: boolean;
+        fulfillmentLineItems?: { edges: Array<{ node: { lineItem: { sku: string | null; requiresShipping: boolean } } }> };
+      }>;
       lineItems: {
         edges: Array<{
           node: {
@@ -1077,10 +1138,10 @@ reviewRouter.post('/backfill-orders', agentAuthMiddleware, async (req, res) => {
           continue;
         }
 
-        // Use the most recent fulfillment date, or fall back to order creation date
-        const fulfilledAt = order.fulfillments.length > 0
-          ? order.fulfillments[order.fulfillments.length - 1].createdAt
-          : order.createdAt;
+        // Use the most recent physical merchandise fulfillment date, or fall back to order creation date
+        const fulfilledAt =
+          latestPhysicalFulfillmentTimestamp(order.fulfillments) ||
+          order.createdAt;
 
         // Check if review_request already exists for this order
         const { data: existing } = await supabase
@@ -1252,7 +1313,7 @@ reviewRouter.post('/reschedule', async (req, res) => {
       query($id: ID!) {
         order(id: $id) {
           createdAt
-          fulfillments { createdAt }
+          fulfillments { status createdAt requiresShipping fulfillmentLineItems(first: 20) { edges { node { lineItem { sku requiresShipping } } } } }
         }
       }
     `;
@@ -1268,7 +1329,12 @@ reviewRouter.post('/reschedule', async (req, res) => {
         const data = await graphql<{
           order: {
             createdAt: string;
-            fulfillments: Array<{ createdAt: string }>;
+            fulfillments: Array<{
+        status?: string;
+        createdAt: string;
+        requiresShipping?: boolean;
+        fulfillmentLineItems?: { edges: Array<{ node: { lineItem: { sku: string | null; requiresShipping: boolean } } }> };
+      }>;
           } | null;
         }>(ORDER_QUERY, { id: gid }, brandId);
 
@@ -1278,10 +1344,10 @@ reviewRouter.post('/reschedule', async (req, res) => {
           continue;
         }
 
-        // Use most recent fulfillment date, fall back to order creation date
-        const fulfilledAt = data.order.fulfillments.length > 0
-          ? data.order.fulfillments[data.order.fulfillments.length - 1].createdAt
-          : data.order.createdAt;
+        // Use most recent physical merchandise fulfillment date, fall back to order creation date
+        const fulfilledAt =
+          latestPhysicalFulfillmentTimestamp(data.order.fulfillments) ||
+          data.order.createdAt;
 
         const baseDate = new Date(fulfilledAt);
         const newScheduledFor = new Date(baseDate);
